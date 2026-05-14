@@ -16,6 +16,49 @@
     "subtitle": "一个适合约会、生日和聚会的手作空间",
     "cta": "立即预约"
   },
+  "home": {
+    "sceneEntry": {
+      "title": "适合每一个特别时刻",
+      "subtitle": "为你的特别时刻找到完美的手作体验",
+      "date": {
+        "title": "约会时光",
+        "desc": "在下次约会时一起创造属于你们的作品。"
+      },
+      "birthday": {
+        "title": "生日派对",
+        "desc": "和朋友们一起在创意中庆祝生日。"
+      },
+      "diy": {
+        "title": "手作体验",
+        "desc": "放松身心，用双手创造美好的事物。"
+      }
+    },
+    "featuredProjects": {
+      "title": "热门项目",
+      "viewAll": "查看全部项目"
+    },
+    "partyPackages": {
+      "title": "派对套餐",
+      "viewAll": "查看全部套餐",
+      "from": "起",
+      "people": "人"
+    },
+    "gallery": {
+      "title": "顾客作品",
+      "viewAll": "查看全部作品"
+    },
+    "storeVibes": {
+      "title": "来店里看看",
+      "desc": "一个温暖、舒适的空间，专为创意和连接而设计。来体验 YEZZ 的氛围吧。",
+      "cta": "找到我们"
+    },
+    "wechatCta": {
+      "title": "准备好创造了吗？",
+      "subtitle": "预约你的体验或添加微信咨询 — 我们很乐意帮你规划一次完美的到访。",
+      "wechat": "添加微信",
+      "book": "立即预约"
+    }
+  },
   "footer": {
     "rights": "版权所有。"
   }

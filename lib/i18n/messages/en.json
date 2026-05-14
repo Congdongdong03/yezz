@@ -16,6 +16,49 @@
     "subtitle": "A cozy DIY studio for dates, birthdays, and gatherings",
     "cta": "Book Now"
   },
+  "home": {
+    "sceneEntry": {
+      "title": "Perfect For Every Occasion",
+      "subtitle": "Find the perfect DIY experience for your special moment",
+      "date": {
+        "title": "Date Night",
+        "desc": "Create something together on your next date."
+      },
+      "birthday": {
+        "title": "Birthday Party",
+        "desc": "Celebrate with friends through creative fun."
+      },
+      "diy": {
+        "title": "DIY Experience",
+        "desc": "Relax and make something beautiful with your hands."
+      }
+    },
+    "featuredProjects": {
+      "title": "Popular Projects",
+      "viewAll": "View All Projects"
+    },
+    "partyPackages": {
+      "title": "Party Packages",
+      "viewAll": "View All Packages",
+      "from": "From",
+      "people": "people"
+    },
+    "gallery": {
+      "title": "Customer Works",
+      "viewAll": "View Gallery"
+    },
+    "storeVibes": {
+      "title": "Visit Our Studio",
+      "desc": "A warm, inviting space designed for creativity and connection. Come experience the YEZZ atmosphere.",
+      "cta": "Find Us"
+    },
+    "wechatCta": {
+      "title": "Ready to Create?",
+      "subtitle": "Book your experience or reach out on WeChat — we are happy to help you plan the perfect visit.",
+      "wechat": "Add WeChat",
+      "book": "Book Now"
+    }
+  },
   "footer": {
     "rights": "All rights reserved."
   }
