@@ -1,30 +1,33 @@
-import { Geist, Geist_Mono } from "next/font/google"
+import type { Metadata } from "next";
+import { Inter, Noto_Serif_SC } from "next/font/google";
+import "./globals.css";
 
-import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { cn } from "@/lib/utils";
-
-const geist = Geist({subsets:['latin'],variable:'--font-sans'})
-
-const fontMono = Geist_Mono({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-mono",
-})
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const notoSerifSC = Noto_Serif_SC({
+  weight: ["400", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-noto-serif",
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: "YEZZ - DIY Studio",
+  description: "Create your own masterpiece at YEZZ DIY Studio",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}
-    >
-      <body>
-        <ThemeProvider>{children}</ThemeProvider>
-      </body>
+    <html lang="en" className={`${inter.variable} ${notoSerifSC.variable}`}>
+      <body className="antialiased">{children}</body>
     </html>
-  )
+  );
 }
