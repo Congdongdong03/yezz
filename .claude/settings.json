@@ -3,7 +3,21 @@
     "allow": [
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(npx shadcn@latest init --yes --template next --base-color stone)",
+      "Bash(npx shadcn@latest init --yes --template next)",
+      "Bash(rm -rf my-app 2>/dev/null; echo \"no\" | npx shadcn@latest init --yes --template next)",
+      "Bash(rm -rf my-app 2>/dev/null; printf 'no\\\\n' | npx shadcn@latest init --yes --template next 2>&1 | head -n 50)",
+      "Bash(rm -rf my-app 2>/dev/null; echo -e \"no\\\\n\\\\n\" | npx shadcn@latest init --yes --template next 2>&1 | head -n 100)",
+      "Bash(rm -rf my-app)",
+      "Bash(yes \"\")",
+      "Bash(npx shadcn@latest --version)",
+      "Bash(npx shadcn@latest init --help)",
+      "Bash(rm -rf /Users/wesley/Desktop/yezz/next-app /Users/wesley/Desktop/yezz/my-app)",
+      "Bash(npx shadcn@latest init --template next --base radix --preset base-nova --no-monorepo --name my-app --yes --silent)"
+    ],
+    "additionalDirectories": [
+      "/Users/wesley/Desktop/yezz"
     ]
   }
 }
