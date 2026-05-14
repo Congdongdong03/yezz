@@ -1,0 +1,4 @@
+[    1151ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://cdn.shopify.com/shopify-marketing_assets/static/ShopifySans--regular.woff:0
+[    1626ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://yezdiy.myshopify.com/favicon.ico:0
+[    4629ms] [WARNING] The resource https://yezdiy.myshopify.com/cdn/shop/t/2/assets/custom.css?v=161348372628681863671744357809 was preloaded using link preload in Early Hints but not used within a few seconds from the window's load event. @ https://yezdiy.myshopify.com/password:0
+[    4630ms] [WARNING] The resource https://yezdiy.myshopify.com/cdn/shop/t/2/assets/t4s-base.css?v=180203407878897195091744356631 was preloaded using link preload in Early Hints but not used within a few seconds from the window's load event. @ https://yezdiy.myshopify.com/password:0

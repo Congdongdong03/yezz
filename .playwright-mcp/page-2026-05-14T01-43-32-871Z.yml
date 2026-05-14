@@ -1,0 +1,462 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#MainContent"
+  - generic [ref=e3]:
+    - generic [ref=e7]:
+      - generic:
+        - generic:
+          - list
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - strong [ref=e13]: Get $30
+          - text: to Spend When You Refer a Friend
+          - link "Learn more" [ref=e14] [cursor=pointer]:
+            - /url: /collections
+            - strong [ref=e15]: Learn more
+        - generic: Welcome customers to your store
+        - generic:
+          - text: Sale up to
+          - strong: 50%
+    - banner [ref=e16]:
+      - generic [ref=e17]:
+        - generic [ref=e20]:
+          - search [ref=e23]:
+            - generic [ref=e24]:
+              - textbox "Search for products" [ref=e25]
+              - button [ref=e26] [cursor=pointer]:
+                - img [ref=e28]
+          - link "yezdiy" [ref=e32] [cursor=pointer]:
+            - /url: /
+            - img "yezdiy" [ref=e33]
+          - generic [ref=e35]:
+            - link "login & register" [ref=e37] [cursor=pointer]:
+              - /url: /account
+              - img [ref=e38]
+              - text: login & register
+            - link "0" [ref=e41] [cursor=pointer]:
+              - /url: /search/?view=wishlist
+              - img [ref=e42]
+              - generic [ref=e44]: "0"
+            - link "0" [ref=e46] [cursor=pointer]:
+              - /url: /cart
+              - generic [ref=e47]:
+                - img [ref=e48]
+                - generic [ref=e50]: "0"
+        - navigation [ref=e55]:
+          - list [ref=e56]:
+            - listitem [ref=e57]:
+              - link "Home" [ref=e58] [cursor=pointer]:
+                - /url: "https://yezdiy.myshopify.com/ "
+            - listitem [ref=e59]:
+              - link "All products" [ref=e60] [cursor=pointer]:
+                - /url: /collections/all
+            - listitem [ref=e61]:
+              - link "About Us" [ref=e62] [cursor=pointer]:
+                - /url: "/pages/about-us "
+            - listitem [ref=e63]:
+              - link "Contact Us" [ref=e64] [cursor=pointer]:
+                - /url: "/pages/contact "
+            - listitem [ref=e65]:
+              - link "FAQs" [ref=e66] [cursor=pointer]:
+                - /url: "/pages/faqs "
+    - main [ref=e67]:
+      - generic [ref=e73]:
+        - generic [ref=e75]:
+          - link:
+            - /url: ""
+          - img [ref=e76]
+          - generic:
+            - generic:
+              - heading "Babyshop Gift Ideas" [level=3]
+              - paragraph: Explore gift ideas babies (& their grown-ups) will love.
+              - link "SHOP NOW" [ref=e138] [cursor=pointer]:
+                - /url: /collections/kid-accessories
+        - generic [ref=e140]:
+          - link:
+            - /url: ""
+          - img [ref=e141]
+          - generic:
+            - generic:
+              - heading [level=3]: 30% off everything
+              - paragraph: 30% off everthing. Use code 30OFF
+              - link [ref=e180] [cursor=pointer]:
+                - /url: /collections/kid-accessories
+                - text: SHOP NOW
+        - generic [ref=e182]:
+          - link:
+            - /url: ""
+          - img [ref=e183]
+          - generic:
+            - generic:
+              - heading [level=3]: Spring Collection
+              - paragraph: 30% off everthing. Use code 30OFF
+              - link [ref=e245] [cursor=pointer]:
+                - /url: /collections/kids-sale
+                - text: SHOP NOW
+      - generic [ref=e251]:
+        - link "UP TO 30% OFF" [ref=e253] [cursor=pointer]:
+          - /url: /collections/kid-accessories
+          - generic [ref=e254]:
+            - paragraph [ref=e255]: UP TO
+            - heading "30% OFF" [level=3] [ref=e256]
+        - link "UNDER 60% OFF" [ref=e258] [cursor=pointer]:
+          - /url: /collections/kids-sale
+          - generic [ref=e259]:
+            - paragraph [ref=e260]: UNDER
+            - heading "60% OFF" [level=3] [ref=e261]
+        - link "UP TO 80% OFF" [ref=e263] [cursor=pointer]:
+          - /url: /collections/kids-sale
+          - generic [ref=e264]:
+            - paragraph [ref=e265]: UP TO
+            - heading "80% OFF" [level=3] [ref=e266]
+        - link "BEST DEALS" [ref=e268] [cursor=pointer]:
+          - /url: /collections/kids-sale
+          - generic [ref=e269]:
+            - paragraph [ref=e270]: BEST
+            - heading "DEALS" [level=3] [ref=e271]
+        - link "NEW ARRIVALS" [ref=e273] [cursor=pointer]:
+          - /url: /collections/kids-sale
+          - generic [ref=e274]:
+            - paragraph [ref=e275]: NEW
+            - heading "ARRIVALS" [level=3] [ref=e276]
+      - generic [ref=e281]:
+        - generic [ref=e284]:
+          - link [ref=e285] [cursor=pointer]:
+            - /url: /collections/kid-accessories
+            - img [ref=e286]
+          - generic:
+            - heading "Free 30$ gift card" [level=3]:
+              - text: Free
+              - text: 30$ gift card
+            - heading "when you spend $100 on select baby care items" [level=5]
+            - link "SHOP NOW" [ref=e290] [cursor=pointer]:
+              - /url: /collections/kid-accessories
+        - generic [ref=e293]:
+          - link [ref=e294] [cursor=pointer]:
+            - /url: /collections/kids-sale
+            - img [ref=e295]
+          - generic:
+            - heading "Up to 30% off" [level=3]:
+              - text: Up to
+              - text: 30% off
+            - heading "select baby toys & bath accessories*" [level=5]
+            - link "SHOP NOW" [ref=e299] [cursor=pointer]:
+              - /url: /collections/kids-sale
+        - generic [ref=e302]:
+          - link [ref=e303] [cursor=pointer]:
+            - /url: /collections/kid-accessories
+            - img [ref=e304]
+          - generic:
+            - heading "Topping toys" [level=3]:
+              - text: Topping
+              - text: toys
+            - heading "when you spend $100 on select baby care items" [level=5]
+            - link "SHOP NOW" [ref=e308] [cursor=pointer]:
+              - /url: /collections/kid-accessories
+      - generic [ref=e313]:
+        - heading "Deals of the day" [level=3] [ref=e315]
+        - link "View all deals" [ref=e318] [cursor=pointer]:
+          - /url: /collections/kids-sale
+      - generic [ref=e322]:
+        - generic [ref=e325]:
+          - link [ref=e326] [cursor=pointer]:
+            - /url: /collections/kid-accessories
+            - img [ref=e327]
+          - generic:
+            - heading "UP TO 60% OFF" [level=4]
+            - heading "Boy’s Clothing" [level=3]
+            - link "Shop Collection" [ref=e331] [cursor=pointer]:
+              - /url: /collections/kid-accessories
+        - generic [ref=e334]:
+          - link [ref=e335] [cursor=pointer]:
+            - /url: /collections/kids-sale
+            - img [ref=e336]
+          - generic:
+            - heading "UP TO 40% OFF" [level=4]
+            - heading "Girl’s Clothing" [level=3]
+            - link "Shop Collection" [ref=e340] [cursor=pointer]:
+              - /url: /collections/kids-sale
+      - generic [ref=e343]:
+        - heading "Trending Products" [level=3] [ref=e347]
+        - generic [ref=e351]:
+          - generic [ref=e353]:
+            - link [ref=e355] [cursor=pointer]:
+              - /url: /admin/products
+              - img [ref=e356]
+            - generic [ref=e362]:
+              - heading "Your product's name" [level=3] [ref=e363]:
+                - link "Your product's name" [ref=e364] [cursor=pointer]:
+                  - /url: /admin/products
+              - generic [ref=e365]:
+                - deletion [ref=e366]: $59.00
+                - insertion [ref=e367]: $39.00
+          - generic [ref=e369]:
+            - link [ref=e371] [cursor=pointer]:
+              - /url: /admin/products
+              - img [ref=e372]
+            - generic [ref=e377]:
+              - heading "Your product's name" [level=3] [ref=e378]:
+                - link "Your product's name" [ref=e379] [cursor=pointer]:
+                  - /url: /admin/products
+              - generic [ref=e380]:
+                - deletion [ref=e381]: $59.00
+                - insertion [ref=e382]: $39.00
+          - generic [ref=e384]:
+            - link [ref=e386] [cursor=pointer]:
+              - /url: /admin/products
+              - img [ref=e387]
+            - generic [ref=e391]:
+              - heading "Your product's name" [level=3] [ref=e392]:
+                - link "Your product's name" [ref=e393] [cursor=pointer]:
+                  - /url: /admin/products
+              - generic [ref=e394]:
+                - deletion [ref=e395]: $59.00
+                - insertion [ref=e396]: $39.00
+          - generic [ref=e398]:
+            - link [ref=e400] [cursor=pointer]:
+              - /url: /admin/products
+              - img [ref=e401]
+            - generic [ref=e406]:
+              - heading "Your product's name" [level=3] [ref=e407]:
+                - link "Your product's name" [ref=e408] [cursor=pointer]:
+                  - /url: /admin/products
+              - generic [ref=e409]:
+                - deletion [ref=e410]: $59.00
+                - insertion [ref=e411]: $39.00
+          - generic [ref=e413]:
+            - link [ref=e415] [cursor=pointer]:
+              - /url: /admin/products
+              - img [ref=e416]
+            - generic [ref=e421]:
+              - heading [level=3] [ref=e422]:
+                - link [ref=e423] [cursor=pointer]:
+                  - /url: /admin/products
+                  - text: Your product's name
+              - generic [ref=e424]:
+                - deletion [ref=e425]: $59.00
+                - insertion [ref=e426]: $39.00
+          - generic [ref=e428]:
+            - link [ref=e430] [cursor=pointer]:
+              - /url: /admin/products
+              - img [ref=e431]
+            - generic [ref=e436]:
+              - heading [level=3] [ref=e437]:
+                - link [ref=e438] [cursor=pointer]:
+                  - /url: /admin/products
+                  - text: Your product's name
+              - generic [ref=e439]:
+                - deletion [ref=e440]: $59.00
+                - insertion [ref=e441]: $39.00
+          - generic [ref=e443]:
+            - link [ref=e445] [cursor=pointer]:
+              - /url: /admin/products
+              - img [ref=e446]
+            - generic [ref=e452]:
+              - heading [level=3] [ref=e453]:
+                - link [ref=e454] [cursor=pointer]:
+                  - /url: /admin/products
+                  - text: Your product's name
+              - generic [ref=e455]:
+                - deletion [ref=e456]: $59.00
+                - insertion [ref=e457]: $39.00
+          - generic [ref=e459]:
+            - link [ref=e461] [cursor=pointer]:
+              - /url: /admin/products
+              - img [ref=e462]
+            - generic [ref=e467]:
+              - heading [level=3] [ref=e468]:
+                - link [ref=e469] [cursor=pointer]:
+                  - /url: /admin/products
+                  - text: Your product's name
+              - generic [ref=e470]:
+                - deletion [ref=e471]: $59.00
+                - insertion [ref=e472]: $39.00
+      - generic [ref=e475]:
+        - heading "Shop by Categories" [level=3] [ref=e477]
+        - generic [ref=e480]:
+          - generic [ref=e481]:
+            - link [ref=e482] [cursor=pointer]:
+              - /url: /collections/kid-accessories
+              - img [ref=e484]
+            - heading "Baby Girls" [level=3] [ref=e489]:
+              - link "Baby Girls" [ref=e490] [cursor=pointer]:
+                - /url: /collections/kid-accessories
+          - generic [ref=e491]:
+            - link [ref=e492] [cursor=pointer]:
+              - /url: /collections/kids-sale
+              - img [ref=e494]
+            - heading "Baby boys" [level=3] [ref=e499]:
+              - link "Baby boys" [ref=e500] [cursor=pointer]:
+                - /url: /collections/kids-sale
+          - generic [ref=e501]:
+            - link [ref=e502] [cursor=pointer]:
+              - /url: /collections/kids-sale
+              - img [ref=e504]
+            - heading "Strollers" [level=3] [ref=e509]:
+              - link "Strollers" [ref=e510] [cursor=pointer]:
+                - /url: /collections/kids-sale
+          - generic [ref=e511]:
+            - link [ref=e512] [cursor=pointer]:
+              - /url: /collections/kid-accessories
+              - img [ref=e514]
+            - heading "Car Seats" [level=3] [ref=e519]:
+              - link "Car Seats" [ref=e520] [cursor=pointer]:
+                - /url: /collections/kid-accessories
+          - generic [ref=e521]:
+            - link [ref=e522] [cursor=pointer]:
+              - /url: /
+              - img [ref=e524]
+            - heading "Baby Gear" [level=3] [ref=e529]:
+              - link "Baby Gear" [ref=e530] [cursor=pointer]:
+                - /url: /
+          - generic [ref=e531]:
+            - link [ref=e532] [cursor=pointer]:
+              - /url: /
+              - img [ref=e534]
+            - heading "Nursing & Feeding" [level=3] [ref=e539]:
+              - link "Nursing & Feeding" [ref=e540] [cursor=pointer]:
+                - /url: /
+      - generic [ref=e543]:
+        - heading "Happy Clients" [level=3] [ref=e546]
+        - generic [ref=e548]:
+          - generic [ref=e550]:
+            - generic [ref=e552]:
+              - generic [ref=e554]:
+                - img [ref=e555]
+                - img [ref=e557]
+                - img [ref=e559]
+                - img [ref=e561]
+                - img [ref=e563]
+              - heading "Makes me happy" [level=3] [ref=e565]
+              - paragraph [ref=e567]: The colour, fabric, size and comfort. It add colour and a little bit of sunshine to our living room. Now we are all fighting how who the chair belongs to!
+              - generic [ref=e570]: Jesicca A.
+            - generic [ref=e572]:
+              - generic [ref=e574]:
+                - img [ref=e575]
+                - img [ref=e577]
+                - img [ref=e579]
+                - img [ref=e581]
+                - img [ref=e583]
+              - heading "Best Services !" [level=3] [ref=e585]
+              - paragraph [ref=e587]: The colour, fabric, size and comfort. It add colour and a little bit of sunshine to our living room. Now we are all fighting how who the chair belongs to!
+              - generic [ref=e590]: Anna C.
+            - generic [ref=e592]:
+              - generic [ref=e594]:
+                - img [ref=e595]
+                - img [ref=e597]
+                - img [ref=e599]
+                - img [ref=e601]
+                - img [ref=e603]
+              - heading "Pretty Clothing" [level=3] [ref=e605]
+              - paragraph [ref=e607]: The colour, fabric, size and comfort. It add colour and a little bit of sunshine to our living room. Now we are all fighting how who the chair belongs to!
+              - generic [ref=e610]: Jared S.
+            - generic [ref=e612]:
+              - generic [ref=e614]:
+                - img [ref=e615]
+                - img [ref=e617]
+                - img [ref=e619]
+                - img [ref=e621]
+                - img [ref=e623]
+              - heading [level=3] [ref=e625]: It's very good
+              - paragraph [ref=e627]: The colour, fabric, size and comfort. It add colour and a little bit of sunshine to our living room. Now we are all fighting how who the chair belongs to!
+              - generic [ref=e630]: Smith E.
+          - button "Previous" [ref=e631] [cursor=pointer]:
+            - img [ref=e632]
+          - button "Next" [ref=e634] [cursor=pointer]:
+            - img [ref=e635]
+      - generic [ref=e639]:
+        - heading "Top brands" [level=3] [ref=e641]
+        - generic [ref=e644]:
+          - link [ref=e646] [cursor=pointer]:
+            - /url: /
+            - img [ref=e648]
+          - link [ref=e651] [cursor=pointer]:
+            - /url: /
+            - img [ref=e653]
+          - link [ref=e656] [cursor=pointer]:
+            - /url: /
+            - img [ref=e658]
+          - link [ref=e661] [cursor=pointer]:
+            - /url: /
+            - img [ref=e663]
+          - link [ref=e666] [cursor=pointer]:
+            - /url: /
+            - img [ref=e668]
+          - link [ref=e671] [cursor=pointer]:
+            - /url: /
+            - img [ref=e673]
+      - generic [ref=e678]:
+        - generic [ref=e680]:
+          - img [ref=e682]
+          - generic [ref=e692]:
+            - heading "Shipping Worldwide" [level=3] [ref=e693]
+            - paragraph [ref=e695]: Free shipping on all US orders or order above $100
+        - generic [ref=e697]:
+          - img [ref=e699]
+          - generic [ref=e712]:
+            - heading "14 Days Return" [level=3] [ref=e713]
+            - paragraph [ref=e715]: Simply return it within 30 days for an exchange.
+        - generic [ref=e717]:
+          - img [ref=e719]
+          - generic [ref=e726]:
+            - heading "Security Payment" [level=3] [ref=e727]
+            - generic [ref=e728]:
+              - paragraph [ref=e729]: We ensure secure payment
+              - paragraph [ref=e730]: with PEV
+        - generic [ref=e732]:
+          - img [ref=e734]
+          - generic [ref=e750]:
+            - heading "24/7 Support" [level=3] [ref=e751]
+            - paragraph [ref=e753]: Contact us 24 hours a day, 7 days a week
+    - contentinfo [ref=e754]:
+      - generic [ref=e758]:
+        - generic [ref=e761]:
+          - generic [ref=e763]:
+            - img [ref=e765]
+            - generic [ref=e768]:
+              - generic [ref=e769]: 63 Buttonwood St.Pataskala,OH 43062
+              - generic [ref=e770]: (+1)-613-333-0101
+              - generic [ref=e771]: sayhello@boni.com
+          - generic [ref=e774]:
+            - link "Follow on Facebook" [ref=e776] [cursor=pointer]:
+              - /url: https://facebook.com/shopify
+            - link "Follow on Twitter" [ref=e779] [cursor=pointer]:
+              - /url: https://twitter.com/shopify
+            - link "Follow on Instagram" [ref=e782] [cursor=pointer]:
+              - /url: https://instagram.com/shopify
+            - link "Follow on Dribbble" [ref=e785] [cursor=pointer]:
+              - /url: https://dribbble.com/shopify
+            - link "Follow on Linkedin" [ref=e788] [cursor=pointer]:
+              - /url: "#"
+            - link "Follow on Pinterest" [ref=e791] [cursor=pointer]:
+              - /url: https://pinterest.com/shopify
+        - heading "Customer Services" [level=3] [ref=e796]
+        - generic [ref=e798]:
+          - heading "Our Stories" [level=3] [ref=e800]
+          - list [ref=e803]:
+            - listitem [ref=e804]:
+              - link "About Us" [ref=e805] [cursor=pointer]:
+                - /url: /pages/about-us
+            - listitem [ref=e806]:
+              - link "Contact Us" [ref=e807] [cursor=pointer]:
+                - /url: /pages/contact
+            - listitem [ref=e808]:
+              - link "FAQs" [ref=e809] [cursor=pointer]:
+                - /url: /pages/faqs
+            - listitem [ref=e810]:
+              - link "Search" [ref=e811] [cursor=pointer]:
+                - /url: /search
+        - generic [ref=e813]:
+          - heading "Stay Connected" [level=3] [ref=e815]
+          - generic [ref=e816]:
+            - paragraph: Get behind the scenes access to campaigns, collaborations, new products and sales.
+            - generic [ref=e820]:
+              - textbox "Your email address" [ref=e822]
+              - button "Subscribe" [ref=e824] [cursor=pointer]:
+                - img [ref=e826]
+      - generic [ref=e837]:
+        - text: All Rights Reserved © 2022
+        - link "www.yezdiy.com" [ref=e838] [cursor=pointer]:
+          - /url: https://www.yezdiy.com
+        - text: store
+  - button "Close menu, categories"
