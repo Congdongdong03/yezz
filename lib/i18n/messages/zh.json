@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "title": "YEZZ - 手作体验馆",
+    "description": "在 YEZZ 手作体验馆，亲手制作独一无二的作品"
+  },
+  "nav": {
+    "home": "首页",
+    "projects": "项目",
+    "parties": "派对",
+    "gallery": "作品",
+    "book": "立即预约",
+    "contact": "联系我们"
+  },
+  "hero": {
+    "title": "亲手制作，独一无二",
+    "subtitle": "一个适合约会、生日和聚会的手作空间",
+    "cta": "立即预约"
+  },
+  "footer": {
+    "rights": "版权所有。"
+  }
+}

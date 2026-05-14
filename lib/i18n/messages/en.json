@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "title": "YEZZ - DIY Studio",
+    "description": "Create your own masterpiece at YEZZ DIY Studio"
+  },
+  "nav": {
+    "home": "Home",
+    "projects": "Projects",
+    "parties": "Parties",
+    "gallery": "Gallery",
+    "book": "Book Now",
+    "contact": "Contact"
+  },
+  "hero": {
+    "title": "Create Your Own Masterpiece",
+    "subtitle": "A cozy DIY studio for dates, birthdays, and gatherings",
+    "cta": "Book Now"
+  },
+  "footer": {
+    "rights": "All rights reserved."
+  }
+}

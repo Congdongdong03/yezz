@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${notoSerifSC.variable}`}>
+    <html className={`${inter.variable} ${notoSerifSC.variable}`}>
       <body className="antialiased">{children}</body>
     </html>
   );
