@@ -1,5 +1,6 @@
 import { client } from "@/lib/sanity/client";
 import { partiesQuery } from "@/lib/sanity/queries";
+import Image from "next/image";
 
 export default async function PartiesPage({
   params,
@@ -19,7 +20,7 @@ export default async function PartiesPage({
       </p>
 
       <div className="mt-12 space-y-12">
-        {parties.map((party: any, index: number) => (
+        {parties.map((party: { _id: string; imageUrl?: string; name: Record<string, string>; description?: Record<string, string>; includes?: Record<string, string>[]; priceIndicator?: string }, index: number) => (
           <div
             key={party._id}
             className={`flex flex-col gap-8 ${
@@ -28,10 +29,11 @@ export default async function PartiesPage({
           >
             <div className="relative aspect-video md:w-1/2">
               {party.imageUrl ? (
-                <img
+                <Image
                   src={party.imageUrl}
                   alt={party.name[locale]}
-                  className="rounded-xl object-cover w-full h-full"
+                  fill
+                  className="rounded-xl object-cover"
                 />
               ) : (
                 <div className="flex h-full items-center justify-center rounded-xl bg-muted">
@@ -45,7 +47,7 @@ export default async function PartiesPage({
               </h2>
               <p className="mt-4 text-warm-grey">{party.description?.[locale]}</p>
               <ul className="mt-4 space-y-2">
-                {party.includes?.map((item: any, i: number) => (
+                {party.includes?.map((item: Record<string, string>, i: number) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
                     <span className="text-sage">✓</span>
                     {item[locale]}

@@ -18,7 +18,7 @@ export default async function ProjectsPage({
       <p className="mt-4 text-warm-grey">Explore our creative experiences</p>
 
       <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project: any) => (
+        {projects.map((project: { _id: string; name: { en: string; zh: string }; imageUrl?: string; priceRange?: string; duration?: string; tags?: string[] }) => (
           <ProjectCard key={project._id} project={project} locale={locale} />
         ))}
       </div>

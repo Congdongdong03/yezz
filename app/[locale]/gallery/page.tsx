@@ -13,16 +13,19 @@ export default async function GalleryPage() {
       <p className="mt-4 text-warm-grey">Explore creations from our community</p>
 
       <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {images.map((img: any) => (
-          <div key={img._id} className="relative aspect-square overflow-hidden rounded-lg">
-            <Image
-              src={img.imageUrl}
-              alt={img.caption?.en || "Gallery image"}
-              fill
-              className="object-cover transition-transform hover:scale-105"
-            />
-          </div>
-        ))}
+        {images
+          .filter((img: { _id: string; imageUrl?: string }) => img.imageUrl)
+          .map((img: { _id: string; imageUrl: string; caption?: { en?: string } }) => (
+            <div key={img._id} className="relative aspect-square overflow-hidden rounded-lg">
+              <Image
+                src={img.imageUrl}
+                alt={img.caption?.en || "Gallery image"}
+                sizes="(max-width: 768px) 50vw, 33vw"
+                fill
+                className="object-cover transition-transform hover:scale-105"
+              />
+            </div>
+          ))}
       </div>
     </div>
   );
