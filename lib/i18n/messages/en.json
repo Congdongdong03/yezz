@@ -59,7 +59,86 @@
       "book": "Book Now"
     }
   },
+  "projects": {
+    "title": "All Projects",
+    "subtitle": "From handmade crafts to party experiences, find your perfect creative project",
+    "navAll": "All"
+  },
+  "parties": {
+    "title": "Party Packages",
+    "subtitle": "Perfect for birthdays, dates, and group gatherings"
+  },
+  "gallery": {
+    "title": "Gallery",
+    "subtitle": "Explore creations from our community"
+  },
+  "contact": {
+    "title": "Get in Touch",
+    "address": "Address",
+    "phone": "Phone",
+    "email": "Email",
+    "businessHours": "Business Hours"
+  },
+  "book": {
+    "title": "Book Your Experience",
+    "recommendation": "We recommend booking in advance, especially for weekends and parties.",
+    "visitUs": "Visit Us",
+    "thankYou": "Thank You!",
+    "confirmMessage": "We'll contact you soon to confirm your booking.",
+    "errorMessage": "Something went wrong. Please try again or contact us directly.",
+    "submit": "Book Now",
+    "submitting": "Submitting..."
+  },
+  "bookingForm": {
+    "name": "Name",
+    "nameRequired": "Name is required",
+    "phone": "Phone",
+    "phoneRequired": "Phone is required",
+    "wechat": "WeChat ID",
+    "email": "Email",
+    "emailInvalid": "Invalid email",
+    "preferredDate": "Preferred Date",
+    "numberOfPeople": "Number of People",
+    "activityType": "Activity Type",
+    "activitySelect": "Select...",
+    "activityDate": "Date Night",
+    "activityBirthday": "Birthday Party",
+    "activityFriends": "Friends Gathering",
+    "activityKids": "Kids Activity",
+    "activityMobile": "Mobile Party",
+    "interestedProject": "Interested Project",
+    "message": "Message / Special Requests"
+  },
+  "cart": {
+    "title": "My Pre-selection",
+    "empty": "Your pre-selection is empty. Browse projects to add items.",
+    "add": "Add to Cart",
+    "added": "Added!",
+    "bookNow": "Book Now",
+    "submit": "Submit Booking",
+    "checkoutTitle": "Booking Confirmation",
+    "name": "Name",
+    "phone": "Phone",
+    "wechat": "WeChat",
+    "note": "Note",
+    "people": "people",
+    "confirmSubmit": "Confirm Submit",
+    "submitting": "Submitting...",
+    "thankYou": "Thank You!",
+    "confirmMessage": "We'll contact you soon to confirm your booking.",
+    "error": "Something went wrong. Please try again."
+  },
+  "projectDetail": {
+    "back": "Back to Projects",
+    "duration": "Duration",
+    "preferredDate": "Preferred Date",
+    "numberOfPeople": "Number of People"
+  },
   "footer": {
-    "rights": "All rights reserved."
+    "rights": "All rights reserved.",
+    "links": "Links",
+    "contact": "Contact",
+    "email": "Email: hello@yezz.studio",
+    "tagline": "Create your own masterpiece"
   }
 }

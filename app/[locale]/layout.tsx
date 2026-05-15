@@ -2,8 +2,10 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
+import { CartProvider } from "@/lib/cart/context";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import CartDrawer from "@/components/cart/CartDrawer";
 
 export default async function LocaleLayout({
   children,
@@ -22,11 +24,14 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages} locale={locale}>
-      <div className="flex min-h-screen flex-col">
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
-      </div>
+      <CartProvider>
+        <div className="flex min-h-screen flex-col">
+          <Navbar />
+          <main className="flex-1">{children}</main>
+          <Footer />
+          <CartDrawer />
+        </div>
+      </CartProvider>
     </NextIntlClientProvider>
   );
 }

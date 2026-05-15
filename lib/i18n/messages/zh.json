@@ -59,7 +59,86 @@
       "book": "立即预约"
     }
   },
+  "projects": {
+    "title": "全部项目",
+    "subtitle": "从手作体验到派对活动，找到适合你的创意项目",
+    "navAll": "全部"
+  },
+  "parties": {
+    "title": "派对套餐",
+    "subtitle": "适合生日、约会和朋友聚会的完美选择"
+  },
+  "gallery": {
+    "title": "作品展示",
+    "subtitle": "探索我们社区成员的精彩创作"
+  },
+  "contact": {
+    "title": "联系我们",
+    "address": "地址",
+    "phone": "电话",
+    "email": "邮箱",
+    "businessHours": "营业时间"
+  },
+  "book": {
+    "title": "预约您的体验",
+    "recommendation": "建议提前预约，尤其是周末和派对活动。",
+    "visitUs": "到店咨询",
+    "thankYou": "感谢您的预约！",
+    "confirmMessage": "我们会尽快联系您确认预约详情。",
+    "errorMessage": "出了点问题，请重试或直接联系我们。",
+    "submit": "立即预约",
+    "submitting": "提交中..."
+  },
+  "bookingForm": {
+    "name": "姓名",
+    "nameRequired": "请输入姓名",
+    "phone": "电话",
+    "phoneRequired": "请输入电话",
+    "wechat": "微信号",
+    "email": "邮箱",
+    "emailInvalid": "邮箱格式不正确",
+    "preferredDate": "首选日期",
+    "numberOfPeople": "人数",
+    "activityType": "活动类型",
+    "activitySelect": "请选择...",
+    "activityDate": "情侣约会",
+    "activityBirthday": "生日派对",
+    "activityFriends": "朋友聚会",
+    "activityKids": "亲子活动",
+    "activityMobile": "上门派对",
+    "interestedProject": "感兴趣的项目",
+    "message": "留言 / 特殊需求"
+  },
+  "cart": {
+    "title": "我的预选单",
+    "empty": "预选单是空的，去浏览项目吧。",
+    "add": "加入预选单",
+    "added": "已添加！",
+    "bookNow": "立即预约",
+    "submit": "提交预约",
+    "checkoutTitle": "预约确认",
+    "name": "姓名",
+    "phone": "电话",
+    "wechat": "微信号",
+    "note": "备注",
+    "people": "人",
+    "confirmSubmit": "确认提交",
+    "submitting": "提交中...",
+    "thankYou": "感谢您的预约！",
+    "confirmMessage": "我们会尽快联系您确认预约详情。",
+    "error": "出了点问题，请重试。"
+  },
+  "projectDetail": {
+    "back": "返回项目列表",
+    "duration": "时长",
+    "preferredDate": "首选日期",
+    "numberOfPeople": "人数"
+  },
   "footer": {
-    "rights": "版权所有。"
+    "rights": "版权所有。",
+    "links": "链接",
+    "contact": "联系方式",
+    "email": "邮箱：hello@yezz.studio",
+    "tagline": "创造属于你的杰作"
   }
 }
