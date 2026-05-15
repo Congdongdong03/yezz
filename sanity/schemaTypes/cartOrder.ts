@@ -35,13 +35,45 @@ export const cartOrder = defineType({
         {
           type: "object",
           fields: [
-            { name: "projectId", title: "Project ID", type: "string" },
-            { name: "projectName", title: "Project Name", type: "string" },
-            { name: "projectType", title: "Project Type", type: "string" },
-            { name: "styleName", title: "Style Name", type: "string" },
-            { name: "date", title: "Date", type: "string" },
-            { name: "people", title: "People", type: "number" },
-            { name: "price", title: "Price", type: "string" },
+            defineField({
+              name: "projectId",
+              title: "Project ID",
+              type: "string",
+              validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: "projectName",
+              title: "Project Name",
+              type: "string",
+              validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: "projectType",
+              title: "Project Type",
+              type: "string",
+              validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: "styleName",
+              title: "Style Name",
+              type: "string",
+            }),
+            defineField({
+              name: "date",
+              title: "Date",
+              type: "string",
+            }),
+            defineField({
+              name: "people",
+              title: "People",
+              type: "number",
+            }),
+            defineField({
+              name: "price",
+              title: "Price",
+              type: "string",
+              validation: (Rule) => Rule.required(),
+            }),
           ],
         },
       ],
