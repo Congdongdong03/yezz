@@ -2,7 +2,7 @@ export const projectsQuery = `*[_type == "diyProject"] | order(order asc) {
   _id,
   name,
   slug,
-  "category": category->name,
+  "category": category->{_id, name, slug},
   description,
   "imageUrl": images[0].asset->url,
   priceRange,
@@ -15,7 +15,8 @@ export const categoriesQuery = `*[_type == "projectCategory"] | order(order asc)
   _id,
   name,
   slug,
-  icon
+  icon,
+  order
 }`;
 
 export const partiesQuery = `*[_type == "partyPackage"] {
@@ -78,4 +79,50 @@ export const storeVibesQuery = `*[_type == "galleryImage" && category == "store"
   _id,
   "imageUrl": image.asset->url,
   caption
+}`;
+
+export const projectBySlugQuery = `*[_type == "diyProject" && slug.current == $slug][0] {
+  _id,
+  name,
+  slug,
+  "category": category->{_id, name, slug},
+  description,
+  "images": images[].asset->url,
+  priceRange,
+  duration,
+  tags,
+  order
+}`;
+
+export const partyBySlugQuery = `*[_type == "partyPackage" && slug.current == $slug][0] {
+  _id,
+  name,
+  slug,
+  description,
+  includes,
+  "images": images[].asset->url,
+  minPeople,
+  maxPeople,
+  priceIndicator,
+  tags
+}`;
+
+export const projectDetailQuery = `*[_type == "diyProject" && slug.current == $slug][0] {
+  _id,
+  name,
+  slug,
+  projectType,
+  "category": category->{_id, name, slug},
+  description,
+  "imageUrl": images[0].asset->url,
+  "images": images[].asset->url,
+  styles[]{
+    name,
+    "imageUrl": image.asset->url,
+    price
+  },
+  priceRange,
+  duration,
+  tags,
+  order
 }`;
