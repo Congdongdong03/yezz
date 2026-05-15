@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { Link, usePathname } from "@/i18n/routing";
 import { Menu, X } from "lucide-react";
 import MobileMenu from "./MobileMenu";
+import CartIcon from "@/components/cart/CartIcon";
 
 const navLinks = [
   { href: "/", key: "home" },
@@ -50,6 +51,7 @@ export default function Navbar() {
           >
             {locale === "zh" ? "EN" : "中"}
           </Link>
+          <CartIcon />
           <Link
             href="/book"
             className="rounded-full bg-caramel px-6 py-2 text-sm font-medium text-white transition-transform hover:-translate-y-0.5"
@@ -59,13 +61,15 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Toggle */}
-        <button
-          className="md:hidden"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <CartIcon />
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </nav>
 
       {mobileOpen && <MobileMenu onClose={() => setMobileOpen(false)} />}
