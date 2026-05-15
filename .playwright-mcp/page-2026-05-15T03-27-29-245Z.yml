@@ -1,0 +1,72 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "YEZZ" [ref=e5] [cursor=pointer]:
+          - /url: /en
+        - generic [ref=e6]:
+          - link "Home" [ref=e7] [cursor=pointer]:
+            - /url: /en
+          - link "Projects" [ref=e8] [cursor=pointer]:
+            - /url: /en/projects
+          - link "Parties" [ref=e9] [cursor=pointer]:
+            - /url: /en/parties
+          - link "Gallery" [ref=e10] [cursor=pointer]:
+            - /url: /en/gallery
+          - link "Contact" [ref=e11] [cursor=pointer]:
+            - /url: /en/contact
+        - generic [ref=e12]:
+          - link "中" [ref=e13] [cursor=pointer]:
+            - /url: /zh/projects/pottery-experience
+          - button "Open cart" [ref=e14]:
+            - img [ref=e15]
+          - link "Book Now" [ref=e18] [cursor=pointer]:
+            - /url: /en/book
+    - main [ref=e19]:
+      - generic [ref=e21]:
+        - link "← Back to Projects" [ref=e22] [cursor=pointer]:
+          - /url: /en/projects
+        - generic [ref=e23]:
+          - generic [ref=e28]:
+            - heading "Pottery Experience" [level=1] [ref=e29]
+            - generic [ref=e30]:
+              - generic [ref=e31]: Hands-on
+              - generic [ref=e32]: Relaxing
+              - generic [ref=e33]: Unique
+            - paragraph [ref=e34]: ¥158 - ¥228
+            - paragraph [ref=e35]: "Duration: 2 - 2.5 hours"
+            - paragraph [ref=e36]: Get your hands dirty and create beautiful ceramic pieces on the pottery wheel. Our instructor will guide you through centering, pulling, and shaping clay into bowls, cups, or vases.
+          - generic [ref=e37]:
+            - generic [ref=e38]:
+              - generic [ref=e39]: Preferred Date
+              - textbox [ref=e40]
+            - generic [ref=e41]:
+              - generic [ref=e42]: Number of People
+              - spinbutton [ref=e43]: "1"
+          - generic [ref=e44]:
+            - button "Add to Cart" [ref=e45]
+            - button "Book Now" [ref=e46]
+    - contentinfo [ref=e47]:
+      - generic [ref=e48]:
+        - generic [ref=e49]:
+          - generic [ref=e50]:
+            - heading "YEZZ" [level=3] [ref=e51]
+            - paragraph [ref=e52]: Create your own masterpiece
+          - generic [ref=e53]:
+            - heading "Links" [level=4] [ref=e54]
+            - generic [ref=e55]:
+              - link "Projects" [ref=e56] [cursor=pointer]:
+                - /url: /en/projects
+              - link "Parties" [ref=e57] [cursor=pointer]:
+                - /url: /en/parties
+              - link "Gallery" [ref=e58] [cursor=pointer]:
+                - /url: /en/gallery
+              - link "Book Now" [ref=e59] [cursor=pointer]:
+                - /url: /en/book
+          - generic [ref=e60]:
+            - heading "Contact" [level=4] [ref=e61]
+            - paragraph [ref=e63]: "Email: hello@yezz.studio"
+        - paragraph [ref=e65]: © 2026 YEZZ. All rights reserved.
+  - button "Open Next.js Dev Tools" [ref=e71] [cursor=pointer]:
+    - img [ref=e72]
+  - alert [ref=e75]

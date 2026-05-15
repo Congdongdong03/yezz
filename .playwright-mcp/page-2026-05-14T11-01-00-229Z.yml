@@ -1,0 +1,189 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "YEZZ" [ref=e5] [cursor=pointer]:
+          - /url: /zh
+        - generic [ref=e6]:
+          - link "首页" [ref=e7] [cursor=pointer]:
+            - /url: /zh
+          - link "项目" [ref=e8] [cursor=pointer]:
+            - /url: /zh/projects
+          - link "派对" [ref=e9] [cursor=pointer]:
+            - /url: /zh/parties
+          - link "作品" [ref=e10] [cursor=pointer]:
+            - /url: /zh/gallery
+          - link "联系我们" [ref=e11] [cursor=pointer]:
+            - /url: /zh/contact
+        - generic [ref=e12]:
+          - link "EN" [ref=e13] [cursor=pointer]:
+            - /url: /en
+          - link "立即预约" [ref=e14] [cursor=pointer]:
+            - /url: /zh/book
+    - main [ref=e15]:
+      - generic [ref=e18]:
+        - heading "亲手制作，独一无二" [level=1] [ref=e19]
+        - paragraph [ref=e20]: 一个适合约会、生日和聚会的手作空间
+        - link "立即预约" [ref=e22] [cursor=pointer]:
+          - /url: /zh/book
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - heading "适合每一个特别时刻" [level=2] [ref=e26]
+          - paragraph [ref=e27]: 为你的特别时刻找到完美的手作体验
+        - generic [ref=e28]:
+          - link "约会时光 在下次约会时一起创造属于你们的作品。" [ref=e30] [cursor=pointer]:
+            - /url: /zh/projects
+            - img [ref=e32]
+            - heading "约会时光" [level=3] [ref=e34]
+            - paragraph [ref=e35]: 在下次约会时一起创造属于你们的作品。
+          - link "生日派对 和朋友们一起在创意中庆祝生日。" [ref=e37] [cursor=pointer]:
+            - /url: /zh/parties
+            - img [ref=e39]
+            - heading "生日派对" [level=3] [ref=e42]
+            - paragraph [ref=e43]: 和朋友们一起在创意中庆祝生日。
+          - link "手作体验 放松身心，用双手创造美好的事物。" [ref=e45] [cursor=pointer]:
+            - /url: /zh/projects
+            - img [ref=e47]
+            - heading "手作体验" [level=3] [ref=e53]
+            - paragraph [ref=e54]: 放松身心，用双手创造美好的事物。
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - heading "热门项目" [level=2] [ref=e59]
+          - link "查看全部项目 →" [ref=e60] [cursor=pointer]:
+            - /url: /zh/projects
+        - generic [ref=e61]:
+          - generic [ref=e63] [cursor=pointer]:
+            - img "香薰蜡烛制作" [ref=e65]
+            - generic [ref=e66]:
+              - heading "香薰蜡烛制作" [level=3] [ref=e67]
+              - generic [ref=e68]:
+                - generic [ref=e69]: Beginner Friendly
+                - generic [ref=e70]: Relaxing
+              - paragraph [ref=e71]: ¥168 - ¥298
+          - generic [ref=e73] [cursor=pointer]:
+            - img "流体丙烯画" [ref=e75]
+            - generic [ref=e76]:
+              - heading "流体丙烯画" [level=3] [ref=e77]
+              - generic [ref=e78]:
+                - generic [ref=e79]: Creative
+                - generic [ref=e80]: Abstract
+              - paragraph [ref=e81]: ¥198 - ¥358
+          - generic [ref=e83] [cursor=pointer]:
+            - img "手工陶艺" [ref=e85]
+            - generic [ref=e86]:
+              - heading "手工陶艺" [level=3] [ref=e87]
+              - generic [ref=e88]:
+                - generic [ref=e89]: Hands-on
+                - generic [ref=e90]: Unique Gift
+              - paragraph [ref=e91]: ¥228 - ¥398
+          - generic [ref=e93] [cursor=pointer]:
+            - img "树脂饰品" [ref=e95]
+            - generic [ref=e96]:
+              - heading "树脂饰品" [level=3] [ref=e97]
+              - generic [ref=e98]:
+                - generic [ref=e99]: Fashion
+                - generic [ref=e100]: Wearable Art
+              - paragraph [ref=e101]: ¥148 - ¥268
+      - generic [ref=e104]:
+        - generic [ref=e105]:
+          - img [ref=e106]
+          - heading "Relieve Stress" [level=3] [ref=e108]
+          - paragraph [ref=e109]: Take a break and create something beautiful with your hands.
+        - generic [ref=e110]:
+          - img [ref=e111]
+          - heading "Bonding Time" [level=3] [ref=e116]
+          - paragraph [ref=e117]: Perfect for dates, friends, and family to connect.
+        - generic [ref=e118]:
+          - img [ref=e119]
+          - heading "Unique Gifts" [level=3] [ref=e123]
+          - paragraph [ref=e124]: Make a one-of-a-kind gift that carries your heart.
+      - generic [ref=e126]:
+        - generic [ref=e127]:
+          - heading "派对套餐" [level=2] [ref=e128]
+          - link "查看全部套餐 →" [ref=e129] [cursor=pointer]:
+            - /url: /zh/parties
+        - generic [ref=e130]:
+          - generic [ref=e131]:
+            - img "生日派对套餐" [ref=e133]
+            - generic [ref=e134]:
+              - heading "生日派对套餐" [level=3] [ref=e135]
+              - paragraph [ref=e136]: 与亲友共度难忘的生日体验。从多种 DIY 项目中选择，享受专为您装饰的私人派对空间。
+              - generic [ref=e137]:
+                - generic [ref=e139]: 6-15 人
+                - generic [ref=e140]: From ¥198/person
+              - link "查看全部套餐" [ref=e141] [cursor=pointer]:
+                - /url: /zh/parties
+          - generic [ref=e142]:
+            - img "情侣约会套餐" [ref=e144]
+            - generic [ref=e145]:
+              - heading "情侣约会套餐" [level=3] [ref=e146]
+              - paragraph [ref=e147]: 一起创作的浪漫夜晚。适合纪念日、初次约会，或与特别的人共度美好时光。
+              - generic [ref=e148]:
+                - generic [ref=e150]: 2-2 人
+                - generic [ref=e151]: From ¥388/couple
+              - link "查看全部套餐" [ref=e152] [cursor=pointer]:
+                - /url: /zh/parties
+      - generic [ref=e154]:
+        - generic [ref=e155]:
+          - heading "顾客作品" [level=2] [ref=e156]
+          - link "查看全部作品 →" [ref=e157] [cursor=pointer]:
+            - /url: /zh/gallery
+        - generic [ref=e158]:
+          - generic [ref=e159]:
+            - img "情侣共同创作" [ref=e160]
+            - generic [ref=e162]: 情侣
+          - generic [ref=e163]:
+            - img "生日派对欢乐时光" [ref=e164]
+            - generic [ref=e166]: 生日
+          - generic [ref=e167]:
+            - img "孩子探索创意" [ref=e168]
+            - generic [ref=e170]: 儿童
+          - generic [ref=e171]:
+            - img "手工礼物" [ref=e172]
+            - generic [ref=e174]: 礼物
+          - generic [ref=e175]:
+            - img "我们温馨的工作室" [ref=e176]
+            - generic [ref=e178]: 店铺
+          - generic [ref=e179]:
+            - img "社区作品" [ref=e180]
+            - generic [ref=e182]: 作品
+      - generic [ref=e185]:
+        - img "YEZZ 工作室内部" [ref=e187]
+        - generic [ref=e188]:
+          - heading "来店里看看" [level=2] [ref=e189]
+          - paragraph [ref=e190]: 一个温暖、舒适的空间，专为创意和连接而设计。来体验 YEZZ 的氛围吧。
+          - link "找到我们" [ref=e191] [cursor=pointer]:
+            - /url: /zh/contact
+      - generic [ref=e194]:
+        - heading "准备好创造了吗？" [level=2] [ref=e195]
+        - paragraph [ref=e196]: 预约你的体验或添加微信咨询 — 我们很乐意帮你规划一次完美的到访。
+        - generic [ref=e197]:
+          - button "添加微信" [ref=e198]:
+            - img [ref=e199]
+            - text: 添加微信
+          - link "立即预约" [ref=e201] [cursor=pointer]:
+            - /url: /zh/book
+    - contentinfo [ref=e202]:
+      - generic [ref=e203]:
+        - generic [ref=e204]:
+          - generic [ref=e205]:
+            - heading "YEZZ" [level=3] [ref=e206]
+            - paragraph [ref=e207]: Create your own masterpiece
+          - generic [ref=e208]:
+            - heading "Links" [level=4] [ref=e209]
+            - generic [ref=e210]:
+              - link "Projects" [ref=e211] [cursor=pointer]:
+                - /url: /zh/projects
+              - link "Parties" [ref=e212] [cursor=pointer]:
+                - /url: /zh/parties
+              - link "Gallery" [ref=e213] [cursor=pointer]:
+                - /url: /zh/gallery
+              - link "Book Now" [ref=e214] [cursor=pointer]:
+                - /url: /zh/book
+          - generic [ref=e215]:
+            - heading "Contact" [level=4] [ref=e216]
+            - paragraph [ref=e218]: "Email: hello@yezz.studio"
+        - paragraph [ref=e220]: © 2026 YEZZ. 版权所有。
+  - button "Open Next.js Dev Tools" [ref=e226] [cursor=pointer]:
+    - img [ref=e227]
+  - alert [ref=e230]

@@ -1,0 +1,82 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "YEZZ" [ref=e5] [cursor=pointer]:
+          - /url: /zh
+        - generic [ref=e6]:
+          - link "首页" [ref=e7] [cursor=pointer]:
+            - /url: /zh
+          - link "项目" [ref=e8] [cursor=pointer]:
+            - /url: /zh/projects
+          - link "派对" [ref=e9] [cursor=pointer]:
+            - /url: /zh/parties
+          - link "作品" [ref=e10] [cursor=pointer]:
+            - /url: /zh/gallery
+          - link "联系我们" [ref=e11] [cursor=pointer]:
+            - /url: /zh/contact
+        - generic [ref=e12]:
+          - link "EN" [ref=e13] [cursor=pointer]:
+            - /url: /en/projects
+          - link "立即预约" [ref=e14] [cursor=pointer]:
+            - /url: /zh/book
+    - main [ref=e15]:
+      - generic [ref=e16]:
+        - heading "Our DIY Projects" [level=1] [ref=e17]
+        - paragraph [ref=e18]: Explore our creative experiences
+        - generic [ref=e19]:
+          - generic [ref=e20] [cursor=pointer]:
+            - img "香薰蜡烛制作" [ref=e22]
+            - generic [ref=e23]:
+              - heading "香薰蜡烛制作" [level=3] [ref=e24]
+              - generic [ref=e25]:
+                - generic [ref=e26]: Beginner Friendly
+                - generic [ref=e27]: Relaxing
+              - paragraph [ref=e28]: ¥168 - ¥298
+          - generic [ref=e29] [cursor=pointer]:
+            - img "流体丙烯画" [ref=e31]
+            - generic [ref=e32]:
+              - heading "流体丙烯画" [level=3] [ref=e33]
+              - generic [ref=e34]:
+                - generic [ref=e35]: Creative
+                - generic [ref=e36]: Abstract
+              - paragraph [ref=e37]: ¥198 - ¥358
+          - generic [ref=e38] [cursor=pointer]:
+            - img "手工陶艺" [ref=e40]
+            - generic [ref=e41]:
+              - heading "手工陶艺" [level=3] [ref=e42]
+              - generic [ref=e43]:
+                - generic [ref=e44]: Hands-on
+                - generic [ref=e45]: Unique Gift
+              - paragraph [ref=e46]: ¥228 - ¥398
+          - generic [ref=e47] [cursor=pointer]:
+            - img "树脂饰品" [ref=e49]
+            - generic [ref=e50]:
+              - heading "树脂饰品" [level=3] [ref=e51]
+              - generic [ref=e52]:
+                - generic [ref=e53]: Fashion
+                - generic [ref=e54]: Wearable Art
+              - paragraph [ref=e55]: ¥148 - ¥268
+    - contentinfo [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - heading "YEZZ" [level=3] [ref=e60]
+            - paragraph [ref=e61]: Create your own masterpiece
+          - generic [ref=e62]:
+            - heading "Links" [level=4] [ref=e63]
+            - generic [ref=e64]:
+              - link "Projects" [ref=e65] [cursor=pointer]:
+                - /url: /zh/projects
+              - link "Parties" [ref=e66] [cursor=pointer]:
+                - /url: /zh/parties
+              - link "Gallery" [ref=e67] [cursor=pointer]:
+                - /url: /zh/gallery
+              - link "Book Now" [ref=e68] [cursor=pointer]:
+                - /url: /zh/book
+          - generic [ref=e69]:
+            - heading "Contact" [level=4] [ref=e70]
+            - paragraph [ref=e72]: "Email: hello@yezz.studio"
+        - paragraph [ref=e74]: © 2026 YEZZ. 版权所有。
+  - button "Open Next.js Dev Tools" [ref=e80] [cursor=pointer]:
+    - img [ref=e81]

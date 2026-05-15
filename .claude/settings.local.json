@@ -1,7 +1,36 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/zh)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "Skill(superpowers:brainstorming)",
+      "Skill(superpowers:brainstorming:*)",
+      "mcp__plugin_playwright_playwright__browser_run_code_unsafe",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Bash(git -C /Users/wesley/Desktop/yezz log --oneline -8)",
+      "Bash(git -C /Users/wesley/Desktop/yezz diff 113c9fa..b1fddea)",
+      "Bash(git -C /Users/wesley/Desktop/yezz log --oneline 113c9fa..HEAD)",
+      "Bash(git -C /Users/wesley/Desktop/yezz diff --stat 113c9fa..HEAD)",
+      "Bash(git -C /Users/wesley/Desktop/yezz diff 113c9fa..HEAD -- app/[locale]/page.tsx components/book/BookingForm.tsx components/layout/Footer.tsx next.config.ts)",
+      "Bash(git -C /Users/wesley/Desktop/yezz diff 113c9fa..HEAD -- \"app/[locale]/page.tsx\" \"components/book/BookingForm.tsx\" \"components/layout/Footer.tsx\" \"next.config.ts\")",
+      "Bash(git -C /Users/wesley/Desktop/yezz log --oneline --graph 113c9fa..HEAD)",
+      "Bash(git -C /Users/wesley/Desktop/yezz diff 113c9fa..HEAD --name-only)",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill -9)",
+      "Read(//tmp/**)",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "Bash(curl -s http://localhost:3000/zh/projects/labubu-doll-clothes)",
+      "Bash(curl -s http://localhost:3000/zh/projects)",
+      "Bash(curl -s http://localhost:3000/zh)",
+      "Bash(cat /tmp/dev.log | tail -30)",
+      "Read(//private/tmp/**)",
+      "Bash(pkill -9 -f \"playwright\")",
+      "Bash(pkill -9 -f \"chrome\")",
+      "Bash(rm -rf ~/Library/Caches/ms-playwright/mcp-chrome-*)"
     ]
   }
 }

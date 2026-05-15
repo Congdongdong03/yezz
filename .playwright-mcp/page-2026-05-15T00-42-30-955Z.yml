@@ -1,0 +1,91 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "YEZZ" [ref=e5] [cursor=pointer]:
+          - /url: /zh
+        - generic [ref=e6]:
+          - link "首页" [ref=e7] [cursor=pointer]:
+            - /url: /zh
+          - link "项目" [ref=e8] [cursor=pointer]:
+            - /url: /zh/projects
+          - link "派对" [ref=e9] [cursor=pointer]:
+            - /url: /zh/parties
+          - link "作品" [ref=e10] [cursor=pointer]:
+            - /url: /zh/gallery
+          - link "联系我们" [ref=e11] [cursor=pointer]:
+            - /url: /zh/contact
+        - generic [ref=e12]:
+          - link "EN" [ref=e13] [cursor=pointer]:
+            - /url: /en/book
+          - link "立即预约" [ref=e14] [cursor=pointer]:
+            - /url: /zh/book
+    - main [ref=e15]:
+      - generic [ref=e16]:
+        - heading "预约您的体验" [level=1] [ref=e17]
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - generic [ref=e20]:
+              - generic [ref=e21]: 姓名 *
+              - textbox [ref=e22]
+            - generic [ref=e23]:
+              - generic [ref=e24]: 电话 *
+              - textbox [ref=e25]
+            - generic [ref=e26]:
+              - generic [ref=e27]:
+                - generic [ref=e28]: 微信号
+                - textbox [ref=e29]
+              - generic [ref=e30]:
+                - generic [ref=e31]: 邮箱
+                - textbox [ref=e32]
+            - generic [ref=e33]:
+              - generic [ref=e34]:
+                - generic [ref=e35]: 首选日期
+                - textbox [ref=e36]
+              - generic [ref=e37]:
+                - generic [ref=e38]: 人数
+                - spinbutton [ref=e39]
+            - generic [ref=e40]:
+              - generic [ref=e41]:
+                - generic [ref=e42]: 活动类型
+                - combobox [ref=e43]:
+                  - option "请选择..." [selected]
+                  - option "情侣约会"
+                  - option "生日派对"
+                  - option "朋友聚会"
+                  - option "亲子活动"
+                  - option "上门派对"
+              - generic [ref=e44]:
+                - generic [ref=e45]: 感兴趣的项目
+                - textbox [ref=e46]
+            - generic [ref=e47]:
+              - generic [ref=e48]: 留言 / 特殊需求
+              - textbox [ref=e49]
+            - button "立即预约" [ref=e50]
+          - generic [ref=e52]:
+            - heading "到店咨询" [level=3] [ref=e53]
+            - paragraph [ref=e54]: 建议提前预约，尤其是周末和派对活动。
+    - contentinfo [ref=e55]:
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - heading "YEZZ" [level=3] [ref=e59]
+            - paragraph [ref=e60]: 创造属于你的杰作
+          - generic [ref=e61]:
+            - heading "链接" [level=4] [ref=e62]
+            - generic [ref=e63]:
+              - link "Projects" [ref=e64] [cursor=pointer]:
+                - /url: /zh/projects
+              - link "Parties" [ref=e65] [cursor=pointer]:
+                - /url: /zh/parties
+              - link "Gallery" [ref=e66] [cursor=pointer]:
+                - /url: /zh/gallery
+              - link "Book Now" [ref=e67] [cursor=pointer]:
+                - /url: /zh/book
+          - generic [ref=e68]:
+            - heading "联系方式" [level=4] [ref=e69]
+            - paragraph [ref=e71]: 邮箱：hello@yezz.studio
+        - paragraph [ref=e73]: © 2026 YEZZ. 版权所有。
+  - button "Open Next.js Dev Tools" [ref=e79] [cursor=pointer]:
+    - img [ref=e80]
+  - alert [ref=e83]

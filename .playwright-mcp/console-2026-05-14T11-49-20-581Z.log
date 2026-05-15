@@ -1,0 +1,23 @@
+[    5809ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/studio:0
+[    6522ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_react-dom_4411d9bd._.js:15305
+[    6751ms] TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/node_modules_e38fa6d7._.js:6975:226)
+    at instantiateModule (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:740:9)
+    at getOrInstantiateModuleFromParent (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:763:12)
+    at Context.esmImport [as i] (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:228:20)
+    at module evaluation (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/ce3c5_@sanity_ui_dist_80130543._.js:5442:181)
+    at instantiateModule (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:740:9)
+    at getOrInstantiateModuleFromParent (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:763:12)
+    at Context.esmImport [as i] (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:228:20)
+    at module evaluation (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/node_modules_sanity_lib_index_5282e067.js:1233:230)
+    at instantiateModule (file:///Users/wesley/Desktop/yezz/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:740:9)
+[    6828ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206
+[    7225ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206
+[    8599ms] [LOG] [Fast Refresh] done in 1661ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206
+[   67793ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206
+[   68583ms] [LOG] [Fast Refresh] done in 903ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206
+[   81898ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206
+[   91493ms] [LOG] [Fast Refresh] done in 9630ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206
+[   92709ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206
+[   93207ms] [LOG] [Fast Refresh] done in 599ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206
+[   93320ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_b3fb3b5f._.js:1206

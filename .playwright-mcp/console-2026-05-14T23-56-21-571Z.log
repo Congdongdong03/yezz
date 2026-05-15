@@ -1,0 +1,439 @@
+[     499ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     588ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     847ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[     879ms] [LOG] [Fast Refresh] done in 132ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[    2494ms] [WARNING] WebSocket connection to 'wss://v453srdz.api.sanity.io/v2022-06-30/socket/production?tag=sanity.studio' failed: WebSocket is closed before the connection is established. @ http://localhost:3000/_next/static/chunks/node_modules_%40sanity_7892097c._.js:4470
+[    2574ms] [WARNING] WebSocket connection to 'wss://v453srdz.api.sanity.io/v2022-06-30/socket/production?tag=sanity.studio' failed: WebSocket is closed before the connection is established. @ http://localhost:3000/_next/static/chunks/node_modules_%40sanity_7892097c._.js:4470
+[    2586ms] [WARNING] WebSocket connection to 'wss://v453srdz.api.sanity.io/v2022-06-30/socket/production?tag=sanity.studio' failed: WebSocket is closed before the connection is established. @ http://localhost:3000/_next/static/chunks/node_modules_%40sanity_7892097c._.js:4470
+[   20359ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[   20377ms] [LOG] [Fast Refresh] done in 119ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  633963ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  634106ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[  634124ms] [LOG] [Fast Refresh] done in 122ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 1679988ms] [ERROR] Error: No activity within 45000 milliseconds. 227 chars received. Reconnecting.
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:870:30)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:879:25 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1680120ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_PACKET_WRITE_ERROR @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%24publishedId%29%5D&%24publishedId=%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1680124ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1680124ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_PACKET_WRITE_ERROR @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%29%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1680125ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1680125ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_PACKET_WRITE_ERROR @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.global&query=*&includeAllVersions=true&visibility=query&effectFormat=mendoza&includeMutations=false:0
+[ 1680126ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1680126ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_PACKET_WRITE_ERROR @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.document.pair.listen&query=*%5B_id+in+%24ids%5D&%24ids=%5B%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%2C%22drafts.07be5b0e-f78c-4f24-88de-919aefe0fe4b%22%5D&includeAllVersions=true&effectFormat=mendoza&enableResume=true:0
+[ 1680128ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1680128ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_PACKET_WRITE_ERROR @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.listen-search-query&query=*%5B_type+%3D%3D+%24type%5D&%24type=%22booking%22&includeAllVersions=true&visibility=query:0
+[ 1680129ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1680129ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_PACKET_WRITE_ERROR @ https://v453srdz.api.sanity.io/v2025-02-19/agent/o9l5QV2Cu/bundles/mine/listen:0
+[ 1680129ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_PACKET_WRITE_ERROR @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.releases.listen&query=*%5B_type%3D%3D%22system.release%22+%26%26+_id+in+path%28%22_.releases.*%22%29%5D+%7B%0A++_id%2C%0A++_type%2C%0A++_rev%2C%0A++_createdAt%2C%0A++_updatedAt%2C%0A++state%2C%0A++finalDocumentStates%2C%0A++publishAt%2C%0A++publishedAt%2C%0A++%22metadata%22%3A+coalesce%28metadata%2C+%7B%0A++++%22title%22%3A+%22%22%2C%0A++++%22releaseType%22%3A+%22undecided%22%2C%0A++%7D%29%2C%0A++%2F%2F+Content+Lake+initially+encoded+non-error+states+as+%7Berror%3A+%7Bmessage%3A+%22%22%7D%7D.+This+projection%0A++%2F%2F+ensures+the+error+field+only+appears+if+the+document+has+a+non-empty+error+message.%0A++...select%28%0A++++length%28error.message%29+%3E+0+%3D%3E+%7B+error+%7D%2C%0A++++%7B%7D%0A++%29%2C%0A%7D+%7C+order%28_createdAt+desc%29&includeAllVersions=true&visibility=query:0
+[ 1680129ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1680130ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_PACKET_WRITE_ERROR @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1680226ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1680227ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at start (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:934:9)
+    at new EventSourcePolyfill (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:672:9)
+    at http://localhost:3000/_next/static/chunks/node_modules_%40sanity_client_dist_25fb10b8._.js:1983:474
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1862:37
+    at OperatorSubscriber._this._next (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1515:17)
+    at Subscriber.next (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:427:18)
+    at ReplaySubject._subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2436:24)
+    at Observable._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:669:25)
+    at Subject._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:867:47)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:121
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2516:18
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1861:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at Observable._subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2039:223)
+    at Observable._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:669:25)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:121
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at mergeInternals (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1930:12)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1970:217
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2270:27
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2779:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1861:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1680480ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/query/production?query=*%5B_type%3D%3D%22system.release%22+%26%26+_id+in+path%28%22_.releases.*%22%29%5D+%7B%0A++_id%2C%0A++_type%2C%0A++_rev%2C%0A++_createdAt%2C%0A++_updatedAt%2C%0A++state%2C%0A++finalDocumentStates%2C%0A++publishAt%2C%0A++publishedAt%2C%0A++%22metadata%22%3A+coalesce%28metadata%2C+%7B%0A++++%22title%22%3A+%22%22%2C%0A++++%22releaseType%22%3A+%22undecided%22%2C%0A++%7D%29%2C%0A++%2F%2F+Content+Lake+initially+encoded+non-error+states+as+%7Berror%3A+%7Bmessage%3A+%22%22%7D%7D.+This+projection%0A++%2F%2F+ensures+the+error+field+only+appears+if+the+document+has+a+non-empty+error+message.%0A++...select%28%0A++++length%28error.message%29+%3E+0+%3D%3E+%7B+error+%7D%2C%0A++++%7B%7D%0A++%29%2C%0A%7D+%7C+order%28_createdAt+desc%29&returnQuery=false&perspective=raw&tag=sanity.studio.releases.listen:0
+[ 1680606ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 1680684ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/query/production?query=*%5B_type%3D%3D%22system.release%22+%26%26+_id+in+path%28%22_.releases.*%22%29%5D+%7B%0A++_id%2C%0A++_type%2C%0A++_rev%2C%0A++_createdAt%2C%0A++_updatedAt%2C%0A++state%2C%0A++finalDocumentStates%2C%0A++publishAt%2C%0A++publishedAt%2C%0A++%22metadata%22%3A+coalesce%28metadata%2C+%7B%0A++++%22title%22%3A+%22%22%2C%0A++++%22releaseType%22%3A+%22undecided%22%2C%0A++%7D%29%2C%0A++%2F%2F+Content+Lake+initially+encoded+non-error+states+as+%7Berror%3A+%7Bmessage%3A+%22%22%7D%7D.+This+projection%0A++%2F%2F+ensures+the+error+field+only+appears+if+the+document+has+a+non-empty+error+message.%0A++...select%28%0A++++length%28error.message%29+%3E+0+%3D%3E+%7B+error+%7D%2C%0A++++%7B%7D%0A++%29%2C%0A%7D+%7C+order%28_createdAt+desc%29&returnQuery=false&perspective=raw&tag=sanity.studio.releases.listen:0
+[ 1680942ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/query/production?query=*%5B_type%3D%3D%22system.release%22+%26%26+_id+in+path%28%22_.releases.*%22%29%5D+%7B%0A++_id%2C%0A++_type%2C%0A++_rev%2C%0A++_createdAt%2C%0A++_updatedAt%2C%0A++state%2C%0A++finalDocumentStates%2C%0A++publishAt%2C%0A++publishedAt%2C%0A++%22metadata%22%3A+coalesce%28metadata%2C+%7B%0A++++%22title%22%3A+%22%22%2C%0A++++%22releaseType%22%3A+%22undecided%22%2C%0A++%7D%29%2C%0A++%2F%2F+Content+Lake+initially+encoded+non-error+states+as+%7Berror%3A+%7Bmessage%3A+%22%22%7D%7D.+This+projection%0A++%2F%2F+ensures+the+error+field+only+appears+if+the+document+has+a+non-empty+error+message.%0A++...select%28%0A++++length%28error.message%29+%3E+0+%3D%3E+%7B+error+%7D%2C%0A++++%7B%7D%0A++%29%2C%0A%7D+%7C+order%28_createdAt+desc%29&returnQuery=false&perspective=raw&tag=sanity.studio.releases.listen:0
+[ 1680981ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%29%5D&includeAllVersions=true&visibility=transaction&includeMutations=false&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1680982ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1681129ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%24publishedId%29%5D&%24publishedId=%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22&includeAllVersions=true&visibility=transaction&includeMutations=false&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1681130ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1681130ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.global&query=*&includeAllVersions=true&visibility=query&effectFormat=mendoza&includeMutations=false&lastEventId=6fCNpx7G4GCpNgpiNpAKYy%23_.groups.create-session%40PVosU1n-mkz7JMc:0
+[ 1681130ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1681130ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%29%5D&includeAllVersions=true&visibility=transaction&includeMutations=false&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1681131ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1681131ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1681132ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at start (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:934:9)
+    at new EventSourcePolyfill (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:672:9)
+    at http://localhost:3000/_next/static/chunks/node_modules_%40sanity_client_dist_25fb10b8._.js:1983:474
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1862:37
+    at OperatorSubscriber._this._next (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1515:17)
+    at Subscriber.next (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:427:18)
+    at ReplaySubject._subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2436:24)
+    at Observable._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:669:25)
+    at Subject._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:867:47)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:121
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2516:18
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1861:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at Observable._subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2039:223)
+    at Observable._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:669:25)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:121
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at mergeInternals (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1930:12)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1970:217
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2270:27
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2779:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1861:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1681133ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.document.pair.listen&query=*%5B_id+in+%24ids%5D&%24ids=%5B%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%2C%22drafts.07be5b0e-f78c-4f24-88de-919aefe0fe4b%22%5D&includeAllVersions=true&effectFormat=mendoza&enableResume=true&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1681133ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1681134ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.releases.listen&query=*%5B_type%3D%3D%22system.release%22+%26%26+_id+in+path%28%22_.releases.*%22%29%5D+%7B%0A++_id%2C%0A++_type%2C%0A++_rev%2C%0A++_createdAt%2C%0A++_updatedAt%2C%0A++state%2C%0A++finalDocumentStates%2C%0A++publishAt%2C%0A++publishedAt%2C%0A++%22metadata%22%3A+coalesce%28metadata%2C+%7B%0A++++%22title%22%3A+%22%22%2C%0A++++%22releaseType%22%3A+%22undecided%22%2C%0A++%7D%29%2C%0A++%2F%2F+Content+Lake+initially+encoded+non-error+states+as+%7Berror%3A+%7Bmessage%3A+%22%22%7D%7D.+This+projection%0A++%2F%2F+ensures+the+error+field+only+appears+if+the+document+has+a+non-empty+error+message.%0A++...select%28%0A++++length%28error.message%29+%3E+0+%3D%3E+%7B+error+%7D%2C%0A++++%7B%7D%0A++%29%2C%0A%7D+%7C+order%28_createdAt+desc%29&includeAllVersions=true&visibility=query&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1681134ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1681134ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.listen-search-query&query=*%5B_type+%3D%3D+%24type%5D&%24type=%22booking%22&includeAllVersions=true&visibility=query&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1681134ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1681387ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/query/production?query=*%5B_type%3D%3D%22system.release%22+%26%26+_id+in+path%28%22_.releases.*%22%29%5D+%7B%0A++_id%2C%0A++_type%2C%0A++_rev%2C%0A++_createdAt%2C%0A++_updatedAt%2C%0A++state%2C%0A++finalDocumentStates%2C%0A++publishAt%2C%0A++publishedAt%2C%0A++%22metadata%22%3A+coalesce%28metadata%2C+%7B%0A++++%22title%22%3A+%22%22%2C%0A++++%22releaseType%22%3A+%22undecided%22%2C%0A++%7D%29%2C%0A++%2F%2F+Content+Lake+initially+encoded+non-error+states+as+%7Berror%3A+%7Bmessage%3A+%22%22%7D%7D.+This+projection%0A++%2F%2F+ensures+the+error+field+only+appears+if+the+document+has+a+non-empty+error+message.%0A++...select%28%0A++++length%28error.message%29+%3E+0+%3D%3E+%7B+error+%7D%2C%0A++++%7B%7D%0A++%29%2C%0A%7D+%7C+order%28_createdAt+desc%29&returnQuery=false&perspective=raw&tag=sanity.studio.releases.listen:0
+[ 1682136ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1682137ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1682279ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/query/production?query=*%5B_type%3D%3D%22system.release%22+%26%26+_id+in+path%28%22_.releases.*%22%29%5D+%7B%0A++_id%2C%0A++_type%2C%0A++_rev%2C%0A++_createdAt%2C%0A++_updatedAt%2C%0A++state%2C%0A++finalDocumentStates%2C%0A++publishAt%2C%0A++publishedAt%2C%0A++%22metadata%22%3A+coalesce%28metadata%2C+%7B%0A++++%22title%22%3A+%22%22%2C%0A++++%22releaseType%22%3A+%22undecided%22%2C%0A++%7D%29%2C%0A++%2F%2F+Content+Lake+initially+encoded+non-error+states+as+%7Berror%3A+%7Bmessage%3A+%22%22%7D%7D.+This+projection%0A++%2F%2F+ensures+the+error+field+only+appears+if+the+document+has+a+non-empty+error+message.%0A++...select%28%0A++++length%28error.message%29+%3E+0+%3D%3E+%7B+error+%7D%2C%0A++++%7B%7D%0A++%29%2C%0A%7D+%7C+order%28_createdAt+desc%29&returnQuery=false&perspective=raw&tag=sanity.studio.releases.listen:0
+[ 1682301ms] [LOG] [Fast Refresh] done in 1820ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 1682989ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%29%5D&includeAllVersions=true&visibility=transaction&includeMutations=false&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1682990ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1683139ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/agent/o9l5QV2Cu/bundles/mine/listen:0
+[ 1683140ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%24publishedId%29%5D&%24publishedId=%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22&includeAllVersions=true&visibility=transaction&includeMutations=false&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1683141ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1683142ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.global&query=*&includeAllVersions=true&visibility=query&effectFormat=mendoza&includeMutations=false&lastEventId=6fCNpx7G4GCpNgpiNpAKYy%23_.groups.create-session%40PVosU1n-mkz7JMc:0
+[ 1683142ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1683142ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%29%5D&includeAllVersions=true&visibility=transaction&includeMutations=false&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1683142ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1683142ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.listen-search-query&query=*%5B_type+%3D%3D+%24type%5D&%24type=%22booking%22&includeAllVersions=true&visibility=query&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1683142ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1683144ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.releases.listen&query=*%5B_type%3D%3D%22system.release%22+%26%26+_id+in+path%28%22_.releases.*%22%29%5D+%7B%0A++_id%2C%0A++_type%2C%0A++_rev%2C%0A++_createdAt%2C%0A++_updatedAt%2C%0A++state%2C%0A++finalDocumentStates%2C%0A++publishAt%2C%0A++publishedAt%2C%0A++%22metadata%22%3A+coalesce%28metadata%2C+%7B%0A++++%22title%22%3A+%22%22%2C%0A++++%22releaseType%22%3A+%22undecided%22%2C%0A++%7D%29%2C%0A++%2F%2F+Content+Lake+initially+encoded+non-error+states+as+%7Berror%3A+%7Bmessage%3A+%22%22%7D%7D.+This+projection%0A++%2F%2F+ensures+the+error+field+only+appears+if+the+document+has+a+non-empty+error+message.%0A++...select%28%0A++++length%28error.message%29+%3E+0+%3D%3E+%7B+error+%7D%2C%0A++++%7B%7D%0A++%29%2C%0A%7D+%7C+order%28_createdAt+desc%29&includeAllVersions=true&visibility=query&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1683144ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1683145ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.document.pair.listen&query=*%5B_id+in+%24ids%5D&%24ids=%5B%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%2C%22drafts.07be5b0e-f78c-4f24-88de-919aefe0fe4b%22%5D&includeAllVersions=true&effectFormat=mendoza&enableResume=true&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1683145ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1683145ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1683146ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at start (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:934:9)
+    at new EventSourcePolyfill (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:672:9)
+    at http://localhost:3000/_next/static/chunks/node_modules_%40sanity_client_dist_25fb10b8._.js:1983:474
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1862:37
+    at OperatorSubscriber._this._next (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1515:17)
+    at Subscriber.next (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:427:18)
+    at ReplaySubject._subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2436:24)
+    at Observable._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:669:25)
+    at Subject._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:867:47)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:121
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2516:18
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1861:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at Observable._subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2039:223)
+    at Observable._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:669:25)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:121
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at mergeInternals (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1930:12)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1970:217
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2270:27
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2779:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1861:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1683925ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/query/production?query=*%5B_type%3D%3D%22system.release%22+%26%26+_id+in+path%28%22_.releases.*%22%29%5D+%7B%0A++_id%2C%0A++_type%2C%0A++_rev%2C%0A++_createdAt%2C%0A++_updatedAt%2C%0A++state%2C%0A++finalDocumentStates%2C%0A++publishAt%2C%0A++publishedAt%2C%0A++%22metadata%22%3A+coalesce%28metadata%2C+%7B%0A++++%22title%22%3A+%22%22%2C%0A++++%22releaseType%22%3A+%22undecided%22%2C%0A++%7D%29%2C%0A++%2F%2F+Content+Lake+initially+encoded+non-error+states+as+%7Berror%3A+%7Bmessage%3A+%22%22%7D%7D.+This+projection%0A++%2F%2F+ensures+the+error+field+only+appears+if+the+document+has+a+non-empty+error+message.%0A++...select%28%0A++++length%28error.message%29+%3E+0+%3D%3E+%7B+error+%7D%2C%0A++++%7B%7D%0A++%29%2C%0A%7D+%7C+order%28_createdAt+desc%29&returnQuery=false&perspective=raw&tag=sanity.studio.releases.listen:0
+[ 1684153ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1684154ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1693972ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/agent/o9l5QV2Cu/bundles/mine/listen:0
+[ 1693985ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1693986ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1694833ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%29%5D&includeAllVersions=true&visibility=transaction&includeMutations=false&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1694834ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1694976ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%24publishedId%29%5D&%24publishedId=%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22&includeAllVersions=true&visibility=transaction&includeMutations=false&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1694977ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1694978ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.global&query=*&includeAllVersions=true&visibility=query&effectFormat=mendoza&includeMutations=false&lastEventId=6fCNpx7G4GCpNgpiNpAKYy%23_.groups.create-session%40PVosU1n-mkz7JMc:0
+[ 1694978ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1694978ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5Bsanity%3A%3AversionOf%28%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%29%5D&includeAllVersions=true&visibility=transaction&includeMutations=false&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1694978ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1694978ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.listen-search-query&query=*%5B_type+%3D%3D+%24type%5D&%24type=%22booking%22&includeAllVersions=true&visibility=query&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1694978ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1694978ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.document.pair.listen&query=*%5B_id+in+%24ids%5D&%24ids=%5B%2207be5b0e-f78c-4f24-88de-919aefe0fe4b%22%2C%22drafts.07be5b0e-f78c-4f24-88de-919aefe0fe4b%22%5D&includeAllVersions=true&effectFormat=mendoza&enableResume=true&lastEventId=w%23w%40PVpbU1n-b7a5XxZvMSwFWquT3QU:0
+[ 1694979ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1694984ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1694985ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at start (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:934:9)
+    at new EventSourcePolyfill (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:672:9)
+    at http://localhost:3000/_next/static/chunks/node_modules_%40sanity_client_dist_25fb10b8._.js:1983:474
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1862:37
+    at OperatorSubscriber._this._next (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1515:17)
+    at Subscriber.next (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:427:18)
+    at ReplaySubject._subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2436:24)
+    at Observable._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:669:25)
+    at Subject._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:867:47)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:121
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2516:18
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1861:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at Observable._subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2039:223)
+    at Observable._trySubscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:669:25)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:121
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at mergeInternals (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1930:12)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1970:217
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2270:27
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:2779:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1861:16
+    at OperatorSubscriber.<anonymous> (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:1481:28)
+    at http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:663:48
+    at errorContext (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:366:9)
+    at Observable.subscribe (http://localhost:3000/_next/static/chunks/node_modules_rxjs_dist_esm5_internal_1c3867fe._.js:661:201) @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1696008ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1696013ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1696985ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/agent/o9l5QV2Cu/bundles/mine/listen:0
+[ 1698014ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://v453srdz.api.sanity.io/v2025-02-19/data/listen/production?tag=sanity.studio.preview.observe-document-set.listen&query=*%5B_type+%3D%3D+%22sanity.canvas.link%22+%26%26+studioDocumentId+in+%24ids%5D&%24ids=%5B%5D&includeAllVersions=true&visibility=transaction&includeMutations=false:0
+[ 1698015ms] [ERROR] TypeError: Failed to fetch
+    at push.FetchTransport.open (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:499:9)
+    at onTimeout (http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:923:45)
+    at http://localhost:3000/_next/static/chunks/node_modules_80fc8afc._.js:840:21 @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 1876454ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 1876808ms] [LOG] [Fast Refresh] done in 455ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 1879907ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 1880011ms] [LOG] [Fast Refresh] done in 205ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 1895913ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 1904076ms] [LOG] [Fast Refresh] done in 8264ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2044433ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2044483ms] [LOG] [Fast Refresh] done in 151ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2194077ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2194350ms] [LOG] [Fast Refresh] done in 374ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2194587ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2194970ms] [LOG] [Fast Refresh] done in 484ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2195687ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2195734ms] [LOG] [Fast Refresh] done in 148ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2195942ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 2195947ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 2195950ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 2195950ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 2195950ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 2195982ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 2195984ms] [ERROR] TypeError: network error @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
+[ 2197908ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2198012ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2198163ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2198298ms] [LOG] [Fast Refresh] done in 248ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2199719ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2199753ms] [LOG] [Fast Refresh] done in 136ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2200846ms] [WARNING] WebSocket connection to 'wss://v453srdz.api.sanity.io/v2022-06-30/socket/production?tag=sanity.studio' failed: WebSocket is closed before the connection is established. @ http://localhost:3000/_next/static/chunks/node_modules_%40sanity_7892097c._.js:4470
+[ 2224772ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2224932ms] [LOG] [Fast Refresh] done in 172ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2225284ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2225337ms] [LOG] [Fast Refresh] done in 154ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2320514ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2320555ms] [LOG] [Fast Refresh] done in 84ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2320913ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2320953ms] [LOG] [Fast Refresh] done in 143ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2345191ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2345334ms] [LOG] [Fast Refresh] done in 245ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2465077ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2465183ms] [LOG] [Fast Refresh] done in 208ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2465446ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2465479ms] [LOG] [Fast Refresh] done in 133ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2466618ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2466622ms] [LOG] [Fast Refresh] done in 107ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2498913ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2498946ms] [LOG] [Fast Refresh] done in 83ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2499147ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2499239ms] [LOG] [Fast Refresh] done in 193ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2540577ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2543200ms] [LOG] [Fast Refresh] done in 1171ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2567209ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2567539ms] [LOG] [Fast Refresh] done in 397ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2567723ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2567826ms] [LOG] [Fast Refresh] done in 204ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2616628ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2617205ms] [LOG] [Fast Refresh] done in 654ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2617360ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2617391ms] [LOG] [Fast Refresh] done in 132ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2644794ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2645076ms] [LOG] [Fast Refresh] done in 353ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2645199ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2645299ms] [LOG] [Fast Refresh] done in 201ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2683967ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2684012ms] [LOG] [Fast Refresh] done in 128ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2734868ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
+[ 2734976ms] [LOG] [Fast Refresh] done in 191ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297

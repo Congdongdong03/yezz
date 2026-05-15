@@ -1,0 +1,249 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "YEZZ" [ref=e5] [cursor=pointer]:
+          - /url: /en
+        - generic [ref=e6]:
+          - link "Home" [ref=e7] [cursor=pointer]:
+            - /url: /en
+          - link "Projects" [ref=e8] [cursor=pointer]:
+            - /url: /en/projects
+          - link "Parties" [ref=e9] [cursor=pointer]:
+            - /url: /en/parties
+          - link "Gallery" [ref=e10] [cursor=pointer]:
+            - /url: /en/gallery
+          - link "Contact" [ref=e11] [cursor=pointer]:
+            - /url: /en/contact
+        - generic [ref=e12]:
+          - link "中" [ref=e13] [cursor=pointer]:
+            - /url: /zh/projects
+          - button "Open cart" [ref=e14]:
+            - img [ref=e15]
+          - link "Book Now" [ref=e18] [cursor=pointer]:
+            - /url: /en/book
+    - main [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - heading "All Projects" [level=1] [ref=e22]
+          - paragraph [ref=e23]: From handmade crafts to party experiences, find your perfect creative project
+        - button "24" [ref=e27]
+        - generic [ref=e28]:
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - generic [ref=e32]:
+                - img [ref=e33]
+                - heading "DIY / Handmade" [level=2] [ref=e39]
+              - paragraph [ref=e40]: Create beautiful handmade items with your own hands
+            - generic [ref=e41]:
+              - link "Cream Glue Phone Case Cream Glue Phone Case Beginner Friendly Cute Popular ¥68 - ¥128" [ref=e43] [cursor=pointer]:
+                - /url: /en/projects/cream-glue-phone-case
+                - img "Cream Glue Phone Case" [ref=e45]
+                - generic [ref=e46]:
+                  - heading "Cream Glue Phone Case" [level=3] [ref=e47]
+                  - generic [ref=e48]:
+                    - generic [ref=e49]: Beginner Friendly
+                    - generic [ref=e50]: Cute
+                    - generic [ref=e51]: Popular
+                  - paragraph [ref=e52]: ¥68 - ¥128
+              - link "Paint by Numbers Paint by Numbers Relaxing Artistic Beginner Friendly ¥68 - ¥168" [ref=e54] [cursor=pointer]:
+                - /url: /en/projects/paint-by-numbers
+                - img "Paint by Numbers" [ref=e56]
+                - generic [ref=e57]:
+                  - heading "Paint by Numbers" [level=3] [ref=e58]
+                  - generic [ref=e59]:
+                    - generic [ref=e60]: Relaxing
+                    - generic [ref=e61]: Artistic
+                    - generic [ref=e62]: Beginner Friendly
+                  - paragraph [ref=e63]: ¥68 - ¥168
+              - link "Pottery Experience Pottery Experience Hands-on Relaxing Unique ¥158 - ¥228" [ref=e65] [cursor=pointer]:
+                - /url: /en/projects/pottery-experience
+                - img "Pottery Experience" [ref=e67]
+                - generic [ref=e68]:
+                  - heading "Pottery Experience" [level=3] [ref=e69]
+                  - generic [ref=e70]:
+                    - generic [ref=e71]: Hands-on
+                    - generic [ref=e72]: Relaxing
+                    - generic [ref=e73]: Unique
+                  - paragraph [ref=e74]: ¥158 - ¥228
+              - link "Scented Candle Making Scented Candle Making Aromatic Gift-worthy Romantic ¥98 - ¥168" [ref=e76] [cursor=pointer]:
+                - /url: /en/projects/scented-candle
+                - img "Scented Candle Making" [ref=e78]
+                - generic [ref=e79]:
+                  - heading "Scented Candle Making" [level=3] [ref=e80]
+                  - generic [ref=e81]:
+                    - generic [ref=e82]: Aromatic
+                    - generic [ref=e83]: Gift-worthy
+                    - generic [ref=e84]: Romantic
+                  - paragraph [ref=e85]: ¥98 - ¥168
+          - generic [ref=e87]:
+            - generic [ref=e88]:
+              - generic [ref=e89]:
+                - img [ref=e90]
+                - heading "Accessories" [level=2] [ref=e93]
+              - paragraph [ref=e94]: Stylish accessories and charms you can make yourself
+            - generic [ref=e95]:
+              - link "Handmade Earrings Handmade Earrings Wearable Gift Elegant ¥58 - ¥168" [ref=e97] [cursor=pointer]:
+                - /url: /en/projects/handmade-earrings
+                - img "Handmade Earrings" [ref=e99]
+                - generic [ref=e100]:
+                  - heading "Handmade Earrings" [level=3] [ref=e101]
+                  - generic [ref=e102]:
+                    - generic [ref=e103]: Wearable
+                    - generic [ref=e104]: Gift
+                    - generic [ref=e105]: Elegant
+                  - paragraph [ref=e106]: ¥58 - ¥168
+              - link "Beaded Phone Strap Beaded Phone Strap Fashion Portable Trending ¥48 - ¥128" [ref=e108] [cursor=pointer]:
+                - /url: /en/projects/beaded-phone-strap
+                - img "Beaded Phone Strap" [ref=e110]
+                - generic [ref=e111]:
+                  - heading "Beaded Phone Strap" [level=3] [ref=e112]
+                  - generic [ref=e113]:
+                    - generic [ref=e114]: Fashion
+                    - generic [ref=e115]: Portable
+                    - generic [ref=e116]: Trending
+                  - paragraph [ref=e117]: ¥48 - ¥128
+          - generic [ref=e119]:
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - img [ref=e122]
+                - heading "Toys & Blind Box" [level=2] [ref=e125]
+              - paragraph [ref=e126]: Fun toys, blind boxes, and building sets
+            - generic [ref=e127]:
+              - link "Labubu Doll Clothes Labubu Doll Clothes Cute Trending Popular ¥78 - ¥188" [ref=e129] [cursor=pointer]:
+                - /url: /en/projects/labubu-doll-clothes
+                - img "Labubu Doll Clothes" [ref=e131]
+                - generic [ref=e132]:
+                  - heading "Labubu Doll Clothes" [level=3] [ref=e133]
+                  - generic [ref=e134]:
+                    - generic [ref=e135]: Cute
+                    - generic [ref=e136]: Trending
+                    - generic [ref=e137]: Popular
+                  - paragraph [ref=e138]: ¥78 - ¥188
+              - link "LEGO Building LEGO Building Building Fun All Ages ¥128 - ¥298" [ref=e140] [cursor=pointer]:
+                - /url: /en/projects/lego-building
+                - img "LEGO Building" [ref=e142]
+                - generic [ref=e143]:
+                  - heading "LEGO Building" [level=3] [ref=e144]
+                  - generic [ref=e145]:
+                    - generic [ref=e146]: Building
+                    - generic [ref=e147]: Fun
+                    - generic [ref=e148]: All Ages
+                  - paragraph [ref=e149]: ¥128 - ¥298
+              - link "Blind Box Customizing Blind Box Customizing Artistic Unique Trending ¥88 - ¥198" [ref=e151] [cursor=pointer]:
+                - /url: /en/projects/blind-box-custom
+                - img "Blind Box Customizing" [ref=e153]
+                - generic [ref=e154]:
+                  - heading "Blind Box Customizing" [level=3] [ref=e155]
+                  - generic [ref=e156]:
+                    - generic [ref=e157]: Artistic
+                    - generic [ref=e158]: Unique
+                    - generic [ref=e159]: Trending
+                  - paragraph [ref=e160]: ¥88 - ¥198
+          - generic [ref=e162]:
+            - generic [ref=e163]:
+              - generic [ref=e164]:
+                - img [ref=e165]
+                - heading "Events & Parties" [level=2] [ref=e171]
+              - paragraph [ref=e172]: Special events and party experiences
+            - generic [ref=e173]:
+              - link "Birthday Party DIY Birthday Party DIY Party Group Celebration ¥198/person" [ref=e175] [cursor=pointer]:
+                - /url: /en/projects/birthday-party-diy
+                - img "Birthday Party DIY" [ref=e177]
+                - generic [ref=e178]:
+                  - heading "Birthday Party DIY" [level=3] [ref=e179]
+                  - generic [ref=e180]:
+                    - generic [ref=e181]: Party
+                    - generic [ref=e182]: Group
+                    - generic [ref=e183]: Celebration
+                  - paragraph [ref=e184]: ¥198/person
+              - link "Couple Date Night Couple Date Night Romantic Date Special ¥388/couple" [ref=e186] [cursor=pointer]:
+                - /url: /en/projects/couple-date-night
+                - img "Couple Date Night" [ref=e188]
+                - generic [ref=e189]:
+                  - heading "Couple Date Night" [level=3] [ref=e190]
+                  - generic [ref=e191]:
+                    - generic [ref=e192]: Romantic
+                    - generic [ref=e193]: Date
+                    - generic [ref=e194]: Special
+                  - paragraph [ref=e195]: ¥388/couple
+              - link "Kids Creative Workshop Kids Creative Workshop Kids Educational Fun ¥128/child" [ref=e197] [cursor=pointer]:
+                - /url: /en/projects/kids-workshop
+                - img "Kids Creative Workshop" [ref=e199]
+                - generic [ref=e200]:
+                  - heading "Kids Creative Workshop" [level=3] [ref=e201]
+                  - generic [ref=e202]:
+                    - generic [ref=e203]: Kids
+                    - generic [ref=e204]: Educational
+                    - generic [ref=e205]: Fun
+                  - paragraph [ref=e206]: ¥128/child
+          - generic [ref=e208]:
+            - generic [ref=e209]:
+              - generic [ref=e210]:
+                - img [ref=e211]
+                - heading "Others" [level=2] [ref=e214]
+              - paragraph [ref=e215]: More creative experiences
+            - generic [ref=e216]:
+              - link "Resin Accessories Resin Accessories Shiny Unique Gift-worthy ¥68 - ¥158" [ref=e218] [cursor=pointer]:
+                - /url: /en/projects/resin-accessories
+                - img "Resin Accessories" [ref=e220]
+                - generic [ref=e221]:
+                  - heading "Resin Accessories" [level=3] [ref=e222]
+                  - generic [ref=e223]:
+                    - generic [ref=e224]: Shiny
+                    - generic [ref=e225]: Unique
+                    - generic [ref=e226]: Gift-worthy
+                  - paragraph [ref=e227]: ¥68 - ¥158
+              - link "Leather Craft Workshop Leather Craft Workshop Premium Durable Classic ¥138 - ¥258" [ref=e229] [cursor=pointer]:
+                - /url: /en/projects/leather-craft
+                - img "Leather Craft Workshop" [ref=e231]
+                - generic [ref=e232]:
+                  - heading "Leather Craft Workshop" [level=3] [ref=e233]
+                  - generic [ref=e234]:
+                    - generic [ref=e235]: Premium
+                    - generic [ref=e236]: Durable
+                    - generic [ref=e237]: Classic
+                  - paragraph [ref=e238]: ¥138 - ¥258
+              - link "Floral Arrangement Floral Arrangement Elegant Seasonal Relaxing ¥168 - ¥298" [ref=e240] [cursor=pointer]:
+                - /url: /en/projects/floral-arrangement
+                - img "Floral Arrangement" [ref=e242]
+                - generic [ref=e243]:
+                  - heading "Floral Arrangement" [level=3] [ref=e244]
+                  - generic [ref=e245]:
+                    - generic [ref=e246]: Elegant
+                    - generic [ref=e247]: Seasonal
+                    - generic [ref=e248]: Relaxing
+                  - paragraph [ref=e249]: ¥168 - ¥298
+              - link "Squishy Toys Squishy Toys Stress Relief Fun Cute ¥58 - ¥138" [ref=e251] [cursor=pointer]:
+                - /url: /en/projects/squishy-toys
+                - img "Squishy Toys" [ref=e253]
+                - generic [ref=e254]:
+                  - heading "Squishy Toys" [level=3] [ref=e255]
+                  - generic [ref=e256]:
+                    - generic [ref=e257]: Stress Relief
+                    - generic [ref=e258]: Fun
+                    - generic [ref=e259]: Cute
+                  - paragraph [ref=e260]: ¥58 - ¥138
+    - contentinfo [ref=e261]:
+      - generic [ref=e262]:
+        - generic [ref=e263]:
+          - generic [ref=e264]:
+            - heading "YEZZ" [level=3] [ref=e265]
+            - paragraph [ref=e266]: Create your own masterpiece
+          - generic [ref=e267]:
+            - heading "Links" [level=4] [ref=e268]
+            - generic [ref=e269]:
+              - link "Projects" [ref=e270] [cursor=pointer]:
+                - /url: /en/projects
+              - link "Parties" [ref=e271] [cursor=pointer]:
+                - /url: /en/parties
+              - link "Gallery" [ref=e272] [cursor=pointer]:
+                - /url: /en/gallery
+              - link "Book Now" [ref=e273] [cursor=pointer]:
+                - /url: /en/book
+          - generic [ref=e274]:
+            - heading "Contact" [level=4] [ref=e275]
+            - paragraph [ref=e277]: "Email: hello@yezz.studio"
+        - paragraph [ref=e279]: © 2026 YEZZ. All rights reserved.
+  - button "Open Next.js Dev Tools" [ref=e285] [cursor=pointer]:
+    - img [ref=e286]

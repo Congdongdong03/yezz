@@ -1,0 +1,78 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "YEZZ" [ref=e5] [cursor=pointer]:
+          - /url: /zh
+        - generic [ref=e6]:
+          - link "首页" [ref=e7] [cursor=pointer]:
+            - /url: /zh
+          - link "项目" [ref=e8] [cursor=pointer]:
+            - /url: /zh/projects
+          - link "派对" [ref=e9] [cursor=pointer]:
+            - /url: /zh/parties
+          - link "作品" [ref=e10] [cursor=pointer]:
+            - /url: /zh/gallery
+          - link "联系我们" [ref=e11] [cursor=pointer]:
+            - /url: /zh/contact
+        - generic [ref=e12]:
+          - link "EN" [ref=e13] [cursor=pointer]:
+            - /url: /en/projects/labubu-doll-clothes
+          - button "Open cart" [ref=e14]:
+            - img [ref=e15]
+          - link "立即预约" [ref=e18] [cursor=pointer]:
+            - /url: /zh/book
+    - main [ref=e19]:
+      - generic [ref=e21]:
+        - link "← 返回项目列表" [ref=e22] [cursor=pointer]:
+          - /url: /zh/projects
+        - generic [ref=e23]:
+          - generic [ref=e27]:
+            - heading "Labubu 娃衣" [level=1] [ref=e28]
+            - generic [ref=e29]:
+              - generic [ref=e30]: Cute
+              - generic [ref=e31]: Trending
+            - paragraph [ref=e32]: ¥78 - ¥128
+            - paragraph [ref=e33]: "时长: 1.5 - 2 hours"
+            - paragraph [ref=e34]: 为你的 Labubu 玩偶缝制可爱的迷你服装。
+          - generic [ref=e35]:
+            - heading "选择款式" [level=4] [ref=e36]
+            - generic [ref=e37]:
+              - button "粉色连衣裙 粉色连衣裙 ¥78" [ref=e38]:
+                - img "粉色连衣裙" [ref=e40]
+                - paragraph [ref=e41]: 粉色连衣裙
+                - paragraph [ref=e42]: ¥78
+              - button "蓝色背带裤 蓝色背带裤 ¥88" [ref=e43]:
+                - img "蓝色背带裤" [ref=e45]
+                - paragraph [ref=e46]: 蓝色背带裤
+                - paragraph [ref=e47]: ¥88
+              - button "节日限定套装 节日限定套装 ¥128" [ref=e48]:
+                - img "节日限定套装" [ref=e50]
+                - paragraph [ref=e51]: 节日限定套装
+                - paragraph [ref=e52]: ¥128
+          - generic [ref=e53]:
+            - button "加入预选单" [disabled] [ref=e54]
+            - button "立即预约" [disabled] [ref=e55]
+    - contentinfo [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - heading "YEZZ" [level=3] [ref=e60]
+            - paragraph [ref=e61]: 创造属于你的杰作
+          - generic [ref=e62]:
+            - heading "链接" [level=4] [ref=e63]
+            - generic [ref=e64]:
+              - link "项目" [ref=e65] [cursor=pointer]:
+                - /url: /zh/projects
+              - link "派对" [ref=e66] [cursor=pointer]:
+                - /url: /zh/parties
+              - link "作品" [ref=e67] [cursor=pointer]:
+                - /url: /zh/gallery
+              - link "立即预约" [ref=e68] [cursor=pointer]:
+                - /url: /zh/book
+          - generic [ref=e69]:
+            - heading "联系方式" [level=4] [ref=e70]
+            - paragraph [ref=e72]: 邮箱：hello@yezz.studio
+        - paragraph [ref=e74]: © 2026 YEZZ. 版权所有。
+  - button "Open Next.js Dev Tools" [ref=e80] [cursor=pointer]:
+    - img [ref=e81]

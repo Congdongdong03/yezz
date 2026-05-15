@@ -1,0 +1,89 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "YEZZ" [ref=e5] [cursor=pointer]:
+          - /url: /zh
+        - generic [ref=e6]:
+          - link "首页" [ref=e7] [cursor=pointer]:
+            - /url: /zh
+          - link "项目" [ref=e8] [cursor=pointer]:
+            - /url: /zh/projects
+          - link "派对" [ref=e9] [cursor=pointer]:
+            - /url: /zh/parties
+          - link "作品" [ref=e10] [cursor=pointer]:
+            - /url: /zh/gallery
+          - link "联系我们" [ref=e11] [cursor=pointer]:
+            - /url: /zh/contact
+        - generic [ref=e12]:
+          - link "EN" [ref=e13] [cursor=pointer]:
+            - /url: /en/parties
+          - link "立即预约" [ref=e14] [cursor=pointer]:
+            - /url: /zh/book
+    - main [ref=e15]:
+      - generic [ref=e16]:
+        - heading "Party Packages" [level=1] [ref=e17]
+        - paragraph [ref=e18]: Perfect for birthdays, dates, and group gatherings
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - img "生日派对套餐" [ref=e22]
+            - generic [ref=e23]:
+              - heading "生日派对套餐" [level=2] [ref=e24]
+              - paragraph [ref=e25]: 与亲友共度难忘的生日体验。从多种 DIY 项目中选择，享受专为您装饰的私人派对空间。
+              - list [ref=e26]:
+                - listitem [ref=e27]:
+                  - generic [ref=e28]: ✓
+                  - text: 3 小时私人工作室空间
+                - listitem [ref=e29]:
+                  - generic [ref=e30]: ✓
+                  - text: 生日主题装饰
+                - listitem [ref=e31]:
+                  - generic [ref=e32]: ✓
+                  - text: 每位客人一份 DIY 项目
+                - listitem [ref=e33]:
+                  - generic [ref=e34]: ✓
+                  - text: 免费饮品和小食
+              - paragraph [ref=e35]: From ¥198/person
+          - generic [ref=e36]:
+            - img "情侣约会套餐" [ref=e38]
+            - generic [ref=e39]:
+              - heading "情侣约会套餐" [level=2] [ref=e40]
+              - paragraph [ref=e41]: 一起创作的浪漫夜晚。适合纪念日、初次约会，或与特别的人共度美好时光。
+              - list [ref=e42]:
+                - listitem [ref=e43]:
+                  - generic [ref=e44]: ✓
+                  - text: 情侣 DIY 项目
+                - listitem [ref=e45]:
+                  - generic [ref=e46]: ✓
+                  - text: 浪漫氛围灯光
+                - listitem [ref=e47]:
+                  - generic [ref=e48]: ✓
+                  - text: 拍照打卡角
+                - listitem [ref=e49]:
+                  - generic [ref=e50]: ✓
+                  - text: 精美带回家包装
+              - paragraph [ref=e51]: From ¥388/couple
+    - contentinfo [ref=e52]:
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - heading "YEZZ" [level=3] [ref=e56]
+            - paragraph [ref=e57]: Create your own masterpiece
+          - generic [ref=e58]:
+            - heading "Links" [level=4] [ref=e59]
+            - generic [ref=e60]:
+              - link "Projects" [ref=e61] [cursor=pointer]:
+                - /url: /zh/projects
+              - link "Parties" [ref=e62] [cursor=pointer]:
+                - /url: /zh/parties
+              - link "Gallery" [ref=e63] [cursor=pointer]:
+                - /url: /zh/gallery
+              - link "Book Now" [ref=e64] [cursor=pointer]:
+                - /url: /zh/book
+          - generic [ref=e65]:
+            - heading "Contact" [level=4] [ref=e66]
+            - paragraph [ref=e68]: "Email: hello@yezz.studio"
+        - paragraph [ref=e70]: © 2026 YEZZ. 版权所有。
+  - button "Open Next.js Dev Tools" [ref=e76] [cursor=pointer]:
+    - img [ref=e77]
+  - alert [ref=e80]

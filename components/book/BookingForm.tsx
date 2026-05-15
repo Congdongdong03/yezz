@@ -4,25 +4,32 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 import { submitBooking } from "@/lib/actions/booking";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  phone: z.string().min(1, "Phone is required"),
-  wechat: z.string().optional(),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
-  preferredDate: z.string().optional(),
-  numberOfPeople: z.string().optional(),
-  activityType: z.string().optional(),
-  interestedProject: z.string().optional(),
-  message: z.string().optional(),
-});
-
-type FormData = z.infer<typeof formSchema>;
-
 export default function BookingForm() {
+  const t = useTranslations("bookingForm");
+  const b = useTranslations("book");
+
+  const formSchema = z.object({
+    name: z.string().min(1, t("nameRequired")),
+    phone: z.string().min(1, t("phoneRequired")),
+    wechat: z.string().optional(),
+    email: z.string().email(t("emailInvalid")).optional().or(z.literal("")),
+    preferredDate: z.string().optional(),
+    numberOfPeople: z.string().optional(),
+    activityType: z.string().optional(),
+    interestedProject: z.string().optional(),
+    message: z.string().optional(),
+  });
+
+  type FormData = z.infer<typeof formSchema>;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [result, setResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   const {
     register,
@@ -43,10 +50,10 @@ export default function BookingForm() {
     const response = await submitBooking(formData);
 
     if (response.success) {
-      setResult({ success: true, message: "Thank you! We'll contact you soon to confirm your booking." });
+      setResult({ success: true, message: b("confirmMessage") });
       reset();
     } else {
-      setResult({ success: false, message: "Something went wrong. Please try again or contact us directly." });
+      setResult({ success: false, message: b("errorMessage") });
     }
     setIsSubmitting(false);
   };
@@ -54,7 +61,9 @@ export default function BookingForm() {
   if (result?.success) {
     return (
       <div className="rounded-2xl bg-sage/20 p-8 text-center">
-        <h3 className="text-xl font-serif font-bold text-warm-charcoal">Thank You!</h3>
+        <h3 className="font-serif text-xl font-bold text-warm-charcoal">
+          {b("thankYou")}
+        </h3>
         <p className="mt-2 text-warm-grey">{result.message}</p>
       </div>
     );
@@ -63,46 +72,64 @@ export default function BookingForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-warm-charcoal">Name *</label>
+        <label className="block text-sm font-medium text-warm-charcoal">
+          {t("name")} *
+        </label>
         <input
           {...register("name")}
           className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
         />
-        {errors.name && <p className="mt-1 text-sm text-red-500">{errors.name.message}</p>}
+        {errors.name && (
+          <p className="mt-1 text-sm text-red-500">{errors.name.message}</p>
+        )}
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-warm-charcoal">Phone *</label>
+        <label className="block text-sm font-medium text-warm-charcoal">
+          {t("phone")} *
+        </label>
         <input
           {...register("phone")}
           type="tel"
           className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
         />
-        {errors.phone && <p className="mt-1 text-sm text-red-500">{errors.phone.message}</p>}
+        {errors.phone && (
+          <p className="mt-1 text-sm text-red-500">{errors.phone.message}</p>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-warm-charcoal">WeChat ID</label>
+          <label className="block text-sm font-medium text-warm-charcoal">
+            {t("wechat")}
+          </label>
           <input
             {...register("wechat")}
             className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-warm-charcoal">Email</label>
+          <label className="block text-sm font-medium text-warm-charcoal">
+            {t("email")}
+          </label>
           <input
             {...register("email")}
             type="email"
             className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
           />
-          {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>}
+          {errors.email && (
+            <p className="mt-1 text-sm text-red-500">
+              {errors.email.message}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-warm-charcoal">Preferred Date</label>
+          <label className="block text-sm font-medium text-warm-charcoal">
+            {t("preferredDate")}
+          </label>
           <input
             {...register("preferredDate")}
             type="date"
@@ -110,7 +137,9 @@ export default function BookingForm() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-warm-charcoal">Number of People</label>
+          <label className="block text-sm font-medium text-warm-charcoal">
+            {t("numberOfPeople")}
+          </label>
           <input
             {...register("numberOfPeople")}
             type="number"
@@ -122,21 +151,25 @@ export default function BookingForm() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-warm-charcoal">Activity Type</label>
+          <label className="block text-sm font-medium text-warm-charcoal">
+            {t("activityType")}
+          </label>
           <select
             {...register("activityType")}
             className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
           >
-            <option value="">Select...</option>
-            <option value="date">Date Night</option>
-            <option value="birthday">Birthday Party</option>
-            <option value="friends">Friends Gathering</option>
-            <option value="kids">Kids Activity</option>
-            <option value="mobile">Mobile Party</option>
+            <option value="">{t("activitySelect")}</option>
+            <option value="date">{t("activityDate")}</option>
+            <option value="birthday">{t("activityBirthday")}</option>
+            <option value="friends">{t("activityFriends")}</option>
+            <option value="kids">{t("activityKids")}</option>
+            <option value="mobile">{t("activityMobile")}</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-warm-charcoal">Interested Project</label>
+          <label className="block text-sm font-medium text-warm-charcoal">
+            {t("interestedProject")}
+          </label>
           <input
             {...register("interestedProject")}
             className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
@@ -145,7 +178,9 @@ export default function BookingForm() {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-warm-charcoal">Message / Special Requests</label>
+        <label className="block text-sm font-medium text-warm-charcoal">
+          {t("message")}
+        </label>
         <textarea
           {...register("message")}
           rows={4}
@@ -162,7 +197,7 @@ export default function BookingForm() {
         disabled={isSubmitting}
         className="w-full rounded-full bg-caramel py-3 font-medium text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
       >
-        {isSubmitting ? "Submitting..." : "Book Now"}
+        {isSubmitting ? b("submitting") : b("submit")}
       </button>
     </form>
   );

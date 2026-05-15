@@ -1,0 +1,54 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "YEZZ" [ref=e5] [cursor=pointer]:
+          - /url: /en
+        - generic [ref=e6]:
+          - link "Home" [ref=e7] [cursor=pointer]:
+            - /url: /en
+          - link "Projects" [ref=e8] [cursor=pointer]:
+            - /url: /en/projects
+          - link "Parties" [ref=e9] [cursor=pointer]:
+            - /url: /en/parties
+          - link "Gallery" [ref=e10] [cursor=pointer]:
+            - /url: /en/gallery
+          - link "Contact" [ref=e11] [cursor=pointer]:
+            - /url: /en/contact
+        - generic [ref=e12]:
+          - link "中" [ref=e13] [cursor=pointer]:
+            - /url: /zh/projects
+          - button "Open cart" [ref=e14]:
+            - img [ref=e15]
+          - link "Book Now" [ref=e18] [cursor=pointer]:
+            - /url: /en/book
+    - main [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - heading "All Projects" [level=1] [ref=e22]
+          - paragraph [ref=e23]: From handmade crafts to party experiences, find your perfect creative project
+        - button "24" [ref=e27]
+    - contentinfo [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - heading "YEZZ" [level=3] [ref=e32]
+            - paragraph [ref=e33]: Create your own masterpiece
+          - generic [ref=e34]:
+            - heading "Links" [level=4] [ref=e35]
+            - generic [ref=e36]:
+              - link "Projects" [ref=e37] [cursor=pointer]:
+                - /url: /en/projects
+              - link "Parties" [ref=e38] [cursor=pointer]:
+                - /url: /en/parties
+              - link "Gallery" [ref=e39] [cursor=pointer]:
+                - /url: /en/gallery
+              - link "Book Now" [ref=e40] [cursor=pointer]:
+                - /url: /en/book
+          - generic [ref=e41]:
+            - heading "Contact" [level=4] [ref=e42]
+            - paragraph [ref=e44]: "Email: hello@yezz.studio"
+        - paragraph [ref=e46]: © 2026 YEZZ. All rights reserved.
+  - button "Open Next.js Dev Tools" [ref=e52] [cursor=pointer]:
+    - img [ref=e53]
+  - alert [ref=e56]

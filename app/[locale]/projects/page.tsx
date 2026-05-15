@@ -29,12 +29,12 @@ export default async function ProjectsPage({
   if (!categories || categories.length === 0) categories = mockCategories;
 
   // Sort categories by order field
-  const sortedCategories = [...categories].sort(
+  let displayCategories = [...categories].sort(
     (a, b) => (a.order ?? 0) - (b.order ?? 0)
   );
 
   // Group projects by category slug
-  let grouped = sortedCategories
+  let grouped = displayCategories
     .map((cat) => ({
       category: cat,
       projects: projects.filter(
@@ -46,7 +46,11 @@ export default async function ProjectsPage({
   // Fallback to mock data if Sanity returned empty or broken categories
   if (grouped.length === 0) {
     const fallbackProjects = mockProjects;
-    grouped = sortedCategories
+    const fallbackCategories = mockCategories;
+    displayCategories = [...fallbackCategories].sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0)
+    );
+    grouped = displayCategories
       .map((cat) => ({
         category: cat,
         projects: fallbackProjects.filter(
@@ -65,7 +69,7 @@ export default async function ProjectsPage({
         <p className="mt-4 text-warm-grey">{t("subtitle")}</p>
       </div>
 
-      <CategoryNav categories={sortedCategories} />
+      <CategoryNav categories={displayCategories} />
 
       <div className="divide-y divide-warm-grey/10">
         {grouped.map(({ category, projects }) => (
