@@ -22,6 +22,10 @@ export const routing = defineRouting({
       en: "/book",
       zh: "/book",
     },
+    "/cart": {
+      en: "/cart",
+      zh: "/cart",
+    },
     "/contact": {
       en: "/contact",
       zh: "/contact",

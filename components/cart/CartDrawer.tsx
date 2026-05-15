@@ -95,7 +95,7 @@ export default function CartDrawer() {
             {items.length > 0 && (
               <div className="border-t border-warm-grey/10 px-6 py-4">
                 <Link
-                  href="/book"
+                  href="/cart"
                   onClick={() => setIsOpen(false)}
                   className="block w-full rounded-full bg-caramel py-3 text-center text-sm font-medium text-white transition-transform hover:-translate-y-0.5"
                 >
