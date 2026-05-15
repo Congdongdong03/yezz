@@ -1,0 +1,173 @@
+"use client";
+
+import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import Image from "next/image";
+import { motion } from "framer-motion";
+import { useCart } from "@/lib/cart/context";
+import { submitCart } from "@/lib/actions/cart";
+
+export default function CartPage() {
+  const locale = useLocale();
+  const t = useTranslations("cart");
+  const { items, clearItems } = useCart();
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [wechat, setWechat] = useState("");
+  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+
+  if (items.length === 0 && status !== "success") {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
+        <p className="text-warm-grey">{t("empty")}</p>
+      </div>
+    );
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !phone) return;
+    setStatus("submitting");
+
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("phone", phone);
+    formData.append("wechat", wechat);
+    formData.append("message", message);
+    formData.append("items", JSON.stringify(items));
+
+    const result = await submitCart(formData);
+    if (result.success) {
+      setStatus("success");
+      clearItems();
+    } else {
+      setStatus("error");
+    }
+  };
+
+  if (status === "success") {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <h2 className="font-serif text-2xl font-bold text-warm-charcoal">
+            {t("thankYou")}
+          </h2>
+          <p className="mt-2 text-warm-grey">{t("confirmMessage")}</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-cream py-12">
+      <div className="mx-auto max-w-2xl px-4">
+        <h1 className="font-serif text-2xl font-bold text-warm-charcoal">
+          {t("checkoutTitle")}
+        </h1>
+
+        {/* Items review */}
+        <div className="mt-6 space-y-4">
+          {items.map((item) => (
+            <div
+              key={item.projectId}
+              className="flex gap-4 rounded-xl bg-white p-4 shadow-sm"
+            >
+              {item.imageUrl && (
+                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg">
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.projectName[locale as "en" | "zh"]}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
+              <div>
+                <p className="font-medium text-warm-charcoal">
+                  {item.projectName[locale as "en" | "zh"]}
+                </p>
+                {item.styleName && (
+                  <p className="text-sm text-warm-grey">
+                    {item.styleName[locale as "en" | "zh"]}
+                  </p>
+                )}
+                {item.date && (
+                  <p className="text-sm text-warm-grey">
+                    {item.date} · {item.people} {t("people")}
+                  </p>
+                )}
+                {item.price && <p className="text-sm text-caramel">{item.price}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-warm-charcoal">
+              {t("name")} *
+            </label>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-warm-charcoal">
+              {t("phone")} *
+            </label>
+            <input
+              required
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-warm-charcoal">
+              {t("wechat")}
+            </label>
+            <input
+              value={wechat}
+              onChange={(e) => setWechat(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-warm-charcoal">
+              {t("note")}
+            </label>
+            <textarea
+              rows={3}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+            />
+          </div>
+
+          {status === "error" && (
+            <p className="text-sm text-red-500">{t("error")}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={status === "submitting"}
+            className="w-full rounded-full bg-caramel py-3 text-sm font-medium text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+          >
+            {status === "submitting" ? t("submitting") : t("confirmSubmit")}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
