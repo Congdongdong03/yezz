@@ -15,12 +15,12 @@ export default function CartDrawer() {
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-50 overflow-hidden">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/30"
+            className="absolute inset-0 bg-black/30"
             onClick={() => setIsOpen(false)}
           />
           <motion.div
@@ -28,7 +28,7 @@ export default function CartDrawer() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "tween", duration: 0.3 }}
-            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-cream shadow-xl"
+            className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-cream shadow-xl"
           >
             <div className="flex items-center justify-between border-b border-warm-grey/10 px-6 py-4">
               <h2 className="font-serif text-lg font-bold text-warm-charcoal">
@@ -104,7 +104,7 @@ export default function CartDrawer() {
               </div>
             )}
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );

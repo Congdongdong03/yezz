@@ -18,7 +18,7 @@ export default function StoreVibes({ storeImage }: StoreVibesProps) {
   const locale = useLocale();
 
   return (
-    <section className="py-20 bg-white">
+    <section className="py-20 bg-white overflow-hidden">
       <div className="mx-auto max-w-7xl px-4">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <motion.div

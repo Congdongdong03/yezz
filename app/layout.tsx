@@ -27,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html className={`${inter.variable} ${notoSerifSC.variable}`}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased overflow-x-hidden">{children}</body>
     </html>
   );
 }

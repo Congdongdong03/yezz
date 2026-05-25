@@ -30,7 +30,8 @@
       "Read(//private/tmp/**)",
       "Bash(pkill -9 -f \"playwright\")",
       "Bash(pkill -9 -f \"chrome\")",
-      "Bash(rm -rf ~/Library/Caches/ms-playwright/mcp-chrome-*)"
+      "Bash(rm -rf ~/Library/Caches/ms-playwright/mcp-chrome-*)",
+      "Bash(git -C /Users/wesley/Desktop/yezz log --oneline -30)"
     ]
   }
 }
