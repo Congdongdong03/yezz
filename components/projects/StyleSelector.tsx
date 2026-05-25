@@ -44,6 +44,7 @@ export default function StyleSelector({ styles, selected, onSelect }: StyleSelec
                     src={style.imageUrl}
                     alt={style.name[locale as "en" | "zh"]}
                     fill
+                    sizes="(max-width: 640px) 33vw, (max-width: 896px) 25vw, 150px"
                     className="object-cover"
                   />
                 </div>

@@ -33,6 +33,7 @@ export default function StoreVibes({ storeImage }: StoreVibesProps) {
                 src={storeImage.imageUrl}
                 alt={storeImage.caption?.[locale as "en" | "zh"] || "YEZZ Studio"}
                 fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover"
               />
             ) : (

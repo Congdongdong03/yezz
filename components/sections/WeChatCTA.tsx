@@ -53,7 +53,7 @@ export default function WeChatCTA({ wechatId }: { wechatId?: string }) {
               ) : (
                 <MessageCircle className="h-5 w-5" />
               )}
-              {copied ? "Copied!" : t("wechat")}
+              {copied ? t("copied") : t("wechat")}
             </button>
             <Link
               href="/book"

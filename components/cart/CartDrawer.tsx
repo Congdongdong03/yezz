@@ -58,6 +58,7 @@ export default function CartDrawer() {
                             src={item.imageUrl}
                             alt={item.projectName[locale as "en" | "zh"]}
                             fill
+                            sizes="64px"
                             className="object-cover"
                           />
                         </div>

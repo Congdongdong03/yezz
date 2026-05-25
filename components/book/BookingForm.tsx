@@ -77,7 +77,7 @@ export default function BookingForm() {
         </label>
         <input
           {...register("name")}
-          className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
+          className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
         />
         {errors.name && (
           <p className="mt-1 text-sm text-red-500">{errors.name.message}</p>
@@ -91,7 +91,7 @@ export default function BookingForm() {
         <input
           {...register("phone")}
           type="tel"
-          className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
+          className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
         />
         {errors.phone && (
           <p className="mt-1 text-sm text-red-500">{errors.phone.message}</p>
@@ -105,7 +105,7 @@ export default function BookingForm() {
           </label>
           <input
             {...register("wechat")}
-            className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           />
         </div>
         <div>
@@ -115,7 +115,7 @@ export default function BookingForm() {
           <input
             {...register("email")}
             type="email"
-            className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           />
           {errors.email && (
             <p className="mt-1 text-sm text-red-500">
@@ -133,7 +133,7 @@ export default function BookingForm() {
           <input
             {...register("preferredDate")}
             type="date"
-            className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           />
         </div>
         <div>
@@ -144,7 +144,7 @@ export default function BookingForm() {
             {...register("numberOfPeople")}
             type="number"
             min="1"
-            className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           />
         </div>
       </div>
@@ -156,7 +156,7 @@ export default function BookingForm() {
           </label>
           <select
             {...register("activityType")}
-            className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           >
             <option value="">{t("activitySelect")}</option>
             <option value="date">{t("activityDate")}</option>
@@ -172,7 +172,7 @@ export default function BookingForm() {
           </label>
           <input
             {...register("interestedProject")}
-            className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           />
         </div>
       </div>
@@ -184,7 +184,7 @@ export default function BookingForm() {
         <textarea
           {...register("message")}
           rows={4}
-          className="mt-1 w-full rounded-lg border border-border px-4 py-2 focus:border-caramel focus:outline-none"
+          className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
         />
       </div>
 
@@ -195,7 +195,7 @@ export default function BookingForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-full bg-caramel py-3 font-medium text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+        className="w-full rounded-full bg-caramel py-3 text-sm font-medium text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
       >
         {isSubmitting ? b("submitting") : b("submit")}
       </button>

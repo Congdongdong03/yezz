@@ -72,7 +72,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
                 key={i}
                 className={`relative overflow-hidden rounded-xl ${i === 0 ? "aspect-[4/3] sm:col-span-2" : "aspect-square"}`}
               >
-                <Image src={img} alt="" fill className="object-cover" />
+                <Image src={img} alt="" fill sizes="(max-width: 640px) 100vw, (max-width: 896px) 50vw, 450px" className="object-cover" />
               </div>
             ))}
           </div>

@@ -78,6 +78,7 @@ export default async function ContactPage() {
                     src={settings.wechatQrCodeUrl}
                     alt="WeChat QR Code"
                     fill
+                    sizes="160px"
                     className="object-contain"
                   />
                 </div>

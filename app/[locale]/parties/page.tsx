@@ -60,11 +60,14 @@ export default async function PartiesPage({
                     src={party.imageUrl}
                     alt={party.name[locale]}
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="rounded-xl object-cover"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center rounded-xl bg-muted">
-                    <span>No image</span>
+                    <span>
+                      {locale === "zh" ? "暂无图片" : "No image"}
+                    </span>
                   </div>
                 )}
               </div>

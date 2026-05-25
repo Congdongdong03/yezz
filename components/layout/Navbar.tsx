@@ -35,7 +35,13 @@ export default function Navbar() {
               key={link.href}
               href={link.href as "/" | "/projects" | "/parties" | "/gallery" | "/contact"}
               className={`text-sm font-medium transition-colors hover:text-caramel ${
-                pathname === link.href ? "text-caramel" : "text-warm-charcoal"
+                link.href === "/"
+                  ? pathname === "/"
+                    ? "text-caramel"
+                    : "text-warm-charcoal"
+                  : pathname.startsWith(link.href)
+                    ? "text-caramel"
+                    : "text-warm-charcoal"
               }`}
             >
               {t(link.key as "home" | "projects" | "parties" | "gallery" | "contact")}

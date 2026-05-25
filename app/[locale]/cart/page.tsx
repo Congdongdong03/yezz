@@ -84,6 +84,7 @@ export default function CartPage() {
                     src={item.imageUrl}
                     alt={item.projectName[locale as "en" | "zh"]}
                     fill
+                    sizes="80px"
                     className="object-cover"
                   />
                 </div>

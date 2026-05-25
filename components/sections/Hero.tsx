@@ -15,6 +15,7 @@ export default function Hero({ heroImageUrl }: { heroImageUrl?: string }) {
           src={heroImageUrl}
           alt="YEZZ Studio"
           fill
+          sizes="100vw"
           className="object-cover"
           priority
         />
