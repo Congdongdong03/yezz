@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { useLocale } from "next-intl";
 
@@ -22,7 +23,7 @@ export default function ProjectCard({ project, locale }: ProjectCardProps) {
   const href = slug ? `/${currentLocale}/projects/${slug}` : `/${currentLocale}/projects`;
 
   return (
-    <a
+    <Link
       href={href}
       className="group block cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md"
     >
@@ -36,7 +37,9 @@ export default function ProjectCard({ project, locale }: ProjectCardProps) {
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-muted">
-            <span className="text-muted-foreground">No image</span>
+            <span className="text-muted-foreground">
+              {locale === "zh" ? "暂无图片" : "No image"}
+            </span>
           </div>
         )}
       </div>
@@ -58,6 +61,6 @@ export default function ProjectCard({ project, locale }: ProjectCardProps) {
           <p className="mt-2 text-sm text-caramel">{project.priceRange}</p>
         )}
       </div>
-    </a>
+    </Link>
   );
 }

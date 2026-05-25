@@ -67,7 +67,9 @@ export default function PartyPackagesPreview({ packages }: PartyPackagesPreviewP
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center bg-muted">
-                    <span className="text-muted-foreground">No image</span>
+                    <span className="text-muted-foreground">
+                      {locale === "zh" ? "暂无图片" : "No image"}
+                    </span>
                   </div>
                 )}
               </div>
