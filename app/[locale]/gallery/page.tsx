@@ -3,6 +3,14 @@ import { galleryQuery } from "@/lib/sanity/queries";
 import { mockGalleryImages } from "@/lib/sanity/mock-data";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
+import type { Metadata } from "next";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "Gallery | YEZZ",
+    description: "Browse our community's creations — from handmade gifts to party moments. Get inspired at YEZZ DIY Studio.",
+  };
+}
 
 export default async function GalleryPage() {
   const t = await getTranslations("gallery");

@@ -3,6 +3,14 @@ import { partiesQuery } from "@/lib/sanity/queries";
 import { mockParties } from "@/lib/sanity/mock-data";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
+import type { Metadata } from "next";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "Party Packages | YEZZ",
+    description: "Birthday parties, couple date nights, corporate team building — book your private DIY party at YEZZ.",
+  };
+}
 
 export default async function PartiesPage({
   params,

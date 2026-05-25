@@ -6,6 +6,7 @@ import { CartProvider } from "@/lib/cart/context";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/cart/CartDrawer";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 export default async function LocaleLayout({
   children,
@@ -27,7 +28,9 @@ export default async function LocaleLayout({
       <CartProvider>
         <div className="flex min-h-screen flex-col">
           <Navbar />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1">
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </main>
           <Footer />
           <CartDrawer />
         </div>

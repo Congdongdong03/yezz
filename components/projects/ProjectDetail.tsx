@@ -13,7 +13,8 @@ interface ProjectDetailProps {
   locale: string;
 }
 
-export default function ProjectDetail({ project, locale }: ProjectDetailProps) {
+export default function ProjectDetail({ project, locale: _locale }: ProjectDetailProps) {
+  void _locale;
   const pageLocale = useLocale();
   const t = useTranslations("projectDetail");
   const cartT = useTranslations("cart");

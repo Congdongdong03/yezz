@@ -23,12 +23,8 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => getCart());
   const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    setItems(getCart());
-  }, []);
 
   useEffect(() => {
     setCart(items);

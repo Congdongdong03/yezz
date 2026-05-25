@@ -1,5 +1,13 @@
 import { getTranslations } from "next-intl/server";
 import BookingForm from "@/components/book/BookingForm";
+import type { Metadata } from "next";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "Book Your Experience | YEZZ",
+    description: "Reserve your DIY experience at YEZZ. Perfect for dates, birthdays, and gatherings.",
+  };
+}
 
 export default async function BookPage() {
   const t = await getTranslations("book");

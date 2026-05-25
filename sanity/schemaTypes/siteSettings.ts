@@ -32,6 +32,12 @@ export const siteSettings = defineType({
       type: "string",
     }),
     defineField({
+      name: "wechatId",
+      title: "WeChat ID",
+      type: "string",
+      description: "微信号码，如 yezz_studio",
+    }),
+    defineField({
       name: "wechatQrCode",
       title: "WeChat QR Code",
       type: "image",
@@ -55,6 +61,13 @@ export const siteSettings = defineType({
       name: "seoTitle",
       title: "SEO Title",
       type: "string",
+    }),
+    defineField({
+      name: "heroImage",
+      title: "Hero Image",
+      type: "image",
+      description: "首页首屏大图，建议 1920x1080",
+      options: { hotspot: true },
     }),
     defineField({
       name: "seoDescription",

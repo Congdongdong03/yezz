@@ -1,7 +1,22 @@
+import { notFound } from "next/navigation";
 import { client } from "@/lib/sanity/client";
 import { projectDetailQuery } from "@/lib/sanity/queries";
 import { mockProjects } from "@/lib/sanity/mock-data";
 import ProjectDetail from "@/components/projects/ProjectDetail";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const name = slug.replace(/-/g, " ");
+  return {
+    title: `${name.charAt(0).toUpperCase() + name.slice(1)} | YEZZ`,
+    description: `Learn more about this DIY project at YEZZ Studio. Book your experience today.`,
+  };
+}
 
 export default async function ProjectDetailPage({
   params,
@@ -22,11 +37,7 @@ export default async function ProjectDetailPage({
   }
 
   if (!project) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-warm-grey">Project not found</p>
-      </div>
-    );
+    notFound();
   }
 
   return <ProjectDetail project={project} locale={locale} />;

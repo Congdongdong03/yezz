@@ -4,6 +4,7 @@ import {
   featuredPartiesQuery,
   galleryHighlightQuery,
   storeVibesQuery,
+  siteSettingsQuery,
 } from "@/lib/sanity/queries";
 import {
   mockProjects,
@@ -19,6 +20,14 @@ import PartyPackagesPreview from "@/components/sections/PartyPackagesPreview";
 import GalleryHighlight from "@/components/sections/GalleryHighlight";
 import StoreVibes from "@/components/sections/StoreVibes";
 import WeChatCTA from "@/components/sections/WeChatCTA";
+import type { Metadata } from "next";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "YEZZ DIY Studio — Create Your Own Masterpiece",
+    description: "A cozy DIY studio for dates, birthdays, and gatherings. Book your creative experience today.",
+  };
+}
 
 export default async function HomePage({
   params,
@@ -32,13 +41,15 @@ export default async function HomePage({
   let parties: unknown[] = [];
   let galleryImages: unknown[] = [];
   let storeImage: unknown = null;
+  let siteSettings: { wechatId?: string; heroImageUrl?: string } | null = null;
 
   try {
-    [projects, parties, galleryImages, storeImage] = await Promise.all([
+    [projects, parties, galleryImages, storeImage, siteSettings] = await Promise.all([
       client.fetch(featuredProjectsQuery),
       client.fetch(featuredPartiesQuery),
       client.fetch(galleryHighlightQuery),
       client.fetch(storeVibesQuery),
+      client.fetch(siteSettingsQuery),
     ]);
   } catch {
     // Sanity unreachable — will fall through to empty checks below
@@ -53,14 +64,14 @@ export default async function HomePage({
 
   return (
     <>
-      <Hero />
+      <Hero heroImageUrl={siteSettings?.heroImageUrl} />
       <SceneEntry />
       <FeaturedProjects projects={(projects as any[]) || []} />
       <WhyDIY />
       <PartyPackagesPreview packages={(parties as any[]) || []} />
       <GalleryHighlight images={(galleryImages as any[]) || []} />
       <StoreVibes storeImage={(storeImage as any) || null} />
-      <WeChatCTA />
+      <WeChatCTA wechatId={siteSettings?.wechatId} />
     </>
   );
 }

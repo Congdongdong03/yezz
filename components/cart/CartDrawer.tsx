@@ -92,8 +92,9 @@ export default function CartDrawer() {
               )}
             </div>
 
+
             {items.length > 0 && (
-              <div className="border-t border-warm-grey/10 px-6 py-4">
+              <div className="border-t border-warm-grey/10 px-6 py-4" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}>
                 <Link
                   href="/cart"
                   onClick={() => setIsOpen(false)}

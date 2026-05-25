@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Link } from "@/i18n/routing";
+import { useLocale } from "next-intl";
 
 interface ProjectCardProps {
   project: {
@@ -17,12 +17,15 @@ interface ProjectCardProps {
 }
 
 export default function ProjectCard({ project, locale }: ProjectCardProps) {
-  const href = project.slug?.current
-    ? `/projects/${project.slug.current}`
-    : "#";
+  const currentLocale = useLocale();
+  const slug = project.slug?.current;
+  const href = slug ? `/${currentLocale}/projects/${slug}` : `/${currentLocale}/projects`;
 
   return (
-    <Link href={href as any} className="group block cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md">
+    <a
+      href={href}
+      className="group block cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md"
+    >
       <div className="relative aspect-[4/3] overflow-hidden">
         {project.imageUrl ? (
           <Image
@@ -55,6 +58,6 @@ export default function ProjectCard({ project, locale }: ProjectCardProps) {
           <p className="mt-2 text-sm text-caramel">{project.priceRange}</p>
         )}
       </div>
-    </Link>
+    </a>
   );
 }

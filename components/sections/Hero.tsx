@@ -3,13 +3,25 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
-export default function Hero() {
+export default function Hero({ heroImageUrl }: { heroImageUrl?: string }) {
   const t = useTranslations("hero");
 
   return (
     <section className="relative flex min-h-[80vh] items-center justify-center overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-cream via-cream to-soft-pink/20" />
+      {heroImageUrl ? (
+        <Image
+          src={heroImageUrl}
+          alt="YEZZ Studio"
+          fill
+          className="object-cover"
+          priority
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-cream via-cream to-soft-pink/20" />
+      )}
+      <div className="absolute inset-0 bg-cream/40" />
       <div className="relative z-10 mx-auto max-w-4xl px-4 text-center">
         <motion.h1
           initial={{ opacity: 0, y: 20 }}

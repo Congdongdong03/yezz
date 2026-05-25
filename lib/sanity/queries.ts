@@ -40,7 +40,21 @@ export const galleryQuery = `*[_type == "galleryImage"] | order(order asc) {
   order
 }`;
 
-export const siteSettingsQuery = `*[_type == "siteSettings"][0]`;
+export const siteSettingsQuery = `*[_type == "siteSettings"][0]{
+  storeName,
+  address,
+  businessHours,
+  phone,
+  email,
+  wechatId,
+  "wechatQrCodeUrl": wechatQrCode.asset->url,
+  instagram,
+  xiaohongshu,
+  googleMapUrl,
+  "heroImageUrl": heroImage.asset->url,
+  seoTitle,
+  seoDescription
+}`;
 
 export const featuredProjectsQuery = `*[_type == "diyProject"] | order(order asc) [0...4] {
   _id,

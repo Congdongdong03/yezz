@@ -4,13 +4,22 @@ import { mockProjects, mockCategories } from "@/lib/sanity/mock-data";
 import { getTranslations } from "next-intl/server";
 import CategoryNav from "@/components/projects/CategoryNav";
 import CategorySection from "@/components/projects/CategorySection";
+import type { Metadata } from "next";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "DIY Projects | YEZZ",
+    description: "Explore our DIY projects — cream glue, beads, pottery, LEGO, candles, and more. Find your perfect creative experience.",
+  };
+}
 
 export default async function ProjectsPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
+  const { locale: _locale } = await params;
+  void _locale;
   const t = await getTranslations("projects");
 
   let projects: any[] = [];
