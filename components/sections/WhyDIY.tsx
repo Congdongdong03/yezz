@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { motion } from "framer-motion";
 import { Heart, Users, Gift } from "lucide-react";
 
@@ -28,6 +29,9 @@ const features = [
 ];
 
 export default function WhyDIY() {
+  const locale = useLocale();
+  const isZh = locale === "zh";
+
   return (
     <section className="py-20">
       <div className="mx-auto max-w-7xl px-4">
@@ -43,9 +47,11 @@ export default function WhyDIY() {
             >
               <feature.icon className="h-10 w-10 text-caramel" />
               <h3 className="mt-4 text-xl font-serif font-bold text-warm-charcoal">
-                {feature.title}
+                {isZh ? feature.titleZh : feature.title}
               </h3>
-              <p className="mt-2 text-sm text-warm-grey">{feature.desc}</p>
+              <p className="mt-2 text-sm text-warm-grey">
+                {isZh ? feature.descZh : feature.desc}
+              </p>
             </motion.div>
           ))}
         </div>
