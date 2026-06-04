@@ -1,7 +1,7 @@
 # YEZZ 自建后端 — 需求清单 & 进度日志
 
 > **用途：** 全栈迁移（Sanity → Node API + PostgreSQL + 自建 Admin）的唯一需求源。  
-> **新窗口接手：** 先看文末「进度日志」**最后一条**（在 `<!-- 新 Session -->` 注释下方），**Phase 3 已全部完成**，下一步 **Phase 4 → R-601**。  
+> **新窗口接手：** 迁移需求 **R-001 ~ R-606 已全部完成**。维护与上线见根目录 `README.md` 生产部署章节。  
 > **最后更新：** 2026-06-04（Phase 1 全部 R + 验收 V-101~V-108 ✅）
 
 ---
@@ -313,12 +313,12 @@ yezz/
 
 | ID | 优先级 | 需求 | 验收标准 | 状态 |
 |----|--------|------|----------|------|
-| R-601 | P4 | web 进 docker-compose | 一条命令全栈 | [ ] |
-| R-602 | P4 | Neon 生产 DATABASE_URL 文档 | README 部署章节 | [ ] |
-| R-603 | P4 | R2 替换 MinIO（生产） | 改 endpoint 即可 | [ ] |
-| R-604 | P4 | `@fastify/swagger` API 文档 | `/docs` 可访问 | [ ] |
-| R-605 | P4 | API 单测 Vitest | 核心 service 覆盖 | [ ] |
-| R-606 | P4 | README 更新 | 新人 clone 可跑通 | [ ] |
+| R-601 | P4 | web 进 docker-compose | 一条命令全栈 | [x] |
+| R-602 | P4 | Neon 生产 DATABASE_URL 文档 | README 部署章节 | [x] |
+| R-603 | P4 | R2 替换 MinIO（生产） | 改 endpoint 即可 | [x] |
+| R-604 | P4 | `@fastify/swagger` API 文档 | `/docs` 可访问 | [x] |
+| R-605 | P4 | API 单测 Vitest | 核心 service 覆盖 | [x] |
+| R-606 | P4 | README 更新 | 新人 clone 可跑通 | [x] |
 
 ---
 
@@ -400,6 +400,7 @@ R-001 ✅
 | 验收 V-101~V-108 | 8/8 ✅ |
 | P2 R-401~R-409 | ✅ MinIO + 全站 API + 删 Sanity |
 | P3 R-501~R-508 | ✅ 订单 API + Admin + Redis + 官网改调 API |
+| P4 R-601~R-606 | ✅ Docker 全栈 + 文档 + Swagger + Vitest |
 
 ---
 
@@ -701,6 +702,22 @@ pnpm dev:web   # NEXT_PUBLIC_USE_API=true 测 V-106
 
 **下一步：** Phase 4 → R-601（web 进 docker-compose）
 
+---
+
+### 2026-06-04 — Session 15（Phase 4 完成 R-601~R-606）
+
+**完成：** R-601, R-602, R-603, R-604, R-605, R-606
+
+**做了什么：**
+- `docker-compose.yml`：`migrate` + `web` 服务；`pnpm docker:up` 一键全栈
+- `apps/web/Dockerfile` + `next.config` `output: "standalone"`
+- `@fastify/swagger` + Swagger UI → http://localhost:4000/docs
+- Vitest：`pnpm test:api`（cache / email / booking 校验，10 tests）
+- `README.md`：本地开发、Docker、Neon、R2 生产部署
+- `.env.example`：Neon / R2 生产占位；移除已废弃 Sanity 变量
+
+**下一步：** 无（迁移需求清单已全部 [x]）
+
 **备注/坑：**
-- Redis 不可用时缓存/限流自动降级，不阻断请求
-- 限流仅作用于 `/bookings`，购物车 POST 暂未限流
+- Docker 内 `NEXT_PUBLIC_API_URL` 须为浏览器可访问的 `http://localhost:4000`
+- 生产 R2 需在 `next.config.ts` 的 `images.remotePatterns` 增加 CDN 域名

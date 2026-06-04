@@ -71,12 +71,40 @@ services:
       S3_BUCKET: yezz-media
       S3_PUBLIC_URL: http://localhost:9000/yezz-media
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://yezz:yezz@postgres:5432/yezz
+      ADMIN_EMAIL: admin@yezz.local
+      ADMIN_PASSWORD: changeme
+    command: ["sh", "-c", "pnpm db:migrate && pnpm db:seed"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+        NEXT_PUBLIC_USE_API: "true"
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_USE_API: "true"
+    depends_on:
+      - api
 
 volumes:
   postgres_data:

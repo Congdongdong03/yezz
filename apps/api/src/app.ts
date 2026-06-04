@@ -5,6 +5,7 @@ import authPlugin from "./plugins/auth.js";
 import dbPlugin from "./plugins/db.js";
 import redisPlugin from "./plugins/redis.js";
 import servicesPlugin from "./plugins/services.js";
+import swaggerPlugin from "./plugins/swagger.js";
 import healthRoutes from "./routes/health.routes.js";
 import v1Routes from "./routes/v1/index.js";
 
@@ -23,6 +24,7 @@ export async function buildApp() {
   await app.register(redisPlugin);
   await app.register(authPlugin);
   await app.register(servicesPlugin);
+  await app.register(swaggerPlugin);
   await app.register(healthRoutes);
   await app.register(v1Routes, { prefix: "/api/v1" });
 

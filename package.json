@@ -13,7 +13,10 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "db:generate": "pnpm --filter @yezz/db generate",
     "db:migrate": "pnpm --filter @yezz/db migrate",
-    "db:seed": "pnpm --filter @yezz/db seed"
+    "db:seed": "pnpm --filter @yezz/db seed",
+    "test:api": "pnpm --filter @yezz/api test",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "prettier": "^3.8.1",
