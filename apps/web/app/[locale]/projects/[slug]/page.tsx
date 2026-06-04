@@ -1,19 +1,20 @@
 import { notFound } from "next/navigation";
-import { client } from "@/lib/sanity/client";
-import { projectDetailQuery } from "@/lib/sanity/queries";
-import { mockProjects } from "@/lib/sanity/mock-data";
 import ProjectDetail from "@/components/projects/ProjectDetail";
+import { loadProjectBySlug } from "@/lib/projects/data";
 import type { Metadata } from "next";
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string; locale: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
-  const name = slug.replace(/-/g, " ");
+  const { slug, locale } = await params;
+  const project = await loadProjectBySlug(slug);
+  const name =
+    project?.name?.[locale as "en" | "zh"] ??
+    slug.replace(/-/g, " ");
   return {
-    title: `${name.charAt(0).toUpperCase() + name.slice(1)} | YEZZ`,
+    title: `${name} | YEZZ`,
     description: `Learn more about this DIY project at YEZZ Studio. Book your experience today.`,
   };
 }
@@ -25,16 +26,7 @@ export default async function ProjectDetailPage({
 }) {
   const { locale, slug } = await params;
 
-  let project: any = null;
-  try {
-    project = await client.fetch(projectDetailQuery, { slug });
-  } catch {
-    // Sanity unreachable
-  }
-
-  if (!project) {
-    project = mockProjects.find((p) => p.slug.current === slug) || null;
-  }
+  const project = await loadProjectBySlug(slug);
 
   if (!project) {
     notFound();

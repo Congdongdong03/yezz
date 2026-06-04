@@ -1,15 +1,17 @@
-import { client } from "@/lib/sanity/client";
-import { projectsQuery, categoriesQuery } from "@/lib/sanity/queries";
-import { mockProjects, mockCategories } from "@/lib/sanity/mock-data";
 import { getTranslations } from "next-intl/server";
 import CategoryNav from "@/components/projects/CategoryNav";
 import CategorySection from "@/components/projects/CategorySection";
+import {
+  groupProjectsByCategory,
+  loadProjectsPageData,
+} from "@/lib/projects/data";
 import type { Metadata } from "next";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "DIY Projects | YEZZ",
-    description: "Explore our DIY projects — cream glue, beads, pottery, LEGO, candles, and more. Find your perfect creative experience.",
+    description:
+      "Explore our DIY projects — cream glue, beads, pottery, LEGO, candles, and more. Find your perfect creative experience.",
   };
 }
 
@@ -22,52 +24,11 @@ export default async function ProjectsPage({
   void _locale;
   const t = await getTranslations("projects");
 
-  let projects: any[] = [];
-  let categories: any[] = [];
-
-  try {
-    [projects, categories] = await Promise.all([
-      client.fetch(projectsQuery),
-      client.fetch(categoriesQuery),
-    ]);
-  } catch {
-    // Sanity unreachable
-  }
-
-  if (!projects || projects.length === 0) projects = mockProjects;
-  if (!categories || categories.length === 0) categories = mockCategories;
-
-  // Sort categories by order field
-  let displayCategories = [...categories].sort(
-    (a, b) => (a.order ?? 0) - (b.order ?? 0)
+  const { projects, categories } = await loadProjectsPageData();
+  const { displayCategories, grouped } = groupProjectsByCategory(
+    projects,
+    categories,
   );
-
-  // Group projects by category slug
-  let grouped = displayCategories
-    .map((cat) => ({
-      category: cat,
-      projects: projects.filter(
-        (p) => p.category?.slug?.current === cat.slug.current
-      ),
-    }))
-    .filter((g) => g.projects.length > 0);
-
-  // Fallback to mock data if Sanity returned empty or broken categories
-  if (grouped.length === 0) {
-    const fallbackProjects = mockProjects;
-    const fallbackCategories = mockCategories;
-    displayCategories = [...fallbackCategories].sort(
-      (a, b) => (a.order ?? 0) - (b.order ?? 0)
-    );
-    grouped = displayCategories
-      .map((cat) => ({
-        category: cat,
-        projects: fallbackProjects.filter(
-          (p) => p.category?.slug?.current === cat.slug.current
-        ),
-      }))
-      .filter((g) => g.projects.length > 0);
-  }
 
   return (
     <div className="min-h-screen bg-cream">
@@ -81,11 +42,11 @@ export default async function ProjectsPage({
       <CategoryNav categories={displayCategories} />
 
       <div className="divide-y divide-warm-grey/10">
-        {grouped.map(({ category, projects }) => (
+        {grouped.map(({ category, projects: sectionProjects }) => (
           <CategorySection
             key={category.slug.current}
             category={category}
-            projects={projects}
+            projects={sectionProjects}
           />
         ))}
       </div>
