@@ -173,6 +173,9 @@ export default function BookingForm({
             {...register("wechat")}
             className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           />
+          {errors.wechat && (
+            <p className="mt-1 text-sm text-red-500">{errors.wechat.message}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-warm-charcoal">
@@ -201,6 +204,9 @@ export default function BookingForm({
                 type="date"
                 className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
               />
+              {errors.preferredDate && (
+                <p className="mt-1 text-sm text-red-500">{errors.preferredDate.message}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-warm-charcoal">
@@ -212,6 +218,9 @@ export default function BookingForm({
                 min="1"
                 className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
               />
+              {errors.numberOfPeople && (
+                <p className="mt-1 text-sm text-red-500">{errors.numberOfPeople.message}</p>
+              )}
             </div>
           </div>
 
@@ -231,6 +240,9 @@ export default function BookingForm({
                 <option value="kids">{t("activityKids")}</option>
                 <option value="mobile">{t("activityMobile")}</option>
               </select>
+              {errors.activityType && (
+                <p className="mt-1 text-sm text-red-500">{errors.activityType.message}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-warm-charcoal">
@@ -240,6 +252,9 @@ export default function BookingForm({
                 {...register("interestedProject")}
                 className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
               />
+              {errors.interestedProject && (
+                <p className="mt-1 text-sm text-red-500">{errors.interestedProject.message}</p>
+              )}
             </div>
           </div>
         </>
@@ -262,6 +277,9 @@ export default function BookingForm({
           rows={4}
           className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
         />
+        {errors.message && (
+          <p className="mt-1 text-sm text-red-500">{errors.message.message}</p>
+        )}
       </div>
 
       {result && !result.success && (

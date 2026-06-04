@@ -1,4 +1,5 @@
 import { loadSiteSettings } from "@/lib/site/data";
+import { toGoogleMapsEmbedUrl } from "@/lib/site/maps";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
@@ -88,6 +89,20 @@ export default async function ContactPage() {
           </div>
         )}
       </div>
+
+      {settings.googleMapUrl && (
+        <div className="mt-12">
+          <h2 className="font-medium text-warm-charcoal">{t("map")}</h2>
+          <iframe
+            title={t("map")}
+            src={toGoogleMapsEmbedUrl(settings.googleMapUrl)}
+            className="mt-4 h-80 w-full rounded-xl border border-warm-grey/15"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+          />
+        </div>
+      )}
     </div>
   );
 }

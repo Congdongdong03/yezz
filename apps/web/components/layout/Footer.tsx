@@ -2,8 +2,26 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
-import { ExternalLink } from "lucide-react";
 import type { SiteSettingsView } from "@/lib/site/data";
+
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+  );
+}
 
 function XiaohongshuIcon({ className }: { className?: string }) {
   return (
@@ -41,7 +59,7 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
                     className="rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
                     aria-label="Instagram"
                   >
-                    <ExternalLink className="h-5 w-5" />
+                    <InstagramIcon className="h-5 w-5" />
                   </a>
                 )}
                 {settings.xiaohongshu && (
