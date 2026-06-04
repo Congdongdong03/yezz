@@ -7,6 +7,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/cart/CartDrawer";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { loadSiteSettings } from "@/lib/site/data";
 
 export default async function LocaleLayout({
   children,
@@ -22,6 +23,7 @@ export default async function LocaleLayout({
   }
 
   const messages = await getMessages();
+  const siteSettings = await loadSiteSettings();
 
   return (
     <NextIntlClientProvider messages={messages} locale={locale}>
@@ -31,7 +33,7 @@ export default async function LocaleLayout({
           <main className="flex-1">
             <ErrorBoundary>{children}</ErrorBoundary>
           </main>
-          <Footer />
+          <Footer settings={siteSettings} />
           <CartDrawer />
         </div>
       </CartProvider>

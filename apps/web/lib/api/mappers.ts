@@ -1,7 +1,10 @@
 import type {
   ApiCategory,
+  ApiGalleryImage,
+  ApiParty,
   ApiProjectDetail,
   ApiProjectListItem,
+  ApiSiteSettings,
 } from "./types";
 
 function slugField(slug: string) {
@@ -77,5 +80,49 @@ export function mapProjectDetailFromApi(project: ApiProjectDetail) {
     duration: project.duration ?? undefined,
     tags: project.tags ?? [],
     order: project.sortOrder,
+  };
+}
+
+export function mapPartyFromApi(party: ApiParty) {
+  return {
+    _id: party.id,
+    name: party.name,
+    slug: slugField(party.slug),
+    description: party.description ?? undefined,
+    includes: party.includes,
+    imageUrl: party.imageUrl ?? undefined,
+    images: party.imageUrls,
+    minPeople: party.minPeople,
+    maxPeople: party.maxPeople,
+    priceIndicator: party.priceIndicator ?? undefined,
+    tags: party.tags ?? undefined,
+  };
+}
+
+export function mapGalleryImageFromApi(image: ApiGalleryImage) {
+  return {
+    _id: image.id,
+    imageUrl: image.imageUrl,
+    category: image.category,
+    caption: image.caption ?? undefined,
+    order: image.sortOrder,
+  };
+}
+
+export function mapSiteSettingsFromApi(settings: ApiSiteSettings) {
+  return {
+    storeName: settings.storeName,
+    address: settings.address ?? undefined,
+    businessHours: settings.businessHours ?? undefined,
+    phone: settings.phone ?? undefined,
+    email: settings.email ?? undefined,
+    wechatId: settings.wechatId ?? undefined,
+    wechatQrCodeUrl: settings.wechatQrUrl ?? undefined,
+    heroImageUrl: settings.heroImageUrl ?? undefined,
+    instagram: settings.instagram ?? undefined,
+    xiaohongshu: settings.xiaohongshu ?? undefined,
+    googleMapUrl: settings.googleMapUrl ?? undefined,
+    seoTitle: settings.seoTitle ?? undefined,
+    seoDescription: settings.seoDescription ?? undefined,
   };
 }

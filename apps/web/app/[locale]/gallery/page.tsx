@@ -1,6 +1,4 @@
-import { client } from "@/lib/sanity/client";
-import { galleryQuery } from "@/lib/sanity/queries";
-import { mockGalleryImages } from "@/lib/sanity/mock-data";
+import { loadGalleryPageData } from "@/lib/site/data";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 import type { Metadata } from "next";
@@ -8,20 +6,14 @@ import type { Metadata } from "next";
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Gallery | YEZZ",
-    description: "Browse our community's creations — from handmade gifts to party moments. Get inspired at YEZZ DIY Studio.",
+    description:
+      "Browse our community's creations — from handmade gifts to party moments. Get inspired at YEZZ DIY Studio.",
   };
 }
 
 export default async function GalleryPage() {
   const t = await getTranslations("gallery");
-
-  let images;
-  try {
-    images = await client.fetch(galleryQuery);
-  } catch {
-    // Sanity unreachable
-  }
-  if (!images || images.length === 0) images = mockGalleryImages;
+  const images = await loadGalleryPageData();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12">
@@ -51,7 +43,7 @@ export default async function GalleryPage() {
                   className="object-cover transition-transform hover:scale-105"
                 />
               </div>
-            )
+            ),
           )}
       </div>
     </div>

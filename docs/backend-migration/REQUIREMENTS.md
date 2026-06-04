@@ -1,8 +1,8 @@
 # YEZZ 自建后端 — 需求清单 & 进度日志
 
 > **用途：** 全栈迁移（Sanity → Node API + PostgreSQL + 自建 Admin）的唯一需求源。  
-> **新窗口接手：** 先看文末「进度日志」**最后一条**（在 `<!-- 新 Session -->` 注释下方），当前 Phase 1 已完成，下一步 **Phase 2 → R-401**。  
-> **最后更新：** 2026-06-04（Phase 1 全部 R + 验收 V-102~V-108）
+> **新窗口接手：** 先看文末「进度日志」**最后一条**（在 `<!-- 新 Session -->` 注释下方），Phase 3 R-501~R-504 已完成，下一步 **R-505**（Admin `/admin/orders`）。  
+> **最后更新：** 2026-06-04（Phase 1 全部 R + 验收 V-101~V-108 ✅）
 
 ---
 
@@ -267,7 +267,7 @@ yezz/
 
 | ID | 验收项 | 状态 |
 |----|--------|------|
-| V-101 | `docker compose up` → postgres + redis + api 正常 | [~] |
+| V-101 | `docker compose up` → postgres + redis + api 正常 | [x] |
 | V-102 | `pnpm db:migrate && pnpm db:seed` 有数据 | [x] |
 | V-103 | `GET localhost:4000/health` db+redis ok | [x] |
 | V-104 | 公开 API 4 个 GET 返回正确 JSON | [x] |
@@ -282,15 +282,15 @@ yezz/
 
 | ID | 优先级 | 需求 | 验收标准 | 状态 |
 |----|--------|------|----------|------|
-| R-401 | P2 | Docker 加 MinIO | S3 兼容存储可访问 | [ ] |
-| R-402 | P2 | `POST /api/v1/admin/upload` | JWT 保护；返回 URL | [ ] |
-| R-403 | P2 | Admin 图片上传组件 | 替换 URL 手填 | [ ] |
-| R-404 | P2 | 删 Sanity npm 包和 `sanity/` | 无 sanity import | [ ] |
-| R-405 | P2 | 扩展 schema：party_packages, gallery_images | 表 + seed | [ ] |
-| R-406 | P2 | Admin：派对 / 画廊 CRUD | 页面可用 | [ ] |
-| R-407 | P2 | 公开 API：parties, gallery | GET 接口 | [ ] |
-| R-408 | P2 | 首页 / parties / gallery / contact / footer 改读 API | 全站无 Sanity | [ ] |
-| R-409 | P2 | `media_assets` 表 | 记录上传元数据 | [ ] |
+| R-401 | P2 | Docker 加 MinIO | S3 兼容存储可访问 | [x] |
+| R-402 | P2 | `POST /api/v1/admin/upload` | JWT 保护；返回 URL | [x] |
+| R-403 | P2 | Admin 图片上传组件 | 替换 URL 手填 | [x] |
+| R-404 | P2 | 删 Sanity npm 包和 `sanity/` | 无 sanity import | [x] |
+| R-405 | P2 | 扩展 schema：party_packages, gallery_images | 表 + seed | [x] |
+| R-406 | P2 | Admin：派对 / 画廊 CRUD | 页面可用 | [x] |
+| R-407 | P2 | 公开 API：parties, gallery | GET 接口 | [x] |
+| R-408 | P2 | 首页 / parties / gallery / contact / footer 改读 API | 全站无 Sanity | [x] |
+| R-409 | P2 | `media_assets` 表 | 记录上传元数据 | [x] |
 
 ---
 
@@ -298,10 +298,10 @@ yezz/
 
 | ID | 优先级 | 需求 | 验收标准 | 状态 |
 |----|--------|------|----------|------|
-| R-501 | P3 | schema：bookings, cart_orders, cart_order_items | migrate 成功 | [ ] |
-| R-502 | P3 | `POST /api/v1/bookings` | 写 DB + Resend 通知 owner | [ ] |
-| R-503 | P3 | `POST /api/v1/cart-orders` | 写 DB + 邮件 | [ ] |
-| R-504 | P3 | Admin `/admin/bookings` | 列表 + 状态 PATCH | [ ] |
+| R-501 | P3 | schema：bookings, cart_orders, cart_order_items | migrate 成功 | [x] |
+| R-502 | P3 | `POST /api/v1/bookings` | 写 DB + Resend 通知 owner | [x] |
+| R-503 | P3 | `POST /api/v1/cart-orders` | 写 DB + 邮件 | [x] |
+| R-504 | P3 | Admin `/admin/bookings` | 列表 + 状态 PATCH | [x] |
 | R-505 | P3 | Admin `/admin/orders` | 购物车订单列表 + 状态 | [ ] |
 | R-506 | P3 | Redis 缓存 | projects/settings Cache-Aside + 失效 | [ ] |
 | R-507 | P3 | Redis 限流 | 预约 POST 同 IP 限制 | [ ] |
@@ -375,7 +375,7 @@ R-001 ✅
 → R-301 ~ R-304（删 Studio）
 → R-311 ~ R-319（Admin UI）
 → R-321 ~ R-325（官网项目页接 API）
-→ V-101 ~ V-108（Phase 1 验收）✅ 除 V-101 需本机 Docker
+→ V-101 ~ V-108（Phase 1 验收）✅
 → **当前** Phase 2 开始 R-401...
 ```
 
@@ -397,7 +397,10 @@ R-001 ✅
 | P1 Studio R-301~R-304 | ✅ 已删 Studio；`/admin` 无 locale |
 | P1 Admin UI R-311~R-319 | ✅ `/admin` 全页 |
 | P1 官网 R-321~R-325 | ✅ 项目页接 API + feature flag |
-| 验收 V-101~V-108 | 7/8 ✅；V-101 待 `docker compose up` |
+| 验收 V-101~V-108 | 8/8 ✅ |
+| P2 R-401~R-409 | ✅ MinIO + 全站 API + 删 Sanity |
+| P3 R-501~R-503 | ✅ bookings/cart_orders schema + POST API |
+| P3 R-504 | ✅ Admin `/admin/bookings` |
 
 ---
 
@@ -574,7 +577,7 @@ pnpm dev:api & pnpm dev:web
 
 | ID | 结果 | 说明 |
 |----|------|------|
-| V-101 | ⏸ 待本机验证 | 沙箱无 `docker`；请本地 `docker compose up -d` |
+| V-101 | ✅ | 5432/6379/4000 + health ok（Session 10） |
 | V-102 | ✅ | migrate + seed：5 分类、16 项目、admin |
 | V-103 | ✅ | `{"status":"ok","db":"ok","redis":"ok"}` |
 | V-104 | ✅ | categories / projects / settings / projects/:slug（6 styles） |
@@ -610,3 +613,76 @@ pnpm dev:web   # NEXT_PUBLIC_USE_API=true 测 V-106
 **备注/坑：**
 - 验收时在本机创建了 Postgres 角色/库 `yezz`（若你用 Docker compose 可忽略）
 - `NEXT_PUBLIC_USE_API=true` 时项目页读 API；`false` 时 Sanity → mock
+
+---
+
+### 2026-06-04 — Session 10（V-101 + 本地联调）
+
+**完成：** V-101、本地 `.env.local`、V-106 端到端复测
+
+| ID | 结果 | 说明 |
+|----|------|------|
+| V-101 | ✅ | 5432/6379/4000 可达；`health` db+redis ok（本机 `pnpm dev:api`；亦可用 `docker compose up -d`） |
+| V-103 | ✅ | `curl localhost:4000/health` |
+| V-106 | ✅ | Admin PATCH → 公开 API + `/zh/projects`（`NEXT_PUBLIC_USE_API=true`） |
+
+**做了什么：**
+- 新增 `apps/web/.env.local`：`NEXT_PUBLIC_USE_API=true`、`NEXT_PUBLIC_API_URL=http://localhost:4000`
+- 重启 `pnpm dev:web`（加载 `.env.local`；此前以 `USE_API=false` 启动导致仍走 mock）
+- 联调后恢复 `cream-glue-phone-case` 中文名为「奶油胶手机壳」
+
+**下一步：** Phase 2 → R-401（MinIO）
+
+**备注/坑：**
+- 改 `NEXT_PUBLIC_*` 后必须重启 Next dev server
+
+---
+
+### 2026-06-04 — Session 11（Phase 2 完成 R-401~R-409）
+
+**完成：** R-401, R-402, R-403, R-404, R-405, R-406, R-407, R-408, R-409
+
+**做了什么：**
+- `docker-compose.yml` / `docker-compose.dev.yml` 增加 MinIO + `minio-init` 创建公开 bucket `yezz-media`
+- API：`POST /api/v1/admin/upload`（JWT + `@aws-sdk/client-s3` + `media_assets` 落库）
+- DB 迁移 `0001_phase2_*`：`party_packages`、`gallery_images`、`media_assets`；seed 派对 3 条、画廊 9 条
+- 公开 `GET /api/v1/parties`、`/gallery`；Admin CRUD `/admin/parties`、`/admin/gallery`
+- 官网 `lib/site/data.ts`：首页 / parties / gallery / contact / Footer 读 API（`USE_API=true`）
+- 删除 `apps/web/sanity/`、`lib/sanity/` 及 sanity npm 包；mock 迁至 `lib/mock-data.ts`
+- Admin `ImageUploadField` 替换项目/设置/画廊/派对图片手填 URL
+- 预约/购物车 action 暂仅发邮件（Phase 3 接 API）
+
+**下一步：** Phase 3 → R-501（bookings / cart_orders schema）
+
+**备注/坑：**
+- 本机需 `S3_*` env（见 `.env.example`）并启动 MinIO 后上传才可用
+- 已有库执行 `pnpm db:seed` 会增量灌派对/画廊（无需 FORCE_SEED）
+
+---
+
+### 2026-06-04 — Session 12（Phase 3 R-501~R-503）
+
+**完成：** R-501, R-502, R-503
+
+**做了什么：**
+- DB 迁移 `0002_flashy_magik`：`order_status` enum + `bookings`、`cart_orders`、`cart_order_items` 三表
+- API：`POST /api/v1/bookings`、`POST /api/v1/cart-orders`（校验 → 写库 → Resend 通知 owner；邮件失败不阻断落库）
+- `apps/api` 新增 `resend` 依赖；`lib/email.ts` 共用发信逻辑
+
+**下一步：** R-504（Admin `/admin/bookings` 列表 + 状态 PATCH）
+
+**备注/坑：**
+- `pnpm db:migrate` 需 root `.env` 或 `DATABASE_URL` 环境变量
+- 邮件需 `RESEND_API_KEY` + `OWNER_EMAIL`（与 web 共用 root `.env`）
+
+---
+
+### 2026-06-04 — Session 13（Phase 3 R-504）
+
+**完成：** R-504
+
+**做了什么：**
+- API：`GET /api/v1/admin/bookings`、`GET /:id`、`PATCH /:id`（status）
+- Admin：`/admin/bookings` 列表页 + 状态下拉 PATCH；侧边栏新增「预约」入口
+
+**下一步：** R-505（Admin `/admin/orders` 购物车订单列表 + 状态）

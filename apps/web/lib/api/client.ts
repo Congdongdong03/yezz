@@ -71,3 +71,21 @@ export async function fetchProjectBySlug(slug: string) {
     `/api/v1/projects/${encodeURIComponent(slug)}`,
   );
 }
+
+export async function fetchParties() {
+  return apiFetch<import("./types").ApiParty[]>("/api/v1/parties");
+}
+
+export async function fetchPartyBySlug(slug: string) {
+  return apiFetch<import("./types").ApiParty>(
+    `/api/v1/parties/${encodeURIComponent(slug)}`,
+  );
+}
+
+export async function fetchGallery() {
+  return apiFetch<import("./types").ApiGalleryImage[]>("/api/v1/gallery");
+}
+
+export async function fetchSiteSettings() {
+  return apiFetch<import("./types").ApiSiteSettings>("/api/v1/settings");
+}

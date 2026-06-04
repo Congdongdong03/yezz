@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { client } from "@/lib/sanity/client";
 import { Resend } from "resend";
 
 const bookingSchema = z.object({
@@ -29,28 +28,12 @@ export async function submitBooking(formData: FormData) {
   const data = parsed.data;
 
   try {
-    // Save to Sanity
-    const booking = await client.create({
-      _type: "booking",
-      name: data.name,
-      phone: data.phone,
-      wechat: data.wechat || "",
-      email: data.email || "",
-      preferredDate: data.preferredDate || "",
-      numberOfPeople: parseInt(data.numberOfPeople || "0"),
-      activityType: data.activityType || "",
-      interestedProject: data.interestedProject || "",
-      message: data.message || "",
-      status: "new",
-      submittedAt: new Date().toISOString(),
-    });
-
-    // Send email to owner
-    await resend.emails.send({
-      from: "YEZZ <bookings@yezz.studio>",
-      to: process.env.OWNER_EMAIL || "",
-      subject: `New Booking from ${data.name}`,
-      html: `
+    if (process.env.RESEND_API_KEY && process.env.OWNER_EMAIL) {
+      await resend.emails.send({
+        from: "YEZZ <bookings@yezz.studio>",
+        to: process.env.OWNER_EMAIL,
+        subject: `New Booking from ${data.name}`,
+        html: `
         <h2>New Booking Received</h2>
         <p><strong>Name:</strong> ${data.name}</p>
         <p><strong>Phone:</strong> ${data.phone}</p>
@@ -62,11 +45,15 @@ export async function submitBooking(formData: FormData) {
         <p><strong>Project:</strong> ${data.interestedProject || "N/A"}</p>
         <p><strong>Message:</strong> ${data.message || "N/A"}</p>
       `,
-    });
+      });
+    }
 
-    return { success: true, bookingId: booking._id };
+    return { success: true, bookingId: `email-${Date.now()}` };
   } catch (error) {
     console.error("Booking submission error:", error);
-    return { success: false, errors: { server: ["Failed to submit booking. Please try again."] } };
+    return {
+      success: false,
+      errors: { server: ["Failed to submit booking. Please try again."] },
+    };
   }
 }

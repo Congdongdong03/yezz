@@ -3,10 +3,17 @@ import type {
   AdminProjectsList,
   AuthUser,
   Category,
+  GalleryFormInput,
+  GalleryImage,
   LoginResponse,
+  Booking,
+  OrderStatus,
+  PartyFormInput,
+  PartyPackage,
   ProjectDetail,
   ProjectFormInput,
   SiteSettings,
+  UploadResult,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -126,5 +133,86 @@ export async function updateAdminSettings(
   return adminFetch<SiteSettings>("/api/v1/admin/settings", {
     method: "PATCH",
     body: JSON.stringify(data),
+  });
+}
+
+export async function uploadAdminImage(file: File) {
+  const token = getAdminToken();
+  const body = new FormData();
+  body.append("file", file);
+
+  const res = await fetch(`${API_URL}/api/v1/admin/upload`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body,
+  });
+
+  return parseResponse<UploadResult>(res);
+}
+
+export async function getAdminParties() {
+  return adminFetch<PartyPackage[]>("/api/v1/admin/parties");
+}
+
+export async function getAdminParty(id: string) {
+  return adminFetch<PartyPackage>(`/api/v1/admin/parties/${id}`);
+}
+
+export async function createParty(data: PartyFormInput) {
+  return adminFetch<PartyPackage>("/api/v1/admin/parties", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateParty(id: string, data: Partial<PartyFormInput>) {
+  return adminFetch<PartyPackage>(`/api/v1/admin/parties/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteParty(id: string) {
+  return adminFetch<{ id: string }>(`/api/v1/admin/parties/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getAdminGallery() {
+  return adminFetch<GalleryImage[]>("/api/v1/admin/gallery");
+}
+
+export async function getAdminGalleryImage(id: string) {
+  return adminFetch<GalleryImage>(`/api/v1/admin/gallery/${id}`);
+}
+
+export async function createGalleryImage(data: GalleryFormInput) {
+  return adminFetch<GalleryImage>("/api/v1/admin/gallery", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateGalleryImage(id: string, data: Partial<GalleryFormInput>) {
+  return adminFetch<GalleryImage>(`/api/v1/admin/gallery/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteGalleryImage(id: string) {
+  return adminFetch<{ id: string }>(`/api/v1/admin/gallery/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getAdminBookings() {
+  return adminFetch<Booking[]>("/api/v1/admin/bookings");
+}
+
+export async function updateBookingStatus(id: string, status: Booking["status"]) {
+  return adminFetch<Booking>(`/api/v1/admin/bookings/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
   });
 }

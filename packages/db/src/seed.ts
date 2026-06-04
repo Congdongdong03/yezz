@@ -5,11 +5,15 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import {
   mockCategories,
+  mockGalleryImages,
+  mockParties,
   mockProjects,
-} from "../../../apps/web/lib/sanity/mock-data.js";
+} from "../../../apps/web/lib/mock-data.js";
 import { createDb } from "./client.js";
 import {
   diyProjects,
+  galleryImages,
+  partyPackages,
   projectCategories,
   projectImages,
   projectStyles,
@@ -31,13 +35,62 @@ function slugFromCurrent(slug: { current: string } | string): string {
   return typeof slug === "string" ? slug : slug.current;
 }
 
+function slugFromParty(slug: { current: string } | string): string {
+  return typeof slug === "string" ? slug : slug.current;
+}
+
 async function clearSeedData() {
   await db.delete(projectImages);
   await db.delete(projectStyles);
   await db.delete(diyProjects);
+  await db.delete(galleryImages);
+  await db.delete(partyPackages);
   await db.delete(projectCategories);
   await db.delete(siteSettings);
   await db.delete(users);
+}
+
+async function seedPartiesAndGalleryIfEmpty() {
+  const [existingParty] = await db.select({ id: partyPackages.id }).from(partyPackages).limit(1);
+  if (!existingParty) {
+    let partyCount = 0;
+    for (const [index, party] of mockParties.entries()) {
+      const urls = party.images ?? (party.imageUrl ? [party.imageUrl] : []);
+      await db.insert(partyPackages).values({
+        name: party.name,
+        slug: slugFromParty(party.slug),
+        description: party.description ?? null,
+        includes: party.includes ?? [],
+        coverImageUrl: party.imageUrl ?? urls[0] ?? null,
+        imageUrls: urls,
+        minPeople: party.minPeople ?? 2,
+        maxPeople: party.maxPeople ?? 20,
+        priceIndicator: party.priceIndicator ?? null,
+        tags: party.tags ?? null,
+        sortOrder: index,
+      });
+      partyCount++;
+    }
+    console.log(`Seeded ${partyCount} party packages`);
+  }
+
+  const [existingGallery] = await db
+    .select({ id: galleryImages.id })
+    .from(galleryImages)
+    .limit(1);
+  if (!existingGallery) {
+    let galleryCount = 0;
+    for (const img of mockGalleryImages) {
+      await db.insert(galleryImages).values({
+        imageUrl: img.imageUrl,
+        category: img.category,
+        caption: img.caption ?? null,
+        sortOrder: img.order ?? 0,
+      });
+      galleryCount++;
+    }
+    console.log(`Seeded ${galleryCount} gallery images`);
+  }
 }
 
 async function seed() {
@@ -46,6 +99,7 @@ async function seed() {
 
   if (existing && !force) {
     console.log("Database already seeded (set FORCE_SEED=1 to re-run)");
+    await seedPartiesAndGalleryIfEmpty();
     await client.end();
     return;
   }
@@ -136,6 +190,8 @@ async function seed() {
   }
 
   console.log(`Seeded ${projectCount} projects, ${styleCount} styles, ${imageCount} images`);
+
+  await seedPartiesAndGalleryIfEmpty();
 
   const [settingsRow] = await db.select({ id: siteSettings.id }).from(siteSettings).limit(1);
   if (!settingsRow) {

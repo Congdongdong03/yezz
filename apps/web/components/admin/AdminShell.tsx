@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { href: "/admin", label: "看板", exact: true },
   { href: "/admin/projects", label: "项目" },
+  { href: "/admin/parties", label: "派对套餐" },
+  { href: "/admin/gallery", label: "画廊" },
+  { href: "/admin/bookings", label: "预约" },
   { href: "/admin/categories", label: "分类" },
   { href: "/admin/settings", label: "站点设置" },
 ];
@@ -91,7 +94,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center border-b border-border bg-card px-6">
           <p className="text-sm text-muted-foreground">
-            官网内容后台 · P1
+            官网内容后台
           </p>
           <div className="ml-auto">
             <Link

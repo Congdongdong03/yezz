@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AlertBanner from "@/components/admin/AlertBanner";
+import ImageUploadField from "@/components/admin/ImageUploadField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,7 +63,7 @@ export default function AdminSettingsPage() {
     );
   }
 
-  const fields: Array<{
+  const textFields: Array<{
     key: keyof SiteSettings;
     label: string;
     multiline?: boolean;
@@ -73,13 +74,16 @@ export default function AdminSettingsPage() {
     { key: "phone", label: "电话" },
     { key: "email", label: "邮箱" },
     { key: "wechatId", label: "微信号" },
-    { key: "wechatQrUrl", label: "微信二维码 URL" },
-    { key: "heroImageUrl", label: "首页 Hero 图 URL" },
     { key: "instagram", label: "Instagram" },
     { key: "xiaohongshu", label: "小红书" },
     { key: "googleMapUrl", label: "Google 地图链接" },
     { key: "seoTitle", label: "SEO 标题" },
     { key: "seoDescription", label: "SEO 描述", multiline: true },
+  ];
+
+  const imageFields: Array<{ key: "wechatQrUrl" | "heroImageUrl"; label: string }> = [
+    { key: "wechatQrUrl", label: "微信二维码" },
+    { key: "heroImageUrl", label: "首页 Hero 图" },
   ];
 
   return (
@@ -98,7 +102,16 @@ export default function AdminSettingsPage() {
       )}
 
       <form onSubmit={submit} className="max-w-2xl space-y-4">
-        {fields.map(({ key, label, multiline }) => (
+        {imageFields.map(({ key, label }) => (
+          <ImageUploadField
+            key={key}
+            id={key}
+            label={label}
+            value={(form[key] as string | null) ?? ""}
+            onChange={(value) => set(key, value || null)}
+          />
+        ))}
+        {textFields.map(({ key, label, multiline }) => (
           <div key={key} className="space-y-1.5">
             <Label htmlFor={key}>{label}</Label>
             {multiline ? (

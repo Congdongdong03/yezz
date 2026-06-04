@@ -10,46 +10,21 @@ import {
   mapProjectDetailFromApi,
   mapProjectListItemFromApi,
 } from "@/lib/api/mappers";
-import { client, isSanityConfigured } from "@/lib/sanity/client";
-import { mockCategories, mockProjects } from "@/lib/sanity/mock-data";
-import { categoriesQuery, projectDetailQuery, projectsQuery } from "@/lib/sanity/queries";
+import { mockCategories, mockProjects } from "@/lib/mock-data";
 
 export type ProjectsPageData = {
   projects: ReturnType<typeof mapProjectListItemFromApi>[];
   categories: ReturnType<typeof mapCategoryFromApi>[];
 };
 
-async function loadFromSanityOrMock(): Promise<ProjectsPageData> {
-  let projects: ReturnType<typeof mapProjectListItemFromApi>[] = [];
-  let categories: ReturnType<typeof mapCategoryFromApi>[] = [];
-
-  if (isSanityConfigured) {
-    try {
-      const [sanityProjects, sanityCategories] = await Promise.all([
-        client.fetch(projectsQuery),
-        client.fetch(categoriesQuery),
-      ]);
-      projects = sanityProjects ?? [];
-      categories = (sanityCategories ?? []).map((c: { order?: number; sortOrder?: number }) => ({
-        ...c,
-        order: c.order ?? c.sortOrder ?? 0,
-      }));
-    } catch {
-      // fall through to mock
-    }
-  }
-
-  if (!projects.length) {
-    projects = mockProjects.map((p) => ({
+function loadFromMock(): ProjectsPageData {
+  return {
+    projects: mockProjects.map((p) => ({
       ...p,
       category: p.category as ProjectsPageData["projects"][0]["category"],
-    })) as ProjectsPageData["projects"];
-  }
-  if (!categories.length) {
-    categories = mockCategories as ProjectsPageData["categories"];
-  }
-
-  return { projects, categories };
+    })) as ProjectsPageData["projects"],
+    categories: mockCategories as ProjectsPageData["categories"],
+  };
 }
 
 export async function loadProjectsPageData(): Promise<ProjectsPageData> {
@@ -65,12 +40,15 @@ export async function loadProjectsPageData(): Promise<ProjectsPageData> {
       };
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
-        console.warn("[projects] API unavailable, falling back:", err instanceof PublicApiError ? err.message : err);
+        console.warn(
+          "[projects] API unavailable, falling back:",
+          err instanceof PublicApiError ? err.message : err,
+        );
       }
     }
   }
 
-  return loadFromSanityOrMock();
+  return loadFromMock();
 }
 
 export async function loadProjectBySlug(
@@ -85,17 +63,11 @@ export async function loadProjectBySlug(
         return null;
       }
       if (process.env.NODE_ENV === "development") {
-        console.warn("[project detail] API unavailable, falling back:", err instanceof PublicApiError ? err.message : err);
+        console.warn(
+          "[project detail] API unavailable, falling back:",
+          err instanceof PublicApiError ? err.message : err,
+        );
       }
-    }
-  }
-
-  if (isSanityConfigured) {
-    try {
-      const project = await client.fetch(projectDetailQuery, { slug });
-      if (project) return project;
-    } catch {
-      // fall through
     }
   }
 
@@ -105,7 +77,6 @@ export async function loadProjectBySlug(
   ) as ReturnType<typeof mapProjectDetailFromApi> | null;
 }
 
-/** Group projects by category for the list page layout */
 export function groupProjectsByCategory(
   projects: ProjectsPageData["projects"],
   categories: ProjectsPageData["categories"],
@@ -127,9 +98,8 @@ export function groupProjectsByCategory(
     return { displayCategories, grouped };
   }
 
-  const fallbackProjects = mockProjects as ProjectsPageData["projects"];
-  const fallbackCategories = mockCategories as ProjectsPageData["categories"];
-  const sorted = [...fallbackCategories].sort(
+  const fallback = loadFromMock();
+  const sorted = [...fallback.categories].sort(
     (a, b) => (a.order ?? 0) - (b.order ?? 0),
   );
 
@@ -138,7 +108,7 @@ export function groupProjectsByCategory(
     grouped: sorted
       .map((cat) => ({
         category: cat,
-        projects: fallbackProjects.filter(
+        projects: fallback.projects.filter(
           (p) => p.category?.slug?.current === cat.slug.current,
         ),
       }))

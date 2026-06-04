@@ -8,6 +8,20 @@
       "when": 1780537678247,
       "tag": "0000_volatile_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780539464008,
+      "tag": "0001_phase2_parties_gallery_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780539999209,
+      "tag": "0002_flashy_magik",
+      "breakpoints": true
     }
   ]
 }

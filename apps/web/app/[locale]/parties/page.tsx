@@ -1,6 +1,4 @@
-import { client } from "@/lib/sanity/client";
-import { partiesQuery } from "@/lib/sanity/queries";
-import { mockParties } from "@/lib/sanity/mock-data";
+import { loadPartiesPageData } from "@/lib/site/data";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 import type { Metadata } from "next";
@@ -8,7 +6,8 @@ import type { Metadata } from "next";
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Party Packages | YEZZ",
-    description: "Birthday parties, couple date nights, corporate team building — book your private DIY party at YEZZ.",
+    description:
+      "Birthday parties, couple date nights, corporate team building — book your private DIY party at YEZZ.",
   };
 }
 
@@ -19,14 +18,7 @@ export default async function PartiesPage({
 }) {
   const { locale } = await params;
   const t = await getTranslations("parties");
-
-  let parties;
-  try {
-    parties = await client.fetch(partiesQuery);
-  } catch {
-    // Sanity unreachable
-  }
-  if (!parties || parties.length === 0) parties = mockParties;
+  const parties = await loadPartiesPageData();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12">
@@ -46,7 +38,7 @@ export default async function PartiesPage({
               includes?: Record<string, string>[];
               priceIndicator?: string;
             },
-            index: number
+            index: number,
           ) => (
             <div
               key={party._id}
@@ -65,9 +57,7 @@ export default async function PartiesPage({
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center rounded-xl bg-muted">
-                    <span>
-                      {locale === "zh" ? "暂无图片" : "No image"}
-                    </span>
+                    <span>{locale === "zh" ? "暂无图片" : "No image"}</span>
                   </div>
                 )}
               </div>
@@ -75,27 +65,21 @@ export default async function PartiesPage({
                 <h2 className="text-2xl font-serif font-bold text-warm-charcoal">
                   {party.name[locale]}
                 </h2>
-                <p className="mt-4 text-warm-grey">
-                  {party.description?.[locale]}
-                </p>
+                <p className="mt-4 text-warm-grey">{party.description?.[locale]}</p>
                 <ul className="mt-4 space-y-2">
-                  {party.includes?.map(
-                    (item: Record<string, string>, i: number) => (
-                      <li key={i} className="flex items-center gap-2 text-sm">
-                        <span className="text-sage">✓</span>
-                        {item[locale]}
-                      </li>
-                    )
-                  )}
+                  {party.includes?.map((item: Record<string, string>, i: number) => (
+                    <li key={i} className="flex items-center gap-2 text-sm">
+                      <span className="text-sage">✓</span>
+                      {item[locale]}
+                    </li>
+                  ))}
                 </ul>
                 {party.priceIndicator && (
-                  <p className="mt-4 font-medium text-caramel">
-                    {party.priceIndicator}
-                  </p>
+                  <p className="mt-4 font-medium text-caramel">{party.priceIndicator}</p>
                 )}
               </div>
             </div>
-          )
+          ),
         )}
       </div>
     </div>

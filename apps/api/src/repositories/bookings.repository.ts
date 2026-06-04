@@ -1,0 +1,61 @@
+import { bookings, type Db } from "@yezz/db";
+import { desc, eq } from "drizzle-orm";
+
+export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
+
+export type BookingCreateInput = {
+  name: string;
+  phone: string;
+  wechat?: string | null;
+  email?: string | null;
+  preferredDate?: string | null;
+  numberOfPeople?: number | null;
+  activityType?: string | null;
+  interestedProject?: string | null;
+  message?: string | null;
+};
+
+export function createBookingsRepository(db: Db) {
+  return {
+    async create(input: BookingCreateInput) {
+      const [row] = await db
+        .insert(bookings)
+        .values({
+          name: input.name.trim(),
+          phone: input.phone.trim(),
+          wechat: input.wechat?.trim() || null,
+          email: input.email?.trim() || null,
+          preferredDate: input.preferredDate?.trim() || null,
+          numberOfPeople: input.numberOfPeople ?? null,
+          activityType: input.activityType?.trim() || null,
+          interestedProject: input.interestedProject?.trim() || null,
+          message: input.message?.trim() || null,
+          updatedAt: new Date(),
+        })
+        .returning();
+      return row;
+    },
+
+    findAllOrdered() {
+      return db.select().from(bookings).orderBy(desc(bookings.createdAt));
+    },
+
+    async findById(id: string) {
+      const [row] = await db
+        .select()
+        .from(bookings)
+        .where(eq(bookings.id, id))
+        .limit(1);
+      return row ?? null;
+    },
+
+    async updateStatus(id: string, status: OrderStatus) {
+      const [row] = await db
+        .update(bookings)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(bookings.id, id))
+        .returning();
+      return row ?? null;
+    },
+  };
+}

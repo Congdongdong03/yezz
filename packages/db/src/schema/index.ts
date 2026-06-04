@@ -13,6 +13,12 @@ export type LocalizedString = { en: string; zh: string };
 
 export const userRoleEnum = pgEnum("user_role", ["admin"]);
 export const projectTypeEnum = pgEnum("project_type", ["experience", "product"]);
+export const orderStatusEnum = pgEnum("order_status", [
+  "new",
+  "contacted",
+  "confirmed",
+  "cancelled",
+]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -70,6 +76,99 @@ export const projectImages = pgTable("project_images", {
     .notNull()
     .references(() => diyProjects.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const partyPackages = pgTable("party_packages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: jsonb("name").$type<LocalizedString>().notNull(),
+  slug: varchar("slug", { length: 128 }).notNull().unique(),
+  description: jsonb("description").$type<LocalizedString>(),
+  includes: jsonb("includes").$type<LocalizedString[]>().notNull().default([]),
+  coverImageUrl: text("cover_image_url"),
+  imageUrls: text("image_urls").array().notNull().default([]),
+  minPeople: integer("min_people").notNull().default(2),
+  maxPeople: integer("max_people").notNull().default(20),
+  priceIndicator: varchar("price_indicator", { length: 128 }),
+  tags: text("tags").array(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const galleryImages = pgTable("gallery_images", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  imageUrl: text("image_url").notNull(),
+  category: varchar("category", { length: 32 }).notNull(),
+  caption: jsonb("caption").$type<LocalizedString>(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const mediaAssets = pgTable("media_assets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  objectKey: varchar("object_key", { length: 512 }).notNull().unique(),
+  url: text("url").notNull(),
+  mimeType: varchar("mime_type", { length: 128 }).notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  uploadedById: uuid("uploaded_by_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const bookings = pgTable("bookings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 64 }).notNull(),
+  wechat: varchar("wechat", { length: 128 }),
+  email: varchar("email", { length: 255 }),
+  preferredDate: varchar("preferred_date", { length: 32 }),
+  numberOfPeople: integer("number_of_people"),
+  activityType: varchar("activity_type", { length: 32 }),
+  interestedProject: varchar("interested_project", { length: 255 }),
+  message: text("message"),
+  status: orderStatusEnum("status").notNull().default("new"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const cartOrders = pgTable("cart_orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 64 }).notNull(),
+  wechat: varchar("wechat", { length: 128 }),
+  message: text("message"),
+  status: orderStatusEnum("status").notNull().default("new"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type CartOrderItemSnapshot = {
+  projectId?: string;
+  projectName?: LocalizedString | string;
+  projectType?: "experience" | "product";
+  styleName?: LocalizedString | string;
+  date?: string;
+  people?: number;
+  price?: string;
+};
+
+export const cartOrderItems = pgTable("cart_order_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id")
+    .notNull()
+    .references(() => cartOrders.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id").references(() => diyProjects.id, {
+    onDelete: "set null",
+  }),
+  projectName: jsonb("project_name").$type<LocalizedString | string>(),
+  projectType: projectTypeEnum("project_type"),
+  styleName: jsonb("style_name").$type<LocalizedString | string>(),
+  date: varchar("date", { length: 32 }),
+  people: integer("people"),
+  price: varchar("price", { length: 32 }),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 

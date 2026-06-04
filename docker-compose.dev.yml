@@ -26,5 +26,31 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: yezz
+      MINIO_ROOT_PASSWORD: yezzsecret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3 &&
+      mc alias set local http://minio:9000 yezz yezzsecret &&
+      mc mb -p local/yezz-media 2>/dev/null || true &&
+      mc anonymous set download local/yezz-media &&
+      echo MinIO bucket yezz-media ready
+      "
+
 volumes:
   postgres_data:
+  minio_data:

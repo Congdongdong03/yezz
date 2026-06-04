@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
+import ImageUploadField from "@/components/admin/ImageUploadField";
 import { LocalizedFields } from "@/components/admin/LocalizedFields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -203,15 +204,12 @@ export default function ProjectForm({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="coverImageUrl">封面图 URL</Label>
-        <Input
-          id="coverImageUrl"
-          value={form.coverImageUrl ?? ""}
-          onChange={(e) => setForm({ ...form, coverImageUrl: e.target.value })}
-          placeholder="https://picsum.photos/..."
-        />
-      </div>
+      <ImageUploadField
+        id="coverImageUrl"
+        label="封面图"
+        value={form.coverImageUrl ?? ""}
+        onChange={(coverImageUrl) => setForm({ ...form, coverImageUrl })}
+      />
 
       <fieldset className="space-y-3 rounded-lg border border-border p-4">
         <legend className="px-1 text-sm font-medium">款式 Styles</legend>
@@ -238,17 +236,15 @@ export default function ProjectForm({
                   }}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>图片 URL</Label>
-                <Input
-                  value={style.imageUrl ?? ""}
-                  onChange={(e) => {
-                    const styles = [...form.styles];
-                    styles[index] = { ...styles[index], imageUrl: e.target.value };
-                    setForm({ ...form, styles });
-                  }}
-                />
-              </div>
+              <ImageUploadField
+                label="款式图片"
+                value={style.imageUrl ?? ""}
+                onChange={(imageUrl) => {
+                  const styles = [...form.styles];
+                  styles[index] = { ...styles[index], imageUrl };
+                  setForm({ ...form, styles });
+                }}
+              />
             </div>
             <Button
               type="button"
@@ -286,17 +282,18 @@ export default function ProjectForm({
       <fieldset className="space-y-3 rounded-lg border border-border p-4">
         <legend className="px-1 text-sm font-medium">图集 Images</legend>
         {form.images.map((image, index) => (
-          <div key={index} className="flex gap-2">
-            <Input
-              className="flex-1"
-              value={image.url}
-              placeholder="图片 URL"
-              onChange={(e) => {
-                const images = [...form.images];
-                images[index] = { ...images[index], url: e.target.value };
-                setForm({ ...form, images });
-              }}
-            />
+          <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <ImageUploadField
+                label={`图集 #${index + 1}`}
+                value={image.url}
+                onChange={(url) => {
+                  const images = [...form.images];
+                  images[index] = { ...images[index], url };
+                  setForm({ ...form, images });
+                }}
+              />
+            </div>
             <Button
               type="button"
               variant="destructive"
