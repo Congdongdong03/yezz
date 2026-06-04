@@ -40,20 +40,20 @@ async function sendCustomerEmail(
   await resend.emails.send({ from: FROM, to, subject, html });
 }
 
-export function formatBookingOrderId(id: string, createdAt: Date): string {
+function formatOrderId(prefix: string, id: string, createdAt: Date): string {
   const y = createdAt.getUTCFullYear();
   const m = String(createdAt.getUTCMonth() + 1).padStart(2, "0");
   const d = String(createdAt.getUTCDate()).padStart(2, "0");
   const suffix = id.replace(/-/g, "").slice(0, 4).toUpperCase();
-  return `booking-${y}${m}${d}-${suffix}`;
+  return `${prefix}-${y}${m}${d}-${suffix}`;
+}
+
+export function formatBookingOrderId(id: string, createdAt: Date): string {
+  return formatOrderId("booking", id, createdAt);
 }
 
 export function formatCartOrderId(id: string, createdAt: Date): string {
-  const y = createdAt.getUTCFullYear();
-  const m = String(createdAt.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(createdAt.getUTCDate()).padStart(2, "0");
-  const suffix = id.replace(/-/g, "").slice(0, 4).toUpperCase();
-  return `order-${y}${m}${d}-${suffix}`;
+  return formatOrderId("order", id, createdAt);
 }
 
 function contactFooter(contact: StoreContact): string {

@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
 import ImageUploadField from "@/components/admin/ImageUploadField";
 import { LocalizedFields } from "@/components/admin/LocalizedFields";
+import { AdminSelect } from "@/components/ui/admin-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createProject, updateProject } from "@/lib/admin/api";
+import { emptyLocalized } from "@/lib/admin/constants";
+import { useFormSubmit } from "@/lib/admin/hooks";
 import type { Category, ProjectDetail, ProjectFormInput } from "@/lib/admin/types";
-
-const emptyLocalized = { en: "", zh: "" };
 
 function defaultForm(): ProjectFormInput {
   return {
@@ -62,20 +62,14 @@ export default function ProjectForm({
   categories: Category[];
   project?: ProjectDetail;
 }) {
-  const router = useRouter();
   const isEdit = Boolean(project);
   const [form, setForm] = useState<ProjectFormInput>(
     project ? fromProject(project) : defaultForm(),
   );
   const [tagsText, setTagsText] = useState((project?.tags ?? []).join(", "));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { saving, error, clearError, handleSubmit } = useFormSubmit({ redirectTo: "/admin/projects" });
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-
+  const submit = handleSubmit(async () => {
     const payload: ProjectFormInput = {
       ...form,
       tags: tagsText
@@ -88,42 +82,26 @@ export default function ProjectForm({
       coverImageUrl: form.coverImageUrl || null,
     };
 
-    try {
-      if (isEdit && project) {
-        await updateProject(project.id, payload);
-        router.push("/admin/projects");
-        router.refresh();
-      } else {
-        await createProject(payload);
-        router.push("/admin/projects");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
-      setSaving(false);
+    if (isEdit && project) {
+      await updateProject(project.id, payload);
+    } else {
+      await createProject(payload);
     }
-  };
+  });
 
   return (
     <form onSubmit={submit} className="max-w-3xl space-y-6">
-      {error && <AlertBanner type="error" message={error} onDismiss={() => setError(null)} />}
+      {error && <AlertBanner type="error" message={error} onDismiss={clearError} />}
 
-      <div className="space-y-1.5">
-        <Label htmlFor="categoryId">分类</Label>
-        <select
-          id="categoryId"
-          required
-          value={form.categoryId}
-          onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-          className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm"
-        >
-          <option value="">选择分类</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name.zh} ({c.slug})
-            </option>
-          ))}
-        </select>
-      </div>
+      <AdminSelect
+        id="categoryId"
+        label="分类"
+        required
+        value={form.categoryId}
+        placeholder="选择分类"
+        options={categories.map((c) => ({ value: c.id, label: `${c.name.zh} (${c.slug})` }))}
+        onChange={(categoryId) => setForm({ ...form, categoryId })}
+      />
 
       <LocalizedFields
         label="名称"
@@ -141,23 +119,16 @@ export default function ProjectForm({
             onChange={(e) => setForm({ ...form, slug: e.target.value })}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="projectType">类型</Label>
-          <select
-            id="projectType"
-            value={form.projectType}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                projectType: e.target.value as "experience" | "product",
-              })
-            }
-            className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm"
-          >
-            <option value="product">产品 product</option>
-            <option value="experience">体验 experience</option>
-          </select>
-        </div>
+        <AdminSelect
+          id="projectType"
+          label="类型"
+          value={form.projectType}
+          options={[
+            { value: "product", label: "产品 product" },
+            { value: "experience", label: "体验 experience" },
+          ]}
+          onChange={(v) => setForm({ ...form, projectType: v as "experience" | "product" })}
+        />
       </div>
 
       <LocalizedFields

@@ -4,7 +4,7 @@ import {
   createCartOrdersRepository,
   type OrderStatus,
 } from "../../repositories/cart-orders.repository.js";
-import { ORDER_STATUSES } from "./bookings.admin.service.js";
+import { validateOrderStatus } from "./bookings.admin.service.js";
 
 export type CartOrderItemDto = {
   id: string;
@@ -66,16 +66,6 @@ export type AdminCartOrdersService = ReturnType<typeof createAdminCartOrdersServ
 export function createAdminCartOrdersService(db: Db) {
   const repo = createCartOrdersRepository(db);
 
-  function validateStatus(status: string): asserts status is OrderStatus {
-    if (!ORDER_STATUSES.includes(status as OrderStatus)) {
-      throw new AppError(
-        400,
-        "VALIDATION_ERROR",
-        `status must be one of: ${ORDER_STATUSES.join(", ")}`,
-      );
-    }
-  }
-
   return {
     async list(): Promise<CartOrderDto[]> {
       const orders = await repo.findAllOrdered();
@@ -104,7 +94,7 @@ export function createAdminCartOrdersService(db: Db) {
       if (!status) {
         throw new AppError(400, "VALIDATION_ERROR", "status is required");
       }
-      validateStatus(status);
+      validateOrderStatus(status);
       const row = await repo.updateStatus(id, status);
       if (!row) {
         throw new AppError(404, "NOT_FOUND", "Cart order not found");

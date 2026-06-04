@@ -3,16 +3,13 @@
 import { useEffect, useState } from "react";
 import PartyForm from "@/components/admin/PartyForm";
 import { getAdminParty } from "@/lib/admin/api";
+import { useResolvedId } from "@/lib/admin/hooks";
 import type { PartyPackage } from "@/lib/admin/types";
 
 export default function EditPartyPage({ params }: { params: Promise<{ id: string }> }) {
-  const [id, setId] = useState<string | null>(null);
+  const id = useResolvedId(params);
   const [party, setParty] = useState<PartyPackage | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    params.then((p) => setId(p.id));
-  }, [params]);
 
   useEffect(() => {
     if (!id) return;

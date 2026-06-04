@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
 import ImageUploadField from "@/components/admin/ImageUploadField";
 import { LocalizedFields } from "@/components/admin/LocalizedFields";
@@ -9,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createParty, updateParty } from "@/lib/admin/api";
+import { emptyLocalized } from "@/lib/admin/constants";
+import { useFormSubmit } from "@/lib/admin/hooks";
 import type { PartyFormInput, PartyPackage } from "@/lib/admin/types";
-
-const emptyLocalized = { en: "", zh: "" };
 
 function defaultForm(): PartyFormInput {
   return {
@@ -46,18 +45,12 @@ function fromParty(party: PartyPackage): PartyFormInput {
 }
 
 export default function PartyForm({ party }: { party?: PartyPackage }) {
-  const router = useRouter();
   const isEdit = Boolean(party);
   const [form, setForm] = useState<PartyFormInput>(party ? fromParty(party) : defaultForm());
   const [tagsText, setTagsText] = useState((party?.tags ?? []).join(", "));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { saving, error, clearError, handleSubmit } = useFormSubmit({ redirectTo: "/admin/parties" });
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-
+  const submit = handleSubmit(async () => {
     const payload: PartyFormInput = {
       ...form,
       tags: tagsText
@@ -70,23 +63,16 @@ export default function PartyForm({ party }: { party?: PartyPackage }) {
       imageUrls: form.imageUrls.filter(Boolean),
     };
 
-    try {
-      if (isEdit && party) {
-        await updateParty(party.id, payload);
-      } else {
-        await createParty(payload);
-      }
-      router.push("/admin/parties");
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
-      setSaving(false);
+    if (isEdit && party) {
+      await updateParty(party.id, payload);
+    } else {
+      await createParty(payload);
     }
-  };
+  });
 
   return (
     <form onSubmit={submit} className="max-w-3xl space-y-6">
-      {error && <AlertBanner type="error" message={error} onDismiss={() => setError(null)} />}
+      {error && <AlertBanner type="error" message={error} onDismiss={clearError} />}
 
       <LocalizedFields
         label="名称"

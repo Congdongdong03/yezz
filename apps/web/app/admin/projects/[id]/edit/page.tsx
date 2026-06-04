@@ -3,17 +3,14 @@
 import { useEffect, useState } from "react";
 import ProjectForm from "@/components/admin/ProjectForm";
 import { getAdminCategories, getAdminProject } from "@/lib/admin/api";
+import { useResolvedId } from "@/lib/admin/hooks";
 import type { Category, ProjectDetail } from "@/lib/admin/types";
 
 export default function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
-  const [id, setId] = useState<string | null>(null);
+  const id = useResolvedId(params);
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    params.then((p) => setId(p.id));
-  }, [params]);
 
   useEffect(() => {
     if (!id) return;

@@ -39,6 +39,16 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "cancelled",
 ];
 
+export function validateOrderStatus(status: string): asserts status is OrderStatus {
+  if (!ORDER_STATUSES.includes(status as OrderStatus)) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      `status must be one of: ${ORDER_STATUSES.join(", ")}`,
+    );
+  }
+}
+
 type BookingRow = typeof bookings.$inferSelect;
 
 export function mapBookingRow(row: BookingRow): BookingDto {
@@ -83,16 +93,6 @@ export function createAdminBookingsService(db: Db) {
   const repo = createBookingsRepository(db);
   const slotsRepo = createTimeSlotsRepository(db);
 
-  function validateStatus(status: string): asserts status is OrderStatus {
-    if (!ORDER_STATUSES.includes(status as OrderStatus)) {
-      throw new AppError(
-        400,
-        "VALIDATION_ERROR",
-        `status must be one of: ${ORDER_STATUSES.join(", ")}`,
-      );
-    }
-  }
-
   return {
     async list(): Promise<BookingDto[]> {
       const rows = await repo.findAllOrdered();
@@ -115,7 +115,7 @@ export function createAdminBookingsService(db: Db) {
       if (!status) {
         throw new AppError(400, "VALIDATION_ERROR", "status is required");
       }
-      validateStatus(status);
+      validateOrderStatus(status);
 
       const existing = await repo.findById(id);
       if (!existing) {
