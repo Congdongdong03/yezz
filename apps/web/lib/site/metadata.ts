@@ -21,6 +21,12 @@ export async function buildPageMetadata(options: PageMetaOptions = {}): Promise<
     openGraph: {
       title,
       description,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
     },
   };
 }

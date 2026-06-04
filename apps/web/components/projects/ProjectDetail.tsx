@@ -157,10 +157,11 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
           {!isProduct && (
             <>
               <div className="mt-6">
-                <label className="block text-sm font-medium text-warm-charcoal">
+                <label htmlFor="project-people" className="block text-sm font-medium text-warm-charcoal">
                   {t("numberOfPeople")}
                 </label>
                 <input
+                  id="project-people"
                   type="number"
                   min={1}
                   value={people}

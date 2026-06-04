@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -20,6 +20,8 @@ export default function CartPage() {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const formId = useId();
+  const fieldId = (name: string) => `${formId}-${name}`;
 
   if (items.length === 0 && status !== "success") {
     return (
@@ -128,10 +130,11 @@ export default function CartPage() {
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-warm-charcoal">
+            <label htmlFor={fieldId("name")} className="block text-sm font-medium text-warm-charcoal">
               {t("name")} *
             </label>
             <input
+              id={fieldId("name")}
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -142,10 +145,11 @@ export default function CartPage() {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-warm-charcoal">
+            <label htmlFor={fieldId("phone")} className="block text-sm font-medium text-warm-charcoal">
               {t("phone")} *
             </label>
             <input
+              id={fieldId("phone")}
               required
               type="tel"
               value={phone}
@@ -157,10 +161,11 @@ export default function CartPage() {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-warm-charcoal">
+            <label htmlFor={fieldId("wechat")} className="block text-sm font-medium text-warm-charcoal">
               {t("wechat")}
             </label>
             <input
+              id={fieldId("wechat")}
               value={wechat}
               onChange={(e) => setWechat(e.target.value)}
               className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
@@ -170,10 +175,11 @@ export default function CartPage() {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-warm-charcoal">
+            <label htmlFor={fieldId("email")} className="block text-sm font-medium text-warm-charcoal">
               {t("email")}
             </label>
             <input
+              id={fieldId("email")}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -184,10 +190,11 @@ export default function CartPage() {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-warm-charcoal">
+            <label htmlFor={fieldId("message")} className="block text-sm font-medium text-warm-charcoal">
               {t("note")}
             </label>
             <textarea
+              id={fieldId("message")}
               rows={3}
               value={message}
               onChange={(e) => setMessage(e.target.value)}

@@ -20,7 +20,9 @@
     "bookGuideBody": "请先浏览项目：体验类在详情页直接选日期提交；产品类先加入购物车再结账。",
     "bookGuideProjects": "浏览项目",
     "bookGuideClose": "关闭",
-    "contact": "联系我们"
+    "contact": "联系我们",
+    "closeMenu": "关闭菜单",
+    "mobileMenu": "导航菜单"
   },
   "hero": {
     "title": "亲手制作，独一无二",
@@ -130,7 +132,9 @@
     "noSlots": "该日暂无可用时段",
     "almostFull": "即将满额",
     "remaining": "剩余 {count} 位",
-    "loadError": "加载档期失败，请刷新重试"
+    "loadError": "加载档期失败，请刷新重试",
+    "prevMonth": "上个月",
+    "nextMonth": "下个月"
   },
   "bookingForm": {
     "name": "姓名",
@@ -173,7 +177,8 @@
     "confirmMessage": "我们会尽快联系您确认预约详情。",
     "error": "出了点问题，请重试。",
     "alreadyInCart": "已在购物车中",
-    "removeItem": "移除"
+    "removeItem": "移除",
+    "close": "关闭购物车"
   },
   "projectDetail": {
     "back": "返回项目列表",

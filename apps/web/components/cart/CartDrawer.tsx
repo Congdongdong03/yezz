@@ -35,7 +35,9 @@ export default function CartDrawer() {
                 {t("title")}
               </h2>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
+                aria-label={t("close")}
                 className="rounded-full p-1 text-warm-grey hover:bg-warm-grey/10"
               >
                 <X className="h-5 w-5" />

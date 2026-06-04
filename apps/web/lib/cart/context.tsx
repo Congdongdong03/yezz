@@ -16,6 +16,7 @@ export type CartNotice = "duplicate" | null;
 
 interface CartContextValue {
   items: CartItem[];
+  hydrated: boolean;
   addItem: (item: CartItem) => boolean;
   removeItem: (projectId: string) => void;
   clearItems: () => void;
@@ -113,6 +114,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     <CartContext.Provider
       value={{
         items,
+        hydrated,
         addItem,
         removeItem,
         clearItems,

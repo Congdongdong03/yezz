@@ -9,6 +9,7 @@ import CartDrawer from "@/components/cart/CartDrawer";
 import CartToast from "@/components/cart/CartToast";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import HtmlLang from "@/components/layout/HtmlLang";
+import { buildPageMetadata } from "@/lib/site/metadata";
 import { loadSiteSettings } from "@/lib/site/data";
 import type { Metadata } from "next";
 
@@ -19,11 +20,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const messages = (await import(`@/lib/i18n/messages/${locale}.json`)).default;
-  const settings = await loadSiteSettings();
-  return {
-    title: settings.seoTitle ?? messages.metadata.title,
-    description: settings.seoDescription ?? messages.metadata.description,
-  };
+  await loadSiteSettings();
+  return buildPageMetadata({
+    description: messages.metadata.description,
+  });
 }
 
 export default async function LocaleLayout({

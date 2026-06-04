@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/routing";
 
@@ -10,6 +10,15 @@ export default function BookNavButton({ className }: { className?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   const projectMatch = pathname.match(/^\/projects\/([^/]+)$/);
   const onProjectDetail = Boolean(projectMatch);
@@ -44,8 +53,12 @@ export default function BookNavButton({ className }: { className?: string }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="book-guide-title"
+          onClick={() => setOpen(false)}
         >
-          <div className="w-full max-w-md rounded-2xl bg-cream p-6 shadow-xl">
+          <div
+            className="w-full max-w-md rounded-2xl bg-cream p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2
               id="book-guide-title"
               className="font-serif text-lg font-bold text-warm-charcoal"

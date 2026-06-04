@@ -4,8 +4,8 @@ import { ShoppingBag } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 
 export default function CartIcon() {
-  const { items, toggle, highlightCart } = useCart();
-  const count = items.length;
+  const { items, hydrated, toggle, highlightCart } = useCart();
+  const count = hydrated ? items.length : 0;
 
   return (
     <button

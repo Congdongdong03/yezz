@@ -20,7 +20,9 @@
     "bookGuideBody": "Browse our projects first: book experiences on the project page; add products to your cart to checkout.",
     "bookGuideProjects": "Browse projects",
     "bookGuideClose": "Close",
-    "contact": "Contact"
+    "contact": "Contact",
+    "closeMenu": "Close menu",
+    "mobileMenu": "Navigation menu"
   },
   "hero": {
     "title": "Create Your Own Masterpiece",
@@ -130,7 +132,9 @@
     "noSlots": "No available slots on this day",
     "almostFull": "Almost full",
     "remaining": "{count} spots left",
-    "loadError": "Couldn't load availability. Please refresh and try again."
+    "loadError": "Couldn't load availability. Please refresh and try again.",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month"
   },
   "bookingForm": {
     "name": "Name",
@@ -173,7 +177,8 @@
     "confirmMessage": "We'll contact you soon to confirm your booking.",
     "error": "Something went wrong. Please try again.",
     "alreadyInCart": "Already in your cart",
-    "removeItem": "Remove"
+    "removeItem": "Remove",
+    "close": "Close cart"
   },
   "projectDetail": {
     "back": "Back to Projects",

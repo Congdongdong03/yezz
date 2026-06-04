@@ -116,6 +116,7 @@ export default function BookingCalendar({
         <button
           type="button"
           onClick={() => shiftMonth(-1)}
+          aria-label={t("prevMonth")}
           className="rounded-lg px-2 py-1 text-sm text-warm-grey hover:bg-warm-grey/10"
         >
           ←
@@ -127,6 +128,7 @@ export default function BookingCalendar({
         <button
           type="button"
           onClick={() => shiftMonth(1)}
+          aria-label={t("nextMonth")}
           className="rounded-lg px-2 py-1 text-sm text-warm-grey hover:bg-warm-grey/10"
         >
           →

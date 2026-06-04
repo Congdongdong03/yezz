@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,6 +29,8 @@ export default function BookingForm({
 }: BookingFormProps) {
   const t = useTranslations("bookingForm");
   const b = useTranslations("book");
+  const id = useId();
+  const fieldId = (name: string) => `${id}-${name}`;
 
   const formSchema = z.object({
     name: z.string().min(1, t("nameRequired")),
@@ -138,10 +140,11 @@ export default function BookingForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-warm-charcoal">
+        <label htmlFor={fieldId("name")} className="block text-sm font-medium text-warm-charcoal">
           {t("name")} *
         </label>
         <input
+          id={fieldId("name")}
           {...register("name")}
           className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
         />
@@ -151,10 +154,11 @@ export default function BookingForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-warm-charcoal">
+        <label htmlFor={fieldId("phone")} className="block text-sm font-medium text-warm-charcoal">
           {t("phone")} *
         </label>
         <input
+          id={fieldId("phone")}
           {...register("phone")}
           type="tel"
           className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
@@ -166,10 +170,11 @@ export default function BookingForm({
 
       <div className="grid gap-6 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-warm-charcoal">
+          <label htmlFor={fieldId("wechat")} className="block text-sm font-medium text-warm-charcoal">
             {t("wechat")}
           </label>
           <input
+            id={fieldId("wechat")}
             {...register("wechat")}
             className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           />
@@ -178,10 +183,11 @@ export default function BookingForm({
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-warm-charcoal">
+          <label htmlFor={fieldId("email")} className="block text-sm font-medium text-warm-charcoal">
             {t("email")}
           </label>
           <input
+            id={fieldId("email")}
             {...register("email")}
             type="email"
             className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
@@ -196,10 +202,11 @@ export default function BookingForm({
         <>
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-warm-charcoal">
+              <label htmlFor={fieldId("preferredDate")} className="block text-sm font-medium text-warm-charcoal">
                 {t("preferredDate")}
               </label>
               <input
+                id={fieldId("preferredDate")}
                 {...register("preferredDate")}
                 type="date"
                 className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
@@ -209,10 +216,11 @@ export default function BookingForm({
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-warm-charcoal">
+              <label htmlFor={fieldId("numberOfPeople")} className="block text-sm font-medium text-warm-charcoal">
                 {t("numberOfPeople")}
               </label>
               <input
+                id={fieldId("numberOfPeople")}
                 {...register("numberOfPeople")}
                 type="number"
                 min="1"
@@ -226,10 +234,11 @@ export default function BookingForm({
 
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-warm-charcoal">
+              <label htmlFor={fieldId("activityType")} className="block text-sm font-medium text-warm-charcoal">
                 {t("activityType")}
               </label>
               <select
+                id={fieldId("activityType")}
                 {...register("activityType")}
                 className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
               >
@@ -245,10 +254,11 @@ export default function BookingForm({
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-warm-charcoal">
+              <label htmlFor={fieldId("interestedProject")} className="block text-sm font-medium text-warm-charcoal">
                 {t("interestedProject")}
               </label>
               <input
+                id={fieldId("interestedProject")}
                 {...register("interestedProject")}
                 className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
               />
@@ -269,10 +279,11 @@ export default function BookingForm({
       )}
 
       <div>
-        <label className="block text-sm font-medium text-warm-charcoal">
+        <label htmlFor={fieldId("message")} className="block text-sm font-medium text-warm-charcoal">
           {t("message")}
         </label>
         <textarea
+          id={fieldId("message")}
           {...register("message")}
           rows={4}
           className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
