@@ -214,8 +214,12 @@ export async function deleteGalleryImage(id: string) {
   });
 }
 
-export async function getAdminBookings() {
-  return adminFetch<Booking[]>("/api/v1/admin/bookings");
+export async function getAdminBookings(params?: { page?: number; limit?: number; status?: string }) {
+  const qs = params ? `?${new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))).toString()}` : "";
+  const result = await adminFetch<{ data: Booking[]; total: number; page: number; limit: number } | Booking[]>(`/api/v1/admin/bookings${qs}`);
+  // Support both old array format and new paginated format
+  if (Array.isArray(result)) return { data: result, total: result.length, page: 1, limit: result.length };
+  return result;
 }
 
 export async function updateBookingStatus(

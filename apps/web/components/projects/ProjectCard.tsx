@@ -4,6 +4,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { useLocale } from "next-intl";
 
+/** Tags may be stored as "中文|English" — pick the right side for locale. */
+function localizeTag(tag: string, locale: string): string {
+  const parts = tag.split("|");
+  if (parts.length === 2) {
+    return locale === "en" ? (parts[1]?.trim() || parts[0]) : (parts[0]?.trim() || tag);
+  }
+  return tag;
+}
+
 interface ProjectCardProps {
   project: {
     _id: string;
@@ -55,7 +64,7 @@ export default function ProjectCard({ project, locale }: ProjectCardProps) {
               key={tag}
               className="rounded-full bg-soft-pink/20 px-3 py-1 text-xs text-warm-charcoal"
             >
-              {tag}
+              {localizeTag(tag, locale)}
             </span>
           ))}
         </div>

@@ -12,6 +12,22 @@ import type { TimeSlotOption } from "@/lib/api/time-slots";
 import StyleSelector from "./StyleSelector";
 import { trackViewProject } from "@/lib/analytics/gtag";
 
+function localizeTag(tag: string, locale: string): string {
+  const parts = tag.split("|");
+  if (parts.length === 2) {
+    return locale === "en" ? (parts[1]?.trim() || parts[0]) : (parts[0]?.trim() || tag);
+  }
+  return tag;
+}
+
+function localizeDuration(duration: string, locale: string): string {
+  const parts = duration.split("|");
+  if (parts.length === 2) {
+    return locale === "en" ? (parts[1]?.trim() || parts[0]) : (parts[0]?.trim() || duration);
+  }
+  return duration;
+}
+
 interface ProjectDetailProps {
   project: {
     _id: string;
@@ -118,7 +134,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
                   key={tag}
                   className="rounded-full bg-soft-pink/20 px-3 py-1 text-xs text-warm-charcoal"
                 >
-                  {tag}
+                  {localizeTag(tag, locale)}
                 </span>
               ))}
             </div>
@@ -127,7 +143,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
             )}
             {project.duration && (
               <p className="mt-1 text-sm text-warm-grey">
-                {t("duration")}: {project.duration}
+                {t("duration")}: {localizeDuration(project.duration, locale)}
               </p>
             )}
             {project.description && (

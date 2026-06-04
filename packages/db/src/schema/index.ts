@@ -145,7 +145,7 @@ export const bookings = pgTable("bookings", {
   phone: varchar("phone", { length: 64 }).notNull(),
   wechat: varchar("wechat", { length: 128 }),
   email: varchar("email", { length: 255 }),
-  preferredDate: varchar("preferred_date", { length: 32 }),
+  preferredDate: date("preferred_date"),
   numberOfPeople: integer("number_of_people"),
   activityType: varchar("activity_type", { length: 32 }),
   interestedProject: varchar("interested_project", { length: 255 }),

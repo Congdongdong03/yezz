@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { AUTH_COOKIE_NAME } from "../../plugins/auth.js";
 import { success } from "../../lib/response.js";
+import { AppError } from "../../lib/errors.js";
+import { checkRateLimit } from "../../lib/cache.js";
 
 type LoginBody = {
   email?: string;
@@ -29,6 +31,13 @@ function clearAuthCookie(reply: FastifyReply) {
 
 export default async function authRoutes(app: FastifyInstance) {
   app.post<{ Body: LoginBody }>("/login", async (request, reply) => {
+    const ip = request.ip;
+    const rl = await checkRateLimit(app.redis, `login:${ip}`, 5, 3600);
+    if (!rl.allowed) {
+      reply.header("Retry-After", String(rl.retryAfter ?? 3600));
+      throw new AppError(429, "RATE_LIMITED", "Too many login attempts. Please try again later.");
+    }
+
     const { email = "", password = "" } = request.body ?? {};
     const result = await app.services.auth.login(email, password, (payload) =>
       request.server.jwt.sign(payload),

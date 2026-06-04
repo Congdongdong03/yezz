@@ -2,6 +2,30 @@ import type Redis from "ioredis";
 
 export const CACHE_TTL_SECONDS = 300;
 
+/** In-memory fallback rate-limiter used when Redis is unavailable. */
+const inMemoryCounters = new Map<string, { count: number; expiresAt: number }>();
+
+function inMemoryRateLimit(
+  key: string,
+  limit: number,
+  windowSeconds: number,
+): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const entry = inMemoryCounters.get(key);
+
+  if (!entry || entry.expiresAt <= now) {
+    inMemoryCounters.set(key, { count: 1, expiresAt: now + windowSeconds * 1000 });
+    return { allowed: true };
+  }
+
+  entry.count += 1;
+  if (entry.count > limit) {
+    const retryAfter = Math.ceil((entry.expiresAt - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  return { allowed: true };
+}
+
 export const CACHE_KEYS = {
   projectsList: "cache:projects:list",
   projectSlug: (slug: string) => `cache:projects:slug:${slug}`,
@@ -61,7 +85,7 @@ export async function checkRateLimit(
   windowSeconds: number,
 ): Promise<{ allowed: boolean; retryAfter?: number }> {
   if (!redis) {
-    return { allowed: true };
+    return inMemoryRateLimit(key, limit, windowSeconds);
   }
 
   try {
@@ -75,6 +99,6 @@ export async function checkRateLimit(
     }
     return { allowed: true };
   } catch {
-    return { allowed: true };
+    return inMemoryRateLimit(key, limit, windowSeconds);
   }
 }

@@ -38,6 +38,9 @@ function validateBookingInput(input: BookingCreateInput) {
   if (input.numberOfPeople != null && input.numberOfPeople < 1) {
     throw new AppError(400, "VALIDATION_ERROR", "numberOfPeople must be at least 1");
   }
+  if (input.activityType === "experience" && !input.timeSlotId) {
+    throw new AppError(400, "VALIDATION_ERROR", "timeSlotId is required for experience bookings");
+  }
 }
 
 function buildBookingEmailHtml(input: BookingCreateInput): string {

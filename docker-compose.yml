@@ -70,6 +70,12 @@ services:
       S3_SECRET_KEY: yezzsecret
       S3_BUCKET: yezz-media
       S3_PUBLIC_URL: http://localhost:9000/yezz-media
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -86,7 +92,23 @@ services:
       DATABASE_URL: postgres://yezz:yezz@postgres:5432/yezz
       ADMIN_EMAIL: admin@yezz.local
       ADMIN_PASSWORD: changeme
-    command: ["sh", "-c", "pnpm db:migrate && pnpm db:seed"]
+    command: ["sh", "-c", "pnpm db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Run once during initial setup: docker compose --profile seed up seed
+  seed:
+    profiles: ["seed"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://yezz:yezz@postgres:5432/yezz
+      ADMIN_EMAIL: admin@yezz.local
+      ADMIN_PASSWORD: changeme
+      FORCE_SEED: "true"
+    command: ["sh", "-c", "pnpm db:seed"]
     depends_on:
       postgres:
         condition: service_healthy

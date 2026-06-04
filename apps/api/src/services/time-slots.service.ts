@@ -120,6 +120,19 @@ export function createTimeSlotsService(db: Db) {
     },
 
     async update(id: string, input: TimeSlotUpdateInput): Promise<TimeSlotDto> {
+      if (input.capacity !== undefined) {
+        const existing = await repo.findById(id);
+        if (!existing) {
+          throw new AppError(404, "NOT_FOUND", "Time slot not found");
+        }
+        if (input.capacity < existing.bookedCount) {
+          throw new AppError(
+            400,
+            "VALIDATION_ERROR",
+            `Capacity (${input.capacity}) cannot be less than already booked count (${existing.bookedCount})`,
+          );
+        }
+      }
       const row = await repo.update(id, input);
       if (!row) {
         throw new AppError(404, "NOT_FOUND", "Time slot not found");

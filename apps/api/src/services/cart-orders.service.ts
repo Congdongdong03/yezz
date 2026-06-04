@@ -9,6 +9,7 @@ import {
   type StoreContact,
 } from "../lib/email.js";
 import { createSettingsRepository } from "../repositories/settings.repository.js";
+import { createProjectsRepository } from "../repositories/projects.repository.js";
 import {
   createCartOrdersRepository,
   type CartOrderCreateInput,
@@ -87,10 +88,33 @@ async function loadStoreContact(db: Db): Promise<StoreContact> {
 
 export function createCartOrdersService(db: Db) {
   const repo = createCartOrdersRepository(db);
+  const projectsRepo = createProjectsRepository(db);
 
   return {
     async create(input: CartOrderCreateInput): Promise<CartOrderDto> {
       validateCartOrderInput(input);
+
+      // Verify each item's projectId exists and use DB price as authoritative
+      const verifiedItems: CartOrderItemSnapshot[] = [];
+      for (const item of input.items) {
+        if (item.projectId) {
+          const project = await projectsRepo.findById(item.projectId);
+          if (!project) {
+            throw new AppError(
+              400,
+              "VALIDATION_ERROR",
+              `Project not found: ${item.projectId}`,
+            );
+          }
+          verifiedItems.push({
+            ...item,
+            price: project.priceRange ?? item.price ?? null,
+          });
+        } else {
+          verifiedItems.push(item);
+        }
+      }
+      input = { ...input, items: verifiedItems };
 
       const row = await repo.create(input);
       const orderNumber = formatCartOrderId(row.id, row.createdAt);

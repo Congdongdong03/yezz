@@ -101,6 +101,7 @@ export function createTimeSlotsRepository(db: Db) {
             updatedAt: new Date(),
           })),
         )
+        .onConflictDoNothing()
         .returning();
     },
 

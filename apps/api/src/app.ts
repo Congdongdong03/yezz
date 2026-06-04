@@ -28,5 +28,16 @@ export async function buildApp() {
   await app.register(healthRoutes);
   await app.register(v1Routes, { prefix: "/api/v1" });
 
+  // Purge expired cart sessions daily
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+  const purgeTimer = setInterval(async () => {
+    try {
+      await app.services.cartSessions.purgeExpired();
+    } catch (err) {
+      app.log.error({ err }, "Failed to purge expired cart sessions");
+    }
+  }, TWENTY_FOUR_HOURS);
+  app.addHook("onClose", () => clearInterval(purgeTimer));
+
   return app;
 }

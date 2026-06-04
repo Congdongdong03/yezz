@@ -39,12 +39,30 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "cancelled",
 ];
 
+const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  new: ["contacted", "confirmed", "cancelled"],
+  contacted: ["confirmed", "cancelled"],
+  confirmed: ["cancelled"],
+  cancelled: [],
+};
+
 export function validateOrderStatus(status: string): asserts status is OrderStatus {
   if (!ORDER_STATUSES.includes(status as OrderStatus)) {
     throw new AppError(
       400,
       "VALIDATION_ERROR",
       `status must be one of: ${ORDER_STATUSES.join(", ")}`,
+    );
+  }
+}
+
+export function validateStatusTransition(from: OrderStatus, to: OrderStatus): void {
+  const allowed = VALID_TRANSITIONS[from];
+  if (!allowed.includes(to)) {
+    throw new AppError(
+      400,
+      "INVALID_TRANSITION",
+      `Cannot transition from "${from}" to "${to}". Allowed: ${allowed.join(", ") || "none"}`,
     );
   }
 }
@@ -94,9 +112,12 @@ export function createAdminBookingsService(db: Db) {
   const slotsRepo = createTimeSlotsRepository(db);
 
   return {
-    async list(): Promise<BookingDto[]> {
-      const rows = await repo.findAllOrdered();
-      return rows.map(mapBookingRow);
+    async list(options?: { page?: number; limit?: number; status?: OrderStatus }): Promise<{ data: BookingDto[]; total: number; page: number; limit: number }> {
+      const page = Math.max(1, options?.page ?? 1);
+      const limit = Math.min(200, Math.max(1, options?.limit ?? 100));
+      const offset = (page - 1) * limit;
+      const { rows, total } = await repo.findAllOrdered({ limit, offset, status: options?.status });
+      return { data: rows.map(mapBookingRow), total, page, limit };
     },
 
     async getById(id: string): Promise<BookingDto> {
@@ -123,7 +144,29 @@ export function createAdminBookingsService(db: Db) {
       }
 
       const previous = existing.status;
-      const row = await repo.updateStatus(id, status);
+      validateStatusTransition(previous, status);
+
+      const row = await db.transaction(async (tx) => {
+        const updated = await repo.updateStatus(id, status, tx);
+        if (!updated) throw new AppError(404, "NOT_FOUND", "Booking not found");
+
+        // Restore slot capacity when a booking is cancelled
+        if (
+          status === "cancelled" &&
+          previous !== "cancelled" &&
+          existing.timeSlotId &&
+          existing.numberOfPeople
+        ) {
+          await slotsRepo.incrementBookedCount(
+            existing.timeSlotId,
+            -existing.numberOfPeople,
+            tx,
+          );
+        }
+
+        return updated;
+      });
+
       if (!row) {
         throw new AppError(404, "NOT_FOUND", "Booking not found");
       }

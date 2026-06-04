@@ -56,18 +56,80 @@ export function formatCartOrderId(id: string, createdAt: Date): string {
   return formatOrderId("order", id, createdAt);
 }
 
+/** Wraps email body content in a branded YEZZ HTML shell. */
+function brandedEmail(title: string, body: string): string {
+  return `<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(title)}</title>
+</head>
+<body style="margin:0;padding:0;background:#FAF6F1;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FAF6F1;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+          <!-- Header -->
+          <tr>
+            <td style="background:#B07D5C;padding:28px 32px;text-align:center;">
+              <h1 style="margin:0;font-size:26px;font-weight:700;color:#FAF6F1;letter-spacing:2px;font-family:Georgia,serif;">YEZZ</h1>
+              <p style="margin:4px 0 0;font-size:12px;color:rgba(250,246,241,0.75);letter-spacing:1px;text-transform:uppercase;">DIY Studio</p>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px;">
+              ${body}
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background:#F4EFE9;padding:20px 32px;text-align:center;border-top:1px solid #E8DDD4;">
+              <p style="margin:0;font-size:12px;color:#8A7968;">© ${new Date().getFullYear()} YEZZ DIY Studio. All rights reserved.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+const STORE_TIMEZONE = process.env.STORE_TIMEZONE || "Australia/Sydney";
+
+function formatDate(date: Date, locale?: string | null): string {
+  const tz = STORE_TIMEZONE;
+  const lang = locale?.toLowerCase().startsWith("zh") ? "zh-CN" : "en-AU";
+  return date.toLocaleString(lang, {
+    timeZone: tz,
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 function contactFooter(contact: StoreContact): string {
   const lines: string[] = [];
   if (contact.phone) {
-    lines.push(`<p><strong>电话 / Phone:</strong> ${escapeHtml(contact.phone)}</p>`);
+    lines.push(`<p style="margin:4px 0;"><strong>电话 / Phone:</strong> ${escapeHtml(contact.phone)}</p>`);
   }
   if (contact.wechatId) {
-    lines.push(`<p><strong>微信 / WeChat:</strong> ${escapeHtml(contact.wechatId)}</p>`);
+    lines.push(`<p style="margin:4px 0;"><strong>微信 / WeChat:</strong> ${escapeHtml(contact.wechatId)}</p>`);
   }
   if (contact.email) {
-    lines.push(`<p><strong>邮箱 / Email:</strong> ${escapeHtml(contact.email)}</p>`);
+    lines.push(`<p style="margin:4px 0;"><strong>邮箱 / Email:</strong> ${escapeHtml(contact.email)}</p>`);
   }
-  return lines.join("\n");
+  return lines.length
+    ? `<div style="background:#F4EFE9;border-radius:8px;padding:16px;margin-top:24px;">${lines.join("")}</div>`
+    : "";
+}
+
+function infoRow(label: string, value: string): string {
+  return `<tr>
+    <td style="padding:6px 0;color:#8A7968;font-size:13px;white-space:nowrap;vertical-align:top;">${label}</td>
+    <td style="padding:6px 0 6px 16px;color:#2C2C2C;font-size:13px;vertical-align:top;">${value}</td>
+  </tr>`;
 }
 
 export async function sendBookingConfirmationToCustomer(options: {
@@ -79,31 +141,28 @@ export async function sendBookingConfirmationToCustomer(options: {
   contact: StoreContact;
 }): Promise<void> {
   const { to, orderNumber, submittedAt, input, contact } = options;
-  const submitted = submittedAt.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+  const submitted = formatDate(submittedAt, input.locale);
 
-  const html = `
-    <h2>预约已收到 / Booking Received</h2>
-    <p>您好 ${escapeHtml(input.name.trim())}，感谢您在 YEZZ 提交预约。</p>
-    <p>Thank you for your booking at YEZZ Studio.</p>
-    <hr />
-    <p><strong>订单号 / Order No.:</strong> ${escapeHtml(orderNumber)}</p>
-    <p><strong>提交时间 / Submitted:</strong> ${escapeHtml(submitted)}</p>
-    <p><strong>项目 / Project:</strong> ${escapeHtml(input.interestedProject?.trim() || "N/A")}</p>
-    <p><strong>日期 / Date:</strong> ${escapeHtml(input.preferredDate?.trim() || "N/A")}</p>
-    <p><strong>人数 / People:</strong> ${input.numberOfPeople ?? "N/A"}</p>
-    <p><strong>活动类型 / Activity:</strong> ${escapeHtml(input.activityType?.trim() || "N/A")}</p>
-    ${input.message?.trim() ? `<p><strong>留言 / Message:</strong> ${escapeHtml(input.message.trim())}</p>` : ""}
-    <hr />
-    <p>我们将在 <strong>24 小时内</strong>与您联系确认详情。</p>
-    <p>We will contact you within <strong>24 hours</strong> to confirm your booking.</p>
-    <h3>联系我们 / Contact us</h3>
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约已收到 / Booking Received</h2>
+    <p style="color:#5C5C5C;margin:0 0 24px;">您好 <strong>${escapeHtml(input.name.trim())}</strong>，感谢您在 YEZZ 提交预约。<br/>Thank you for your booking at YEZZ Studio.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
+      ${infoRow("订单号 / Order No.", escapeHtml(orderNumber))}
+      ${infoRow("提交时间 / Submitted", escapeHtml(submitted))}
+      ${input.interestedProject?.trim() ? infoRow("项目 / Project", escapeHtml(input.interestedProject.trim())) : ""}
+      ${input.preferredDate?.trim() ? infoRow("日期 / Date", escapeHtml(input.preferredDate.trim())) : ""}
+      ${input.numberOfPeople != null ? infoRow("人数 / People", String(input.numberOfPeople)) : ""}
+      ${input.activityType?.trim() ? infoRow("活动类型 / Activity", escapeHtml(input.activityType.trim())) : ""}
+      ${input.message?.trim() ? infoRow("留言 / Message", escapeHtml(input.message.trim())) : ""}
+    </table>
+    <p style="margin:24px 0 0;color:#5C5C5C;font-size:14px;">我们将在 <strong>24 小时内</strong>与您联系确认详情。<br/>We will contact you within <strong>24 hours</strong>.</p>
     ${contactFooter(contact)}
   `;
 
   await sendCustomerEmail(
     to,
     `YEZZ 预约确认 ${orderNumber} / Booking Confirmation`,
-    html,
+    brandedEmail(`YEZZ 预约确认 ${orderNumber}`, body),
   );
 }
 
@@ -115,40 +174,38 @@ export async function sendOrderConfirmationToCustomer(options: {
   contact: StoreContact;
 }): Promise<void> {
   const { orderNumber, submittedAt, input, contact } = options;
-  const submitted = submittedAt.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+  const submitted = formatDate(submittedAt);
 
   const itemsHtml = input.items
     .map((item, index) => {
       const name = escapeHtml(displayLocalized(item.projectName));
       const style = item.styleName ? escapeHtml(displayLocalized(item.styleName)) : null;
-      const detail = style
-        ? style
-        : escapeHtml(`${item.date || ""} / ${item.people ?? 0} people`);
-      const price = escapeHtml(item.price || "N/A");
-      return `<p>${index + 1}. ${name} — ${detail} — ${price}</p>`;
+      const detail = style ? style : escapeHtml(`${item.date || ""} · ${item.people ?? 0} 人`);
+      const price = item.price ? `<span style="color:#B07D5C;">${escapeHtml(item.price)}</span>` : "";
+      return `<tr>
+        <td style="padding:8px 0;border-bottom:1px solid #F0E8E0;font-size:13px;color:#2C2C2C;">${index + 1}. ${name}</td>
+        <td style="padding:8px 0;border-bottom:1px solid #F0E8E0;font-size:12px;color:#8A7968;text-align:right;">${detail}${price ? `<br/>${price}` : ""}</td>
+      </tr>`;
     })
     .join("");
 
-  const html = `
-    <h2>订单已收到 / Order Received</h2>
-    <p>您好 ${escapeHtml(input.name.trim())}，感谢您在 YEZZ 提交订单。</p>
-    <p>Thank you for your order at YEZZ Studio.</p>
-    <hr />
-    <p><strong>订单号 / Order No.:</strong> ${escapeHtml(orderNumber)}</p>
-    <p><strong>提交时间 / Submitted:</strong> ${escapeHtml(submitted)}</p>
-    <h3>订单摘要 / Order summary</h3>
-    ${itemsHtml}
-    <hr />
-    <p>我们将在 <strong>24 小时内</strong>与您联系确认详情。</p>
-    <p>We will contact you within <strong>24 hours</strong> to confirm your order.</p>
-    <h3>联系我们 / Contact us</h3>
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">订单已收到 / Order Received</h2>
+    <p style="color:#5C5C5C;margin:0 0 24px;">您好 <strong>${escapeHtml(input.name.trim())}</strong>，感谢您在 YEZZ 提交订单。<br/>Thank you for your order at YEZZ Studio.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
+      ${infoRow("订单号 / Order No.", escapeHtml(orderNumber))}
+      ${infoRow("提交时间 / Submitted", escapeHtml(submitted))}
+    </table>
+    <h3 style="margin:24px 0 12px;font-size:14px;color:#8A7968;text-transform:uppercase;letter-spacing:0.5px;">订单摘要 / Order Summary</h3>
+    <table width="100%" cellpadding="0" cellspacing="0">${itemsHtml}</table>
+    <p style="margin:24px 0 0;color:#5C5C5C;font-size:14px;">我们将在 <strong>24 小时内</strong>与您联系确认详情。<br/>We will contact you within <strong>24 hours</strong>.</p>
     ${contactFooter(contact)}
   `;
 
   await sendCustomerEmail(
     options.to,
     `YEZZ 订单确认 ${orderNumber} / Order Confirmation`,
-    html,
+    brandedEmail(`YEZZ 订单确认 ${orderNumber}`, body),
   );
 }
 
@@ -174,22 +231,15 @@ export async function sendBookingStatusContactedEmail(
   ctx: BookingStatusEmailContext,
 ): Promise<void> {
   const zh = isZh(ctx.locale);
-  const html = zh
-    ? `
-    <h2>预约进度更新</h2>
-    <p>${escapeHtml(ctx.customerName)} 您好，我们已查看您的预约（${escapeHtml(ctx.orderNumber)}），稍后将联系您确认细节。</p>
-    ${contactFooter(ctx.contact)}
-  `
-    : `
-    <h2>Booking update</h2>
-    <p>Hi ${escapeHtml(ctx.customerName)}, we have reviewed your booking (${escapeHtml(ctx.orderNumber)}) and will contact you shortly to confirm the details.</p>
-    ${contactFooter(ctx.contact)}
-  `;
-  await sendCustomerEmail(
-    ctx.to,
-    zh ? `YEZZ 预约跟进 ${ctx.orderNumber}` : `YEZZ booking update ${ctx.orderNumber}`,
-    html,
-  );
+  const subject = zh ? `YEZZ 预约跟进 ${ctx.orderNumber}` : `YEZZ booking update ${ctx.orderNumber}`;
+  const body = zh
+    ? `<h2 style="margin:0 0 16px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约进度更新</h2>
+       <p style="color:#5C5C5C;">${escapeHtml(ctx.customerName)} 您好，我们已查看您的预约（<strong>${escapeHtml(ctx.orderNumber)}</strong>），稍后将联系您确认细节。</p>
+       ${contactFooter(ctx.contact)}`
+    : `<h2 style="margin:0 0 16px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Booking Update</h2>
+       <p style="color:#5C5C5C;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, we have reviewed your booking (<strong>${escapeHtml(ctx.orderNumber)}</strong>) and will contact you shortly.</p>
+       ${contactFooter(ctx.contact)}`;
+  await sendCustomerEmail(ctx.to, subject, brandedEmail(subject, body));
 }
 
 export async function sendBookingStatusConfirmedEmail(
@@ -197,66 +247,56 @@ export async function sendBookingStatusConfirmedEmail(
 ): Promise<void> {
   const zh = isZh(ctx.locale);
   const when = ctx.slotLabel ?? ctx.preferredDate ?? (zh ? "待确认" : "TBD");
+  const subject = zh ? `YEZZ 预约已确认 ${ctx.orderNumber}` : `YEZZ booking confirmed ${ctx.orderNumber}`;
   const note = ctx.adminNote?.trim()
-    ? `<p><strong>${zh ? "备注" : "Note"}:</strong> ${escapeHtml(ctx.adminNote)}</p>`
+    ? `<p style="background:#FFF8F3;border-left:3px solid #B07D5C;padding:8px 12px;margin-top:16px;font-size:13px;"><strong>${zh ? "备注" : "Note"}:</strong> ${escapeHtml(ctx.adminNote)}</p>`
     : "";
-  const html = zh
-    ? `
-    <h2>预约已确认</h2>
-    <p>${escapeHtml(ctx.customerName)} 您好，您的预约已确认！</p>
-    <p><strong>订单号：</strong> ${escapeHtml(ctx.orderNumber)}</p>
-    <p><strong>时间：</strong> ${escapeHtml(when)}</p>
-    <p><strong>地址：</strong> ${escapeHtml(ctx.address ?? "请见店铺联系方式")}</p>
-    <p><strong>营业时间：</strong> ${escapeHtml(ctx.businessHours ?? "—")}</p>
-    ${note}
-    ${contactFooter(ctx.contact)}
-  `
-    : `
-    <h2>Booking confirmed</h2>
-    <p>Hi ${escapeHtml(ctx.customerName)}, your booking is confirmed!</p>
-    <p><strong>Order:</strong> ${escapeHtml(ctx.orderNumber)}</p>
-    <p><strong>When:</strong> ${escapeHtml(when)}</p>
-    <p><strong>Address:</strong> ${escapeHtml(ctx.address ?? "See contact details below")}</p>
-    <p><strong>Hours:</strong> ${escapeHtml(ctx.businessHours ?? "—")}</p>
-    ${note}
-    ${contactFooter(ctx.contact)}
-  `;
-  await sendCustomerEmail(
-    ctx.to,
-    zh ? `YEZZ 预约已确认 ${ctx.orderNumber}` : `YEZZ booking confirmed ${ctx.orderNumber}`,
-    html,
-  );
+
+  const body = zh
+    ? `<h2 style="margin:0 0 8px;font-size:20px;color:#B07D5C;font-family:Georgia,serif;">✓ 预约已确认</h2>
+       <p style="color:#5C5C5C;margin:0 0 24px;">${escapeHtml(ctx.customerName)} 您好，您的预约已成功确认！</p>
+       <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
+         ${infoRow("订单号", escapeHtml(ctx.orderNumber))}
+         ${infoRow("时间", escapeHtml(when))}
+         ${ctx.address ? infoRow("地址", escapeHtml(ctx.address)) : ""}
+         ${ctx.businessHours ? infoRow("营业时间", escapeHtml(ctx.businessHours)) : ""}
+       </table>
+       ${note}
+       ${contactFooter(ctx.contact)}`
+    : `<h2 style="margin:0 0 8px;font-size:20px;color:#B07D5C;font-family:Georgia,serif;">✓ Booking Confirmed</h2>
+       <p style="color:#5C5C5C;margin:0 0 24px;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, your booking is confirmed!</p>
+       <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
+         ${infoRow("Order No.", escapeHtml(ctx.orderNumber))}
+         ${infoRow("When", escapeHtml(when))}
+         ${ctx.address ? infoRow("Address", escapeHtml(ctx.address)) : ""}
+         ${ctx.businessHours ? infoRow("Hours", escapeHtml(ctx.businessHours)) : ""}
+       </table>
+       ${note}
+       ${contactFooter(ctx.contact)}`;
+  await sendCustomerEmail(ctx.to, subject, brandedEmail(subject, body));
 }
 
 export async function sendBookingStatusCancelledEmail(
   ctx: BookingStatusEmailContext,
 ): Promise<void> {
   const zh = isZh(ctx.locale);
+  const subject = zh ? `YEZZ 预约取消 ${ctx.orderNumber}` : `YEZZ booking cancelled ${ctx.orderNumber}`;
   const reason = ctx.adminNote?.trim()
     ? escapeHtml(ctx.adminNote)
-    : zh
-      ? "档期已满或时间冲突"
-      : "schedule conflict or capacity limit";
-  const html = zh
-    ? `
-    <h2>预约未能安排</h2>
-    <p>${escapeHtml(ctx.customerName)} 您好，很遗憾您的预约（${escapeHtml(ctx.orderNumber)}）目前无法安排。</p>
-    <p><strong>原因：</strong> ${reason}</p>
-    <p>欢迎联系我们重新预约。</p>
-    ${contactFooter(ctx.contact)}
-  `
-    : `
-    <h2>Booking unavailable</h2>
-    <p>Hi ${escapeHtml(ctx.customerName)}, we are unable to accommodate your booking (${escapeHtml(ctx.orderNumber)}) at this time.</p>
-    <p><strong>Reason:</strong> ${reason}</p>
-    <p>Please contact us to reschedule.</p>
-    ${contactFooter(ctx.contact)}
-  `;
-  await sendCustomerEmail(
-    ctx.to,
-    zh ? `YEZZ 预约取消 ${ctx.orderNumber}` : `YEZZ booking cancelled ${ctx.orderNumber}`,
-    html,
-  );
+    : zh ? "档期已满或时间冲突" : "schedule conflict or capacity limit";
+
+  const body = zh
+    ? `<h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约未能安排</h2>
+       <p style="color:#5C5C5C;margin:0 0 16px;">${escapeHtml(ctx.customerName)} 您好，很遗憾您的预约（<strong>${escapeHtml(ctx.orderNumber)}</strong>）目前无法安排。</p>
+       <p style="background:#FFF5F5;border-left:3px solid #E07070;padding:8px 12px;font-size:13px;"><strong>原因：</strong> ${reason}</p>
+       <p style="margin-top:16px;color:#5C5C5C;">欢迎联系我们重新预约。</p>
+       ${contactFooter(ctx.contact)}`
+    : `<h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Booking Unavailable</h2>
+       <p style="color:#5C5C5C;margin:0 0 16px;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, we are unable to accommodate your booking (<strong>${escapeHtml(ctx.orderNumber)}</strong>) at this time.</p>
+       <p style="background:#FFF5F5;border-left:3px solid #E07070;padding:8px 12px;font-size:13px;"><strong>Reason:</strong> ${reason}</p>
+       <p style="margin-top:16px;color:#5C5C5C;">Please contact us to reschedule.</p>
+       ${contactFooter(ctx.contact)}`;
+  await sendCustomerEmail(ctx.to, subject, brandedEmail(subject, body));
 }
 
 export async function sendStaffWelcomeEmail(options: {
@@ -266,13 +306,19 @@ export async function sendStaffWelcomeEmail(options: {
   password: string;
   role: string;
 }): Promise<void> {
-  const html = `
-    <h2>YEZZ Admin 账号已创建</h2>
-    <p>您好 ${escapeHtml(options.name)}，您的后台账号已开通。</p>
-    <p><strong>邮箱：</strong> ${escapeHtml(options.email)}</p>
-    <p><strong>初始密码：</strong> ${escapeHtml(options.password)}</p>
-    <p><strong>角色：</strong> ${escapeHtml(options.role)}</p>
-    <p>请登录后立即修改密码。</p>
+  const subject = "YEZZ Admin — Your Account / 账号已开通";
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Welcome to YEZZ Admin / 欢迎使用后台</h2>
+    <p style="color:#5C5C5C;margin:0 0 24px;">
+      Hi <strong>${escapeHtml(options.name)}</strong>, your admin account has been created.<br/>
+      您好，您的后台账号已开通。
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
+      ${infoRow("Email / 邮箱", escapeHtml(options.email))}
+      ${infoRow("Password / 初始密码", escapeHtml(options.password))}
+      ${infoRow("Role / 角色", escapeHtml(options.role))}
+    </table>
+    <p style="margin-top:24px;color:#E07070;font-size:13px;">⚠ Please change your password immediately after first login. / 请登录后立即修改密码。</p>
   `;
-  await sendCustomerEmail(options.to, "YEZZ Admin 账号信息", html);
+  await sendCustomerEmail(options.to, subject, brandedEmail(subject, body));
 }

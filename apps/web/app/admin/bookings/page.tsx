@@ -48,7 +48,7 @@ export default function AdminBookingsPage() {
   const load = () => {
     setLoading(true);
     getAdminBookings()
-      .then(setItems)
+      .then((result) => setItems("data" in result ? result.data : result as unknown as Booking[]))
       .catch((err) =>
         setMessage({ type: "error", text: err instanceof Error ? err.message : "加载失败" }),
       )

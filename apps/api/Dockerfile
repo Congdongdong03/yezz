@@ -9,5 +9,12 @@ COPY packages/db ./packages/db
 RUN pnpm install --frozen-lockfile
 
 ENV NODE_ENV=production
+
+RUN pnpm --filter @yezz/api run build
+
 EXPOSE 4000
-CMD ["pnpm", "--filter", "@yezz/api", "exec", "tsx", "src/index.ts"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:4000/health || exit 1
+
+CMD ["pnpm", "--filter", "@yezz/api", "run", "start"]

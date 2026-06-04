@@ -1,5 +1,5 @@
 import { bookings, type Db } from "@yezz/db";
-import { desc, eq } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 
 export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
 
@@ -41,8 +41,27 @@ export function createBookingsRepository(db: Db) {
       return row;
     },
 
-    findAllOrdered() {
-      return db.select().from(bookings).orderBy(desc(bookings.createdAt));
+    async findAllOrdered(opts?: { limit?: number; offset?: number; status?: OrderStatus }) {
+      const conditions = opts?.status ? [eq(bookings.status, opts.status)] : [];
+      const query = db
+        .select()
+        .from(bookings)
+        .orderBy(desc(bookings.createdAt));
+
+      const [totalRow] = await db
+        .select({ total: count() })
+        .from(bookings)
+        .where(conditions.length ? conditions[0] : sql`true`);
+
+      const rows = await db
+        .select()
+        .from(bookings)
+        .where(conditions.length ? conditions[0] : sql`true`)
+        .orderBy(desc(bookings.createdAt))
+        .limit(opts?.limit ?? 100)
+        .offset(opts?.offset ?? 0);
+
+      return { rows, total: Number(totalRow?.total ?? 0) };
     },
 
     async findById(id: string) {
@@ -54,8 +73,8 @@ export function createBookingsRepository(db: Db) {
       return row ?? null;
     },
 
-    async updateStatus(id: string, status: OrderStatus) {
-      const [row] = await db
+    async updateStatus(id: string, status: OrderStatus, tx: Db = db) {
+      const [row] = await tx
         .update(bookings)
         .set({ status, updatedAt: new Date() })
         .where(eq(bookings.id, id))

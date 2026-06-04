@@ -3,26 +3,30 @@
 import { z } from "zod";
 import { getApiBaseUrl } from "@/lib/api/config";
 
-const bookingSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  phone: z.string().min(1, "Phone is required"),
-  wechat: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  preferredDate: z.string().optional(),
-  numberOfPeople: z.string().optional(),
-  activityType: z.string().optional(),
-  interestedProject: z.string().optional(),
-  message: z.string().optional(),
-  timeSlotId: z.string().optional(),
-  locale: z.string().optional(),
-});
+function bookingSchema(locale?: string) {
+  const zh = locale?.startsWith("zh") ?? false;
+  return z.object({
+    name: z.string().min(1, zh ? "请填写姓名" : "Name is required"),
+    phone: z.string().min(1, zh ? "请填写手机号" : "Phone is required"),
+    wechat: z.string().optional(),
+    email: z.string().email(zh ? "邮箱格式不正确" : "Invalid email").optional().or(z.literal("")),
+    preferredDate: z.string().optional(),
+    numberOfPeople: z.string().optional(),
+    activityType: z.string().optional(),
+    interestedProject: z.string().optional(),
+    message: z.string().optional(),
+    timeSlotId: z.string().optional(),
+    locale: z.string().optional(),
+  });
+}
 
 type ApiSuccess<T> = { success: true; data: T };
 type ApiError = { success: false; error: { code: string; message: string } };
 
 export async function submitBooking(formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
-  const parsed = bookingSchema.safeParse(rawData);
+  const locale = typeof rawData.locale === "string" ? rawData.locale : undefined;
+  const parsed = bookingSchema(locale).safeParse(rawData);
 
   if (!parsed.success) {
     return { success: false, errors: parsed.error.flatten().fieldErrors };

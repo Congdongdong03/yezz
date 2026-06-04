@@ -3,21 +3,26 @@
 import { z } from "zod";
 import { getApiBaseUrl } from "@/lib/api/config";
 
-const cartSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  phone: z.string().min(1, "Phone is required"),
-  wechat: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  message: z.string().optional(),
-  items: z.string(),
-});
+function cartSchema(locale?: string) {
+  const zh = locale?.startsWith("zh") ?? false;
+  return z.object({
+    name: z.string().min(1, zh ? "请填写姓名" : "Name is required"),
+    phone: z.string().min(1, zh ? "请填写手机号" : "Phone is required"),
+    wechat: z.string().optional(),
+    email: z.string().email(zh ? "邮箱格式不正确" : "Invalid email").optional().or(z.literal("")),
+    message: z.string().optional(),
+    items: z.string(),
+    locale: z.string().optional(),
+  });
+}
 
 type ApiSuccess<T> = { success: true; data: T };
 type ApiError = { success: false; error: { code: string; message: string } };
 
 export async function submitCart(formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
-  const parsed = cartSchema.safeParse(rawData);
+  const locale = typeof rawData.locale === "string" ? rawData.locale : undefined;
+  const parsed = cartSchema(locale).safeParse(rawData);
 
   if (!parsed.success) {
     return { success: false, errors: parsed.error.flatten().fieldErrors };

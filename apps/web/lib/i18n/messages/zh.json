@@ -8,7 +8,14 @@
     "unavailableMessage": "内容加载失败，请稍后再试或直接联系我们。",
     "boundaryTitle": "页面出现了问题",
     "boundaryMessage": "请刷新页面或稍后再试。",
-    "boundaryRetry": "重试"
+    "boundaryRetry": "重试",
+    "notFoundTitle": "页面未找到",
+    "notFoundMessage": "抱歉，您访问的页面不存在或已被移动。",
+    "notFoundBack": "返回首页",
+    "errorTitle": "出了点问题",
+    "errorMessage": "页面出现了意外错误，请刷新页面或稍后再试。",
+    "errorRetry": "刷新页面",
+    "errorBack": "返回首页"
   },
   "nav": {
     "home": "首页",
@@ -22,7 +29,8 @@
     "bookGuideClose": "关闭",
     "contact": "联系我们",
     "closeMenu": "关闭菜单",
-    "mobileMenu": "导航菜单"
+    "mobileMenu": "导航菜单",
+    "cart": "购物车"
   },
   "hero": {
     "title": "亲手制作，独一无二",

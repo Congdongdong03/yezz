@@ -36,6 +36,20 @@
       "when": 1780542000000,
       "tag": "0004_phase_b",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780543000000,
+      "tag": "0005_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780544000000,
+      "tag": "0006_preferred_date_to_date",
+      "breakpoints": true
     }
   ]
 }
