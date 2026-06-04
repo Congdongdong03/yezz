@@ -1,19 +1,37 @@
 import { loadGalleryPageData } from "@/lib/site/data";
+import { buildPageMetadata } from "@/lib/site/metadata";
+import ServiceUnavailable from "@/components/ServiceUnavailable";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 import type { Metadata } from "next";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: "Gallery | YEZZ",
-    description:
-      "Browse our community's creations — from handmade gifts to party moments. Get inspired at YEZZ DIY Studio.",
-  };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "gallery" });
+  return buildPageMetadata({
+    title: t("title"),
+    description: t("subtitle"),
+  });
 }
 
-export default async function GalleryPage() {
+export default async function GalleryPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
   const t = await getTranslations("gallery");
-  const images = await loadGalleryPageData();
+  const galleryResult = await loadGalleryPageData();
+
+  if (!galleryResult.ok) {
+    return <ServiceUnavailable />;
+  }
+
+  const images = galleryResult.data;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12">
@@ -37,7 +55,11 @@ export default async function GalleryPage() {
               >
                 <Image
                   src={img.imageUrl}
-                  alt={img.caption?.en || "Gallery image"}
+                  alt={
+                    img.caption?.[locale as "en" | "zh"] ||
+                    img.caption?.en ||
+                    t("imageAlt")
+                  }
                   sizes="(max-width: 768px) 50vw, 33vw"
                   fill
                   className="object-cover transition-transform hover:scale-105"

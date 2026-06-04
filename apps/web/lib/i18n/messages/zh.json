@@ -3,6 +3,13 @@
     "title": "YEZZ - 手作体验馆",
     "description": "在 YEZZ 手作体验馆，亲手制作独一无二的作品"
   },
+  "errors": {
+    "unavailableTitle": "服务暂时不可用",
+    "unavailableMessage": "内容加载失败，请稍后再试或直接联系我们。",
+    "boundaryTitle": "页面出现了问题",
+    "boundaryMessage": "请刷新页面或稍后再试。",
+    "boundaryRetry": "重试"
+  },
   "nav": {
     "home": "首页",
     "projects": "项目",
@@ -44,8 +51,17 @@
     "partyPackages": {
       "title": "派对套餐",
       "viewAll": "查看全部套餐",
+      "viewDetails": "了解详情",
       "from": "起",
       "people": "人"
+    },
+    "whyDiy": {
+      "stressTitle": "放松心情",
+      "stressDesc": "暂时放下烦恼，用双手创造美好。",
+      "bondingTitle": "增进感情",
+      "bondingDesc": "约会、闺蜜、亲子，一起度过有意义的时光。",
+      "giftsTitle": "独一无二",
+      "giftsDesc": "亲手制作的礼物，承载着满满的心意。"
     },
     "gallery": {
       "title": "顾客作品",
@@ -71,18 +87,28 @@
   },
   "parties": {
     "title": "派对套餐",
-    "subtitle": "适合生日、约会和朋友聚会的完美选择"
+    "subtitle": "适合生日、约会和朋友聚会的完美选择",
+    "inquireContact": "咨询预约",
+    "inquireWechat": "复制微信号",
+    "wechatCopied": "已复制"
   },
   "gallery": {
     "title": "作品展示",
-    "subtitle": "探索我们社区成员的精彩创作"
+    "subtitle": "探索我们社区成员的精彩创作",
+    "imageAlt": "作品展示图片"
   },
   "contact": {
     "title": "联系我们",
     "address": "地址",
     "phone": "电话",
     "email": "邮箱",
-    "businessHours": "营业时间"
+    "businessHours": "营业时间",
+    "hours": "营业时间",
+    "wechat": "微信",
+    "scanWechat": "扫码添加微信",
+    "map": "地图",
+    "openInMaps": "在 Google 地图中查看",
+    "metaDescription": "联系 YEZZ 手作体验馆——到店体验、添加微信或预约活动。"
   },
   "book": {
     "title": "预约您的体验",
@@ -103,7 +129,8 @@
     "pickSlot": "选择时段",
     "noSlots": "该日暂无可用时段",
     "almostFull": "即将满额",
-    "remaining": "剩余 {count} 位"
+    "remaining": "剩余 {count} 位",
+    "loadError": "加载档期失败，请刷新重试"
   },
   "bookingForm": {
     "name": "姓名",
@@ -144,7 +171,9 @@
     "submitting": "提交中...",
     "thankYou": "感谢您的预约！",
     "confirmMessage": "我们会尽快联系您确认预约详情。",
-    "error": "出了点问题，请重试。"
+    "error": "出了点问题，请重试。",
+    "alreadyInCart": "已在购物车中",
+    "removeItem": "移除"
   },
   "projectDetail": {
     "back": "返回项目列表",
@@ -160,6 +189,7 @@
     "links": "链接",
     "contact": "联系方式",
     "email": "邮箱：hello@yezz.studio",
-    "tagline": "创造属于你的杰作"
+    "tagline": "创造属于你的杰作",
+    "xiaohongshu": "小红书"
   }
 }

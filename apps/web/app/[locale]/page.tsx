@@ -1,4 +1,6 @@
 import { loadHomePageData } from "@/lib/site/data";
+import { buildPageMetadata } from "@/lib/site/metadata";
+import ServiceUnavailable from "@/components/ServiceUnavailable";
 import Hero from "@/components/sections/Hero";
 import SceneEntry from "@/components/sections/SceneEntry";
 import FeaturedProjects from "@/components/sections/FeaturedProjects";
@@ -8,13 +10,18 @@ import GalleryHighlight from "@/components/sections/GalleryHighlight";
 import StoreVibes from "@/components/sections/StoreVibes";
 import WeChatCTA from "@/components/sections/WeChatCTA";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: "YEZZ DIY Studio — Create Your Own Masterpiece",
-    description:
-      "A cozy DIY studio for dates, birthdays, and gatherings. Book your creative experience today.",
-  };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "metadata" });
+  return buildPageMetadata({
+    description: t("description"),
+  });
 }
 
 export default async function HomePage({
@@ -25,8 +32,14 @@ export default async function HomePage({
   const _params = await params;
   void _params;
 
+  const homeResult = await loadHomePageData();
+
+  if (!homeResult.ok) {
+    return <ServiceUnavailable />;
+  }
+
   const { projects, parties, galleryImages, storeImage, siteSettings } =
-    await loadHomePageData();
+    homeResult.data;
 
   return (
     <>

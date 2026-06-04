@@ -101,7 +101,7 @@ export default function CartDrawer() {
                   onClick={() => setIsOpen(false)}
                   className="block w-full rounded-full bg-caramel py-3 text-center text-sm font-medium text-white transition-transform hover:-translate-y-0.5"
                 >
-                  {t("submit")}
+                  {t("goToCart")}
                 </Link>
               </div>
             )}

@@ -4,13 +4,14 @@ import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { submitCart } from "@/lib/actions/cart";
 
 export default function CartPage() {
   const locale = useLocale();
   const t = useTranslations("cart");
-  const { items, clearItems } = useCart();
+  const { items, clearItems, removeItem } = useCart();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -18,6 +19,7 @@ export default function CartPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   if (items.length === 0 && status !== "success") {
     return (
@@ -31,6 +33,7 @@ export default function CartPage() {
     e.preventDefault();
     if (!name || !phone) return;
     setStatus("submitting");
+    setFieldErrors({});
 
     const formData = new FormData();
     formData.append("name", name);
@@ -46,8 +49,13 @@ export default function CartPage() {
       clearItems();
     } else {
       setStatus("error");
+      if (result.errors) {
+        setFieldErrors(result.errors);
+      }
     }
   };
+
+  const fieldError = (key: string) => fieldErrors[key]?.[0];
 
   if (status === "success") {
     return (
@@ -73,7 +81,6 @@ export default function CartPage() {
           {t("checkoutTitle")}
         </h1>
 
-        {/* Items review */}
         <div className="mt-6 space-y-4">
           {items.map((item) => (
             <div
@@ -91,7 +98,7 @@ export default function CartPage() {
                   />
                 </div>
               )}
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="font-medium text-warm-charcoal">
                   {item.projectName[locale as "en" | "zh"]}
                 </p>
@@ -107,11 +114,18 @@ export default function CartPage() {
                 )}
                 {item.price && <p className="text-sm text-caramel">{item.price}</p>}
               </div>
+              <button
+                type="button"
+                onClick={() => removeItem(item.projectId)}
+                className="self-start text-warm-grey hover:text-red-500"
+                aria-label={t("removeItem")}
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
             </div>
           ))}
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           <div>
             <label className="block text-sm font-medium text-warm-charcoal">
@@ -123,6 +137,9 @@ export default function CartPage() {
               onChange={(e) => setName(e.target.value)}
               className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
             />
+            {fieldError("name") && (
+              <p className="mt-1 text-sm text-red-500">{fieldError("name")}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-warm-charcoal">
@@ -135,6 +152,9 @@ export default function CartPage() {
               onChange={(e) => setPhone(e.target.value)}
               className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
             />
+            {fieldError("phone") && (
+              <p className="mt-1 text-sm text-red-500">{fieldError("phone")}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-warm-charcoal">
@@ -145,6 +165,9 @@ export default function CartPage() {
               onChange={(e) => setWechat(e.target.value)}
               className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
             />
+            {fieldError("wechat") && (
+              <p className="mt-1 text-sm text-red-500">{fieldError("wechat")}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-warm-charcoal">
@@ -156,6 +179,9 @@ export default function CartPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
             />
+            {fieldError("email") && (
+              <p className="mt-1 text-sm text-red-500">{fieldError("email")}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-warm-charcoal">
@@ -167,10 +193,15 @@ export default function CartPage() {
               onChange={(e) => setMessage(e.target.value)}
               className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
             />
+            {fieldError("message") && (
+              <p className="mt-1 text-sm text-red-500">{fieldError("message")}</p>
+            )}
           </div>
 
-          {status === "error" && (
-            <p className="text-sm text-red-500">{t("error")}</p>
+          {(fieldError("server") || fieldError("items") || status === "error") && (
+            <p className="text-sm text-red-500" role="alert">
+              {fieldError("server") ?? fieldError("items") ?? t("error")}
+            </p>
           )}
 
           <button

@@ -55,6 +55,7 @@ export default function BookingForm({
     handleSubmit,
     reset,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -92,6 +93,30 @@ export default function BookingForm({
         interestedProject: defaults?.interestedProject ?? "",
         preferredDate: defaults?.preferredDate ?? "",
         numberOfPeople: defaults?.numberOfPeople ?? "",
+      });
+    } else if ("errors" in response && response.errors) {
+      const apiErrors = response.errors as Record<string, string[] | undefined>;
+      const fieldKeys = [
+        "name",
+        "phone",
+        "wechat",
+        "email",
+        "preferredDate",
+        "numberOfPeople",
+        "activityType",
+        "interestedProject",
+        "message",
+      ] as const;
+      for (const key of fieldKeys) {
+        const messages = apiErrors[key];
+        if (messages?.[0]) {
+          setError(key, { message: messages[0] });
+        }
+      }
+      const serverMsg = apiErrors.server?.[0];
+      setResult({
+        success: false,
+        message: serverMsg ?? b("errorMessage"),
       });
     } else {
       setResult({ success: false, message: b("errorMessage") });

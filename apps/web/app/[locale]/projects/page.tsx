@@ -1,18 +1,25 @@
 import { getTranslations } from "next-intl/server";
 import CategoryNav from "@/components/projects/CategoryNav";
 import CategorySection from "@/components/projects/CategorySection";
+import ServiceUnavailable from "@/components/ServiceUnavailable";
 import {
   groupProjectsByCategory,
   loadProjectsPageData,
 } from "@/lib/projects/data";
+import { buildPageMetadata } from "@/lib/site/metadata";
 import type { Metadata } from "next";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: "DIY Projects | YEZZ",
-    description:
-      "Explore our DIY projects — cream glue, beads, pottery, LEGO, candles, and more. Find your perfect creative experience.",
-  };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "projects" });
+  return buildPageMetadata({
+    title: t("title"),
+    description: t("subtitle"),
+  });
 }
 
 export default async function ProjectsPage({
@@ -24,7 +31,12 @@ export default async function ProjectsPage({
   void _locale;
   const t = await getTranslations("projects");
 
-  const { projects, categories } = await loadProjectsPageData();
+  const projectsResult = await loadProjectsPageData();
+  if (!projectsResult.ok) {
+    return <ServiceUnavailable />;
+  }
+
+  const { projects, categories } = projectsResult.data;
   const { displayCategories, grouped } = groupProjectsByCategory(
     projects,
     categories,

@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Link, usePathname } from "@/i18n/routing";
+import { Link, usePathname, useRouter } from "@/i18n/routing";
 
 export default function BookNavButton({ className }: { className?: string }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const projectMatch = pathname.match(/^\/projects\/([^/]+)$/);
@@ -22,7 +23,7 @@ export default function BookNavButton({ className }: { className?: string }) {
             el.scrollIntoView({ behavior: "smooth", block: "start" });
             return;
           }
-          window.location.assign("/cart");
+          router.push("/cart");
         }}
         className={className}
       >

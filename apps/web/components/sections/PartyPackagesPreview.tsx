@@ -98,10 +98,14 @@ export default function PartyPackagesPreview({ packages }: PartyPackagesPreviewP
                   )}
                 </div>
                 <Link
-                  href={`/parties`}
+                  href={
+                    pkg.slug?.current
+                      ? { pathname: "/parties", hash: pkg.slug.current }
+                      : "/parties"
+                  }
                   className="mt-4 inline-block rounded-full bg-caramel px-6 py-2 text-sm font-medium text-white transition-transform hover:-translate-y-0.5"
                 >
-                  {t("viewAll")}
+                  {t("viewDetails")}
                 </Link>
               </div>
             </motion.div>

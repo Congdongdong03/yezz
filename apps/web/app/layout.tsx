@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Serif_SC } from "next/font/google";
+import { routing } from "@/i18n/routing";
+import zhMessages from "@/lib/i18n/messages/zh.json";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,8 +18,11 @@ const notoSerifSC = Noto_Serif_SC({
 });
 
 export const metadata: Metadata = {
-  title: "YEZZ - DIY Studio",
-  description: "Create your own masterpiece at YEZZ DIY Studio",
+  title: {
+    default: zhMessages.metadata.title,
+    template: `%s | ${zhMessages.metadata.title}`,
+  },
+  description: zhMessages.metadata.description,
 };
 
 export default function RootLayout({
@@ -26,7 +31,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html className={`${inter.variable} ${notoSerifSC.variable}`}>
+    <html
+      lang={routing.defaultLocale}
+      suppressHydrationWarning
+      className={`${inter.variable} ${notoSerifSC.variable}`}
+    >
       <body className="antialiased overflow-x-hidden">{children}</body>
     </html>
   );

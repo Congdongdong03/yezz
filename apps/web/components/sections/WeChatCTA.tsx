@@ -56,7 +56,7 @@ export default function WeChatCTA({ wechatId }: { wechatId?: string }) {
               {copied ? t("copied") : t("wechat")}
             </button>
             <Link
-              href="/book"
+              href="/projects"
               className="inline-block rounded-full bg-caramel px-8 py-3 text-lg font-medium text-white transition-transform hover:-translate-y-1"
             >
               {t("book")}

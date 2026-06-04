@@ -1,14 +1,22 @@
-import { loadPartiesPageData } from "@/lib/site/data";
+import { loadPartiesPageData, loadSiteSettings } from "@/lib/site/data";
+import { buildPageMetadata } from "@/lib/site/metadata";
+import PartyInquiryCTA from "@/components/parties/PartyInquiryCTA";
+import ServiceUnavailable from "@/components/ServiceUnavailable";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 import type { Metadata } from "next";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: "Party Packages | YEZZ",
-    description:
-      "Birthday parties, couple date nights, corporate team building — book your private DIY party at YEZZ.",
-  };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "parties" });
+  return buildPageMetadata({
+    title: t("title"),
+    description: t("subtitle"),
+  });
 }
 
 export default async function PartiesPage({
@@ -18,7 +26,14 @@ export default async function PartiesPage({
 }) {
   const { locale } = await params;
   const t = await getTranslations("parties");
-  const parties = await loadPartiesPageData();
+  const partiesResult = await loadPartiesPageData();
+  const settings = await loadSiteSettings();
+
+  if (!partiesResult.ok) {
+    return <ServiceUnavailable />;
+  }
+
+  const parties = partiesResult.data;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12">
@@ -32,6 +47,7 @@ export default async function PartiesPage({
           (
             party: {
               _id: string;
+              slug?: { current: string };
               imageUrl?: string;
               name: Record<string, string>;
               description?: Record<string, string>;
@@ -42,7 +58,8 @@ export default async function PartiesPage({
           ) => (
             <div
               key={party._id}
-              className={`flex flex-col gap-8 ${
+              id={party.slug?.current}
+              className={`scroll-mt-24 flex flex-col gap-8 ${
                 index % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
               }`}
             >
@@ -77,6 +94,7 @@ export default async function PartiesPage({
                 {party.priceIndicator && (
                   <p className="mt-4 font-medium text-caramel">{party.priceIndicator}</p>
                 )}
+                <PartyInquiryCTA wechatId={settings.wechatId} />
               </div>
             </div>
           ),

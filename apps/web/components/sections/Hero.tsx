@@ -47,7 +47,7 @@ export default function Hero({ heroImageUrl }: { heroImageUrl?: string }) {
           className="mt-8"
         >
           <Link
-            href="/book"
+            href="/projects"
             className="inline-block rounded-full bg-caramel px-8 py-3 text-lg font-medium text-white transition-transform hover:-translate-y-1"
           >
             {t("cta")}

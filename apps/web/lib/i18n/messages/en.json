@@ -3,6 +3,13 @@
     "title": "YEZZ - DIY Studio",
     "description": "Create your own masterpiece at YEZZ DIY Studio"
   },
+  "errors": {
+    "unavailableTitle": "Service temporarily unavailable",
+    "unavailableMessage": "We couldn't load this content. Please try again later or contact us directly.",
+    "boundaryTitle": "Something went wrong",
+    "boundaryMessage": "Please refresh the page or try again later.",
+    "boundaryRetry": "Try again"
+  },
   "nav": {
     "home": "Home",
     "projects": "Projects",
@@ -44,8 +51,17 @@
     "partyPackages": {
       "title": "Party Packages",
       "viewAll": "View All Packages",
+      "viewDetails": "Learn more",
       "from": "From",
       "people": "people"
+    },
+    "whyDiy": {
+      "stressTitle": "Relieve Stress",
+      "stressDesc": "Take a break and create something beautiful with your hands.",
+      "bondingTitle": "Bonding Time",
+      "bondingDesc": "Perfect for dates, friends, and family to connect.",
+      "giftsTitle": "Unique Gifts",
+      "giftsDesc": "Make a one-of-a-kind gift that carries your heart."
     },
     "gallery": {
       "title": "Customer Works",
@@ -71,18 +87,28 @@
   },
   "parties": {
     "title": "Party Packages",
-    "subtitle": "Perfect for birthdays, dates, and group gatherings"
+    "subtitle": "Perfect for birthdays, dates, and group gatherings",
+    "inquireContact": "Inquire & Book",
+    "inquireWechat": "Copy WeChat ID",
+    "wechatCopied": "Copied"
   },
   "gallery": {
     "title": "Gallery",
-    "subtitle": "Explore creations from our community"
+    "subtitle": "Explore creations from our community",
+    "imageAlt": "Gallery image"
   },
   "contact": {
     "title": "Get in Touch",
     "address": "Address",
     "phone": "Phone",
     "email": "Email",
-    "businessHours": "Business Hours"
+    "businessHours": "Business Hours",
+    "hours": "Business Hours",
+    "wechat": "WeChat",
+    "scanWechat": "Scan to add us on WeChat",
+    "map": "Map",
+    "openInMaps": "Open in Google Maps",
+    "metaDescription": "Get in touch with YEZZ DIY Studio — visit us, add us on WeChat, or book your experience."
   },
   "book": {
     "title": "Book Your Experience",
@@ -103,7 +129,8 @@
     "pickSlot": "Choose a time slot",
     "noSlots": "No available slots on this day",
     "almostFull": "Almost full",
-    "remaining": "{count} spots left"
+    "remaining": "{count} spots left",
+    "loadError": "Couldn't load availability. Please refresh and try again."
   },
   "bookingForm": {
     "name": "Name",
@@ -144,7 +171,9 @@
     "submitting": "Submitting...",
     "thankYou": "Thank You!",
     "confirmMessage": "We'll contact you soon to confirm your booking.",
-    "error": "Something went wrong. Please try again."
+    "error": "Something went wrong. Please try again.",
+    "alreadyInCart": "Already in your cart",
+    "removeItem": "Remove"
   },
   "projectDetail": {
     "back": "Back to Projects",
@@ -160,6 +189,7 @@
     "links": "Links",
     "contact": "Contact",
     "email": "Email: hello@yezz.studio",
-    "tagline": "Create your own masterpiece"
+    "tagline": "Create your own masterpiece",
+    "xiaohongshu": "Xiaohongshu"
   }
 }

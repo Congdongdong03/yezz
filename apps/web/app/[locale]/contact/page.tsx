@@ -1,14 +1,20 @@
 import { loadSiteSettings } from "@/lib/site/data";
+import { buildPageMetadata } from "@/lib/site/metadata";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 import type { Metadata } from "next";
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: "Contact | YEZZ",
-    description:
-      "Get in touch with YEZZ DIY Studio — visit us, add us on WeChat, or book your experience.",
-  };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "contact" });
+  return buildPageMetadata({
+    title: t("title"),
+    description: t("metaDescription"),
+  });
 }
 
 export default async function ContactPage() {
@@ -51,6 +57,19 @@ export default async function ContactPage() {
             <div>
               <h2 className="font-medium text-warm-charcoal">{t("wechat")}</h2>
               <p className="mt-2 text-warm-grey">{settings.wechatId}</p>
+            </div>
+          )}
+          {settings.googleMapUrl && (
+            <div>
+              <h2 className="font-medium text-warm-charcoal">{t("map")}</h2>
+              <a
+                href={settings.googleMapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-block text-caramel hover:underline"
+              >
+                {t("openInMaps")}
+              </a>
             </div>
           )}
         </div>

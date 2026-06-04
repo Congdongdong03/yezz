@@ -3,18 +3,27 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getAdminCategories, getAdminProjects } from "@/lib/admin/api";
+import {
+  getAdminCategories,
+  getAdminProjects,
+  getAdminSettings,
+} from "@/lib/admin/api";
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<{ projects: number; categories: number } | null>(null);
+  const [stats, setStats] = useState<{
+    projects: number;
+    categories: number;
+    settingsReady: boolean;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getAdminProjects(), getAdminCategories()])
-      .then(([projects, categories]) => {
+    Promise.all([getAdminProjects(), getAdminCategories(), getAdminSettings()])
+      .then(([projects, categories, settings]) => {
         setStats({
           projects: projects.total,
           categories: categories.length,
+          settingsReady: Boolean(settings?.storeName),
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "加载失败"));
@@ -54,7 +63,9 @@ export default function AdminDashboardPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>1</CardTitle>
+            <CardTitle className="text-lg">
+              {stats?.settingsReady ? "已配置" : "—"}
+            </CardTitle>
             <CardDescription>站点设置</CardDescription>
           </CardHeader>
           <Link href="/admin/settings" className="text-sm text-primary hover:underline">

@@ -5,6 +5,7 @@ import {
   PublicApiError,
 } from "@/lib/api/client";
 import { isApiEnabled } from "@/lib/api/config";
+import { loadFailed, loadOk, type LoadResult } from "@/lib/api/load-result";
 import {
   mapCategoryFromApi,
   mapProjectDetailFromApi,
@@ -28,54 +29,58 @@ function loadFromMock(): ProjectsPageData {
   };
 }
 
-export async function loadProjectsPageData(): Promise<ProjectsPageData> {
+export async function loadProjectsPageData(): Promise<LoadResult<ProjectsPageData>> {
   if (isApiEnabled()) {
     try {
       const [apiProjects, apiCategories] = await Promise.all([
         fetchProjects(),
         fetchCategories(),
       ]);
-      return {
+      return loadOk({
         projects: apiProjects.map(mapProjectListItemFromApi),
         categories: apiCategories.map(mapCategoryFromApi),
-      };
+      });
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
         console.warn(
-          "[projects] API unavailable, falling back:",
+          "[projects] API unavailable:",
           err instanceof PublicApiError ? err.message : err,
         );
       }
+      return loadFailed();
     }
   }
 
-  return loadFromMock();
+  return loadOk(loadFromMock());
 }
 
-export async function loadProjectBySlug(
-  slug: string,
-): Promise<ReturnType<typeof mapProjectDetailFromApi> | null> {
+export type ProjectBySlugResult = LoadResult<
+  ReturnType<typeof mapProjectDetailFromApi> | null
+>;
+
+export async function loadProjectBySlug(slug: string): Promise<ProjectBySlugResult> {
   if (isApiEnabled()) {
     try {
       const detail = await fetchProjectBySlug(slug);
-      return mapProjectDetailFromApi(detail);
+      return loadOk(mapProjectDetailFromApi(detail));
     } catch (err) {
       if (err instanceof PublicApiError && err.status === 404) {
-        return null;
+        return loadOk(null);
       }
       if (process.env.NODE_ENV === "development") {
         console.warn(
-          "[project detail] API unavailable, falling back:",
+          "[project detail] API unavailable:",
           err instanceof PublicApiError ? err.message : err,
         );
       }
+      return loadFailed();
     }
   }
 
-  return (
-    mockProjects.find((p) => p.slug.current === slug) ??
-    null
-  ) as ReturnType<typeof mapProjectDetailFromApi> | null;
+  return loadOk(
+    (mockProjects.find((p) => p.slug.current === slug) ??
+      null) as ReturnType<typeof mapProjectDetailFromApi> | null,
+  );
 }
 
 export function groupProjectsByCategory(

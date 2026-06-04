@@ -64,9 +64,12 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
       styleName: selectedStyle.name,
       price: selectedStyle.priceDisplay ?? selectedStyle.price,
     };
-    addItem(item);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1500);
+    const didAdd = addItem(item);
+    if (didAdd) {
+      setAdded(true);
+      setIsOpen(true);
+      setTimeout(() => setAdded(false), 1500);
+    }
   };
 
   return (

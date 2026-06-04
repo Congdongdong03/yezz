@@ -34,6 +34,8 @@ export default function BookingCalendar({
   const [daySlots, setDaySlots] = useState<TimeSlotOption[]>([]);
   const [loadingMonth, setLoadingMonth] = useState(false);
   const [loadingDay, setLoadingDay] = useState(false);
+  const [monthError, setMonthError] = useState<string | null>(null);
+  const [dayError, setDayError] = useState<string | null>(null);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth() + 1;
@@ -41,6 +43,7 @@ export default function BookingCalendar({
 
   const loadMonth = useCallback(async () => {
     setLoadingMonth(true);
+    setMonthError(null);
     try {
       const data = await fetchMonthAvailability(year, month, categoryId);
       const map: Record<string, "none" | "available" | "full"> = {};
@@ -50,10 +53,11 @@ export default function BookingCalendar({
       setMonthMap(map);
     } catch {
       setMonthMap({});
+      setMonthError(t("loadError"));
     } finally {
       setLoadingMonth(false);
     }
-  }, [year, month, categoryId]);
+  }, [year, month, categoryId, t]);
 
   useEffect(() => {
     loadMonth();
@@ -65,11 +69,13 @@ export default function BookingCalendar({
     onDateChange(date);
     onSelectSlot(null);
     setLoadingDay(true);
+    setDayError(null);
     try {
       const data = await fetchDaySlots(date, categoryId);
       setDaySlots(data.slots);
     } catch {
       setDaySlots([]);
+      setDayError(t("loadError"));
     } finally {
       setLoadingDay(false);
     }
@@ -101,6 +107,11 @@ export default function BookingCalendar({
 
   return (
     <div className="space-y-4">
+      {monthError && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {monthError}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -173,7 +184,11 @@ export default function BookingCalendar({
       {selectedDate && (
         <div>
           <p className="text-sm font-medium text-warm-charcoal">{t("pickSlot")}</p>
-          {loadingDay ? (
+          {dayError ? (
+            <p className="mt-2 text-sm text-red-600" role="alert">
+              {dayError}
+            </p>
+          ) : loadingDay ? (
             <p className="mt-2 text-sm text-warm-grey">{t("loading")}</p>
           ) : daySlots.length === 0 ? (
             <p className="mt-2 text-sm text-warm-grey">{t("noSlots")}</p>

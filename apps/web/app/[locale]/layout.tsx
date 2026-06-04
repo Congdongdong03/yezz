@@ -6,8 +6,25 @@ import { CartProvider } from "@/lib/cart/context";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/cart/CartDrawer";
+import CartToast from "@/components/cart/CartToast";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import HtmlLang from "@/components/layout/HtmlLang";
 import { loadSiteSettings } from "@/lib/site/data";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const messages = (await import(`@/lib/i18n/messages/${locale}.json`)).default;
+  const settings = await loadSiteSettings();
+  return {
+    title: settings.seoTitle ?? messages.metadata.title,
+    description: settings.seoDescription ?? messages.metadata.description,
+  };
+}
 
 export default async function LocaleLayout({
   children,
@@ -27,6 +44,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages} locale={locale}>
+      <HtmlLang locale={locale} />
       <CartProvider>
         <div className="flex min-h-screen flex-col">
           <Navbar />
@@ -35,6 +53,7 @@ export default async function LocaleLayout({
           </main>
           <Footer settings={siteSettings} />
           <CartDrawer />
+          <CartToast />
         </div>
       </CartProvider>
     </NextIntlClientProvider>

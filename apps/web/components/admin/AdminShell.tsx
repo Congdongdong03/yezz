@@ -171,13 +171,22 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center border-b border-border bg-card px-6">
           <p className="text-sm text-muted-foreground">官网内容后台</p>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
             <Link
               href="/zh"
               className="text-sm text-primary hover:underline"
               target="_blank"
+              rel="noopener noreferrer"
             >
-              查看官网 ↗
+              中文站 ↗
+            </Link>
+            <Link
+              href="/en"
+              className="text-sm text-primary hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              English ↗
             </Link>
           </div>
         </header>
