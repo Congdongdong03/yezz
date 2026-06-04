@@ -8,8 +8,10 @@ COPY apps/web ./apps/web
 
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000
 ARG NEXT_PUBLIC_USE_API=true
+ARG NEXT_PUBLIC_MEDIA_URL=
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_USE_API=$NEXT_PUBLIC_USE_API
+ENV NEXT_PUBLIC_MEDIA_URL=$NEXT_PUBLIC_MEDIA_URL
 
 RUN pnpm install --frozen-lockfile --filter @yezz/web...
 RUN pnpm --filter @yezz/web build

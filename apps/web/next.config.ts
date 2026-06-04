@@ -37,10 +37,10 @@ const baseRemotePatterns: RemotePattern[] = [
     port: "9000",
     pathname: "/yezz-media/**",
   },
-  // Cloudflare R2 public bucket URLs (pub-*.r2.dev)
+  // Cloudflare R2 public bucket URLs (e.g. pub-xxxxx.r2.dev)
   {
     protocol: "https",
-    hostname: "*.r2.dev",
+    hostname: "**.r2.dev",
     pathname: "/**",
   },
 ];
@@ -48,10 +48,11 @@ const baseRemotePatterns: RemotePattern[] = [
 function patternFromPublicUrl(url: string): RemotePattern | null {
   try {
     const parsed = new URL(url);
+    const pathPrefix = parsed.pathname.replace(/\/$/, "");
     const pattern: RemotePattern = {
       protocol: parsed.protocol.replace(":", "") as "http" | "https",
       hostname: parsed.hostname,
-      pathname: "/**",
+      pathname: pathPrefix ? `${pathPrefix}/**` : "/**",
     };
     if (parsed.port) {
       pattern.port = parsed.port;
@@ -68,7 +69,7 @@ function getMediaRemotePatterns(): RemotePattern[] {
 
   const add = (pattern: RemotePattern | null) => {
     if (!pattern) return;
-    const key = `${pattern.protocol}://${pattern.hostname}:${pattern.port ?? ""}`;
+    const key = `${pattern.protocol}://${pattern.hostname}:${pattern.port ?? ""}${pattern.pathname ?? ""}`;
     if (seen.has(key)) return;
     seen.add(key);
     extra.push(pattern);

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/routing";
 
 export default function BookNavButton({ className }: { className?: string }) {
   const t = useTranslations("nav");
+  const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -23,7 +24,7 @@ export default function BookNavButton({ className }: { className?: string }) {
             el.scrollIntoView({ behavior: "smooth", block: "start" });
             return;
           }
-          router.push("/cart");
+          router.push("/cart", { locale });
         }}
         className={className}
       >

@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect } from "@/i18n/routing";
 
 /** Legacy booking URL — unified flow lives on project detail + cart. */
 export default async function BookPage({
@@ -7,5 +7,5 @@ export default async function BookPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  redirect(`/${locale}/projects`);
+  redirect({ href: "/projects", locale });
 }
