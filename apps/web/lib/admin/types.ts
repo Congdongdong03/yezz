@@ -153,6 +153,30 @@ export type Booking = {
   updatedAt: string;
 };
 
+export type CartOrderItem = {
+  id: string;
+  projectId: string | null;
+  projectName: LocalizedString | string | null;
+  projectType: "experience" | "product" | null;
+  styleName: LocalizedString | string | null;
+  date: string | null;
+  people: number | null;
+  price: string | null;
+  sortOrder: number;
+};
+
+export type CartOrder = {
+  id: string;
+  name: string;
+  phone: string;
+  wechat: string | null;
+  message: string | null;
+  status: OrderStatus;
+  items: CartOrderItem[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ProjectFormInput = {
   categoryId: string;
   name: LocalizedString;

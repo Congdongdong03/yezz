@@ -7,6 +7,7 @@ import type {
   GalleryImage,
   LoginResponse,
   Booking,
+  CartOrder,
   OrderStatus,
   PartyFormInput,
   PartyPackage,
@@ -212,6 +213,17 @@ export async function getAdminBookings() {
 
 export async function updateBookingStatus(id: string, status: Booking["status"]) {
   return adminFetch<Booking>(`/api/v1/admin/bookings/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function getAdminOrders() {
+  return adminFetch<CartOrder[]>("/api/v1/admin/orders");
+}
+
+export async function updateOrderStatus(id: string, status: CartOrder["status"]) {
+  return adminFetch<CartOrder>(`/api/v1/admin/orders/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });

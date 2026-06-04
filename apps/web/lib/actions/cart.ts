@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { Resend } from "resend";
+import { getApiBaseUrl } from "@/lib/api/config";
 
 const cartSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -11,7 +11,8 @@ const cartSchema = z.object({
   items: z.string(),
 });
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+type ApiSuccess<T> = { success: true; data: T };
+type ApiError = { success: false; error: { code: string; message: string } };
 
 export async function submitCart(formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
@@ -24,9 +25,9 @@ export async function submitCart(formData: FormData) {
   const data = parsed.data;
   let items: Array<{
     projectId?: string;
-    projectName?: { en?: string } | string;
+    projectName?: { en?: string; zh?: string } | string;
     projectType?: string;
-    styleName?: { en?: string } | string;
+    styleName?: { en?: string; zh?: string } | string;
     date?: string;
     people?: number;
     price?: string;
@@ -38,38 +39,36 @@ export async function submitCart(formData: FormData) {
   }
 
   try {
-    const itemsHtml = items
-      .map((item, i) => {
-        const name =
-          typeof item.projectName === "string"
-            ? item.projectName
-            : item.projectName?.en;
-        const style =
-          typeof item.styleName === "string"
-            ? item.styleName
-            : item.styleName?.en;
-        return `<p>${i + 1}. ${name} — ${style || `${item.date || ""} / ${item.people || 0} people`} — ${item.price || "N/A"}</p>`;
-      })
-      .join("");
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/cart-orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: data.name,
+        phone: data.phone,
+        wechat: data.wechat || undefined,
+        message: data.message || undefined,
+        items: items.map((item) => ({
+          projectId: item.projectId,
+          projectName: item.projectName,
+          projectType: item.projectType,
+          styleName: item.styleName,
+          date: item.date,
+          people: item.people,
+          price: item.price,
+        })),
+      }),
+    });
 
-    if (process.env.RESEND_API_KEY && process.env.OWNER_EMAIL) {
-      await resend.emails.send({
-        from: "YEZZ <bookings@yezz.studio>",
-        to: process.env.OWNER_EMAIL,
-        subject: `New Order from ${data.name}`,
-        html: `
-        <h2>New Order Received</h2>
-        <p><strong>Name:</strong> ${data.name}</p>
-        <p><strong>Phone:</strong> ${data.phone}</p>
-        <p><strong>WeChat:</strong> ${data.wechat || "N/A"}</p>
-        <p><strong>Note:</strong> ${data.message || "N/A"}</p>
-        <h3>Items:</h3>
-        ${itemsHtml}
-      `,
-      });
+    const json = (await res.json()) as ApiSuccess<{ id: string }> | ApiError;
+
+    if (!json.success) {
+      return {
+        success: false,
+        errors: { server: [json.error?.message ?? "Failed to submit. Please try again."] },
+      };
     }
 
-    return { success: true, orderId: `email-${Date.now()}` };
+    return { success: true, orderId: json.data.id };
   } catch (error) {
     console.error("Cart submission error:", error);
     return { success: false, errors: { server: ["Failed to submit. Please try again."] } };

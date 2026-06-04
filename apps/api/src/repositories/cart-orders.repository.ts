@@ -4,6 +4,9 @@ import {
   type CartOrderItemSnapshot,
   type Db,
 } from "@yezz/db";
+import { asc, desc, eq, inArray } from "drizzle-orm";
+
+export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
 
 export type CartOrderCreateInput = {
   name: string;
@@ -46,6 +49,45 @@ export function createCartOrdersRepository(db: Db) {
 
         return order;
       });
+    },
+
+    findAllOrdered() {
+      return db.select().from(cartOrders).orderBy(desc(cartOrders.createdAt));
+    },
+
+    async findById(id: string) {
+      const [row] = await db
+        .select()
+        .from(cartOrders)
+        .where(eq(cartOrders.id, id))
+        .limit(1);
+      return row ?? null;
+    },
+
+    async findItemsByOrderId(orderId: string) {
+      return db
+        .select()
+        .from(cartOrderItems)
+        .where(eq(cartOrderItems.orderId, orderId))
+        .orderBy(asc(cartOrderItems.sortOrder));
+    },
+
+    async findItemsByOrderIds(orderIds: string[]) {
+      if (orderIds.length === 0) return [];
+      return db
+        .select()
+        .from(cartOrderItems)
+        .where(inArray(cartOrderItems.orderId, orderIds))
+        .orderBy(asc(cartOrderItems.sortOrder));
+    },
+
+    async updateStatus(id: string, status: OrderStatus) {
+      const [row] = await db
+        .update(cartOrders)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(cartOrders.id, id))
+        .returning();
+      return row ?? null;
     },
   };
 }

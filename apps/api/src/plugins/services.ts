@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
 import { createAdminBookingsService, type AdminBookingsService } from "../services/admin/bookings.admin.service.js";
+import { createAdminCartOrdersService, type AdminCartOrdersService } from "../services/admin/cart-orders.admin.service.js";
 import { createAdminCategoriesService, type AdminCategoriesService } from "../services/admin/categories.admin.service.js";
 import { createAdminProjectsService, type AdminProjectsService } from "../services/admin/projects.admin.service.js";
 import { createAdminGalleryService, type AdminGalleryService } from "../services/admin/gallery.admin.service.js";
@@ -27,6 +28,7 @@ export type AppServices = {
   settings: SettingsService;
   adminProjects: AdminProjectsService;
   adminBookings: AdminBookingsService;
+  adminCartOrders: AdminCartOrdersService;
   adminCategories: AdminCategoriesService;
   adminParties: AdminPartiesService;
   adminGallery: AdminGalleryService;
@@ -46,16 +48,17 @@ export default fp(async (app: FastifyInstance) => {
     bookings: createBookingsService(app.db),
     cartOrders: createCartOrdersService(app.db),
     categories: createCategoriesService(app.db),
-    projects: createProjectsService(app.db),
+    projects: createProjectsService(app.db, app.redis),
     parties: createPartiesService(app.db),
     gallery: createGalleryService(app.db),
-    settings: createSettingsService(app.db),
-    adminProjects: createAdminProjectsService(app.db),
+    settings: createSettingsService(app.db, app.redis),
+    adminProjects: createAdminProjectsService(app.db, app.redis),
     adminBookings: createAdminBookingsService(app.db),
+    adminCartOrders: createAdminCartOrdersService(app.db),
     adminCategories: createAdminCategoriesService(app.db),
     adminParties: createAdminPartiesService(app.db),
     adminGallery: createAdminGalleryService(app.db),
-    adminSettings: createAdminSettingsService(app.db),
+    adminSettings: createAdminSettingsService(app.db, app.redis),
     adminUpload: createAdminUploadService(app.db),
   });
 });

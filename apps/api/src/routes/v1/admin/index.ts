@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import adminBookingsRoutes from "./bookings.routes.js";
+import adminOrdersRoutes from "./orders.routes.js";
 import adminCategoriesRoutes from "./categories.routes.js";
 import adminGalleryRoutes from "./gallery.routes.js";
 import adminMeRoutes from "./me.routes.js";
@@ -15,6 +16,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   await app.register(adminUploadRoutes, { prefix: "/upload" });
   await app.register(adminProjectsRoutes, { prefix: "/projects" });
   await app.register(adminBookingsRoutes, { prefix: "/bookings" });
+  await app.register(adminOrdersRoutes, { prefix: "/orders" });
   await app.register(adminCategoriesRoutes, { prefix: "/categories" });
   await app.register(adminPartiesRoutes, { prefix: "/parties" });
   await app.register(adminGalleryRoutes, { prefix: "/gallery" });

@@ -1,5 +1,7 @@
 import type { Db } from "@yezz/db";
+import type Redis from "ioredis";
 import { AppError } from "../../lib/errors.js";
+import { CACHE_KEYS, cacheDel } from "../../lib/cache.js";
 import {
   createSettingsRepository,
   type SiteSettingsUpdateInput,
@@ -27,7 +29,7 @@ function toSettingsDto(row: NonNullable<Awaited<ReturnType<ReturnType<typeof cre
 
 export type AdminSettingsService = ReturnType<typeof createAdminSettingsService>;
 
-export function createAdminSettingsService(db: Db) {
+export function createAdminSettingsService(db: Db, redis: Redis | null = null) {
   const repo = createSettingsRepository(db);
 
   return {
@@ -44,6 +46,7 @@ export function createAdminSettingsService(db: Db) {
       if (!updated) {
         throw new AppError(404, "NOT_FOUND", "Site settings not configured");
       }
+      await cacheDel(redis, CACHE_KEYS.settings);
       return toSettingsDto(updated);
     },
   };

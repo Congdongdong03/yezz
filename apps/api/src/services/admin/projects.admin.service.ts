@@ -1,5 +1,7 @@
 import type { Db } from "@yezz/db";
+import type Redis from "ioredis";
 import { AppError } from "../../lib/errors.js";
+import { invalidateProjectsCache } from "../../lib/cache.js";
 import { createCategoriesRepository } from "../../repositories/categories.repository.js";
 import {
   createProjectsRepository,
@@ -21,10 +23,10 @@ export type AdminProjectsListResult = {
 
 export type AdminProjectsService = ReturnType<typeof createAdminProjectsService>;
 
-export function createAdminProjectsService(db: Db) {
+export function createAdminProjectsService(db: Db, redis: Redis | null = null) {
   const projectsRepo = createProjectsRepository(db);
   const categoriesRepo = createCategoriesRepository(db);
-  const publicProjects = createProjectsService(db);
+  const publicProjects = createProjectsService(db, redis);
 
   async function assertCategory(categoryId: string) {
     const category = await categoriesRepo.findById(categoryId);
@@ -123,6 +125,7 @@ export function createAdminProjectsService(db: Db) {
         throw new AppError(500, "INTERNAL_ERROR", "Failed to create project");
       }
 
+      await invalidateProjectsCache(redis);
       return publicProjects.getBySlug(project.slug);
     },
 
@@ -148,6 +151,7 @@ export function createAdminProjectsService(db: Db) {
         throw new AppError(500, "INTERNAL_ERROR", "Failed to update project");
       }
 
+      await invalidateProjectsCache(redis);
       return publicProjects.getBySlug(updated.slug);
     },
 
@@ -156,6 +160,7 @@ export function createAdminProjectsService(db: Db) {
       if (!deleted) {
         throw new AppError(404, "NOT_FOUND", "Project not found");
       }
+      await invalidateProjectsCache(redis);
       return { id: deleted.id };
     },
   };

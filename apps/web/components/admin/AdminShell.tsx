@@ -13,6 +13,7 @@ const navItems = [
   { href: "/admin/parties", label: "派对套餐" },
   { href: "/admin/gallery", label: "画廊" },
   { href: "/admin/bookings", label: "预约" },
+  { href: "/admin/orders", label: "订单" },
   { href: "/admin/categories", label: "分类" },
   { href: "/admin/settings", label: "站点设置" },
 ];

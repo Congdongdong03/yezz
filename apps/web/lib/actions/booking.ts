@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { Resend } from "resend";
+import { getApiBaseUrl } from "@/lib/api/config";
 
 const bookingSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -15,7 +15,8 @@ const bookingSchema = z.object({
   message: z.string().optional(),
 });
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+type ApiSuccess<T> = { success: true; data: T };
+type ApiError = { success: false; error: { code: string; message: string } };
 
 export async function submitBooking(formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
@@ -28,27 +29,34 @@ export async function submitBooking(formData: FormData) {
   const data = parsed.data;
 
   try {
-    if (process.env.RESEND_API_KEY && process.env.OWNER_EMAIL) {
-      await resend.emails.send({
-        from: "YEZZ <bookings@yezz.studio>",
-        to: process.env.OWNER_EMAIL,
-        subject: `New Booking from ${data.name}`,
-        html: `
-        <h2>New Booking Received</h2>
-        <p><strong>Name:</strong> ${data.name}</p>
-        <p><strong>Phone:</strong> ${data.phone}</p>
-        <p><strong>WeChat:</strong> ${data.wechat || "N/A"}</p>
-        <p><strong>Email:</strong> ${data.email || "N/A"}</p>
-        <p><strong>Date:</strong> ${data.preferredDate || "N/A"}</p>
-        <p><strong>People:</strong> ${data.numberOfPeople || "N/A"}</p>
-        <p><strong>Type:</strong> ${data.activityType || "N/A"}</p>
-        <p><strong>Project:</strong> ${data.interestedProject || "N/A"}</p>
-        <p><strong>Message:</strong> ${data.message || "N/A"}</p>
-      `,
-      });
+    const res = await fetch(`${getApiBaseUrl()}/api/v1/bookings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: data.name,
+        phone: data.phone,
+        wechat: data.wechat || undefined,
+        email: data.email || undefined,
+        preferredDate: data.preferredDate || undefined,
+        numberOfPeople: data.numberOfPeople
+          ? Number.parseInt(data.numberOfPeople, 10)
+          : undefined,
+        activityType: data.activityType || undefined,
+        interestedProject: data.interestedProject || undefined,
+        message: data.message || undefined,
+      }),
+    });
+
+    const json = (await res.json()) as ApiSuccess<{ id: string }> | ApiError;
+
+    if (!json.success) {
+      return {
+        success: false,
+        errors: { server: [json.error?.message ?? "Failed to submit booking. Please try again."] },
+      };
     }
 
-    return { success: true, bookingId: `email-${Date.now()}` };
+    return { success: true, bookingId: json.data.id };
   } catch (error) {
     console.error("Booking submission error:", error);
     return {

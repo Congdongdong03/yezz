@@ -1,5 +1,7 @@
 import type { Db } from "@yezz/db";
+import type Redis from "ioredis";
 import { AppError } from "../lib/errors.js";
+import { CACHE_KEYS, cacheGet, cacheSet } from "../lib/cache.js";
 import { createCategoriesRepository } from "../repositories/categories.repository.js";
 import { createProjectsRepository } from "../repositories/projects.repository.js";
 
@@ -45,14 +47,17 @@ export type ProjectDetailDto = ProjectListItemDto & {
 
 export type ProjectsService = ReturnType<typeof createProjectsService>;
 
-export function createProjectsService(db: Db) {
+export function createProjectsService(db: Db, redis: Redis | null = null) {
   const projectsRepo = createProjectsRepository(db);
   const categoriesRepo = createCategoriesRepository(db);
 
   return {
     async list(): Promise<ProjectListItemDto[]> {
+      const cached = await cacheGet<ProjectListItemDto[]>(redis, CACHE_KEYS.projectsList);
+      if (cached) return cached;
+
       const rows = await projectsRepo.findAllWithCategory();
-      return rows.map(({ project, category }) => ({
+      const result = rows.map(({ project, category }) => ({
         id: project.id,
         name: project.name,
         slug: project.slug,
@@ -70,9 +75,15 @@ export function createProjectsService(db: Db) {
           icon: category.icon ?? null,
         },
       }));
+      await cacheSet(redis, CACHE_KEYS.projectsList, result);
+      return result;
     },
 
     async getBySlug(slug: string): Promise<ProjectDetailDto> {
+      const cacheKey = CACHE_KEYS.projectSlug(slug);
+      const cached = await cacheGet<ProjectDetailDto>(redis, cacheKey);
+      if (cached) return cached;
+
       const project = await projectsRepo.findBySlug(slug);
       if (!project) {
         throw new AppError(404, "NOT_FOUND", `Project not found: ${slug}`);
@@ -88,7 +99,7 @@ export function createProjectsService(db: Db) {
         projectsRepo.findImagesByProjectId(project.id),
       ]);
 
-      return {
+      const result: ProjectDetailDto = {
         id: project.id,
         name: project.name,
         slug: project.slug,
@@ -118,6 +129,8 @@ export function createProjectsService(db: Db) {
           sortOrder: img.sortOrder,
         })),
       };
+      await cacheSet(redis, cacheKey, result);
+      return result;
     },
   };
 }

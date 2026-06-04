@@ -1,7 +1,7 @@
 # YEZZ 自建后端 — 需求清单 & 进度日志
 
 > **用途：** 全栈迁移（Sanity → Node API + PostgreSQL + 自建 Admin）的唯一需求源。  
-> **新窗口接手：** 先看文末「进度日志」**最后一条**（在 `<!-- 新 Session -->` 注释下方），Phase 3 R-501~R-504 已完成，下一步 **R-505**（Admin `/admin/orders`）。  
+> **新窗口接手：** 先看文末「进度日志」**最后一条**（在 `<!-- 新 Session -->` 注释下方），**Phase 3 已全部完成**，下一步 **Phase 4 → R-601**。  
 > **最后更新：** 2026-06-04（Phase 1 全部 R + 验收 V-101~V-108 ✅）
 
 ---
@@ -302,10 +302,10 @@ yezz/
 | R-502 | P3 | `POST /api/v1/bookings` | 写 DB + Resend 通知 owner | [x] |
 | R-503 | P3 | `POST /api/v1/cart-orders` | 写 DB + 邮件 | [x] |
 | R-504 | P3 | Admin `/admin/bookings` | 列表 + 状态 PATCH | [x] |
-| R-505 | P3 | Admin `/admin/orders` | 购物车订单列表 + 状态 | [ ] |
-| R-506 | P3 | Redis 缓存 | projects/settings Cache-Aside + 失效 | [ ] |
-| R-507 | P3 | Redis 限流 | 预约 POST 同 IP 限制 | [ ] |
-| R-508 | P3 | 删 `lib/actions/booking.ts` / `cart.ts` Sanity 写入 | 改调 API | [ ] |
+| R-505 | P3 | Admin `/admin/orders` | 购物车订单列表 + 状态 | [x] |
+| R-506 | P3 | Redis 缓存 | projects/settings Cache-Aside + 失效 | [x] |
+| R-507 | P3 | Redis 限流 | 预约 POST 同 IP 限制 | [x] |
+| R-508 | P3 | 删 `lib/actions/booking.ts` / `cart.ts` Sanity 写入 | 改调 API | [x] |
 
 ---
 
@@ -399,8 +399,7 @@ R-001 ✅
 | P1 官网 R-321~R-325 | ✅ 项目页接 API + feature flag |
 | 验收 V-101~V-108 | 8/8 ✅ |
 | P2 R-401~R-409 | ✅ MinIO + 全站 API + 删 Sanity |
-| P3 R-501~R-503 | ✅ bookings/cart_orders schema + POST API |
-| P3 R-504 | ✅ Admin `/admin/bookings` |
+| P3 R-501~R-508 | ✅ 订单 API + Admin + Redis + 官网改调 API |
 
 ---
 
@@ -686,3 +685,22 @@ pnpm dev:web   # NEXT_PUBLIC_USE_API=true 测 V-106
 - Admin：`/admin/bookings` 列表页 + 状态下拉 PATCH；侧边栏新增「预约」入口
 
 **下一步：** R-505（Admin `/admin/orders` 购物车订单列表 + 状态）
+
+---
+
+### 2026-06-04 — Session 14（Phase 3 完成 R-505~R-508）
+
+**完成：** R-505, R-506, R-507, R-508
+
+**做了什么：**
+- API：`GET/PATCH /api/v1/admin/orders`（含 cart_order_items）
+- Admin：`/admin/orders` 列表 + 状态下拉 PATCH；侧边栏「订单」
+- Redis Cache-Aside：`GET /projects`、`/projects/:slug`、`/settings`（TTL 5min）；Admin 改项目/设置时失效
+- Redis 限流：`POST /bookings` 同 IP 5 次/小时（429 `RATE_LIMITED`）
+- 官网 `lib/actions/booking.ts`、`cart.ts` 改调 Node API（移除 Resend 直发）
+
+**下一步：** Phase 4 → R-601（web 进 docker-compose）
+
+**备注/坑：**
+- Redis 不可用时缓存/限流自动降级，不阻断请求
+- 限流仅作用于 `/bookings`，购物车 POST 暂未限流

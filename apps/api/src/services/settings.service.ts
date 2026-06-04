@@ -1,5 +1,7 @@
 import type { Db } from "@yezz/db";
+import type Redis from "ioredis";
 import { AppError } from "../lib/errors.js";
+import { CACHE_KEYS, cacheDel, cacheGet, cacheSet } from "../lib/cache.js";
 import { createSettingsRepository } from "../repositories/settings.repository.js";
 
 export type SiteSettingsDto = {
@@ -21,17 +23,20 @@ export type SiteSettingsDto = {
 
 export type SettingsService = ReturnType<typeof createSettingsService>;
 
-export function createSettingsService(db: Db) {
+export function createSettingsService(db: Db, redis: Redis | null = null) {
   const repo = createSettingsRepository(db);
 
   return {
     async get(): Promise<SiteSettingsDto> {
+      const cached = await cacheGet<SiteSettingsDto>(redis, CACHE_KEYS.settings);
+      if (cached) return cached;
+
       const row = await repo.findSingleton();
       if (!row) {
         throw new AppError(404, "NOT_FOUND", "Site settings not configured");
       }
 
-      return {
+      const result: SiteSettingsDto = {
         id: row.id,
         storeName: row.storeName,
         address: row.address ?? null,
@@ -47,6 +52,8 @@ export function createSettingsService(db: Db) {
         seoTitle: row.seoTitle ?? null,
         seoDescription: row.seoDescription ?? null,
       };
+      await cacheSet(redis, CACHE_KEYS.settings, result);
+      return result;
     },
   };
 }
