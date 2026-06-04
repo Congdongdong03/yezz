@@ -7,6 +7,7 @@ const cartSchema = z.object({
   name: z.string().min(1, "Name is required"),
   phone: z.string().min(1, "Phone is required"),
   wechat: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
   message: z.string().optional(),
   items: z.string(),
 });
@@ -46,6 +47,7 @@ export async function submitCart(formData: FormData) {
         name: data.name,
         phone: data.phone,
         wechat: data.wechat || undefined,
+        email: data.email || undefined,
         message: data.message || undefined,
         items: items.map((item) => ({
           projectId: item.projectId,

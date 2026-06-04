@@ -8,6 +8,7 @@ import {
   type ProjectCreateInput,
   type ProjectUpdateInput,
 } from "../../repositories/projects.repository.js";
+import { resolveProjectPricing } from "../../lib/pricing.js";
 import type {
   ProjectDetailDto,
   ProjectListItemDto,
@@ -56,6 +57,7 @@ export function createAdminProjectsService(db: Db, redis: Redis | null = null) {
     project,
     category,
   }: Awaited<ReturnType<typeof projectsRepo.findAllWithCategory>>[number]): ProjectListItemDto {
+    const pricing = resolveProjectPricing(project);
     return {
       id: project.id,
       name: project.name,
@@ -63,6 +65,7 @@ export function createAdminProjectsService(db: Db, redis: Redis | null = null) {
       projectType: project.projectType,
       description: project.description ?? null,
       priceRange: project.priceRange ?? null,
+      ...pricing,
       duration: project.duration ?? null,
       tags: project.tags ?? null,
       sortOrder: project.sortOrder,

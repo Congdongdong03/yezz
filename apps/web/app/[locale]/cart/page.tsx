@@ -15,6 +15,7 @@ export default function CartPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [wechat, setWechat] = useState("");
+  const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
 
@@ -35,6 +36,7 @@ export default function CartPage() {
     formData.append("name", name);
     formData.append("phone", phone);
     formData.append("wechat", wechat);
+    formData.append("email", email);
     formData.append("message", message);
     formData.append("items", JSON.stringify(items));
 
@@ -141,6 +143,17 @@ export default function CartPage() {
             <input
               value={wechat}
               onChange={(e) => setWechat(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-warm-charcoal">
+              {t("email")}
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
             />
           </div>

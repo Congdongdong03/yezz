@@ -2,6 +2,8 @@
 
 Bilingual DIY studio website and admin — **Next.js** (`apps/web`) + **Fastify API** (`apps/api`) + **PostgreSQL** (`packages/db`).
 
+> **Important:** The public site reads live data from the API (`NEXT_PUBLIC_USE_API=true`). Before starting the web app, run **Postgres + migrations + seed** and keep **`pnpm dev:api`** running on port 4000. Otherwise project pages will fail or show empty data.
+
 ## Prerequisites
 
 - Node.js 22+
@@ -16,7 +18,7 @@ pnpm install
 
 # 2. Environment
 cp .env.example .env
-# Optional: apps/web/.env.local with NEXT_PUBLIC_USE_API=true
+# Ensure NEXT_PUBLIC_USE_API=true (default in .env.example)
 
 # 3. Start Postgres + Redis (+ MinIO for uploads)
 docker compose -f docker-compose.dev.yml up -d

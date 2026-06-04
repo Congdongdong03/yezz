@@ -12,6 +12,7 @@ export type CartOrderCreateInput = {
   name: string;
   phone: string;
   wechat?: string | null;
+  email?: string | null;
   message?: string | null;
   items: CartOrderItemSnapshot[];
 };
@@ -26,6 +27,7 @@ export function createCartOrdersRepository(db: Db) {
             name: input.name.trim(),
             phone: input.phone.trim(),
             wechat: input.wechat?.trim() || null,
+            email: input.email?.trim() || null,
             message: input.message?.trim() || null,
             updatedAt: new Date(),
           })

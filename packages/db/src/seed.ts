@@ -39,6 +39,15 @@ function slugFromParty(slug: { current: string } | string): string {
   return typeof slug === "string" ? slug : slug.current;
 }
 
+function parsePriceRangeForSeed(priceRange: string | null | undefined) {
+  if (!priceRange?.trim()) return { min: null as number | null, max: null as number | null };
+  const numbers =
+    priceRange.match(/\d+(?:\.\d+)?/g)?.map((n) => Number.parseFloat(n)) ?? [];
+  if (numbers.length === 0) return { min: null, max: null };
+  if (numbers.length === 1) return { min: numbers[0], max: numbers[0] };
+  return { min: Math.min(...numbers), max: Math.max(...numbers) };
+}
+
 async function clearSeedData() {
   await db.delete(projectImages);
   await db.delete(projectStyles);
@@ -144,6 +153,7 @@ async function seed() {
     }
 
     const slug = slugFromCurrent(project.slug);
+    const pricing = parsePriceRangeForSeed(project.priceRange ?? null);
     const [row] = await db
       .insert(diyProjects)
       .values({
@@ -153,6 +163,9 @@ async function seed() {
         projectType: project.projectType as "experience" | "product",
         description: project.description ?? null,
         priceRange: project.priceRange ?? null,
+        priceMin: pricing.min,
+        priceMax: pricing.max,
+        priceCurrency: "CNY",
         duration: project.duration ?? null,
         tags: project.tags ?? [],
         sortOrder: project.order ?? 0,

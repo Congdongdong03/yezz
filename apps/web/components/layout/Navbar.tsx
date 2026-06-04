@@ -6,6 +6,7 @@ import { Link, usePathname } from "@/i18n/routing";
 import { Menu, X } from "lucide-react";
 import MobileMenu from "./MobileMenu";
 import CartIcon from "@/components/cart/CartIcon";
+import BookNavButton from "./BookNavButton";
 
 const navLinks = [
   { href: "/", key: "home" },
@@ -21,6 +22,9 @@ export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const bookButtonClass =
+    "rounded-full bg-caramel px-6 py-2 text-sm font-medium text-white transition-transform hover:-translate-y-0.5";
+
   return (
     <header className="sticky top-0 z-50 bg-cream/80 backdrop-blur-md">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
@@ -28,7 +32,6 @@ export default function Navbar() {
           YEZZ
         </Link>
 
-        {/* Desktop Nav */}
         <div className="hidden items-center gap-8 md:flex">
           {navLinks.map((link) => (
             <Link
@@ -58,15 +61,9 @@ export default function Navbar() {
             {locale === "zh" ? "EN" : "中"}
           </Link>
           <CartIcon />
-          <Link
-            href="/book"
-            className="rounded-full bg-caramel px-6 py-2 text-sm font-medium text-white transition-transform hover:-translate-y-0.5"
-          >
-            {t("book")}
-          </Link>
+          <BookNavButton className={bookButtonClass} />
         </div>
 
-        {/* Mobile Toggle */}
         <div className="flex items-center gap-2 md:hidden">
           <CartIcon />
           <button

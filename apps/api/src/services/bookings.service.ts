@@ -1,6 +1,13 @@
 import type { Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
-import { escapeHtml, sendOwnerEmail } from "../lib/email.js";
+import {
+  escapeHtml,
+  formatBookingOrderId,
+  sendBookingConfirmationToCustomer,
+  sendOwnerEmail,
+  type StoreContact,
+} from "../lib/email.js";
+import { createSettingsRepository } from "../repositories/settings.repository.js";
 import {
   createBookingsRepository,
   type BookingCreateInput,
@@ -47,6 +54,17 @@ function buildBookingEmailHtml(input: BookingCreateInput): string {
   `;
 }
 
+async function loadStoreContact(db: Db): Promise<StoreContact> {
+  const settingsRepo = createSettingsRepository(db);
+  const row = await settingsRepo.findSingleton();
+  if (!row) return {};
+  return {
+    phone: row.phone,
+    wechatId: row.wechatId,
+    email: row.email,
+  };
+}
+
 export function createBookingsService(db: Db) {
   const repo = createBookingsRepository(db);
 
@@ -55,14 +73,32 @@ export function createBookingsService(db: Db) {
       validateBookingInput(input);
 
       const row = await repo.create(input);
+      const orderNumber = formatBookingOrderId(row.id, row.createdAt);
+      const contact = await loadStoreContact(db);
 
       try {
         await sendOwnerEmail(
-          `New Booking from ${input.name.trim()}`,
+          `New Booking from ${input.name.trim()} (${orderNumber})`,
           buildBookingEmailHtml(input),
         );
       } catch (error) {
-        console.error("Booking email notification failed:", error);
+        console.error("Booking owner email failed:", error);
+      }
+
+      const customerEmail = input.email?.trim();
+      if (customerEmail) {
+        try {
+          await sendBookingConfirmationToCustomer({
+            to: customerEmail,
+            orderId: row.id,
+            orderNumber,
+            submittedAt: row.createdAt,
+            input,
+            contact,
+          });
+        } catch (error) {
+          console.error("Booking customer confirmation email failed:", error);
+        }
       }
 
       return {

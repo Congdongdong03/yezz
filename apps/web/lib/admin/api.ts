@@ -1,4 +1,4 @@
-import { clearAdminToken, getAdminToken } from "./auth";
+import { clearLegacyAdminToken } from "./auth";
 import type {
   AdminProjectsList,
   AuthUser,
@@ -37,9 +37,6 @@ async function parseResponse<T>(res: Response): Promise<T> {
   const json = (await res.json()) as ApiSuccess<T> | ApiError;
 
   if (!json.success) {
-    if (res.status === 401) {
-      clearAdminToken();
-    }
     throw new AdminApiError(
       json.error?.message ?? "Request failed",
       json.error?.code,
@@ -61,12 +58,11 @@ export async function adminFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  if (auth) {
-    const token = getAdminToken();
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-  }
-
-  const res = await fetch(`${API_URL}${path}`, { ...init, headers });
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers,
+    credentials: auth ? "include" : init.credentials,
+  });
   return parseResponse<T>(res);
 }
 
@@ -75,6 +71,15 @@ export async function login(email: string, password: string) {
     method: "POST",
     body: JSON.stringify({ email, password }),
     auth: false,
+    credentials: "include",
+  });
+}
+
+export async function logout() {
+  clearLegacyAdminToken();
+  return adminFetch<{ ok: boolean }>("/api/v1/auth/logout", {
+    method: "POST",
+    credentials: "include",
   });
 }
 
@@ -138,13 +143,12 @@ export async function updateAdminSettings(
 }
 
 export async function uploadAdminImage(file: File) {
-  const token = getAdminToken();
   const body = new FormData();
   body.append("file", file);
 
   const res = await fetch(`${API_URL}/api/v1/admin/upload`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
     body,
   });
 

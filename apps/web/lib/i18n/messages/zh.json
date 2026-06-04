@@ -9,6 +9,10 @@
     "parties": "派对",
     "gallery": "作品",
     "book": "立即预约",
+    "bookGuideTitle": "如何预约？",
+    "bookGuideBody": "请先浏览项目：体验类在详情页直接选日期提交；产品类先加入购物车再结账。",
+    "bookGuideProjects": "浏览项目",
+    "bookGuideClose": "关闭",
     "contact": "联系我们"
   },
   "hero": {
@@ -116,6 +120,8 @@
     "add": "加入预选单",
     "added": "已添加！",
     "bookNow": "立即预约",
+    "goToCart": "去购物车",
+    "email": "邮箱（接收确认邮件）",
     "submit": "提交预约",
     "checkoutTitle": "预约确认",
     "name": "姓名",
@@ -133,7 +139,9 @@
     "back": "返回项目列表",
     "duration": "时长",
     "preferredDate": "首选日期",
-    "numberOfPeople": "人数"
+    "numberOfPeople": "人数",
+    "bookSectionTitle": "提交预约",
+    "bookSectionHint": "填写联系方式后提交，我们将通过邮件或电话与您确认。"
   },
   "footer": {
     "rights": "版权所有。",

@@ -30,8 +30,8 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
               <Link href="/gallery" className="hover:text-white">
                 {nav("gallery")}
               </Link>
-              <Link href="/book" className="hover:text-white">
-                {nav("book")}
+              <Link href="/projects" className="hover:text-white">
+                {nav("projects")}
               </Link>
             </div>
           </div>

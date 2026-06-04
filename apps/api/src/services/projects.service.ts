@@ -2,6 +2,7 @@ import type { Db } from "@yezz/db";
 import type Redis from "ioredis";
 import { AppError } from "../lib/errors.js";
 import { CACHE_KEYS, cacheGet, cacheSet } from "../lib/cache.js";
+import { formatStylePrice, resolveProjectPricing } from "../lib/pricing.js";
 import { createCategoriesRepository } from "../repositories/categories.repository.js";
 import { createProjectsRepository } from "../repositories/projects.repository.js";
 
@@ -19,6 +20,10 @@ export type ProjectListItemDto = {
   projectType: "experience" | "product";
   description: { en: string; zh: string } | null;
   priceRange: string | null;
+  priceMin: number | null;
+  priceMax: number | null;
+  priceCurrency: string;
+  priceDisplay: string | null;
   duration: string | null;
   tags: string[] | null;
   sortOrder: number;
@@ -31,6 +36,7 @@ export type ProjectStyleDto = {
   name: { en: string; zh: string };
   imageUrl: string | null;
   price: string | null;
+  priceDisplay: string | null;
   sortOrder: number;
 };
 
@@ -57,24 +63,28 @@ export function createProjectsService(db: Db, redis: Redis | null = null) {
       if (cached) return cached;
 
       const rows = await projectsRepo.findAllWithCategory();
-      const result = rows.map(({ project, category }) => ({
-        id: project.id,
-        name: project.name,
-        slug: project.slug,
-        projectType: project.projectType,
-        description: project.description ?? null,
-        priceRange: project.priceRange ?? null,
-        duration: project.duration ?? null,
-        tags: project.tags ?? null,
-        sortOrder: project.sortOrder,
-        coverImageUrl: project.coverImageUrl ?? null,
-        category: {
-          id: category.id,
-          name: category.name,
-          slug: category.slug,
-          icon: category.icon ?? null,
-        },
-      }));
+      const result = rows.map(({ project, category }) => {
+        const pricing = resolveProjectPricing(project);
+        return {
+          id: project.id,
+          name: project.name,
+          slug: project.slug,
+          projectType: project.projectType,
+          description: project.description ?? null,
+          priceRange: project.priceRange ?? null,
+          ...pricing,
+          duration: project.duration ?? null,
+          tags: project.tags ?? null,
+          sortOrder: project.sortOrder,
+          coverImageUrl: project.coverImageUrl ?? null,
+          category: {
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+            icon: category.icon ?? null,
+          },
+        };
+      });
       await cacheSet(redis, CACHE_KEYS.projectsList, result);
       return result;
     },
@@ -99,6 +109,9 @@ export function createProjectsService(db: Db, redis: Redis | null = null) {
         projectsRepo.findImagesByProjectId(project.id),
       ]);
 
+      const pricing = resolveProjectPricing(project);
+      const currency = pricing.priceCurrency;
+
       const result: ProjectDetailDto = {
         id: project.id,
         name: project.name,
@@ -106,6 +119,7 @@ export function createProjectsService(db: Db, redis: Redis | null = null) {
         projectType: project.projectType,
         description: project.description ?? null,
         priceRange: project.priceRange ?? null,
+        ...pricing,
         duration: project.duration ?? null,
         tags: project.tags ?? null,
         sortOrder: project.sortOrder,
@@ -121,6 +135,7 @@ export function createProjectsService(db: Db, redis: Redis | null = null) {
           name: s.name,
           imageUrl: s.imageUrl ?? null,
           price: s.price ?? null,
+          priceDisplay: formatStylePrice(s.price, currency),
           sortOrder: s.sortOrder,
         })),
         images: images.map((img) => ({

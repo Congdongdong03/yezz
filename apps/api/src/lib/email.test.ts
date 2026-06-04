@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayLocalized, escapeHtml } from "./email.js";
+import { displayLocalized, escapeHtml } from "./email-helpers.js";
 
 describe("email helpers", () => {
   it("escapes HTML in user content", () => {

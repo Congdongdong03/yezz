@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { clearAdminToken, isAdminLoggedIn } from "@/lib/admin/auth";
+import { getMe, logout } from "@/lib/admin/api";
+import { clearLegacyAdminToken } from "@/lib/admin/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -25,15 +26,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    clearLegacyAdminToken();
     if (isLogin) {
       setReady(true);
       return;
     }
-    if (!isAdminLoggedIn()) {
-      router.replace("/admin/login");
-      return;
-    }
-    setReady(true);
+
+    getMe()
+      .then(() => setReady(true))
+      .catch(() => router.replace("/admin/login"));
   }, [isLogin, router, pathname]);
 
   if (isLogin) {
@@ -83,8 +84,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             variant="outline"
             size="sm"
             className="w-full"
-            onClick={() => {
-              clearAdminToken();
+            onClick={async () => {
+              try {
+                await logout();
+              } catch {
+                /* cookie may already be cleared */
+              }
               router.push("/admin/login");
             }}
           >
@@ -94,9 +99,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center border-b border-border bg-card px-6">
-          <p className="text-sm text-muted-foreground">
-            官网内容后台
-          </p>
+          <p className="text-sm text-muted-foreground">官网内容后台</p>
           <div className="ml-auto">
             <Link
               href="/zh"

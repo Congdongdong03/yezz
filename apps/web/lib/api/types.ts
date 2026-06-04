@@ -16,6 +16,10 @@ export type ApiProjectListItem = {
   projectType: "experience" | "product";
   description: LocalizedString | null;
   priceRange: string | null;
+  priceMin: number | null;
+  priceMax: number | null;
+  priceCurrency: string;
+  priceDisplay: string | null;
   duration: string | null;
   tags: string[] | null;
   sortOrder: number;
@@ -33,6 +37,7 @@ export type ApiProjectStyle = {
   name: LocalizedString;
   imageUrl: string | null;
   price: string | null;
+  priceDisplay: string | null;
   sortOrder: number;
 };
 

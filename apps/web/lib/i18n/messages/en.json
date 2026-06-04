@@ -9,6 +9,10 @@
     "parties": "Parties",
     "gallery": "Gallery",
     "book": "Book Now",
+    "bookGuideTitle": "How to book",
+    "bookGuideBody": "Browse our projects first: book experiences on the project page; add products to your cart to checkout.",
+    "bookGuideProjects": "Browse projects",
+    "bookGuideClose": "Close",
     "contact": "Contact"
   },
   "hero": {
@@ -116,6 +120,8 @@
     "add": "Add to Cart",
     "added": "Added!",
     "bookNow": "Book Now",
+    "goToCart": "Go to cart",
+    "email": "Email (for confirmation)",
     "submit": "Submit Booking",
     "checkoutTitle": "Booking Confirmation",
     "name": "Name",
@@ -133,7 +139,9 @@
     "back": "Back to Projects",
     "duration": "Duration",
     "preferredDate": "Preferred Date",
-    "numberOfPeople": "Number of People"
+    "numberOfPeople": "Number of People",
+    "bookSectionTitle": "Complete your booking",
+    "bookSectionHint": "Submit your contact details and we will confirm by email or phone."
   },
   "footer": {
     "rights": "All rights reserved.",

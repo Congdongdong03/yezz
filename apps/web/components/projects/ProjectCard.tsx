@@ -11,6 +11,7 @@ interface ProjectCardProps {
     slug?: { current: string };
     imageUrl?: string;
     priceRange?: string;
+    priceDisplay?: string;
     duration?: string;
     tags?: string[];
   };
@@ -58,8 +59,10 @@ export default function ProjectCard({ project, locale }: ProjectCardProps) {
             </span>
           ))}
         </div>
-        {project.priceRange && (
-          <p className="mt-2 text-sm text-caramel">{project.priceRange}</p>
+        {(project.priceDisplay ?? project.priceRange) && (
+          <p className="mt-2 text-sm text-caramel">
+            {project.priceDisplay ?? project.priceRange}
+          </p>
         )}
       </div>
     </Link>

@@ -21,6 +21,7 @@ function loadFromMock(): ProjectsPageData {
   return {
     projects: mockProjects.map((p) => ({
       ...p,
+      priceDisplay: p.priceRange,
       category: p.category as ProjectsPageData["projects"][0]["category"],
     })) as ProjectsPageData["projects"],
     categories: mockCategories as ProjectsPageData["categories"],

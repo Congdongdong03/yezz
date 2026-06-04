@@ -1,6 +1,14 @@
 import type { CartOrderItemSnapshot, Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
-import { displayLocalized, escapeHtml, sendOwnerEmail } from "../lib/email.js";
+import {
+  displayLocalized,
+  escapeHtml,
+  formatCartOrderId,
+  sendOrderConfirmationToCustomer,
+  sendOwnerEmail,
+  type StoreContact,
+} from "../lib/email.js";
+import { createSettingsRepository } from "../repositories/settings.repository.js";
 import {
   createCartOrdersRepository,
   type CartOrderCreateInput,
@@ -20,6 +28,12 @@ function validateCartOrderInput(input: CartOrderCreateInput) {
   }
   if (!input.phone?.trim()) {
     throw new AppError(400, "VALIDATION_ERROR", "phone is required");
+  }
+  if (input.email?.trim()) {
+    const email = input.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new AppError(400, "VALIDATION_ERROR", "email is invalid");
+    }
   }
   if (!Array.isArray(input.items) || input.items.length === 0) {
     throw new AppError(400, "VALIDATION_ERROR", "items must be a non-empty array");
@@ -53,10 +67,22 @@ function buildCartOrderEmailHtml(input: CartOrderCreateInput): string {
     <p><strong>Name:</strong> ${escapeHtml(input.name.trim())}</p>
     <p><strong>Phone:</strong> ${escapeHtml(input.phone.trim())}</p>
     <p><strong>WeChat:</strong> ${escapeHtml(input.wechat?.trim() || "N/A")}</p>
+    <p><strong>Email:</strong> ${escapeHtml(input.email?.trim() || "N/A")}</p>
     <p><strong>Note:</strong> ${escapeHtml(input.message?.trim() || "N/A")}</p>
     <h3>Items:</h3>
     ${itemsHtml}
   `;
+}
+
+async function loadStoreContact(db: Db): Promise<StoreContact> {
+  const settingsRepo = createSettingsRepository(db);
+  const row = await settingsRepo.findSingleton();
+  if (!row) return {};
+  return {
+    phone: row.phone,
+    wechatId: row.wechatId,
+    email: row.email,
+  };
 }
 
 export function createCartOrdersService(db: Db) {
@@ -67,14 +93,31 @@ export function createCartOrdersService(db: Db) {
       validateCartOrderInput(input);
 
       const row = await repo.create(input);
+      const orderNumber = formatCartOrderId(row.id, row.createdAt);
+      const contact = await loadStoreContact(db);
 
       try {
         await sendOwnerEmail(
-          `New Order from ${input.name.trim()}`,
+          `New Order from ${input.name.trim()} (${orderNumber})`,
           buildCartOrderEmailHtml(input),
         );
       } catch (error) {
-        console.error("Cart order email notification failed:", error);
+        console.error("Cart order owner email failed:", error);
+      }
+
+      const customerEmail = input.email?.trim();
+      if (customerEmail) {
+        try {
+          await sendOrderConfirmationToCustomer({
+            to: customerEmail,
+            orderNumber,
+            submittedAt: row.createdAt,
+            input,
+            contact,
+          });
+        } catch (error) {
+          console.error("Cart order customer confirmation email failed:", error);
+        }
       }
 
       return {

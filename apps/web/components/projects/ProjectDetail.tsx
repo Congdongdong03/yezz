@@ -6,10 +6,29 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useCart } from "@/lib/cart/context";
 import { Link } from "@/i18n/routing";
+import BookingForm from "@/components/book/BookingForm";
 import StyleSelector from "./StyleSelector";
 
 interface ProjectDetailProps {
-  project: any;
+  project: {
+    _id: string;
+    name: { en: string; zh: string };
+    slug?: { current: string };
+    projectType?: string;
+    description?: { en: string; zh: string };
+    imageUrl?: string;
+    images?: string[];
+    styles?: Array<{
+      name: { en: string; zh: string };
+      price?: string;
+      priceDisplay?: string;
+      imageUrl?: string;
+    }>;
+    priceRange?: string;
+    priceDisplay?: string;
+    duration?: string;
+    tags?: string[];
+  };
   locale: string;
 }
 
@@ -20,33 +39,30 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
   const cartT = useTranslations("cart");
   const { addItem, setIsOpen } = useCart();
 
-  const [selectedStyle, setSelectedStyle] = useState<any>(null);
+  type ProjectStyle = NonNullable<ProjectDetailProps["project"]["styles"]>[number];
+  const [selectedStyle, setSelectedStyle] = useState<ProjectStyle | null>(null);
   const [date, setDate] = useState("");
   const [people, setPeople] = useState(1);
   const [added, setAdded] = useState(false);
 
   const isProduct = project.projectType === "product";
+  const projectLabel = project.name[pageLocale as "en" | "zh"];
+  const displayPrice = project.priceDisplay ?? project.priceRange;
 
   const handleAddToCart = () => {
+    if (!isProduct || !selectedStyle) return;
     const item = {
       projectId: project._id,
-      projectSlug: project.slug.current,
+      projectSlug: project.slug?.current ?? "",
       projectName: project.name,
-      projectType: project.projectType || "experience",
+      projectType: "product" as const,
       imageUrl: project.imageUrl,
-      styleName: isProduct ? selectedStyle?.name : undefined,
-      date: !isProduct ? date : undefined,
-      people: !isProduct ? people : undefined,
-      price: isProduct ? selectedStyle?.price : project.priceRange,
+      styleName: selectedStyle.name,
+      price: selectedStyle.priceDisplay ?? selectedStyle.price,
     };
     addItem(item);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
-  };
-
-  const handleBookNow = () => {
-    handleAddToCart();
-    setIsOpen(true);
   };
 
   return (
@@ -65,7 +81,6 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
           transition={{ duration: 0.5 }}
           className="mt-6"
         >
-          {/* Gallery */}
           <div className="grid gap-4 sm:grid-cols-2">
             {project.images?.map((img: string, i: number) => (
               <div
@@ -77,10 +92,9 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
             ))}
           </div>
 
-          {/* Info */}
           <div className="mt-8">
             <h1 className="font-serif text-3xl font-bold text-warm-charcoal">
-              {project.name[pageLocale as "en" | "zh"]}
+              {projectLabel}
             </h1>
             <div className="mt-3 flex flex-wrap gap-2">
               {project.tags?.map((tag: string) => (
@@ -92,8 +106,8 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
                 </span>
               ))}
             </div>
-            {project.priceRange && (
-              <p className="mt-4 text-lg text-caramel">{project.priceRange}</p>
+            {displayPrice && (
+              <p className="mt-4 text-lg text-caramel">{displayPrice}</p>
             )}
             {project.duration && (
               <p className="mt-1 text-sm text-warm-grey">
@@ -107,61 +121,79 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
             )}
           </div>
 
-          {/* Style selector for products */}
           {isProduct && project.styles && (
-            <StyleSelector
-              styles={project.styles}
-              selected={selectedStyle}
-              onSelect={setSelectedStyle}
-            />
+            <>
+              <StyleSelector
+                styles={project.styles}
+                selected={selectedStyle}
+                onSelect={setSelectedStyle}
+              />
+              <div className="mt-8 flex gap-3">
+                <button
+                  onClick={handleAddToCart}
+                  disabled={!selectedStyle}
+                  className="flex-1 rounded-full border-2 border-caramel py-3 text-sm font-medium text-caramel transition-colors hover:bg-caramel/5 disabled:opacity-40"
+                >
+                  {added ? cartT("added") : cartT("add")}
+                </button>
+                <Link
+                  href="/cart"
+                  onClick={() => setIsOpen(false)}
+                  className="flex-1 rounded-full bg-caramel py-3 text-center text-sm font-medium text-white transition-transform hover:-translate-y-0.5"
+                >
+                  {cartT("goToCart")}
+                </Link>
+              </div>
+            </>
           )}
 
-          {/* Experience options */}
           {!isProduct && (
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-warm-charcoal">
-                  {t("preferredDate")}
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
-                />
+            <>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-warm-charcoal">
+                    {t("preferredDate")}
+                  </label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-warm-charcoal">
+                    {t("numberOfPeople")}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={people}
+                    onChange={(e) => setPeople(parseInt(e.target.value, 10) || 1)}
+                    className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-warm-charcoal">
-                  {t("numberOfPeople")}
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={people}
-                  onChange={(e) => setPeople(parseInt(e.target.value) || 1)}
-                  className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
-                />
-              </div>
-            </div>
-          )}
 
-          {/* Actions */}
-          <div className="mt-8 flex gap-3">
-            <button
-              onClick={handleAddToCart}
-              disabled={isProduct && !selectedStyle}
-              className="flex-1 rounded-full border-2 border-caramel py-3 text-sm font-medium text-caramel transition-colors hover:bg-caramel/5 disabled:opacity-40"
-            >
-              {added ? cartT("added") : cartT("add")}
-            </button>
-            <button
-              onClick={handleBookNow}
-              disabled={isProduct && !selectedStyle}
-              className="flex-1 rounded-full bg-caramel py-3 text-sm font-medium text-white transition-transform hover:-translate-y-0.5 disabled:opacity-40"
-            >
-              {cartT("bookNow")}
-            </button>
-          </div>
+              <section id="booking-form" className="mt-10 scroll-mt-24">
+                <h2 className="font-serif text-xl font-bold text-warm-charcoal">
+                  {t("bookSectionTitle")}
+                </h2>
+                <p className="mt-1 text-sm text-warm-grey">{t("bookSectionHint")}</p>
+                <div className="mt-6">
+                  <BookingForm
+                    key={`${date}-${people}`}
+                    embedded
+                    defaults={{
+                      interestedProject: projectLabel,
+                      preferredDate: date,
+                      numberOfPeople: String(people),
+                    }}
+                  />
+                </div>
+              </section>
+            </>
+          )}
         </motion.div>
       </div>
     </div>

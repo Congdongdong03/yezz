@@ -7,6 +7,7 @@ interface Style {
   name: { en: string; zh: string };
   imageUrl?: string;
   price?: string;
+  priceDisplay?: string;
 }
 
 interface StyleSelectorProps {
@@ -52,8 +53,8 @@ export default function StyleSelector({ styles, selected, onSelect }: StyleSelec
               <p className="mt-2 text-xs font-medium text-warm-charcoal">
                 {style.name[locale as "en" | "zh"]}
               </p>
-              {style.price && (
-                <p className="text-xs text-caramel">{style.price}</p>
+              {(style.priceDisplay ?? style.price) && (
+                <p className="text-xs text-caramel">{style.priceDisplay ?? style.price}</p>
               )}
             </button>
           );

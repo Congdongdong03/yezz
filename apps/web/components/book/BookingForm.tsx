@@ -1,13 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
 import { submitBooking } from "@/lib/actions/booking";
 
-export default function BookingForm() {
+export type BookingFormDefaults = {
+  interestedProject?: string;
+  preferredDate?: string;
+  numberOfPeople?: string;
+};
+
+type BookingFormProps = {
+  defaults?: BookingFormDefaults;
+  /** Hide project/activity fields when embedded on a project detail page */
+  embedded?: boolean;
+};
+
+export default function BookingForm({ defaults, embedded = false }: BookingFormProps) {
   const t = useTranslations("bookingForm");
   const b = useTranslations("book");
 
@@ -34,11 +46,23 @@ export default function BookingForm() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
     reset,
+    setValue,
+    formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      interestedProject: defaults?.interestedProject ?? "",
+      preferredDate: defaults?.preferredDate ?? "",
+      numberOfPeople: defaults?.numberOfPeople ?? "",
+    },
   });
+
+  useEffect(() => {
+    if (defaults?.interestedProject) setValue("interestedProject", defaults.interestedProject);
+    if (defaults?.preferredDate) setValue("preferredDate", defaults.preferredDate);
+    if (defaults?.numberOfPeople) setValue("numberOfPeople", defaults.numberOfPeople);
+  }, [defaults, setValue]);
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
@@ -51,7 +75,11 @@ export default function BookingForm() {
 
     if (response.success) {
       setResult({ success: true, message: b("confirmMessage") });
-      reset();
+      reset({
+        interestedProject: defaults?.interestedProject ?? "",
+        preferredDate: defaults?.preferredDate ?? "",
+        numberOfPeople: defaults?.numberOfPeople ?? "",
+      });
     } else {
       setResult({ success: false, message: b("errorMessage") });
     }
@@ -118,64 +146,74 @@ export default function BookingForm() {
             className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           />
           {errors.email && (
-            <p className="mt-1 text-sm text-red-500">
-              {errors.email.message}
-            </p>
+            <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
           )}
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-warm-charcoal">
-            {t("preferredDate")}
-          </label>
-          <input
-            {...register("preferredDate")}
-            type="date"
-            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-warm-charcoal">
-            {t("numberOfPeople")}
-          </label>
-          <input
-            {...register("numberOfPeople")}
-            type="number"
-            min="1"
-            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
-          />
-        </div>
-      </div>
+      {!embedded && (
+        <>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-warm-charcoal">
+                {t("preferredDate")}
+              </label>
+              <input
+                {...register("preferredDate")}
+                type="date"
+                className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-warm-charcoal">
+                {t("numberOfPeople")}
+              </label>
+              <input
+                {...register("numberOfPeople")}
+                type="number"
+                min="1"
+                className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
+              />
+            </div>
+          </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-warm-charcoal">
-            {t("activityType")}
-          </label>
-          <select
-            {...register("activityType")}
-            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
-          >
-            <option value="">{t("activitySelect")}</option>
-            <option value="date">{t("activityDate")}</option>
-            <option value="birthday">{t("activityBirthday")}</option>
-            <option value="friends">{t("activityFriends")}</option>
-            <option value="kids">{t("activityKids")}</option>
-            <option value="mobile">{t("activityMobile")}</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-warm-charcoal">
-            {t("interestedProject")}
-          </label>
-          <input
-            {...register("interestedProject")}
-            className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
-          />
-        </div>
-      </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-warm-charcoal">
+                {t("activityType")}
+              </label>
+              <select
+                {...register("activityType")}
+                className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
+              >
+                <option value="">{t("activitySelect")}</option>
+                <option value="date">{t("activityDate")}</option>
+                <option value="birthday">{t("activityBirthday")}</option>
+                <option value="friends">{t("activityFriends")}</option>
+                <option value="kids">{t("activityKids")}</option>
+                <option value="mobile">{t("activityMobile")}</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-warm-charcoal">
+                {t("interestedProject")}
+              </label>
+              <input
+                {...register("interestedProject")}
+                className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {embedded && (
+        <>
+          <input type="hidden" {...register("interestedProject")} />
+          <input type="hidden" {...register("preferredDate")} />
+          <input type="hidden" {...register("numberOfPeople")} />
+        </>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-warm-charcoal">
