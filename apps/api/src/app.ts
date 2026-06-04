@@ -9,13 +9,45 @@ import swaggerPlugin from "./plugins/swagger.js";
 import healthRoutes from "./routes/health.routes.js";
 import v1Routes from "./routes/v1/index.js";
 
+function parseAllowedOrigins(): string[] {
+  const raw = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+  return raw
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+/** Dev-only: allow common local front-end origins on port 3000. */
+function isDevLocalOrigin(origin: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}):3000$/.test(
+    origin,
+  );
+}
+
 export async function buildApp() {
   const app = Fastify({ logger: true });
 
-  const corsOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+  const allowedOrigins = parseAllowedOrigins();
+  const isProduction = process.env.NODE_ENV === "production";
+
   await app.register(cors, {
-    origin: corsOrigin,
+    origin(origin, cb) {
+      if (!origin) {
+        cb(null, true);
+        return;
+      }
+      if (allowedOrigins.includes(origin)) {
+        cb(null, origin);
+        return;
+      }
+      if (!isProduction && isDevLocalOrigin(origin)) {
+        cb(null, origin);
+        return;
+      }
+      cb(null, false);
+    },
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
   registerErrorHandler(app);

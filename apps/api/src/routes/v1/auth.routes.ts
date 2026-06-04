@@ -15,7 +15,7 @@ function setAuthCookie(reply: FastifyReply, token: string) {
   reply.setCookie(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: isProduction ? "strict" : "lax",
     path: "/",
     maxAge: 60 * 60 * 24,
   });
@@ -25,7 +25,7 @@ function clearAuthCookie(reply: FastifyReply) {
   reply.clearCookie(AUTH_COOKIE_NAME, {
     path: "/",
     secure: isProduction,
-    sameSite: "strict",
+    sameSite: isProduction ? "strict" : "lax",
   });
 }
 
