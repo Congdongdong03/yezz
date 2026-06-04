@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { submitCart } from "@/lib/actions/cart";
+import { trackSubmitCartOrder } from "@/lib/analytics/gtag";
 
 export default function CartPage() {
   const locale = useLocale();
@@ -47,6 +48,7 @@ export default function CartPage() {
 
     const result = await submitCart(formData);
     if (result.success) {
+      trackSubmitCartOrder({ item_count: items.length });
       setStatus("success");
       clearItems();
     } else {

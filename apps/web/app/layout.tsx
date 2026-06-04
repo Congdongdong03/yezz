@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Noto_Serif_SC } from "next/font/google";
 import { routing } from "@/i18n/routing";
 import zhMessages from "@/lib/i18n/messages/zh.json";
+import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import "./globals.css";
 
 const inter = Inter({
@@ -36,7 +37,10 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} ${notoSerifSC.variable}`}
     >
-      <body className="antialiased overflow-x-hidden">{children}</body>
+      <body className="antialiased overflow-x-hidden">
+        <GoogleAnalytics />
+        {children}
+      </body>
     </html>
   );
 }

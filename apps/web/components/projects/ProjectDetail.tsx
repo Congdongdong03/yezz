@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -10,6 +10,7 @@ import BookingCalendar from "@/components/book/BookingCalendar";
 import BookingForm from "@/components/book/BookingForm";
 import type { TimeSlotOption } from "@/lib/api/time-slots";
 import StyleSelector from "./StyleSelector";
+import { trackViewProject } from "@/lib/analytics/gtag";
 
 interface ProjectDetailProps {
   project: {
@@ -48,6 +49,14 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
   const [people, setPeople] = useState(1);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlotOption | null>(null);
   const [added, setAdded] = useState(false);
+
+  useEffect(() => {
+    trackViewProject({
+      project_slug: project.slug?.current ?? project._id,
+      project_name: project.name.en,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project._id]);
 
   const isProduct = project.projectType === "product";
   const projectLabel = project.name[pageLocale as "en" | "zh"];

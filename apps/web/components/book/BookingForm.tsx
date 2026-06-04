@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
 import { submitBooking } from "@/lib/actions/booking";
+import { trackSubmitBooking } from "@/lib/analytics/gtag";
 
 export type BookingFormDefaults = {
   interestedProject?: string;
@@ -90,6 +91,10 @@ export default function BookingForm({
     const response = await submitBooking(formData);
 
     if (response.success) {
+      trackSubmitBooking({
+        project_slug: data.interestedProject,
+        project_name: data.interestedProject,
+      });
       setResult({ success: true, message: b("confirmMessage") });
       reset({
         interestedProject: defaults?.interestedProject ?? "",
