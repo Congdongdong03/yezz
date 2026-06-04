@@ -4,7 +4,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string;
-  role: "admin";
+  role: "admin" | "staff";
 };
 
 export type LoginResponse = {
@@ -147,9 +147,39 @@ export type Booking = {
   activityType: string | null;
   interestedProject: string | null;
   message: string | null;
+  locale: string | null;
+  timeSlotId: string | null;
   status: OrderStatus;
   createdAt: string;
   updatedAt: string;
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "staff";
+  createdAt: string;
+};
+
+export type TimeSlot = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  bookedCount: number;
+  remaining: number;
+  categoryId: string | null;
+  isAvailable: boolean;
+  notes: string | null;
+  almostFull: boolean;
+};
+
+export type UnreadCounts = {
+  bookings: number;
+  orders: number;
+  total: number;
 };
 
 export type CartOrderItem = {

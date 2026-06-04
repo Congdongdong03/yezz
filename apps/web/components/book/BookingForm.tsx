@@ -11,15 +11,22 @@ export type BookingFormDefaults = {
   interestedProject?: string;
   preferredDate?: string;
   numberOfPeople?: string;
+  timeSlotId?: string;
+  locale?: string;
 };
 
 type BookingFormProps = {
   defaults?: BookingFormDefaults;
   /** Hide project/activity fields when embedded on a project detail page */
   embedded?: boolean;
+  requireTimeSlot?: boolean;
 };
 
-export default function BookingForm({ defaults, embedded = false }: BookingFormProps) {
+export default function BookingForm({
+  defaults,
+  embedded = false,
+  requireTimeSlot = false,
+}: BookingFormProps) {
   const t = useTranslations("bookingForm");
   const b = useTranslations("book");
 
@@ -65,11 +72,17 @@ export default function BookingForm({ defaults, embedded = false }: BookingFormP
   }, [defaults, setValue]);
 
   const onSubmit = async (data: FormData) => {
+    if (requireTimeSlot && !defaults?.timeSlotId) {
+      setResult({ success: false, message: b("selectSlotFirst") });
+      return;
+    }
     setIsSubmitting(true);
     const formData = new FormData();
     Object.entries(data).forEach(([key, value]) => {
       if (value) formData.append(key, value);
     });
+    if (defaults?.timeSlotId) formData.append("timeSlotId", defaults.timeSlotId);
+    if (defaults?.locale) formData.append("locale", defaults.locale);
 
     const response = await submitBooking(formData);
 

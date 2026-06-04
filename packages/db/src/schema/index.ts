@@ -1,4 +1,6 @@
 import {
+  boolean,
+  date,
   integer,
   jsonb,
   pgEnum,
@@ -11,7 +13,7 @@ import {
 
 export type LocalizedString = { en: string; zh: string };
 
-export const userRoleEnum = pgEnum("user_role", ["admin"]);
+export const userRoleEnum = pgEnum("user_role", ["admin", "staff"]);
 export const projectTypeEnum = pgEnum("project_type", ["experience", "product"]);
 export const orderStatusEnum = pgEnum("order_status", [
   "new",
@@ -121,6 +123,22 @@ export const mediaAssets = pgTable("media_assets", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const timeSlots = pgTable("time_slots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  date: date("date").notNull(),
+  startTime: varchar("start_time", { length: 8 }).notNull(),
+  endTime: varchar("end_time", { length: 8 }).notNull(),
+  capacity: integer("capacity").notNull(),
+  bookedCount: integer("booked_count").notNull().default(0),
+  categoryId: uuid("category_id").references(() => projectCategories.id, {
+    onDelete: "set null",
+  }),
+  isAvailable: boolean("is_available").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const bookings = pgTable("bookings", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -132,6 +150,11 @@ export const bookings = pgTable("bookings", {
   activityType: varchar("activity_type", { length: 32 }),
   interestedProject: varchar("interested_project", { length: 255 }),
   message: text("message"),
+  locale: varchar("locale", { length: 8 }),
+  timeSlotId: uuid("time_slot_id").references(() => timeSlots.id, {
+    onDelete: "set null",
+  }),
+  isRead: boolean("is_read").notNull().default(false),
   status: orderStatusEnum("status").notNull().default("new"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -144,9 +167,30 @@ export const cartOrders = pgTable("cart_orders", {
   wechat: varchar("wechat", { length: 128 }),
   email: varchar("email", { length: 255 }),
   message: text("message"),
+  isRead: boolean("is_read").notNull().default(false),
   status: orderStatusEnum("status").notNull().default("new"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type CartSessionItem = {
+  projectId: string;
+  projectSlug: string;
+  projectName: { en: string; zh: string };
+  projectType: "experience" | "product";
+  imageUrl?: string;
+  styleName?: { en: string; zh: string };
+  date?: string;
+  people?: number;
+  price?: string;
+};
+
+export const cartSessions = pgTable("cart_sessions", {
+  id: uuid("id").primaryKey(),
+  items: jsonb("items").$type<CartSessionItem[]>().notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
 export type CartOrderItemSnapshot = {

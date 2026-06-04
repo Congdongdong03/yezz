@@ -8,7 +8,7 @@ export type AuthUserDto = {
   id: string;
   email: string;
   name: string;
-  role: "admin";
+  role: "admin" | "staff";
 };
 
 export type LoginResultDto = {

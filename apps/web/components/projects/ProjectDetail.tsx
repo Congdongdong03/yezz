@@ -6,7 +6,9 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useCart } from "@/lib/cart/context";
 import { Link } from "@/i18n/routing";
+import BookingCalendar from "@/components/book/BookingCalendar";
 import BookingForm from "@/components/book/BookingForm";
+import type { TimeSlotOption } from "@/lib/api/time-slots";
 import StyleSelector from "./StyleSelector";
 
 interface ProjectDetailProps {
@@ -28,6 +30,7 @@ interface ProjectDetailProps {
     priceDisplay?: string;
     duration?: string;
     tags?: string[];
+    category?: { _id: string };
   };
   locale: string;
 }
@@ -43,6 +46,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
   const [selectedStyle, setSelectedStyle] = useState<ProjectStyle | null>(null);
   const [date, setDate] = useState("");
   const [people, setPeople] = useState(1);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlotOption | null>(null);
   const [added, setAdded] = useState(false);
 
   const isProduct = project.projectType === "product";
@@ -149,28 +153,31 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
 
           {!isProduct && (
             <>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-warm-charcoal">
-                    {t("preferredDate")}
-                  </label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-warm-charcoal">
-                    {t("numberOfPeople")}
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={people}
-                    onChange={(e) => setPeople(parseInt(e.target.value, 10) || 1)}
-                    className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-warm-charcoal">
+                  {t("numberOfPeople")}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={people}
+                  onChange={(e) => {
+                    setPeople(parseInt(e.target.value, 10) || 1);
+                    setSelectedSlot(null);
+                  }}
+                  className="mt-1 w-full max-w-xs rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+                />
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-sm font-medium text-warm-charcoal">{t("pickSchedule")}</h3>
+                <div className="mt-3 rounded-xl border border-warm-grey/15 bg-white p-4">
+                  <BookingCalendar
+                    people={people}
+                    categoryId={project.category?._id}
+                    selectedSlotId={selectedSlot?.id ?? null}
+                    onSelectSlot={setSelectedSlot}
+                    onDateChange={setDate}
                   />
                 </div>
               </div>
@@ -182,12 +189,15 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
                 <p className="mt-1 text-sm text-warm-grey">{t("bookSectionHint")}</p>
                 <div className="mt-6">
                   <BookingForm
-                    key={`${date}-${people}`}
+                    key={`${date}-${people}-${selectedSlot?.id ?? "none"}`}
                     embedded
+                    requireTimeSlot
                     defaults={{
                       interestedProject: projectLabel,
                       preferredDate: date,
                       numberOfPeople: String(people),
+                      timeSlotId: selectedSlot?.id,
+                      locale: pageLocale,
                     }}
                   />
                 </div>

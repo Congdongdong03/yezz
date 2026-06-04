@@ -29,6 +29,13 @@
       "when": 1780541000000,
       "tag": "0003_phase_a_pricing_cart_email",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780542000000,
+      "tag": "0004_phase_b",
+      "breakpoints": true
     }
   ]
 }

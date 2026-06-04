@@ -12,6 +12,7 @@ import {
   createBookingsRepository,
   type BookingCreateInput,
 } from "../repositories/bookings.repository.js";
+import { createTimeSlotsRepository } from "../repositories/time-slots.repository.js";
 
 export type BookingDto = {
   id: string;
@@ -48,6 +49,7 @@ function buildBookingEmailHtml(input: BookingCreateInput): string {
     <p><strong>Email:</strong> ${escapeHtml(input.email?.trim() || "N/A")}</p>
     <p><strong>Date:</strong> ${escapeHtml(input.preferredDate?.trim() || "N/A")}</p>
     <p><strong>People:</strong> ${input.numberOfPeople ?? "N/A"}</p>
+    <p><strong>Time slot:</strong> ${escapeHtml(input.timeSlotId || "N/A")}</p>
     <p><strong>Type:</strong> ${escapeHtml(input.activityType?.trim() || "N/A")}</p>
     <p><strong>Project:</strong> ${escapeHtml(input.interestedProject?.trim() || "N/A")}</p>
     <p><strong>Message:</strong> ${escapeHtml(input.message?.trim() || "N/A")}</p>
@@ -67,12 +69,36 @@ async function loadStoreContact(db: Db): Promise<StoreContact> {
 
 export function createBookingsService(db: Db) {
   const repo = createBookingsRepository(db);
+  const slotsRepo = createTimeSlotsRepository(db);
 
   return {
     async create(input: BookingCreateInput): Promise<BookingDto> {
       validateBookingInput(input);
+      const people = input.numberOfPeople ?? 1;
 
-      const row = await repo.create(input);
+      const row = input.timeSlotId
+        ? await db.transaction(async (tx) => {
+            const slot = await slotsRepo.findByIdForUpdate(input.timeSlotId!, tx);
+            if (!slot || !slot.isAvailable) {
+              throw new AppError(400, "VALIDATION_ERROR", "Time slot is not available");
+            }
+            const remaining = slot.capacity - slot.bookedCount;
+            if (remaining < people) {
+              throw new AppError(400, "VALIDATION_ERROR", "Time slot is full");
+            }
+            await slotsRepo.incrementBookedCount(slot.id, people, tx);
+            const dateStr =
+              typeof slot.date === "string" ? slot.date : String(slot.date).slice(0, 10);
+            return repo.create(
+              {
+                ...input,
+                preferredDate: input.preferredDate ?? dateStr,
+              },
+              tx,
+            );
+          })
+        : await repo.create(input);
+
       const orderNumber = formatBookingOrderId(row.id, row.createdAt);
       const contact = await loadStoreContact(db);
 

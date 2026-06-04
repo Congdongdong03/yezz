@@ -13,12 +13,14 @@ export type BookingCreateInput = {
   activityType?: string | null;
   interestedProject?: string | null;
   message?: string | null;
+  locale?: string | null;
+  timeSlotId?: string | null;
 };
 
 export function createBookingsRepository(db: Db) {
   return {
-    async create(input: BookingCreateInput) {
-      const [row] = await db
+    async create(input: BookingCreateInput, tx: Db = db) {
+      const [row] = await tx
         .insert(bookings)
         .values({
           name: input.name.trim(),
@@ -30,6 +32,9 @@ export function createBookingsRepository(db: Db) {
           activityType: input.activityType?.trim() || null,
           interestedProject: input.interestedProject?.trim() || null,
           message: input.message?.trim() || null,
+          locale: input.locale?.trim() || null,
+          timeSlotId: input.timeSlotId ?? null,
+          isRead: false,
           updatedAt: new Date(),
         })
         .returning();

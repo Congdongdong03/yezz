@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AlertBanner from "@/components/admin/AlertBanner";
-import { getAdminOrders, updateOrderStatus } from "@/lib/admin/api";
+import { getAdminOrders, markNotificationsRead, updateOrderStatus } from "@/lib/admin/api";
 import type { CartOrder, CartOrderItem, OrderStatus } from "@/lib/admin/types";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -65,6 +65,7 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     load();
+    markNotificationsRead("orders").catch(() => {});
   }, []);
 
   const handleStatusChange = async (id: string, status: OrderStatus) => {

@@ -92,7 +92,18 @@
     "confirmMessage": "We'll contact you soon to confirm your booking.",
     "errorMessage": "Something went wrong. Please try again or contact us directly.",
     "submit": "Book Now",
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "selectSlotFirst": "Please select an available time slot first"
+  },
+  "bookingCalendar": {
+    "loading": "Loading…",
+    "legendAvailable": "Available",
+    "legendFull": "Full",
+    "legendNone": "No slots",
+    "pickSlot": "Choose a time slot",
+    "noSlots": "No available slots on this day",
+    "almostFull": "Almost full",
+    "remaining": "{count} spots left"
   },
   "bookingForm": {
     "name": "Name",
@@ -141,7 +152,8 @@
     "preferredDate": "Preferred Date",
     "numberOfPeople": "Number of People",
     "bookSectionTitle": "Complete your booking",
-    "bookSectionHint": "Submit your contact details and we will confirm by email or phone."
+    "bookSectionHint": "Submit your contact details and we will confirm by email or phone.",
+    "pickSchedule": "Choose date & time"
   },
   "footer": {
     "rights": "All rights reserved.",

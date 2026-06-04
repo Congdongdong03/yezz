@@ -13,6 +13,8 @@ const bookingSchema = z.object({
   activityType: z.string().optional(),
   interestedProject: z.string().optional(),
   message: z.string().optional(),
+  timeSlotId: z.string().optional(),
+  locale: z.string().optional(),
 });
 
 type ApiSuccess<T> = { success: true; data: T };
@@ -44,6 +46,8 @@ export async function submitBooking(formData: FormData) {
         activityType: data.activityType || undefined,
         interestedProject: data.interestedProject || undefined,
         message: data.message || undefined,
+        timeSlotId: data.timeSlotId || undefined,
+        locale: data.locale || undefined,
       }),
     });
 

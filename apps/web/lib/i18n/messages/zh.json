@@ -92,7 +92,18 @@
     "confirmMessage": "我们会尽快联系您确认预约详情。",
     "errorMessage": "出了点问题，请重试或直接联系我们。",
     "submit": "立即预约",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "selectSlotFirst": "请先选择可用档期时段"
+  },
+  "bookingCalendar": {
+    "loading": "加载中…",
+    "legendAvailable": "可预约",
+    "legendFull": "已满",
+    "legendNone": "无档期",
+    "pickSlot": "选择时段",
+    "noSlots": "该日暂无可用时段",
+    "almostFull": "即将满额",
+    "remaining": "剩余 {count} 位"
   },
   "bookingForm": {
     "name": "姓名",
@@ -141,7 +152,8 @@
     "preferredDate": "首选日期",
     "numberOfPeople": "人数",
     "bookSectionTitle": "提交预约",
-    "bookSectionHint": "填写联系方式后提交，我们将通过邮件或电话与您确认。"
+    "bookSectionHint": "填写联系方式后提交，我们将通过邮件或电话与您确认。",
+    "pickSchedule": "选择预约档期"
   },
   "footer": {
     "rights": "版权所有。",

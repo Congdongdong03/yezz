@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import AlertBanner from "@/components/admin/AlertBanner";
-import { getAdminBookings, updateBookingStatus } from "@/lib/admin/api";
+import {
+  getAdminBookings,
+  markNotificationsRead,
+  updateBookingStatus,
+} from "@/lib/admin/api";
 import type { Booking, OrderStatus } from "@/lib/admin/types";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -53,12 +57,24 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     load();
+    markNotificationsRead("bookings").catch(() => {});
   }, []);
 
   const handleStatusChange = async (id: string, status: OrderStatus) => {
+    let note: string | undefined;
+    if (status === "confirmed" || status === "cancelled") {
+      const input = window.prompt(
+        status === "confirmed"
+          ? "确认备注（将写入发给客户的邮件，可留空）"
+          : "取消原因（将发给客户，建议填写）",
+      );
+      if (input === null) return;
+      note = input.trim() || undefined;
+    }
+
     setUpdatingId(id);
     try {
-      const updated = await updateBookingStatus(id, status);
+      const updated = await updateBookingStatus(id, status, note);
       setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
       setMessage({ type: "success", text: "状态已更新" });
     } catch (err) {

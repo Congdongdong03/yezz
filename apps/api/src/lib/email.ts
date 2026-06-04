@@ -151,3 +151,128 @@ export async function sendOrderConfirmationToCustomer(options: {
     html,
   );
 }
+
+export type BookingStatusEmailContext = {
+  to: string;
+  locale?: string | null;
+  customerName: string;
+  orderNumber: string;
+  preferredDate?: string | null;
+  slotLabel?: string | null;
+  storeName: string;
+  address?: string | null;
+  businessHours?: string | null;
+  contact: StoreContact;
+  adminNote?: string | null;
+};
+
+function isZh(locale?: string | null) {
+  return locale?.toLowerCase().startsWith("zh") ?? true;
+}
+
+export async function sendBookingStatusContactedEmail(
+  ctx: BookingStatusEmailContext,
+): Promise<void> {
+  const zh = isZh(ctx.locale);
+  const html = zh
+    ? `
+    <h2>预约进度更新</h2>
+    <p>${escapeHtml(ctx.customerName)} 您好，我们已查看您的预约（${escapeHtml(ctx.orderNumber)}），稍后将联系您确认细节。</p>
+    ${contactFooter(ctx.contact)}
+  `
+    : `
+    <h2>Booking update</h2>
+    <p>Hi ${escapeHtml(ctx.customerName)}, we have reviewed your booking (${escapeHtml(ctx.orderNumber)}) and will contact you shortly to confirm the details.</p>
+    ${contactFooter(ctx.contact)}
+  `;
+  await sendCustomerEmail(
+    ctx.to,
+    zh ? `YEZZ 预约跟进 ${ctx.orderNumber}` : `YEZZ booking update ${ctx.orderNumber}`,
+    html,
+  );
+}
+
+export async function sendBookingStatusConfirmedEmail(
+  ctx: BookingStatusEmailContext,
+): Promise<void> {
+  const zh = isZh(ctx.locale);
+  const when = ctx.slotLabel ?? ctx.preferredDate ?? (zh ? "待确认" : "TBD");
+  const note = ctx.adminNote?.trim()
+    ? `<p><strong>${zh ? "备注" : "Note"}:</strong> ${escapeHtml(ctx.adminNote)}</p>`
+    : "";
+  const html = zh
+    ? `
+    <h2>预约已确认</h2>
+    <p>${escapeHtml(ctx.customerName)} 您好，您的预约已确认！</p>
+    <p><strong>订单号：</strong> ${escapeHtml(ctx.orderNumber)}</p>
+    <p><strong>时间：</strong> ${escapeHtml(when)}</p>
+    <p><strong>地址：</strong> ${escapeHtml(ctx.address ?? "请见店铺联系方式")}</p>
+    <p><strong>营业时间：</strong> ${escapeHtml(ctx.businessHours ?? "—")}</p>
+    ${note}
+    ${contactFooter(ctx.contact)}
+  `
+    : `
+    <h2>Booking confirmed</h2>
+    <p>Hi ${escapeHtml(ctx.customerName)}, your booking is confirmed!</p>
+    <p><strong>Order:</strong> ${escapeHtml(ctx.orderNumber)}</p>
+    <p><strong>When:</strong> ${escapeHtml(when)}</p>
+    <p><strong>Address:</strong> ${escapeHtml(ctx.address ?? "See contact details below")}</p>
+    <p><strong>Hours:</strong> ${escapeHtml(ctx.businessHours ?? "—")}</p>
+    ${note}
+    ${contactFooter(ctx.contact)}
+  `;
+  await sendCustomerEmail(
+    ctx.to,
+    zh ? `YEZZ 预约已确认 ${ctx.orderNumber}` : `YEZZ booking confirmed ${ctx.orderNumber}`,
+    html,
+  );
+}
+
+export async function sendBookingStatusCancelledEmail(
+  ctx: BookingStatusEmailContext,
+): Promise<void> {
+  const zh = isZh(ctx.locale);
+  const reason = ctx.adminNote?.trim()
+    ? escapeHtml(ctx.adminNote)
+    : zh
+      ? "档期已满或时间冲突"
+      : "schedule conflict or capacity limit";
+  const html = zh
+    ? `
+    <h2>预约未能安排</h2>
+    <p>${escapeHtml(ctx.customerName)} 您好，很遗憾您的预约（${escapeHtml(ctx.orderNumber)}）目前无法安排。</p>
+    <p><strong>原因：</strong> ${reason}</p>
+    <p>欢迎联系我们重新预约。</p>
+    ${contactFooter(ctx.contact)}
+  `
+    : `
+    <h2>Booking unavailable</h2>
+    <p>Hi ${escapeHtml(ctx.customerName)}, we are unable to accommodate your booking (${escapeHtml(ctx.orderNumber)}) at this time.</p>
+    <p><strong>Reason:</strong> ${reason}</p>
+    <p>Please contact us to reschedule.</p>
+    ${contactFooter(ctx.contact)}
+  `;
+  await sendCustomerEmail(
+    ctx.to,
+    zh ? `YEZZ 预约取消 ${ctx.orderNumber}` : `YEZZ booking cancelled ${ctx.orderNumber}`,
+    html,
+  );
+}
+
+export async function sendStaffWelcomeEmail(options: {
+  to: string;
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+}): Promise<void> {
+  const html = `
+    <h2>YEZZ Admin 账号已创建</h2>
+    <p>您好 ${escapeHtml(options.name)}，您的后台账号已开通。</p>
+    <p><strong>邮箱：</strong> ${escapeHtml(options.email)}</p>
+    <p><strong>初始密码：</strong> ${escapeHtml(options.password)}</p>
+    <p><strong>角色：</strong> ${escapeHtml(options.role)}</p>
+    <p>请登录后立即修改密码。</p>
+  `;
+  await sendCustomerEmail(options.to, "YEZZ Admin 账号信息", html);
+}

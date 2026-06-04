@@ -13,12 +13,13 @@ export default async function adminBookingsRoutes(app: FastifyInstance) {
     return success(data);
   });
 
-  app.patch<{ Params: { id: string }; Body: { status: OrderStatus } }>(
+  app.patch<{ Params: { id: string }; Body: { status: OrderStatus; note?: string } }>(
     "/:id",
     async (request) => {
       const data = await app.services.adminBookings.updateStatus(
         request.params.id,
         request.body.status,
+        request.body.note,
       );
       return success(data);
     },

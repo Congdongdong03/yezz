@@ -3,11 +3,12 @@ import jwt from "@fastify/jwt";
 import type { FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { AppError } from "../lib/errors.js";
-import type { JwtPayload } from "../lib/jwt.js";
+import type { JwtPayload, UserRole } from "../lib/jwt.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest) => Promise<void>;
+    requireAdmin: (request: FastifyRequest) => Promise<void>;
   }
 }
 
@@ -57,6 +58,14 @@ export default fp(async (app) => {
       await request.jwtVerify();
     } catch {
       throw new AppError(401, "UNAUTHORIZED", "Invalid or missing token");
+    }
+  });
+
+  app.decorate("requireAdmin", async (request: FastifyRequest) => {
+    await app.authenticate(request);
+    const role = request.user.role as UserRole;
+    if (role !== "admin") {
+      throw new AppError(403, "FORBIDDEN", "Admin access required");
     }
   });
 });

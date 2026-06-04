@@ -8,6 +8,9 @@ import type {
   LoginResponse,
   Booking,
   CartOrder,
+  AdminUser,
+  TimeSlot,
+  UnreadCounts,
   OrderStatus,
   PartyFormInput,
   PartyPackage,
@@ -215,10 +218,71 @@ export async function getAdminBookings() {
   return adminFetch<Booking[]>("/api/v1/admin/bookings");
 }
 
-export async function updateBookingStatus(id: string, status: Booking["status"]) {
+export async function updateBookingStatus(
+  id: string,
+  status: Booking["status"],
+  note?: string,
+) {
   return adminFetch<Booking>(`/api/v1/admin/bookings/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, note }),
+  });
+}
+
+export async function getUnreadCounts() {
+  return adminFetch<UnreadCounts>("/api/v1/admin/notifications/unread-count");
+}
+
+export async function markNotificationsRead(type: "bookings" | "orders") {
+  return adminFetch<{ type: string }>(
+    `/api/v1/admin/notifications/mark-read?type=${type}`,
+    { method: "PATCH" },
+  );
+}
+
+export async function getAdminTimeSlots() {
+  return adminFetch<TimeSlot[]>("/api/v1/admin/time-slots");
+}
+
+export async function createAdminTimeSlot(data: Record<string, unknown>) {
+  return adminFetch<TimeSlot | TimeSlot[]>("/api/v1/admin/time-slots", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAdminTimeSlot(id: string, data: Record<string, unknown>) {
+  return adminFetch<TimeSlot>(`/api/v1/admin/time-slots/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAdminTimeSlot(id: string) {
+  return adminFetch<{ id: string }>(`/api/v1/admin/time-slots/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getAdminUsers() {
+  return adminFetch<AdminUser[]>("/api/v1/admin/users");
+}
+
+export async function createAdminUser(data: {
+  email: string;
+  name: string;
+  role: "admin" | "staff";
+  password?: string;
+}) {
+  return adminFetch<{ user: AdminUser; initialPassword: string }>("/api/v1/admin/users", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAdminUser(id: string) {
+  return adminFetch<{ id: string }>(`/api/v1/admin/users/${id}`, {
+    method: "DELETE",
   });
 }
 
