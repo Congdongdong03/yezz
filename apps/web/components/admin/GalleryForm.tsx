@@ -7,6 +7,7 @@ import { LocalizedFields } from "@/components/admin/LocalizedFields";
 import { AdminSelect } from "@/components/ui/admin-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { createGalleryImage, updateGalleryImage } from "@/lib/admin/api";
 import { emptyLocalized } from "@/lib/admin/constants";
 import { useFormSubmit } from "@/lib/admin/hooks";
