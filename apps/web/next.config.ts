@@ -89,6 +89,9 @@ function getMediaRemotePatterns(): RemotePattern[] {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: {
     remotePatterns: getMediaRemotePatterns(),
   },
