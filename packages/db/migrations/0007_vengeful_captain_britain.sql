@@ -1,4 +1,4 @@
-ALTER TYPE "public"."user_role" ADD VALUE 'staff';--> statement-breakpoint
+ALTER TYPE "public"."user_role" ADD VALUE IF NOT EXISTS 'staff';--> statement-breakpoint
 CREATE TABLE "cart_sessions" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"items" jsonb DEFAULT '[]'::jsonb NOT NULL,
