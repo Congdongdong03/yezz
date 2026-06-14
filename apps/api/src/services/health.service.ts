@@ -3,12 +3,12 @@ import type { FastifyInstance } from "fastify";
 export type HealthStatus = {
   status: "ok" | "degraded";
   db: "ok" | "error";
-  redis: "ok" | "error";
+  redis: "ok" | "error" | "skipped";
 };
 
 export async function getHealth(app: FastifyInstance): Promise<HealthStatus> {
   let dbStatus: "ok" | "error" = "error";
-  let redisStatus: "ok" | "error" = "error";
+  let redisStatus: "ok" | "error" | "skipped" = "skipped";
 
   try {
     await app.sql`SELECT 1`;
@@ -27,7 +27,7 @@ export async function getHealth(app: FastifyInstance): Promise<HealthStatus> {
   }
 
   return {
-    status: dbStatus === "ok" && redisStatus === "ok" ? "ok" : "degraded",
+    status: dbStatus === "ok" && redisStatus !== "error" ? "ok" : "degraded",
     db: dbStatus,
     redis: redisStatus,
   };
