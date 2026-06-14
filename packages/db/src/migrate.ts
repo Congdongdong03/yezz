@@ -33,8 +33,15 @@ try {
   await migrate(db, { migrationsFolder });
   console.log("Migrations applied successfully");
 } catch (err: any) {
-  const msg = err?.message ?? String(err);
-  // If the only issue is objects already existing, treat as success
+  // Check nested error messages for "already exists" patterns
+  const checkMsg = (val: unknown): string =>
+    typeof val === "string" ? val : "";
+  const msg =
+    checkMsg(err?.message) +
+    checkMsg(err?.cause?.message) +
+    checkMsg(err?.cause?.detail) +
+    checkMsg(err?.detail);
+
   if (
     msg.includes("already exists") ||
     msg.includes("DuplicateObject") ||
