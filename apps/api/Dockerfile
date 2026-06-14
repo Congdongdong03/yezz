@@ -10,6 +10,7 @@ RUN pnpm install --frozen-lockfile
 
 ENV NODE_ENV=production
 
+RUN pnpm --filter @yezz/db run build
 RUN pnpm --filter @yezz/api run build
 
 EXPOSE 4000

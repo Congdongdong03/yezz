@@ -108,7 +108,7 @@ export function createCartOrdersService(db: Db) {
           }
           verifiedItems.push({
             ...item,
-            price: project.priceRange ?? item.price ?? null,
+            price: project.priceRange ?? item.price ?? undefined,
           });
         } else {
           verifiedItems.push(item);

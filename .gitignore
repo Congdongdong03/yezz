@@ -36,3 +36,16 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# build outputs
+dist/
+*.js
+!*.config.js
+!jest.config.js
+!vitest.config.js
+!eslint.config.js
+!prettier.config.js
+!tailwind.config.js
+!postcss.config.js
+!next.config.js
+!playwright.config.js
