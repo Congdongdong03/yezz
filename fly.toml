@@ -4,6 +4,9 @@ primary_region = 'nrt'
 [build]
   dockerfile = 'apps/api/Dockerfile'
 
+[deploy]
+  release_command = 'pnpm --filter @yezz/db run migrate'
+
 [env]
   PORT = '4000'
   NODE_ENV = 'production'
