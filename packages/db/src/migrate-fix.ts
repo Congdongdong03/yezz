@@ -35,9 +35,17 @@ async function main() {
 
   if (missing.length > 0) {
     console.warn("Missing critical tables:", missing.join(", "));
-    console.log("Resetting drizzle_migrations to force re-run...");
-    await client`DELETE FROM "__drizzle_migrations"`;
-    console.log("Migration records cleared.");
+    const migrationTable = await client`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = '__drizzle_migrations'
+    `;
+    if (migrationTable.length > 0) {
+      console.log("Resetting drizzle_migrations to force re-run...");
+      await client`DELETE FROM "__drizzle_migrations"`;
+      console.log("Migration records cleared.");
+    } else {
+      console.log("No drizzle_migrations table found — fresh start.");
+    }
   }
 
   const db = drizzle(client);
