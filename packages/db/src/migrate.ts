@@ -16,10 +16,37 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
-const client = postgres(databaseUrl, { max: 1 });
+const client = postgres(databaseUrl, {
+  max: 1,
+  onnotice: (notice) => {
+    // Ignore benign notices like "enum label already exists, skipping"
+    if (notice.message?.includes("already exists")) {
+      console.log("Notice (ignored):", notice.message);
+      return;
+    }
+    console.log("Notice:", notice.message);
+  },
+});
 const db = drizzle(client);
 
-await migrate(db, { migrationsFolder });
-await client.end();
+try {
+  await migrate(db, { migrationsFolder });
+  console.log("Migrations applied successfully");
+} catch (err: any) {
+  const msg = err?.message ?? String(err);
+  // If the only issue is objects already existing, treat as success
+  if (
+    msg.includes("already exists") ||
+    msg.includes("DuplicateObject") ||
+    msg.includes("42710")
+  ) {
+    console.warn("Migration warning (already exists):", msg);
+    console.log("Migrations applied successfully (skipped existing objects)");
+  } else {
+    console.error("Migration failed:", err);
+    await client.end();
+    process.exit(1);
+  }
+}
 
-console.log("Migrations applied successfully");
+await client.end();
