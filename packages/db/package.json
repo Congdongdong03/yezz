@@ -10,6 +10,7 @@
     "build": "tsc",
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/migrate.ts",
+    "migrate:fix": "tsx src/migrate-fix.ts",
     "seed": "tsx src/seed.ts",
     "typecheck": "tsc --noEmit"
   },
