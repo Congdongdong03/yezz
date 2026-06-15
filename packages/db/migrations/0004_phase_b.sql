@@ -1,4 +1,4 @@
-ALTER TYPE "user_role" ADD VALUE IF NOT EXISTS 'staff';
+ALTER TYPE "user_role" ADD VALUE 'staff';
 
 CREATE TABLE IF NOT EXISTS "time_slots" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
