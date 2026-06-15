@@ -19,7 +19,6 @@ if (!databaseUrl) {
 const client = postgres(databaseUrl, { max: 1 });
 
 async function main() {
-  // Check if critical tables are missing despite migration records
   const tables = await client`
     SELECT table_name
     FROM information_schema.tables
@@ -49,30 +48,8 @@ async function main() {
   }
 
   const db = drizzle(client);
-  try {
-    await migrate(db, { migrationsFolder });
-    console.log("Migrations applied successfully");
-  } catch (err: any) {
-    const checkMsg = (val: unknown): string =>
-      typeof val === "string" ? val : "";
-    const msg =
-      checkMsg(err?.message) +
-      checkMsg(err?.cause?.message) +
-      checkMsg(err?.cause?.detail) +
-      checkMsg(err?.detail);
-
-    if (
-      msg.includes("already exists") ||
-      msg.includes("DuplicateObject") ||
-      msg.includes("42710")
-    ) {
-      console.warn("Migration warning (already exists):", msg);
-      console.log("Migrations applied successfully (skipped existing objects)");
-    } else {
-      throw err;
-    }
-  }
-
+  await migrate(db, { migrationsFolder });
+  console.log("Migrations applied successfully");
   await client.end();
 }
 
