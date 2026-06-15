@@ -1,0 +1,48 @@
+- generic [ref=e2]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - link [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img
+      - generic [ref=e6]:
+        - heading "Sign in to Your Account" [level=1] [ref=e7]
+        - generic [ref=e8]:
+          - link "Sign in with GitHub" [ref=e9] [cursor=pointer]:
+            - /url: /app/auth/github?state=phoenix&return_to=%2Fdashboard%2Fwesley_cong%2Fbilling
+            - img
+            - text: Sign in with GitHub
+          - link "Sign in with Google" [ref=e10] [cursor=pointer]:
+            - /url: /app/auth/google?state=phoenix&return_to=%2Fdashboard%2Fwesley_cong%2Fbilling
+            - img
+            - text: Sign in with Google
+        - generic [ref=e11]:
+          - generic [ref=e16]: or
+          - generic [ref=e17]:
+            - text: Email Address
+            - textbox "Email Address" [active] [ref=e18]
+          - generic [ref=e19]:
+            - generic [ref=e20]:
+              - text: Password
+              - textbox "Password" [ref=e21]
+            - link "Forgotten password?" [ref=e22] [cursor=pointer]:
+              - /url: /app/password_resets/new
+          - button "Sign In" [ref=e23] [cursor=pointer]
+          - link "Need an Account?" [ref=e24] [cursor=pointer]:
+            - /url: /app/sign-up
+    - complementary [ref=e25]:
+      - blockquote [ref=e26]:
+        - paragraph [ref=e27]: Container, machine
+        - paragraph [ref=e28]: Technically different
+        - paragraph [ref=e29]: But do web devs care?
+        - generic [ref=e30]:
+          - text: —A haiku by
+          - link "smlx" [ref=e31] [cursor=pointer]:
+            - /url: https://community.fly.io/t/write-us-a-haiku-and-well-put-it-on-the-login-screen/5924/39
+  - alert
+  - alert
+  - alert
+  - alert [ref=e32]:
+    - generic [ref=e33]:
+      - paragraph [ref=e35]: You must log in to access this page.
+      - button "Dismiss" [ref=e36] [cursor=pointer]
+  - alert

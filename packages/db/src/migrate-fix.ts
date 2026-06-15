@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = path.join(__dirname, "../migrations");
@@ -19,11 +20,11 @@ if (!databaseUrl) {
 const client = postgres(databaseUrl, { max: 1 });
 
 async function main() {
+  // Check if critical tables are missing despite migration records
   const tables = await client`
     SELECT table_name
     FROM information_schema.tables
     WHERE table_schema = 'public'
-    AND table_name IN ('diy_projects', 'project_categories', 'users', 'bookings')
   `;
 
   const existingTables = new Set(tables.map((t) => t.table_name));
@@ -32,8 +33,64 @@ async function main() {
   const criticalTables = ["diy_projects", "project_categories", "users", "bookings"];
   const missing = criticalTables.filter((t) => !existingTables.has(t));
 
-  if (missing.length > 0) {
-    console.warn("Missing critical tables:", missing.join(", "));
+  // Check for partial migration state: tables from pending migrations already exist
+  let hasPartialState = missing.length > 0;
+  if (!hasPartialState) {
+    const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
+    const pendingTables: string[] = [];
+    try {
+      const journal = JSON.parse(fs.readFileSync(journalPath, "utf-8"));
+      const entries = journal.entries || [];
+
+      // Get recorded migration count
+      let recordedCount = 0;
+      try {
+        const result = await client`SELECT COUNT(*) as count FROM "__drizzle_migrations"`;
+        recordedCount = Number(result[0]?.count || 0);
+      } catch {
+        // __drizzle_migrations doesn't exist
+      }
+
+      // Check pending migrations for tables they would create
+      const pendingEntries = entries.slice(recordedCount);
+      for (const entry of pendingEntries) {
+        const sqlPath = path.join(migrationsFolder, `${entry.tag}.sql`);
+        try {
+          const sql = fs.readFileSync(sqlPath, "utf-8");
+          const matches = sql.match(/CREATE TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"([^"]+)"/gi) || [];
+          for (const match of matches) {
+            const tableName = match.match(/"([^"]+)"/)?.[1];
+            if (tableName) pendingTables.push(tableName);
+          }
+        } catch {}
+      }
+    } catch {}
+
+    const conflictingTables = pendingTables.filter((t) => existingTables.has(t));
+    if (conflictingTables.length > 0) {
+      console.warn("Tables from pending migrations already exist:", conflictingTables.join(", "));
+      hasPartialState = true;
+    }
+  }
+
+  if (hasPartialState) {
+    if (missing.length > 0) {
+      console.warn("Missing critical tables:", missing.join(", "));
+    }
+
+    // If some tables exist but critical ones are missing, the DB is in a partial state.
+    // Drop all existing public tables to get a clean slate.
+    if (existingTables.size > 0) {
+      console.log("Database is in partial state. Dropping all existing public tables...");
+      for (const table of existingTables) {
+        if (table === "__drizzle_migrations") continue;
+        console.log(`  Dropping ${table}...`);
+        await client`DROP TABLE IF EXISTS ${client(table)} CASCADE`;
+      }
+      console.log("All existing tables dropped.");
+    }
+
+    // Also clear drizzle migration records if the table exists
     const migrationTable = await client`
       SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public' AND table_name = '__drizzle_migrations'
