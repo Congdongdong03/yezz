@@ -4,7 +4,10 @@ import {
   createCartOrdersRepository,
   type OrderStatus,
 } from "../../repositories/cart-orders.repository.js";
-import { validateOrderStatus } from "./bookings.admin.service.js";
+import {
+  validateOrderStatus,
+  validateStatusTransition,
+} from "./bookings.admin.service.js";
 
 export type CartOrderItemDto = {
   id: string;
@@ -95,6 +98,14 @@ export function createAdminCartOrdersService(db: Db) {
         throw new AppError(400, "VALIDATION_ERROR", "status is required");
       }
       validateOrderStatus(status);
+
+      const existing = await repo.findById(id);
+      if (!existing) {
+        throw new AppError(404, "NOT_FOUND", "Cart order not found");
+      }
+
+      validateStatusTransition(existing.status, status);
+
       const row = await repo.updateStatus(id, status);
       if (!row) {
         throw new AppError(404, "NOT_FOUND", "Cart order not found");
