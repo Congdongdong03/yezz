@@ -31,8 +31,14 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
         )}
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {!error && (!project || categories.length === 0) && (
+      {!error && !project && (
         <p className="text-sm text-muted-foreground">加载中…</p>
+      )}
+      {project && categories.length === 0 && (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">暂无分类，请先创建分类后再编辑项目。</p>
+          <a href="/admin/categories" className="text-sm text-primary underline-offset-2 hover:underline">→ 去创建分类</a>
+        </div>
       )}
       {project && categories.length > 0 && (
         <ProjectForm categories={categories} project={project} />

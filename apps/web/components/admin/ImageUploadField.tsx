@@ -21,7 +21,7 @@ export default function ImageUploadField({
   id,
   placeholder = "https://… 或上传图片",
 }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +55,7 @@ export default function ImageUploadField({
           ref={inputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
-          className="hidden"
+          className="sr-only"
           onChange={(e) => onFile(e.target.files?.[0])}
         />
         <Button
