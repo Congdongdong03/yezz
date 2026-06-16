@@ -15,6 +15,8 @@
     "db:migrate": "pnpm --filter @yezz/db migrate",
     "db:seed": "pnpm --filter @yezz/db seed",
     "test:api": "pnpm --filter @yezz/api test",
+    "test:e2e": "pnpm --filter @yezz/web test:e2e",
+    "test:e2e:ui": "pnpm --filter @yezz/web test:e2e:ui",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down"
   },

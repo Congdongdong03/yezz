@@ -8,7 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug"
   },
   "exports": {
     "./lib/mock-data": "./lib/mock-data.ts"
@@ -34,6 +37,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",

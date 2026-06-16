@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
 import { getAdminOrder, updateOrderStatus } from "@/lib/admin/api";
@@ -39,7 +39,8 @@ function displayStyle(value: CartOrder["items"][number]["styleName"]) {
   return value.zh || value.en || null;
 }
 
-export default function AdminOrderDetailPage({ params }: { params: { id: string } }) {
+export default function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [order, setOrder] = useState<CartOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,16 +48,16 @@ export default function AdminOrderDetailPage({ params }: { params: { id: string 
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    getAdminOrder(params.id)
+    getAdminOrder(id)
       .then(setOrder)
       .catch((err) => setMessage({ type: "error", text: err instanceof Error ? err.message : "加载失败" }))
       .finally(() => setLoading(false));
-  }, [params.id]);
+  }, [id]);
 
   const handleStatusChange = async (status: OrderStatus) => {
     setUpdating(true);
     try {
-      const updated = await updateOrderStatus(params.id, status);
+      const updated = await updateOrderStatus(id, status);
       setOrder(updated);
       setMessage({ type: "success", text: "状态已更新" });
     } catch (err) {

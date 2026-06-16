@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
 import { getAdminBooking, updateBookingStatus } from "@/lib/admin/api";
@@ -35,7 +35,8 @@ function formatDate(value: string | null) {
   });
 }
 
-export default function AdminBookingDetailPage({ params }: { params: { id: string } }) {
+export default function AdminBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,11 +44,11 @@ export default function AdminBookingDetailPage({ params }: { params: { id: strin
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    getAdminBooking(params.id)
+    getAdminBooking(id)
       .then(setBooking)
       .catch((err) => setMessage({ type: "error", text: err instanceof Error ? err.message : "加载失败" }))
       .finally(() => setLoading(false));
-  }, [params.id]);
+  }, [id]);
 
   const handleStatusChange = async (status: OrderStatus) => {
     let note: string | undefined;
@@ -62,7 +63,7 @@ export default function AdminBookingDetailPage({ params }: { params: { id: strin
     }
     setUpdating(true);
     try {
-      const updated = await updateBookingStatus(params.id, status, note);
+      const updated = await updateBookingStatus(id, status, note);
       setBooking(updated);
       setMessage({ type: "success", text: "状态已更新" });
     } catch (err) {

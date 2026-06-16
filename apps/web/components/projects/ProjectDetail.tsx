@@ -218,7 +218,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
                 <p className="mt-1 text-sm text-warm-grey">{t("bookSectionHint")}</p>
                 <div className="mt-6">
                   <BookingForm
-                    key={`${date}-${people}-${selectedSlot?.id ?? "none"}`}
+                    key={`${date}-${people}`}
                     embedded
                     requireTimeSlot
                     defaults={{
