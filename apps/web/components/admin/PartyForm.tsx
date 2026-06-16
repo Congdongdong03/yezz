@@ -104,6 +104,46 @@ export default function PartyForm({ party }: { party?: PartyPackage }) {
       />
 
       <fieldset className="space-y-3 rounded-lg border border-border p-4">
+        <legend className="px-1 text-sm font-medium">图集 Images</legend>
+        {form.imageUrls.map((url, index) => (
+          <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <ImageUploadField
+                label={`图片 #${index + 1}`}
+                value={url}
+                onChange={(newUrl) => {
+                  const imageUrls = [...form.imageUrls];
+                  imageUrls[index] = newUrl;
+                  setForm({ ...form, imageUrls });
+                }}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() =>
+                setForm({
+                  ...form,
+                  imageUrls: form.imageUrls.filter((_, i) => i !== index),
+                })
+              }
+            >
+              删除
+            </Button>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setForm({ ...form, imageUrls: [...form.imageUrls, ""] })}
+        >
+          + 添加图片
+        </Button>
+      </fieldset>
+
+      <fieldset className="space-y-3 rounded-lg border border-border p-4">
         <legend className="px-1 text-sm font-medium">包含项 Includes</legend>
         {form.includes.map((item, index) => (
           <div key={index} className="rounded-lg bg-muted/50 p-3">

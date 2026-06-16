@@ -122,6 +122,13 @@ export async function getAdminCategories() {
   return adminFetch<Category[]>("/api/v1/admin/categories");
 }
 
+export async function createCategory(data: { name: { en: string; zh: string }; slug: string; description?: { en: string; zh: string } | null; icon?: string | null; sortOrder?: number }) {
+  return adminFetch<Category>("/api/v1/admin/categories", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function updateCategory(
   id: string,
   data: Partial<Pick<Category, "name" | "description" | "icon" | "sortOrder">>,
@@ -129,6 +136,12 @@ export async function updateCategory(
   return adminFetch<Category>(`/api/v1/admin/categories/${id}`, {
     method: "PATCH",
     body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCategory(id: string) {
+  return adminFetch<{ id: string }>(`/api/v1/admin/categories/${id}`, {
+    method: "DELETE",
   });
 }
 
@@ -222,6 +235,10 @@ export async function getAdminBookings(params?: { page?: number; limit?: number;
   return result;
 }
 
+export async function getAdminBooking(id: string) {
+  return adminFetch<Booking>(`/api/v1/admin/bookings/${id}`);
+}
+
 export async function updateBookingStatus(
   id: string,
   status: Booking["status"],
@@ -284,6 +301,22 @@ export async function createAdminUser(data: {
   });
 }
 
+export async function updateAdminUser(
+  id: string,
+  data: Partial<Pick<AdminUser, "email" | "name" | "role">>,
+) {
+  return adminFetch<AdminUser>(`/api/v1/admin/users/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function resetAdminUserPassword(id: string) {
+  return adminFetch<{ user: AdminUser; newPassword: string }>(`/api/v1/admin/users/${id}/reset-password`, {
+    method: "POST",
+  });
+}
+
 export async function deleteAdminUser(id: string) {
   return adminFetch<{ id: string }>(`/api/v1/admin/users/${id}`, {
     method: "DELETE",
@@ -292,6 +325,10 @@ export async function deleteAdminUser(id: string) {
 
 export async function getAdminOrders() {
   return adminFetch<CartOrder[]>("/api/v1/admin/orders");
+}
+
+export async function getAdminOrder(id: string) {
+  return adminFetch<CartOrder>(`/api/v1/admin/orders/${id}`);
 }
 
 export async function updateOrderStatus(id: string, status: CartOrder["status"]) {

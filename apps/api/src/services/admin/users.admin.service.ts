@@ -88,6 +88,89 @@ export function createAdminUsersService(db: Db) {
       };
     },
 
+    async update(id: string, input: {
+      email?: string;
+      name?: string;
+      role?: UserRole;
+    }): Promise<AdminUserDto> {
+      if (input.email && !input.email.trim()) {
+        throw new AppError(400, "VALIDATION_ERROR", "email cannot be empty");
+      }
+      if (input.name && !input.name.trim()) {
+        throw new AppError(400, "VALIDATION_ERROR", "name cannot be empty");
+      }
+      if (input.role && !["admin", "staff"].includes(input.role)) {
+        throw new AppError(400, "VALIDATION_ERROR", "role must be admin or staff");
+      }
+
+      const existing = await repo.findById(id);
+      if (!existing) {
+        throw new AppError(404, "NOT_FOUND", "User not found");
+      }
+
+      if (input.email && input.email.trim().toLowerCase() !== existing.email) {
+        const conflict = await repo.findByEmail(input.email.trim().toLowerCase());
+        if (conflict && conflict.id !== id) {
+          throw new AppError(409, "CONFLICT", "Email already in use");
+        }
+      }
+
+      const row = await repo.update(id, {
+        email: input.email?.trim().toLowerCase(),
+        name: input.name?.trim(),
+        role: input.role,
+      });
+      if (!row) {
+        throw new AppError(500, "INTERNAL_ERROR", "Failed to update user");
+      }
+
+      return {
+        id: row.id,
+        email: row.email,
+        name: row.name,
+        role: row.role,
+        createdAt: row.createdAt,
+      };
+    },
+
+    async resetPassword(id: string): Promise<{ user: AdminUserDto; newPassword: string }> {
+      const existing = await repo.findById(id);
+      if (!existing) {
+        throw new AppError(404, "NOT_FOUND", "User not found");
+      }
+
+      const newPassword = generatePassword();
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+
+      const row = await repo.update(id, { passwordHash });
+      if (!row) {
+        throw new AppError(500, "INTERNAL_ERROR", "Failed to reset password");
+      }
+
+      try {
+        await sendStaffWelcomeEmail({
+          to: row.email,
+          name: row.name,
+          email: row.email,
+          password: newPassword,
+          role: row.role,
+        });
+      } catch (error) {
+        console.error("Password reset email failed:", error);
+      }
+
+      return {
+        user: {
+          id: row.id,
+          email: row.email,
+          name: row.name,
+          role: row.role,
+          createdAt: row.createdAt,
+        },
+        newPassword,
+      };
+    },
+
     async remove(id: string, currentUserId: string): Promise<{ id: string }> {
       if (id === currentUserId) {
         throw new AppError(400, "VALIDATION_ERROR", "Cannot delete your own account");

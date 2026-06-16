@@ -134,7 +134,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
                   key={tag}
                   className="rounded-full bg-soft-pink/20 px-3 py-1 text-xs text-warm-charcoal"
                 >
-                  {localizeTag(tag, locale)}
+                  {localizeTag(tag, pageLocale)}
                 </span>
               ))}
             </div>
@@ -143,7 +143,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
             )}
             {project.duration && (
               <p className="mt-1 text-sm text-warm-grey">
-                {t("duration")}: {localizeDuration(project.duration, locale)}
+                {t("duration")}: {localizeDuration(project.duration, pageLocale)}
               </p>
             )}
             {project.description && (

@@ -72,6 +72,27 @@ export function createUsersRepository(db: Db) {
       return row;
     },
 
+    async update(id: string, data: { email?: string; name?: string; role?: UserRole; passwordHash?: string }) {
+      const [row] = await db
+        .update(users)
+        .set({
+          ...(data.email ? { email: data.email.trim().toLowerCase() } : {}),
+          ...(data.name ? { name: data.name.trim() } : {}),
+          ...(data.role ? { role: data.role } : {}),
+          ...(data.passwordHash ? { passwordHash: data.passwordHash } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, id))
+        .returning({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+          createdAt: users.createdAt,
+        });
+      return row ?? null;
+    },
+
     async delete(id: string) {
       const [row] = await db.delete(users).where(eq(users.id, id)).returning({ id: users.id });
       return row ?? null;

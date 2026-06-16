@@ -19,7 +19,13 @@ export default async function adminTimeSlotsRoutes(app: FastifyInstance) {
           ? body.weekdays.map((d) => Number(d)).filter((n) => !Number.isNaN(n))
           : [],
         slots: Array.isArray(body.slots)
-          ? (body.slots as Array<{ startTime: string; endTime: string; capacity: number }>)
+          ? (body.slots as Array<Record<string, unknown>>)
+              .map((s) => ({
+                startTime: typeof s.startTime === "string" ? s.startTime.trim() : "",
+                endTime: typeof s.endTime === "string" ? s.endTime.trim() : "",
+                capacity: typeof s.capacity === "number" ? s.capacity : parsePositiveInt(s.capacity, 0),
+              }))
+              .filter((s) => s.startTime !== "" && s.endTime !== "")
           : [],
         categoryId: body.categoryId ? String(body.categoryId) : null,
         notes: body.notes ? String(body.notes) : null,

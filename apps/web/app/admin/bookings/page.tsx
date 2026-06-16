@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import AlertBanner from "@/components/admin/AlertBanner";
 import {
   getAdminBookings,
@@ -119,6 +120,7 @@ export default function AdminBookingsPage() {
                 <th className="px-4 py-3 font-medium">人数</th>
                 <th className="px-4 py-3 font-medium">状态</th>
                 <th className="px-4 py-3 font-medium">备注</th>
+                <th className="px-4 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -167,6 +169,14 @@ export default function AdminBookingsPage() {
                   </td>
                   <td className="max-w-[200px] px-4 py-3 text-muted-foreground">
                     {booking.message || "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/admin/bookings/${booking.id}`}
+                      className="text-sm text-primary underline-offset-2 hover:underline"
+                    >
+                      查看详情
+                    </Link>
                   </td>
                 </tr>
               ))}
