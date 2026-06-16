@@ -16,8 +16,9 @@
       "Bash(rm -rf /Users/wesley/Desktop/yezz/next-app /Users/wesley/Desktop/yezz/my-app)",
       "Bash(npx shadcn@latest init --template next --base radix --preset base-nova --no-monorepo --name my-app --yes --silent)"
     ],
-    "additionalDirectories": [
-      "/Users/wesley/Desktop/yezz"
-    ]
+    "additionalDirectories": ["/Users/wesley/Desktop/yezz"],
+    "bash": {
+      "allowed": ["fly deploy --app yezz-api", "fly logs*"]
+    }
   }
 }

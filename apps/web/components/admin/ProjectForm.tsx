@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
 import ImageUploadField from "@/components/admin/ImageUploadField";
 import { LocalizedFields } from "@/components/admin/LocalizedFields";
@@ -67,6 +68,7 @@ export default function ProjectForm({
     project ? fromProject(project) : defaultForm(),
   );
   const [tagsText, setTagsText] = useState((project?.tags ?? []).join(", "));
+  const router = useRouter();
   const { saving, error, clearError, handleSubmit } = useFormSubmit({ redirectTo: "/admin/projects" });
 
   const submit = handleSubmit(async () => {

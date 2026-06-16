@@ -17,7 +17,7 @@ function setAuthCookie(reply: FastifyReply, token: string) {
     secure: isProduction,
     sameSite: isProduction ? "none" : "lax",
     path: "/",
-    maxAge: 60 * 60 * 24,
+    maxAge: 60 * 60 * 24 * 1000,
   });
 }
 

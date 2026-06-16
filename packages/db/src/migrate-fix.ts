@@ -42,13 +42,13 @@ async function main() {
       const journal = JSON.parse(fs.readFileSync(journalPath, "utf-8"));
       const entries = journal.entries || [];
 
-      // Get recorded migration count
+      // Get recorded migration count from drizzle schema (where drizzle-orm stores it)
       let recordedCount = 0;
       try {
-        const result = await client`SELECT COUNT(*) as count FROM "__drizzle_migrations"`;
+        const result = await client`SELECT COUNT(*) as count FROM "drizzle"."__drizzle_migrations"`;
         recordedCount = Number(result[0]?.count || 0);
       } catch {
-        // __drizzle_migrations doesn't exist
+        // __drizzle_migrations doesn't exist in drizzle schema
       }
 
       // Check pending migrations for tables they would create
@@ -90,17 +90,32 @@ async function main() {
       console.log("All existing tables dropped.");
     }
 
-    // Also clear drizzle migration records if the table exists
+    // Also clear drizzle migration records if the table exists (in drizzle schema)
     const migrationTable = await client`
       SELECT table_name FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = '__drizzle_migrations'
+      WHERE table_schema = 'drizzle' AND table_name = '__drizzle_migrations'
     `;
     if (migrationTable.length > 0) {
       console.log("Resetting drizzle_migrations to force re-run...");
-      await client`DELETE FROM "__drizzle_migrations"`;
+      await client`DELETE FROM "drizzle"."__drizzle_migrations"`;
       console.log("Migration records cleared.");
     } else {
       console.log("No drizzle_migrations table found — fresh start.");
+    }
+
+    // Drop existing custom types in public schema so migrations can recreate them
+    const existingTypes = await client`
+      SELECT typname FROM pg_type t
+      JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = 'public' AND t.typtype = 'e'
+    `;
+    if (existingTypes.length > 0) {
+      console.log("Dropping existing enum types...");
+      for (const t of existingTypes) {
+        console.log(`  Dropping type ${t.typname}...`);
+        await client`DROP TYPE IF EXISTS ${client(t.typname)} CASCADE`;
+      }
+      console.log("Enum types dropped.");
     }
   }
 

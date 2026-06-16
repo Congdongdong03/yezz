@@ -42,7 +42,7 @@ export function createAdminUsersService(db: Db) {
       name: string;
       role: UserRole;
       password?: string;
-    }): Promise<{ user: AdminUserDto }> {
+    }): Promise<{ user: AdminUserDto; initialPassword: string }> {
       if (!input.email?.trim() || !input.name?.trim()) {
         throw new AppError(400, "VALIDATION_ERROR", "email and name are required");
       }
@@ -84,6 +84,7 @@ export function createAdminUsersService(db: Db) {
           role: row.role,
           createdAt: row.createdAt,
         },
+        initialPassword,
       };
     },
 

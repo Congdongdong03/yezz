@@ -8,7 +8,13 @@ declare module "fastify" {
 }
 
 export default fp(async (app) => {
-  const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    app.log.info("REDIS_URL not set, skipping Redis");
+    app.decorate("redis", null);
+    return;
+  }
+
   let redis: Redis | null = null;
 
   try {
@@ -16,7 +22,7 @@ export default fp(async (app) => {
     await redis.connect();
     app.log.info("Redis connected");
   } catch (err) {
-    app.log.warn({ err }, "Redis unavailable");
+    app.log.warn({ err }, "Redis unavailable, running without cache");
     redis = null;
   }
 

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { success } from "../../../lib/response.js";
+import { parsePositiveInt } from "../../../lib/validation.js";
 import type { TimeSlotUpdateInput } from "../../../repositories/time-slots.repository.js";
 
 export default async function adminTimeSlotsRoutes(app: FastifyInstance) {
@@ -15,7 +16,7 @@ export default async function adminTimeSlotsRoutes(app: FastifyInstance) {
         startDate: String(body.startDate),
         endDate: String(body.endDate),
         weekdays: Array.isArray(body.weekdays)
-          ? body.weekdays.map((d) => Number(d))
+          ? body.weekdays.map((d) => Number(d)).filter((n) => !Number.isNaN(n))
           : [],
         slots: Array.isArray(body.slots)
           ? (body.slots as Array<{ startTime: string; endTime: string; capacity: number }>)
@@ -30,7 +31,7 @@ export default async function adminTimeSlotsRoutes(app: FastifyInstance) {
       date: String(body.date ?? ""),
       startTime: String(body.startTime ?? ""),
       endTime: String(body.endTime ?? ""),
-      capacity: Number(body.capacity ?? 0),
+      capacity: parsePositiveInt(body.capacity, 0),
       categoryId: body.categoryId ? String(body.categoryId) : null,
       notes: body.notes ? String(body.notes) : null,
     });

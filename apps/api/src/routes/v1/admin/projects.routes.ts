@@ -4,11 +4,12 @@ import type {
   ProjectUpdateInput,
 } from "../../../repositories/projects.repository.js";
 import { success } from "../../../lib/response.js";
+import { parsePositiveInt } from "../../../lib/validation.js";
 
 export default async function adminProjectsRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { page?: string; limit?: string } }>("/", async (request) => {
-    const page = request.query.page ? Number(request.query.page) : undefined;
-    const limit = request.query.limit ? Number(request.query.limit) : undefined;
+    const page = request.query.page ? parsePositiveInt(request.query.page, 1) : undefined;
+    const limit = request.query.limit ? parsePositiveInt(request.query.limit, 20) : undefined;
     const data = await app.services.adminProjects.list({ page, limit });
     return success(data);
   });
