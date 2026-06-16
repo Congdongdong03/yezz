@@ -59,7 +59,32 @@ async function clearSeedData() {
   await db.delete(users);
 }
 
+async function seedSettingsIfEmpty() {
+  const [settingsRow] = await db.select({ id: siteSettings.id }).from(siteSettings).limit(1);
+  if (!settingsRow) {
+    await db.insert(siteSettings).values({
+      storeName: "YEZZ DIY Studio",
+      address: "上海市静安区创意路 88 号 YEZZ 工作室",
+      businessHours: "每日 10:00 – 21:00",
+      phone: "+86 138 0000 0000",
+      email: "hello@yezz.studio",
+      wechatId: "yezz_studio",
+      wechatQrUrl: "https://picsum.photos/seed/yezz-wechat-qr/400/400",
+      heroImageUrl: "https://picsum.photos/seed/yezz-hero/1920/1080",
+      instagram: "https://instagram.com/yezzstudio",
+      xiaohongshu: "https://xiaohongshu.com/user/yezz",
+      googleMapUrl: "https://maps.google.com/?q=YEZZ+DIY+Studio",
+      seoTitle: "YEZZ DIY Studio — Create Your Own Masterpiece",
+      seoDescription:
+        "A cozy DIY studio for dates, birthdays, and gatherings. Book your creative experience today.",
+    });
+    console.log("Seeded site settings");
+  }
+}
+
 async function seedPartiesAndGalleryIfEmpty() {
+  await seedSettingsIfEmpty();
+
   const [existingParty] = await db.select({ id: partyPackages.id }).from(partyPackages).limit(1);
   if (!existingParty) {
     let partyCount = 0;
@@ -205,27 +230,6 @@ async function seed() {
   console.log(`Seeded ${projectCount} projects, ${styleCount} styles, ${imageCount} images`);
 
   await seedPartiesAndGalleryIfEmpty();
-
-  const [settingsRow] = await db.select({ id: siteSettings.id }).from(siteSettings).limit(1);
-  if (!settingsRow) {
-    await db.insert(siteSettings).values({
-      storeName: "YEZZ DIY Studio",
-      address: "上海市静安区创意路 88 号 YEZZ 工作室",
-      businessHours: "每日 10:00 – 21:00",
-      phone: "+86 138 0000 0000",
-      email: "hello@yezz.studio",
-      wechatId: "yezz_studio",
-      wechatQrUrl: "https://picsum.photos/seed/yezz-wechat-qr/400/400",
-      heroImageUrl: "https://picsum.photos/seed/yezz-hero/1920/1080",
-      instagram: "https://instagram.com/yezzstudio",
-      xiaohongshu: "https://xiaohongshu.com/user/yezz",
-      googleMapUrl: "https://maps.google.com/?q=YEZZ+DIY+Studio",
-      seoTitle: "YEZZ DIY Studio — Create Your Own Masterpiece",
-      seoDescription:
-        "A cozy DIY studio for dates, birthdays, and gatherings. Book your creative experience today.",
-    });
-    console.log("Seeded site settings");
-  }
 
   const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@yezz.local").trim().toLowerCase();
   const adminPassword = process.env.ADMIN_PASSWORD ?? "changeme";

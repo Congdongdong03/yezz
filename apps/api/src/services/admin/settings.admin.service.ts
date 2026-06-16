@@ -34,9 +34,19 @@ export function createAdminSettingsService(db: Db, redis: Redis | null = null) {
 
   return {
     async get(): Promise<SiteSettingsDto> {
-      const row = await repo.findSingleton();
+      let row = await repo.findSingleton();
       if (!row) {
-        throw new AppError(404, "NOT_FOUND", "Site settings not configured");
+        row = await repo.upsertSingleton({
+          storeName: "YEZZ DIY Studio",
+          address: "上海市静安区创意路 88 号 YEZZ 工作室",
+          businessHours: "每日 10:00 – 21:00",
+          phone: "+86 138 0000 0000",
+          email: "hello@yezz.studio",
+          wechatId: "yezz_studio",
+        });
+        if (!row) {
+          throw new AppError(500, "INTERNAL_ERROR", "Failed to initialize site settings");
+        }
       }
       return toSettingsDto(row);
     },
