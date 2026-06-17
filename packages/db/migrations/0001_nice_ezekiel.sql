@@ -1,0 +1,1 @@
+ALTER TABLE "cart_sessions" ADD COLUMN "ip_hash" varchar(64);

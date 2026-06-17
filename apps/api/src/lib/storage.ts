@@ -56,12 +56,16 @@ const ALLOWED_MIME = new Set([
   "image/gif",
 ]);
 
+const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
   "image/webp": ".webp",
   "image/gif": ".gif",
 };
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 export async function uploadImage(params: {
   buffer: Buffer;
@@ -73,15 +77,23 @@ export async function uploadImage(params: {
     throw new Error("S3 storage is not configured");
   }
 
+  if (params.buffer.length > MAX_FILE_SIZE) {
+    throw new Error("File too large. Maximum size is 5MB.");
+  }
+
   const mimeType = params.mimeType.toLowerCase();
   if (!ALLOWED_MIME.has(mimeType)) {
     throw new Error(`Unsupported file type: ${mimeType}`);
   }
 
-  const ext =
-    EXT_BY_MIME[mimeType] ??
-    (params.originalFilename ? path.extname(params.originalFilename) : "") ??
-    ".bin";
+  const originalExt = params.originalFilename
+    ? path.extname(params.originalFilename).toLowerCase()
+    : "";
+  if (originalExt && !ALLOWED_EXTENSIONS.has(originalExt)) {
+    throw new Error(`Unsupported file extension: ${originalExt}`);
+  }
+
+  const ext = EXT_BY_MIME[mimeType] ?? originalExt ?? ".bin";
 
   const key = `uploads/${randomUUID()}${ext}`;
   const s3 = getClient(config);

@@ -42,7 +42,7 @@ export function createAdminUsersService(db: Db) {
       name: string;
       role: UserRole;
       password?: string;
-    }): Promise<{ user: AdminUserDto; initialPassword: string }> {
+    }): Promise<{ user: AdminUserDto }> {
       if (!input.email?.trim() || !input.name?.trim()) {
         throw new AppError(400, "VALIDATION_ERROR", "email and name are required");
       }
@@ -84,7 +84,6 @@ export function createAdminUsersService(db: Db) {
           role: row.role,
           createdAt: row.createdAt,
         },
-        initialPassword,
       };
     },
 
@@ -133,7 +132,7 @@ export function createAdminUsersService(db: Db) {
       };
     },
 
-    async resetPassword(id: string): Promise<{ user: AdminUserDto; newPassword: string }> {
+    async resetPassword(id: string): Promise<{ user: AdminUserDto }> {
       const existing = await repo.findById(id);
       if (!existing) {
         throw new AppError(404, "NOT_FOUND", "User not found");
@@ -167,7 +166,6 @@ export function createAdminUsersService(db: Db) {
           role: row.role,
           createdAt: row.createdAt,
         },
-        newPassword,
       };
     },
 

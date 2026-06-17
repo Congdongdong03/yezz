@@ -100,6 +100,18 @@ export default async function PartiesPage({
           ),
         )}
       </div>
+
+      <div className="mt-16 rounded-2xl bg-cream p-8 text-center md:p-12">
+        <h2 className="font-serif text-2xl font-bold text-warm-charcoal md:text-3xl">
+          {locale === "zh" ? "想定制专属派对？" : "Want a custom party?"}
+        </h2>
+        <p className="mt-3 text-warm-grey">
+          {locale === "zh"
+            ? "联系我们，我们可以根据您的需求定制完美的派对体验。"
+            : "Contact us and we can tailor the perfect party experience for your needs."}
+        </p>
+        <PartyInquiryCTA wechatId={settings.wechatId} />
+      </div>
     </div>
   );
 }

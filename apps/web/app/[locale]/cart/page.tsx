@@ -34,7 +34,17 @@ export default function CartPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone) return;
+    const errors: Record<string, string[]> = {};
+    if (!name.trim()) {
+      errors.name = ["请输入姓名"];
+    }
+    if (!phone.trim()) {
+      errors.phone = ["请输入电话"];
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
     setStatus("submitting");
     setFieldErrors({});
 

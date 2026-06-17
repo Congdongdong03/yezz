@@ -14,7 +14,7 @@ export function createCartSessionsRepository(db: Db) {
       return row ?? null;
     },
 
-    async upsert(id: string, items: CartSessionItem[]) {
+    async upsert(id: string, items: CartSessionItem[], ipHash?: string | null) {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
       const existing = await this.findById(id);
@@ -30,7 +30,7 @@ export function createCartSessionsRepository(db: Db) {
 
       const [row] = await db
         .insert(cartSessions)
-        .values({ id, items, expiresAt, updatedAt: now })
+        .values({ id, ipHash: ipHash ?? null, items, expiresAt, updatedAt: now })
         .returning();
       return row;
     },

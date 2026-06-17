@@ -187,6 +187,7 @@ export type CartSessionItem = {
 
 export const cartSessions = pgTable("cart_sessions", {
   id: uuid("id").primaryKey(),
+  ipHash: varchar("ip_hash", { length: 64 }),
   items: jsonb("items").$type<CartSessionItem[]>().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

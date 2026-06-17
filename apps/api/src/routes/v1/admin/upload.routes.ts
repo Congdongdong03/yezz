@@ -5,11 +5,19 @@ import { AppError } from "../../../lib/errors.js";
 import { success } from "../../../lib/response.js";
 
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+function getExtension(filename?: string): string {
+  if (!filename) return "";
+  const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  return ext;
+}
 
 export default async function adminUploadRoutes(app: FastifyInstance) {
   await app.register(multipart, {
     limits: {
-      fileSize: 5 * 1024 * 1024,
+      fileSize: MAX_FILE_SIZE,
       files: 1,
     },
   });
@@ -21,6 +29,19 @@ export default async function adminUploadRoutes(app: FastifyInstance) {
     }
 
     const buffer = await file.toBuffer();
+
+    if (buffer.length > MAX_FILE_SIZE) {
+      throw new AppError(400, "VALIDATION_ERROR", "File too large. Maximum size is 5MB.");
+    }
+
+    const ext = getExtension(file.filename);
+    if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+      throw new AppError(
+        400,
+        "VALIDATION_ERROR",
+        "Invalid file extension. Only .jpg, .jpeg, .png, .webp and .gif are allowed.",
+      );
+    }
 
     const detected = await fileTypeFromBuffer(buffer);
     if (!detected || !ALLOWED_MIME.has(detected.mime)) {

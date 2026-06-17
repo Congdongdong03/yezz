@@ -3,6 +3,10 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 
 export default fp(async (app) => {
+  if (process.env.NODE_ENV === "production" || process.env.ENABLE_SWAGGER === "false") {
+    return;
+  }
+
   await app.register(swagger, {
     openapi: {
       openapi: "3.1.0",
@@ -29,10 +33,8 @@ export default fp(async (app) => {
     },
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    await app.register(swaggerUi, {
-      routePrefix: "/docs",
-      staticCSP: true,
-    });
-  }
+  await app.register(swaggerUi, {
+    routePrefix: "/docs",
+    staticCSP: true,
+  });
 });
