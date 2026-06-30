@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
+import DynamicArrayField from "@/components/admin/DynamicArrayField";
 import ImageUploadField from "@/components/admin/ImageUploadField";
 import { LocalizedFields } from "@/components/admin/LocalizedFields";
 import { AdminSelect } from "@/components/ui/admin-select";
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { createProject, updateProject } from "@/lib/admin/api";
 import { emptyLocalized } from "@/lib/admin/constants";
 import { useFormSubmit } from "@/lib/admin/hooks";
+import { useTagsInput } from "@/lib/admin/use-tags-input";
 import type { Category, ProjectDetail, ProjectFormInput } from "@/lib/admin/types";
 
 function defaultForm(): ProjectFormInput {
@@ -67,17 +69,14 @@ export default function ProjectForm({
   const [form, setForm] = useState<ProjectFormInput>(
     project ? fromProject(project) : defaultForm(),
   );
-  const [tagsText, setTagsText] = useState((project?.tags ?? []).join(", "));
+  const { tagsText, setTagsText, parseTags } = useTagsInput(project?.tags);
   const router = useRouter();
   const { saving, error, clearError, handleSubmit } = useFormSubmit({ redirectTo: "/admin/projects" });
 
   const submit = handleSubmit(async () => {
     const payload: ProjectFormInput = {
       ...form,
-      tags: tagsText
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
+      tags: parseTags(),
       description: form.description?.en || form.description?.zh ? form.description : null,
       priceRange: form.priceRange || null,
       duration: form.duration || null,
@@ -184,13 +183,24 @@ export default function ProjectForm({
         onChange={(coverImageUrl) => setForm({ ...form, coverImageUrl })}
       />
 
-      <fieldset className="space-y-3 rounded-lg border border-border p-4">
-        <legend className="px-1 text-sm font-medium">款式 Styles</legend>
-        {form.styles.map((style, index) => (
-          <div key={index} className="space-y-3 rounded-lg bg-muted/50 p-3">
+      <DynamicArrayField
+        legend="款式 Styles"
+        items={form.styles}
+        addLabel="+ 添加款式"
+        onAdd={() =>
+          setForm({
+            ...form,
+            styles: [
+              ...form.styles,
+              { name: { en: "", zh: "" }, price: "", imageUrl: "" },
+            ],
+          })
+        }
+        renderItem={(_, index) => (
+          <div className="space-y-3 rounded-lg bg-muted/50 p-3">
             <LocalizedFields
               label="款式名"
-              value={style.name}
+              value={form.styles[index].name}
               onChange={(name) => {
                 const styles = [...form.styles];
                 styles[index] = { ...styles[index], name };
@@ -201,7 +211,7 @@ export default function ProjectForm({
               <div className="space-y-1.5">
                 <Label>价格</Label>
                 <Input
-                  value={style.price ?? ""}
+                  value={form.styles[index].price ?? ""}
                   onChange={(e) => {
                     const styles = [...form.styles];
                     styles[index] = { ...styles[index], price: e.target.value };
@@ -211,7 +221,7 @@ export default function ProjectForm({
               </div>
               <ImageUploadField
                 label="款式图片"
-                value={style.imageUrl ?? ""}
+                value={form.styles[index].imageUrl ?? ""}
                 onChange={(imageUrl) => {
                   const styles = [...form.styles];
                   styles[index] = { ...styles[index], imageUrl };
@@ -233,33 +243,20 @@ export default function ProjectForm({
               删除款式
             </Button>
           </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            setForm({
-              ...form,
-              styles: [
-                ...form.styles,
-                { name: { en: "", zh: "" }, price: "", imageUrl: "" },
-              ],
-            })
-          }
-        >
-          + 添加款式
-        </Button>
-      </fieldset>
+        )}
+      />
 
-      <fieldset className="space-y-3 rounded-lg border border-border p-4">
-        <legend className="px-1 text-sm font-medium">图集 Images</legend>
-        {form.images.map((image, index) => (
-          <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <DynamicArrayField
+        legend="图集 Images"
+        items={form.images}
+        addLabel="+ 添加图片"
+        onAdd={() => setForm({ ...form, images: [...form.images, { url: "" }] })}
+        renderItem={(_, index) => (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="flex-1">
               <ImageUploadField
                 label={`图集 #${index + 1}`}
-                value={image.url}
+                value={form.images[index].url}
                 onChange={(url) => {
                   const images = [...form.images];
                   images[index] = { ...images[index], url };
@@ -281,16 +278,8 @@ export default function ProjectForm({
               删除
             </Button>
           </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setForm({ ...form, images: [...form.images, { url: "" }] })}
-        >
-          + 添加图片
-        </Button>
-      </fieldset>
+        )}
+      />
 
       <div className="flex gap-3">
         <Button type="submit" disabled={saving}>

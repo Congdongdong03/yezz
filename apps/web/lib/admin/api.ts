@@ -1,4 +1,5 @@
 import { clearLegacyAdminToken } from "./auth";
+import { ApiClientError, parseResponse } from "@/lib/api/base";
 import type {
   AdminProjectsList,
   AuthUser,
@@ -22,33 +23,7 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
-type ApiSuccess<T> = { success: true; data: T };
-type ApiError = { success: false; error: { code: string; message: string } };
-
-export class AdminApiError extends Error {
-  constructor(
-    message: string,
-    public readonly code?: string,
-    public readonly status?: number,
-  ) {
-    super(message);
-    this.name = "AdminApiError";
-  }
-}
-
-async function parseResponse<T>(res: Response): Promise<T> {
-  const json = (await res.json()) as ApiSuccess<T> | ApiError;
-
-  if (!json.success) {
-    throw new AdminApiError(
-      json.error?.message ?? "Request failed",
-      json.error?.code,
-      res.status,
-    );
-  }
-
-  return json.data;
-}
+export { ApiClientError as AdminApiError } from "@/lib/api/base";
 
 export async function adminFetch<T>(
   path: string,

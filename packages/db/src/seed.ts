@@ -8,7 +8,7 @@ import {
   mockGalleryImages,
   mockParties,
   mockProjects,
-} from "../../../apps/web/lib/mock-data.js";
+} from "../../../apps/web/lib/mock-data.ts";
 import { createDb } from "./client.js";
 import {
   diyProjects,

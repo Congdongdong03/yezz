@@ -2,8 +2,8 @@ import {
   fetchCategories,
   fetchProjectBySlug,
   fetchProjects,
-  PublicApiError,
 } from "@/lib/api/client";
+import { ApiClientError } from "@/lib/api/base";
 import { isApiEnabled } from "@/lib/api/config";
 import { loadFailed, loadOk, type LoadResult } from "@/lib/api/load-result";
 import {
@@ -44,7 +44,7 @@ export async function loadProjectsPageData(): Promise<LoadResult<ProjectsPageDat
       if (process.env.NODE_ENV === "development") {
         console.warn(
           "[projects] API unavailable:",
-          err instanceof PublicApiError ? err.message : err,
+          err instanceof ApiClientError ? err.message : err,
         );
       }
       return loadFailed();
@@ -64,13 +64,13 @@ export async function loadProjectBySlug(slug: string): Promise<ProjectBySlugResu
       const detail = await fetchProjectBySlug(slug);
       return loadOk(mapProjectDetailFromApi(detail));
     } catch (err) {
-      if (err instanceof PublicApiError && err.status === 404) {
+      if (err instanceof ApiClientError && err.status === 404) {
         return loadOk(null);
       }
       if (process.env.NODE_ENV === "development") {
         console.warn(
           "[project detail] API unavailable:",
-          err instanceof PublicApiError ? err.message : err,
+          err instanceof ApiClientError ? err.message : err,
         );
       }
       return loadFailed();

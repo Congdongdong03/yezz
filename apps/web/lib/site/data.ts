@@ -3,8 +3,8 @@ import {
   fetchParties,
   fetchProjects,
   fetchSiteSettings,
-  PublicApiError,
 } from "@/lib/api/client";
+import { ApiClientError } from "@/lib/api/base";
 import { isApiEnabled } from "@/lib/api/config";
 import { loadFailed, loadOk, type LoadResult } from "@/lib/api/load-result";
 import {
@@ -72,7 +72,7 @@ export async function loadSiteSettings(): Promise<SiteSettingsView> {
       if (process.env.NODE_ENV === "development") {
         console.warn(
           "[settings] API unavailable:",
-          err instanceof PublicApiError ? err.message : err,
+          err instanceof ApiClientError ? err.message : err,
         );
       }
       return minimalSiteSettings;
@@ -90,7 +90,7 @@ export async function loadPartiesPageData(): Promise<LoadResult<
       return loadOk(parties.map(mapPartyFromApi));
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
-        console.warn("[parties] API failed:", err instanceof PublicApiError ? err.message : err);
+        console.warn("[parties] API failed:", err instanceof ApiClientError ? err.message : err);
       }
       return loadFailed();
     }
@@ -107,7 +107,7 @@ export async function loadGalleryPageData(): Promise<LoadResult<
       return loadOk(images.map(mapGalleryImageFromApi));
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
-        console.warn("[gallery] API failed:", err instanceof PublicApiError ? err.message : err);
+        console.warn("[gallery] API failed:", err instanceof ApiClientError ? err.message : err);
       }
       return loadFailed();
     }
@@ -160,7 +160,7 @@ export async function loadHomePageData(): Promise<LoadResult<HomePageData>> {
       });
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
-        console.warn("[home] API failed:", err instanceof PublicApiError ? err.message : err);
+        console.warn("[home] API failed:", err instanceof ApiClientError ? err.message : err);
       }
       return loadFailed();
     }

@@ -55,7 +55,7 @@ export function createPartiesRepository(db: Db) {
         .insert(partyPackages)
         .values({
           name: input.name,
-          slug: input.slug.trim(),
+          slug: input.slug.trim().toLowerCase(),
           description: input.description ?? null,
           includes: input.includes ?? [],
           coverImageUrl: input.coverImageUrl ?? null,

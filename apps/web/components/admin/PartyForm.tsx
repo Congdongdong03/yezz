@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import AlertBanner from "@/components/admin/AlertBanner";
+import DynamicArrayField from "@/components/admin/DynamicArrayField";
 import ImageUploadField from "@/components/admin/ImageUploadField";
 import { LocalizedFields } from "@/components/admin/LocalizedFields";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { createParty, updateParty } from "@/lib/admin/api";
 import { emptyLocalized } from "@/lib/admin/constants";
 import { useFormSubmit } from "@/lib/admin/hooks";
+import { useTagsInput } from "@/lib/admin/use-tags-input";
 import type { PartyFormInput, PartyPackage } from "@/lib/admin/types";
 
 function defaultForm(): PartyFormInput {
@@ -47,16 +49,13 @@ function fromParty(party: PartyPackage): PartyFormInput {
 export default function PartyForm({ party }: { party?: PartyPackage }) {
   const isEdit = Boolean(party);
   const [form, setForm] = useState<PartyFormInput>(party ? fromParty(party) : defaultForm());
-  const [tagsText, setTagsText] = useState((party?.tags ?? []).join(", "));
+  const { tagsText, setTagsText, parseTags } = useTagsInput(party?.tags);
   const { saving, error, clearError, handleSubmit } = useFormSubmit({ redirectTo: "/admin/parties" });
 
   const submit = handleSubmit(async () => {
     const payload: PartyFormInput = {
       ...form,
-      tags: tagsText
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
+      tags: parseTags(),
       description: form.description?.en || form.description?.zh ? form.description : null,
       priceIndicator: form.priceIndicator || null,
       coverImageUrl: form.coverImageUrl || null,
@@ -103,14 +102,17 @@ export default function PartyForm({ party }: { party?: PartyPackage }) {
         onChange={(coverImageUrl) => setForm({ ...form, coverImageUrl })}
       />
 
-      <fieldset className="space-y-3 rounded-lg border border-border p-4">
-        <legend className="px-1 text-sm font-medium">图集 Images</legend>
-        {form.imageUrls.map((url, index) => (
-          <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <DynamicArrayField
+        legend="图集 Images"
+        items={form.imageUrls}
+        addLabel="+ 添加图片"
+        onAdd={() => setForm({ ...form, imageUrls: [...form.imageUrls, ""] })}
+        renderItem={(_, index) => (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="flex-1">
               <ImageUploadField
                 label={`图片 #${index + 1}`}
-                value={url}
+                value={form.imageUrls[index]}
                 onChange={(newUrl) => {
                   const imageUrls = [...form.imageUrls];
                   imageUrls[index] = newUrl;
@@ -132,24 +134,19 @@ export default function PartyForm({ party }: { party?: PartyPackage }) {
               删除
             </Button>
           </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setForm({ ...form, imageUrls: [...form.imageUrls, ""] })}
-        >
-          + 添加图片
-        </Button>
-      </fieldset>
+        )}
+      />
 
-      <fieldset className="space-y-3 rounded-lg border border-border p-4">
-        <legend className="px-1 text-sm font-medium">包含项 Includes</legend>
-        {form.includes.map((item, index) => (
-          <div key={index} className="rounded-lg bg-muted/50 p-3">
+      <DynamicArrayField
+        legend="包含项 Includes"
+        items={form.includes}
+        addLabel="+ 添加包含项"
+        onAdd={() => setForm({ ...form, includes: [...form.includes, { ...emptyLocalized }] })}
+        renderItem={(_, index) => (
+          <div className="rounded-lg bg-muted/50 p-3">
             <LocalizedFields
               label={`项目 #${index + 1}`}
-              value={item}
+              value={form.includes[index]}
               onChange={(line) => {
                 const includes = [...form.includes];
                 includes[index] = line;
@@ -171,18 +168,8 @@ export default function PartyForm({ party }: { party?: PartyPackage }) {
               删除
             </Button>
           </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            setForm({ ...form, includes: [...form.includes, { ...emptyLocalized }] })
-          }
-        >
-          + 添加包含项
-        </Button>
-      </fieldset>
+        )}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">

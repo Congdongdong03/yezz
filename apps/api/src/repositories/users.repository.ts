@@ -76,10 +76,9 @@ export function createUsersRepository(db: Db) {
       const [row] = await db
         .update(users)
         .set({
-          ...(data.email ? { email: data.email.trim().toLowerCase() } : {}),
-          ...(data.name ? { name: data.name.trim() } : {}),
-          ...(data.role ? { role: data.role } : {}),
-          ...(data.passwordHash ? { passwordHash: data.passwordHash } : {}),
+          ...data,
+          email: data.email?.trim().toLowerCase(),
+          name: data.name?.trim(),
           updatedAt: new Date(),
         })
         .where(eq(users.id, id))

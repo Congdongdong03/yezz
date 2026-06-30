@@ -1,21 +1,7 @@
 import { getApiBaseUrl } from "./config";
+import { ApiClientError, parseResponse } from "./base";
 
-type ApiSuccess<T> = { success: true; data: T };
-type ApiErrorBody = {
-  success: false;
-  error: { code: string; message: string };
-};
-
-export class PublicApiError extends Error {
-  constructor(
-    message: string,
-    public readonly code?: string,
-    public readonly status?: number,
-  ) {
-    super(message);
-    this.name = "PublicApiError";
-  }
-}
+export { ApiClientError } from "./base";
 
 export async function apiFetch<T>(
   path: string,
@@ -34,28 +20,20 @@ export async function apiFetch<T>(
       cache: init?.cache ?? "no-store",
     });
   } catch (cause) {
-    throw new PublicApiError(
+    throw new ApiClientError(
       cause instanceof Error ? cause.message : "Failed to reach API",
       "NETWORK_ERROR",
     );
   }
 
-  let json: ApiSuccess<T> | ApiErrorBody;
+  let json: unknown;
   try {
-    json = (await res.json()) as ApiSuccess<T> | ApiErrorBody;
+    json = await res.json();
   } catch {
-    throw new PublicApiError("Invalid API response", "PARSE_ERROR", res.status);
+    throw new ApiClientError("Invalid API response", "PARSE_ERROR", res.status);
   }
 
-  if (!json.success) {
-    throw new PublicApiError(
-      json.error?.message ?? "API request failed",
-      json.error?.code,
-      res.status,
-    );
-  }
-
-  return json.data;
+  return parseResponse<T>(new Response(JSON.stringify(json), { status: res.status, headers: res.headers }));
 }
 
 export async function fetchCategories() {
