@@ -11,14 +11,18 @@ function slugField(slug: string) {
   return { current: slug };
 }
 
+function optional<T>(value: T | null | undefined): T | undefined {
+  return value ?? undefined;
+}
+
 /** API category → shape expected by CategoryNav / CategorySection */
 export function mapCategoryFromApi(category: ApiCategory) {
   return {
     _id: category.id,
     name: category.name,
     slug: slugField(category.slug),
-    description: category.description ?? undefined,
-    icon: category.icon ?? undefined,
+    description: optional(category.description),
+    icon: optional(category.icon),
     order: category.sortOrder,
   };
 }
@@ -33,15 +37,15 @@ export function mapProjectListItemFromApi(project: ApiProjectListItem) {
       _id: project.category.id,
       name: project.category.name,
       slug: slugField(project.category.slug),
-      icon: project.category.icon ?? undefined,
+      icon: optional(project.category.icon),
       order: 0,
     },
     projectType: project.projectType,
-    description: project.description ?? undefined,
-    imageUrl: project.coverImageUrl ?? undefined,
-    priceRange: project.priceRange ?? undefined,
-    priceDisplay: project.priceDisplay ?? project.priceRange ?? undefined,
-    duration: project.duration ?? undefined,
+    description: optional(project.description),
+    imageUrl: optional(project.coverImageUrl),
+    priceRange: optional(project.priceRange),
+    priceDisplay: optional(project.priceDisplay ?? project.priceRange),
+    duration: optional(project.duration),
     tags: project.tags ?? [],
     order: project.sortOrder,
   };
@@ -54,8 +58,7 @@ export function mapProjectDetailFromApi(project: ApiProjectDetail) {
     .map((img) => img.url);
 
   const cover = project.coverImageUrl ?? images[0];
-  const gallery =
-    images.length > 0 ? images : cover ? [cover] : [];
+  const gallery = images.length > 0 ? images : cover ? [cover] : [];
 
   return {
     _id: project.id,
@@ -67,20 +70,20 @@ export function mapProjectDetailFromApi(project: ApiProjectDetail) {
       name: project.category.name,
       slug: slugField(project.category.slug),
     },
-    description: project.description ?? undefined,
+    description: optional(project.description),
     imageUrl: cover,
     images: gallery,
     styles: [...project.styles]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((style) => ({
         name: style.name,
-        price: style.price ?? undefined,
-        priceDisplay: style.priceDisplay ?? undefined,
-        imageUrl: style.imageUrl ?? undefined,
+        price: optional(style.price),
+        priceDisplay: optional(style.priceDisplay),
+        imageUrl: optional(style.imageUrl),
       })),
-    priceRange: project.priceRange ?? undefined,
-    priceDisplay: project.priceDisplay ?? project.priceRange ?? undefined,
-    duration: project.duration ?? undefined,
+    priceRange: optional(project.priceRange),
+    priceDisplay: optional(project.priceDisplay ?? project.priceRange),
+    duration: optional(project.duration),
     tags: project.tags ?? [],
     order: project.sortOrder,
   };
@@ -91,14 +94,14 @@ export function mapPartyFromApi(party: ApiParty) {
     _id: party.id,
     name: party.name,
     slug: slugField(party.slug),
-    description: party.description ?? undefined,
+    description: optional(party.description),
     includes: party.includes,
-    imageUrl: party.imageUrl ?? undefined,
+    imageUrl: optional(party.imageUrl),
     images: party.imageUrls,
     minPeople: party.minPeople,
     maxPeople: party.maxPeople,
-    priceIndicator: party.priceIndicator ?? undefined,
-    tags: party.tags ?? undefined,
+    priceIndicator: optional(party.priceIndicator),
+    tags: optional(party.tags),
   };
 }
 
@@ -107,7 +110,7 @@ export function mapGalleryImageFromApi(image: ApiGalleryImage) {
     _id: image.id,
     imageUrl: image.imageUrl,
     category: image.category,
-    caption: image.caption ?? undefined,
+    caption: optional(image.caption),
     order: image.sortOrder,
   };
 }
@@ -115,17 +118,17 @@ export function mapGalleryImageFromApi(image: ApiGalleryImage) {
 export function mapSiteSettingsFromApi(settings: ApiSiteSettings) {
   return {
     storeName: settings.storeName,
-    address: settings.address ?? undefined,
-    businessHours: settings.businessHours ?? undefined,
-    phone: settings.phone ?? undefined,
-    email: settings.email ?? undefined,
-    wechatId: settings.wechatId ?? undefined,
-    wechatQrCodeUrl: settings.wechatQrUrl ?? undefined,
-    heroImageUrl: settings.heroImageUrl ?? undefined,
-    instagram: settings.instagram ?? undefined,
-    xiaohongshu: settings.xiaohongshu ?? undefined,
-    googleMapUrl: settings.googleMapUrl ?? undefined,
-    seoTitle: settings.seoTitle ?? undefined,
-    seoDescription: settings.seoDescription ?? undefined,
+    address: optional(settings.address),
+    businessHours: optional(settings.businessHours),
+    phone: optional(settings.phone),
+    email: optional(settings.email),
+    wechatId: optional(settings.wechatId),
+    wechatQrCodeUrl: optional(settings.wechatQrUrl),
+    heroImageUrl: optional(settings.heroImageUrl),
+    instagram: optional(settings.instagram),
+    xiaohongshu: optional(settings.xiaohongshu),
+    googleMapUrl: optional(settings.googleMapUrl),
+    seoTitle: optional(settings.seoTitle),
+    seoDescription: optional(settings.seoDescription),
   };
 }

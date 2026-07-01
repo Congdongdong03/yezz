@@ -74,7 +74,7 @@ export function createCategoriesRepository(db: Db) {
       const [row] = await db
         .delete(projectCategories)
         .where(eq(projectCategories.id, id))
-        .returning();
+        .returning({ id: projectCategories.id });
       return row ?? null;
     },
 

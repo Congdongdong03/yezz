@@ -115,7 +115,7 @@ export function createTimeSlotsRepository(db: Db) {
     },
 
     async delete(id: string) {
-      const [row] = await db.delete(timeSlots).where(eq(timeSlots.id, id)).returning();
+      const [row] = await db.delete(timeSlots).where(eq(timeSlots.id, id)).returning({ id: timeSlots.id });
       return row ?? null;
     },
 
