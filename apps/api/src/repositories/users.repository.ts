@@ -77,8 +77,8 @@ export function createUsersRepository(db: Db) {
         .update(users)
         .set({
           ...data,
-          email: data.email?.trim().toLowerCase(),
-          name: data.name?.trim(),
+          email: data.email ? data.email.trim().toLowerCase() : undefined,
+          name: data.name ? data.name.trim() : undefined,
           updatedAt: new Date(),
         })
         .where(eq(users.id, id))

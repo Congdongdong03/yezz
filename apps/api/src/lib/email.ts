@@ -132,6 +132,14 @@ function infoRow(label: string, value: string): string {
   </tr>`;
 }
 
+async function sendCustomerTemplatedEmail(
+  to: string,
+  subject: string,
+  bodyHtml: string,
+): Promise<void> {
+  return sendCustomerEmail(to, subject, brandedEmail(subject, bodyHtml));
+}
+
 export async function sendBookingConfirmationToCustomer(options: {
   to: string;
   orderId: string;
@@ -159,10 +167,10 @@ export async function sendBookingConfirmationToCustomer(options: {
     ${contactFooter(contact)}
   `;
 
-  await sendCustomerEmail(
+  await sendCustomerTemplatedEmail(
     to,
     `YEZZ 预约确认 ${orderNumber} / Booking Confirmation`,
-    brandedEmail(`YEZZ 预约确认 ${orderNumber}`, body),
+    body,
   );
 }
 
@@ -202,10 +210,10 @@ export async function sendOrderConfirmationToCustomer(options: {
     ${contactFooter(contact)}
   `;
 
-  await sendCustomerEmail(
+  await sendCustomerTemplatedEmail(
     options.to,
     `YEZZ 订单确认 ${orderNumber} / Order Confirmation`,
-    brandedEmail(`YEZZ 订单确认 ${orderNumber}`, body),
+    body,
   );
 }
 
@@ -239,7 +247,7 @@ export async function sendBookingStatusContactedEmail(
     : `<h2 style="margin:0 0 16px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Booking Update</h2>
        <p style="color:#5C5C5C;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, we have reviewed your booking (<strong>${escapeHtml(ctx.orderNumber)}</strong>) and will contact you shortly.</p>
        ${contactFooter(ctx.contact)}`;
-  await sendCustomerEmail(ctx.to, subject, brandedEmail(subject, body));
+  await sendCustomerTemplatedEmail(ctx.to, subject, body);
 }
 
 export async function sendBookingStatusConfirmedEmail(
@@ -273,7 +281,7 @@ export async function sendBookingStatusConfirmedEmail(
        </table>
        ${note}
        ${contactFooter(ctx.contact)}`;
-  await sendCustomerEmail(ctx.to, subject, brandedEmail(subject, body));
+  await sendCustomerTemplatedEmail(ctx.to, subject, body);
 }
 
 export async function sendBookingStatusCancelledEmail(
@@ -296,7 +304,7 @@ export async function sendBookingStatusCancelledEmail(
        <p style="background:#FFF5F5;border-left:3px solid #E07070;padding:8px 12px;font-size:13px;"><strong>Reason:</strong> ${reason}</p>
        <p style="margin-top:16px;color:#5C5C5C;">Please contact us to reschedule.</p>
        ${contactFooter(ctx.contact)}`;
-  await sendCustomerEmail(ctx.to, subject, brandedEmail(subject, body));
+  await sendCustomerTemplatedEmail(ctx.to, subject, body);
 }
 
 export async function sendStaffWelcomeEmail(options: {
@@ -320,5 +328,5 @@ export async function sendStaffWelcomeEmail(options: {
     </table>
     <p style="margin-top:24px;color:#E07070;font-size:13px;">⚠ Please change your password immediately after first login. / 请登录后立即修改密码。</p>
   `;
-  await sendCustomerEmail(options.to, subject, brandedEmail(subject, body));
+  await sendCustomerTemplatedEmail(options.to, subject, body);
 }
