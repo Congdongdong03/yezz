@@ -1,21 +1,17 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect } from "react";
 import { Link } from "@/i18n/routing";
 
 export default function ErrorPage({
-  error,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
   const t = useTranslations("errors");
-
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
 
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 text-center">

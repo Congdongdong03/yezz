@@ -84,12 +84,6 @@ test.describe("体验项目预约流程", () => {
 
     // 5. Open booking calendar and select today (should have available slot)
     // The calendar loads the current month. Find an available day.
-    const todayCell = page
-      .locator("button")
-      .filter({ has: page.locator(":scope", { hasText: /^\d+$/ }) })
-      .filter({ hasNot: page.locator(".", { hasText: /^$/ }) })
-      .first();
-
     // Wait for calendar to load
     await expect(page.getByRole("heading", { name: /选择预约档期/i })).toBeVisible();
 

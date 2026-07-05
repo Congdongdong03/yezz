@@ -16,8 +16,3 @@ export function setCart(items: CartItem[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(CART_KEY, JSON.stringify(items));
 }
-
-export function clearCart(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(CART_KEY);
-}

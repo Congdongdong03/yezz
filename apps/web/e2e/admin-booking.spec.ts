@@ -10,7 +10,6 @@ import { test, expect } from "@playwright/test";
 import { execSync } from "node:child_process";
 import {
   getAdminCookieFromState,
-  getAdminBookings,
   updateBookingStatus,
 } from "./fixtures/api-client";
 
@@ -121,7 +120,7 @@ test.describe("管理员预约管理", () => {
     await expect(page.getByText("13800138003")).toBeVisible();
   });
 
-  test("非法状态流转应该被阻止", async ({ page }) => {
+  test("非法状态流转应该被阻止", async () => {
     // This test verifies the backend validation by attempting an illegal transition
     // We test this via API since the UI should already filter options,
     // but the backend must enforce it as the source of truth.

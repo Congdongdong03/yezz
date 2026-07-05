@@ -1,5 +1,5 @@
 import { clearLegacyAdminToken } from "./auth";
-import { ApiClientError, parseResponse } from "@/lib/api/base";
+import { parseResponse } from "@/lib/api/base";
 import type {
   AdminProjectsList,
   AuthUser,
@@ -12,7 +12,6 @@ import type {
   AdminUser,
   TimeSlot,
   UnreadCounts,
-  OrderStatus,
   PartyFormInput,
   PartyPackage,
   ProjectDetail,
@@ -22,8 +21,6 @@ import type {
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-export { ApiClientError as AdminApiError } from "@/lib/api/base";
 
 export async function adminFetch<T>(
   path: string,

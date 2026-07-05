@@ -76,8 +76,7 @@ export async function submitCart(formData: FormData) {
     }
 
     return { success: true, orderId: json.data.id };
-  } catch (error) {
-    console.error("Cart submission error:", error);
+  } catch {
     return { success: false, errors: { server: ["Failed to submit. Please try again."] } };
   }
 }

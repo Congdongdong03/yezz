@@ -1,56 +1,119 @@
-# Local dev: Postgres + Redis only (run API with `pnpm dev:api`)
+# Local development environment.
+# 我们只启动数据库(Postgres)、缓存(Redis)和对象存储(MinIO)。
+# API 不放到 Docker 里面，而是在本机执行 `pnpm dev:api`，
+# 这样修改代码会立即热更新，开发体验更好。
 services:
+  # PostgreSQL 数据库
   postgres:
+    # 使用官方 PostgreSQL 16 Alpine 镜像
+    # Alpine 体积更小，启动更快。
     image: postgres:16-alpine
+
     environment:
+      # 创建默认数据库用户
       POSTGRES_USER: yezz
+
+      # 用户密码
       POSTGRES_PASSWORD: yezz
+
+      # 容器第一次启动时自动创建 yezz 数据库
       POSTGRES_DB: yezz
+
     ports:
+      # 本机5432 -> 容器5432
+      # 这样 Navicat、DBeaver、后端都可以连接 localhost:5432
       - "5432:5432"
+
     volumes:
+      # 将数据库数据保存到 Docker Volume。
+      # 即使删除容器，数据库数据仍然保留。
       - postgres_data:/var/lib/postgresql/data
+
     healthcheck:
+      # 定期检查 PostgreSQL 是否已经准备好接受连接。
+      # 很多服务需要等数据库启动完成才能连接。
       test: ["CMD-SHELL", "pg_isready -U yezz -d yezz"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # Redis 缓存
   redis:
+    # 官方 Redis Alpine 镜像
     image: redis:7-alpine
+
     ports:
+      # 本机6379 -> 容器6379
+      # API 可以通过 localhost:6379 连接 Redis。
       - "6379:6379"
+
     healthcheck:
+      # redis-cli ping 返回 PONG 表示 Redis 已经正常启动。
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # MinIO 对象存储
+  # 本地开发时，它相当于 AWS S3 的替代品。
+  # 用来存放图片、文件等上传内容。
   minio:
     image: minio/minio:latest
+
+    # 启动 MinIO 服务，并开启管理后台(9001)
     command: server /data --console-address ":9001"
+
     environment:
+      # 登录账号
       MINIO_ROOT_USER: yezz
+
+      # 登录密码
       MINIO_ROOT_PASSWORD: yezzsecret
+
     ports:
+      # 9000 是 S3 API
       - "9000:9000"
+
+      # 9001 是 Web 管理后台
       - "9001:9001"
+
     volumes:
+      # 保存上传的文件
+      # 删除容器后文件不会丢失
       - minio_data:/data
 
+  # 初始化 MinIO
+  # 第一次启动时自动创建 Bucket，
+  # 不需要每次手动去网页点击创建。
   minio-init:
     image: minio/mc:latest
+
     depends_on:
+      # 等 MinIO 容器启动后再执行初始化
       - minio
+
     entrypoint: >
       /bin/sh -c "
+      # 等待 MinIO 完全启动
       sleep 3 &&
+
+      # 添加一个名叫 local 的 MinIO 连接
       mc alias set local http://minio:9000 yezz yezzsecret &&
+
+      # 创建 yezz-media Bucket
+      # 如果已经存在，则忽略错误
       mc mb -p local/yezz-media 2>/dev/null || true &&
+
+      # 设置 Bucket 为公开可下载
       mc anonymous set download local/yezz-media &&
+
+      # 输出成功提示
       echo MinIO bucket yezz-media ready
       "
 
 volumes:
+  # 保存 PostgreSQL 数据
   postgres_data:
+
+  # 保存 MinIO 文件
   minio_data:

@@ -65,8 +65,7 @@ export async function submitBooking(formData: FormData) {
     }
 
     return { success: true, bookingId: json.data.id };
-  } catch (error) {
-    console.error("Booking submission error:", error);
+  } catch {
     return {
       success: false,
       errors: { server: ["Failed to submit booking. Please try again."] },
