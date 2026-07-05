@@ -1,0 +1,166 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-yezz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_env}
+      POSTGRES_DB: ${POSTGRES_DB:-yezz}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-yezz} -d ${POSTGRES_DB:-yezz}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - yezz
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - yezz
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-yezz}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change_me_in_env}
+    volumes:
+      - minio_data:/data
+    networks:
+      - yezz
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-yezz} ${MINIO_ROOT_PASSWORD:-change_me_in_env} &&
+      mc mb -p local/${S3_BUCKET:-yezz-media} 2>/dev/null || true &&
+      mc anonymous set download local/${S3_BUCKET:-yezz-media} &&
+      echo MinIO bucket ready
+      "
+    networks:
+      - yezz
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-yezz}:${POSTGRES_PASSWORD:-change_me_in_env}@postgres:5432/${POSTGRES_DB:-yezz}
+    command: ["sh", "-c", "pnpm db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - yezz
+    profiles:
+      - setup
+
+  seed:
+    profiles: ["setup"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-yezz}:${POSTGRES_PASSWORD:-change_me_in_env}@postgres:5432/${POSTGRES_DB:-yezz}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@yezz.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      FORCE_SEED: "true"
+    command: ["sh", "-c", "pnpm db:seed"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - yezz
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-yezz}:${POSTGRES_PASSWORD:-change_me_in_env}@postgres:5432/${POSTGRES_DB:-yezz}
+      REDIS_URL: redis://redis:6379
+      PORT: 4000
+      CORS_ORIGIN: https://${DOMAIN}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      NODE_ENV: production
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-yezz}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change_me_in_env}
+      S3_BUCKET: ${S3_BUCKET:-yezz-media}
+      S3_PUBLIC_URL: https://${DOMAIN}/media
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    networks:
+      - yezz
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+        NEXT_PUBLIC_USE_API: "true"
+        NEXT_PUBLIC_MEDIA_URL: https://${DOMAIN}/media
+    environment:
+      NEXT_PUBLIC_API_URL: https://${DOMAIN}/api
+      NEXT_PUBLIC_USE_API: "true"
+    depends_on:
+      - api
+    networks:
+      - yezz
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+      - minio
+    networks:
+      - yezz
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  minio_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  yezz:
+    driver: bridge

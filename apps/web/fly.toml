@@ -1,18 +1,15 @@
-app = 'yezz-api'
+app = 'yezz-web'
 primary_region = 'nrt'
 
 [build]
-  dockerfile = 'apps/api/Dockerfile'
-
-[deploy]
-  release_command = 'pnpm --filter @yezz/db run migrate'
+  dockerfile = 'apps/web/Dockerfile'
 
 [env]
-  PORT = '4000'
+  PORT = '3000'
   NODE_ENV = 'production'
 
 [http_service]
-  internal_port = 4000
+  internal_port = 3000
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
@@ -20,13 +17,13 @@ primary_region = 'nrt'
   processes = ['app']
 
 [[vm]]
-  memory = '256mb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
 
 [[services]]
   protocol = 'tcp'
-  internal_port = 4000
+  internal_port = 3000
   auto_stop_machines = true
   auto_start_machines = true
   min_machines_running = 1

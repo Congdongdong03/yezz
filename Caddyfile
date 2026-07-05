@@ -1,0 +1,25 @@
+{
+	email {$ACME_EMAIL}
+	auto_https off
+}
+
+{$DOMAIN} {
+	tls {$ACME_EMAIL}
+
+	# API 反向代理
+	handle_path /api/* {
+		rewrite * /{path}
+		reverse_proxy api:4000
+	}
+
+	# MinIO 媒体文件
+	handle_path /media/* {
+		rewrite * /yezz-media/{path}
+		reverse_proxy minio:9000
+	}
+
+	# 前端
+	handle {
+		reverse_proxy web:3000
+	}
+}
