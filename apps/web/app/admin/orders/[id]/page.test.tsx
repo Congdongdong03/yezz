@@ -3,6 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiClientError } from "@/lib/api/base";
 import type { CartOrder } from "@/lib/admin/types";
 import AdminOrderDetailPage from "./page";
 
@@ -105,7 +106,7 @@ describe("AdminOrderDetailPage", () => {
     document.body.replaceChildren();
   });
 
-  it("shows exact request snapshots, status history, and email delivery", async () => {
+  async function renderDetail() {
     await act(async () =>
       root.render(
         <AdminOrderDetailPage
@@ -116,6 +117,28 @@ describe("AdminOrderDetailPage", () => {
       ),
     );
     await act(async () => {});
+  }
+
+  async function submitStaleCancellation() {
+    await renderDetail();
+    const opener = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((button) => button.textContent === "取消预约");
+    expect(opener).toBeDefined();
+    opener?.focus();
+    await act(async () => opener?.click());
+
+    const dialog = container.querySelector<HTMLElement>("[role='dialog']");
+    const confirm = Array.from(
+      dialog?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    ).find((button) => button.textContent === "取消预约");
+    expect(confirm).toBeDefined();
+    await act(async () => confirm?.click());
+    await act(async () => {});
+  }
+
+  it("shows exact request snapshots, status history, and email delivery", async () => {
+    await renderDetail();
 
     expect(container.textContent).toContain("alice@example.com");
     expect(container.textContent).toContain(
@@ -130,5 +153,72 @@ describe("AdminOrderDetailPage", () => {
     expect(container.textContent).toContain("值班员工");
     expect(container.textContent).toContain("Confirmed by phone");
     expect(container.textContent).toContain("已发送");
+  });
+
+  it("focuses the detail heading when a stale refresh removes every status action", async () => {
+    api.getAdminOrder
+      .mockReset()
+      .mockResolvedValueOnce(detail)
+      .mockResolvedValueOnce({
+        ...detail,
+        status: "cancelled",
+      });
+    api.updateOrderStatus.mockRejectedValue(
+      new ApiClientError(
+        "The request changed. Refresh and try again.",
+        "STATUS_CONFLICT",
+        409,
+        { currentStatus: "cancelled" },
+      ),
+    );
+
+    await submitStaleCancellation();
+
+    const heading = container.querySelector<HTMLHeadingElement>("h1");
+    expect(container.querySelector("[role='dialog']")).toBeNull();
+    expect(container.textContent).toContain(
+      "产品预约状态已变化，列表已刷新，请重新选择操作",
+    );
+    expect(container.textContent).not.toContain(
+      "The request changed. Refresh and try again.",
+    );
+    expect(heading?.tabIndex).toBe(-1);
+    expect(document.activeElement?.isConnected).toBe(true);
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(heading);
+  });
+
+  it("waits for a surviving action to re-enable when the stale refresh fails", async () => {
+    api.getAdminOrder
+      .mockReset()
+      .mockResolvedValueOnce(detail)
+      .mockRejectedValueOnce(
+        new Error("raw transport failure for alice@example.com"),
+      );
+    api.updateOrderStatus.mockRejectedValue(
+      new ApiClientError(
+        "The request changed. Refresh and try again.",
+        "STATUS_CONFLICT",
+        409,
+        { currentStatus: "cancelled" },
+      ),
+    );
+
+    await submitStaleCancellation();
+
+    const survivingAction = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(
+        "button[data-order-status-action]",
+      ),
+    ).find((button) => button.textContent === "取消预约");
+    expect(container.querySelector("[role='dialog']")).toBeNull();
+    expect(container.textContent).toContain(
+      "产品预约状态已变化，详情刷新失败，请手动刷新页面",
+    );
+    expect(container.textContent).not.toContain("raw transport failure");
+    expect(survivingAction?.disabled).toBe(false);
+    expect(document.activeElement?.isConnected).toBe(true);
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(survivingAction);
   });
 });

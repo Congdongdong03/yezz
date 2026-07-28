@@ -129,3 +129,44 @@ Passed.
 The Next.js build emitted only the existing monorepo-root,
 middleware-deprecation, and local `NEXT_PUBLIC_USE_API` warnings. No warning
 represented a compilation or page-generation failure.
+
+## Independent-review focus fix
+
+The independent review found one Important accessibility defect in the order
+detail stale-conflict path. The dialog restored its opener, but a successful
+refresh could remove that action and leave focus on `document.body`. A failed
+refresh retained the action but left it disabled until the status update's
+`finally`, so an early focus attempt was also insufficient.
+
+The detail page now retains a pending focus request across the stale refresh and
+the update `finally`. It focuses the first connected, enabled surviving status
+action. When refreshed state removes every action, it focuses the connected
+`tabIndex=-1` detail heading. The focus request is cleared only after the target
+actually becomes `document.activeElement`.
+
+RED regressions reproduced both failures against the real page:
+
+- confirmed-to-cancelled stale refresh closed the dialog, rendered safe Chinese
+  guidance, removed the cancellation action, and left focus on `body`;
+- stale refresh transport failure retained the cancellation action, but no
+  post-`finally` focus target existed.
+
+Final focused and full-web evidence:
+
+```text
+Focused order detail/list/dialog:
+  Test Files  3 passed (3)
+  Tests       13 passed (13)
+
+Full web:
+  Test Files  25 passed (25)
+  Tests       95 passed (95)
+
+Web typecheck: passed
+Targeted order-detail ESLint: passed
+git diff --check: passed
+```
+
+Both page regressions assert that focus is connected and never `body`, stale
+server/transport text is not rendered, and only the fixed safe Chinese
+guidance is shown.

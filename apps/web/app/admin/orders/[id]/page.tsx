@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
 import BookingStatusDialog, {
@@ -70,6 +70,9 @@ export default function AdminOrderDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const statusActionsRef = useRef<HTMLDivElement>(null);
+  const focusAfterRefreshRef = useRef(false);
   const [order, setOrder] = useState<CartOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -94,6 +97,27 @@ export default function AdminOrderDetailPage({
       .finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!focusAfterRefreshRef.current) return;
+    const statusControls = Array.from(
+      statusActionsRef.current?.querySelectorAll<HTMLButtonElement>(
+        "button[data-order-status-action]",
+      ) ?? [],
+    ).filter((control) => control.isConnected);
+    const statusControl = statusControls.find(
+      (control) => !control.disabled,
+    );
+    if (statusControls.length > 0 && !statusControl) return;
+    const target =
+      statusControl ??
+      (headingRef.current?.isConnected ? headingRef.current : null);
+    if (!target) return;
+    target.focus();
+    if (document.activeElement === target) {
+      focusAfterRefreshRef.current = false;
+    }
+  }, [order, updating]);
+
   const handleStatusChange = async (
     result: BookingStatusDialogResult,
   ) => {
@@ -107,6 +131,7 @@ export default function AdminOrderDetailPage({
       const localized = formatOrderActionError(error);
       setMessage({ type: "error", text: localized });
       if (stale) {
+        focusAfterRefreshRef.current = true;
         setPendingStatusChange(null);
         try {
           setOrder(await getAdminOrder(id));
@@ -152,7 +177,11 @@ export default function AdminOrderDetailPage({
         <Button variant="outline" size="sm" onClick={() => router.back()}>
           ← 返回
         </Button>
-        <h1 className="font-serif text-2xl font-semibold text-warm-charcoal">
+        <h1
+          className="font-serif text-2xl font-semibold text-warm-charcoal"
+          ref={headingRef}
+          tabIndex={-1}
+        >
           产品预约详情
         </h1>
       </div>
@@ -264,9 +293,13 @@ export default function AdminOrderDetailPage({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2 pt-1">
+        <div
+          className="flex flex-wrap gap-2 pt-1"
+          ref={statusActionsRef}
+        >
           {STATUS_TARGETS[order.status].map((status) => (
             <Button
+              data-order-status-action
               key={status}
               size="sm"
               variant={status === "cancelled" ? "destructive" : "outline"}
