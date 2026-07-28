@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { X, Trash2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Image from "next/image";
 import { useCart } from "@/lib/cart/context";
 
@@ -109,20 +109,17 @@ export default function CartDrawer() {
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <AnimatePresence>
-      {isOpen && (
-        <div ref={modalRootRef} className="fixed inset-0 z-50 overflow-hidden">
+    isOpen ? (
+      <div ref={modalRootRef} className="fixed inset-0 z-50 overflow-hidden">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
             className="absolute inset-0 bg-black/30"
             onClick={() => setIsOpen(false)}
           />
           <motion.div
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
-            exit={{ x: "100%" }}
             transition={{ type: "tween", duration: 0.3 }}
             aria-labelledby={titleId}
             aria-modal="true"
@@ -222,9 +219,8 @@ export default function CartDrawer() {
               </div>
             )}
           </motion.div>
-        </div>
-      )}
-    </AnimatePresence>,
+      </div>
+    ) : null,
     document.body,
   );
 }

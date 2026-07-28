@@ -150,6 +150,8 @@ describe("CartDrawer accessibility", () => {
     isOpen = false;
     await renderDrawer();
 
+    expect(document.querySelector("[role='dialog']")).toBeNull();
+    expect(container.hasAttribute("inert")).toBe(false);
     expect(document.activeElement).toBe(opener);
   });
 

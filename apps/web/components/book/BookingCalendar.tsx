@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable jsx-a11y/role-supports-aria-props -- date buttons expose their selected calendar state to assistive technology. */
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -196,7 +194,7 @@ export default function BookingCalendar({
               key={cell.date}
               aria-disabled={dayStatus !== "available"}
               aria-label={dateLabel}
-              aria-selected={isSelected}
+              aria-pressed={isSelected}
               type="button"
               disabled={dayStatus !== "available"}
               onClick={() => selectDate(cell.date, dayStatus)}

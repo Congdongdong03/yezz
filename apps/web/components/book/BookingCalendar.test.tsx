@@ -58,9 +58,10 @@ describe("BookingCalendar date accessibility", () => {
 
   beforeEach(() => {
     testState.locale = "en";
-    const today = new Date();
-    year = today.getFullYear();
-    monthPrefix = `${year}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 1));
+    year = 2026;
+    monthPrefix = "2026-07";
     testState.fetchMonthAvailability.mockResolvedValue({
       dates: [
         { date: `${monthPrefix}-02`, status: "available" },
@@ -76,6 +77,7 @@ describe("BookingCalendar date accessibility", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     document.body.replaceChildren();
+    vi.useRealTimers();
   });
 
   async function renderCalendar() {
@@ -101,10 +103,10 @@ describe("BookingCalendar date accessibility", () => {
 
     expect(button?.getAttribute("aria-label")).toContain("July");
     expect(button?.getAttribute("aria-label")).toContain(String(year));
-    expect(button?.getAttribute("aria-selected")).toBe("false");
+    expect(button?.getAttribute("aria-pressed")).toBe("false");
 
     await act(async () => button?.click());
-    expect(button?.getAttribute("aria-selected")).toBe("true");
+    expect(button?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("marks unavailable dates as disabled while keeping the full-date label", async () => {
