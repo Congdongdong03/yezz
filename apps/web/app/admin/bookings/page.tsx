@@ -3,12 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AlertBanner from "@/components/admin/AlertBanner";
+import BookingStatusDialog, {
+  type BookingStatusDialogResult,
+} from "@/components/admin/BookingStatusDialog";
 import {
   getAdminBookings,
   markNotificationsRead,
   updateBookingStatus,
 } from "@/lib/admin/api";
 import type { Booking, OrderStatus } from "@/lib/admin/types";
+import { requiresCustomerNote } from "@/lib/admin/booking-status";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   new: "新预约",
@@ -42,6 +46,10 @@ export default function AdminBookingsPage() {
   const [items, setItems] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [pendingStatusChange, setPendingStatusChange] = useState<{
+    id: string;
+    status: OrderStatus;
+  } | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(
     null,
   );
@@ -61,18 +69,7 @@ export default function AdminBookingsPage() {
     markNotificationsRead("bookings").catch(() => {});
   }, []);
 
-  const handleStatusChange = async (id: string, status: OrderStatus) => {
-    let note: string | undefined;
-    if (status === "confirmed" || status === "cancelled") {
-      const input = window.prompt(
-        status === "confirmed"
-          ? "确认备注（将写入发给客户的邮件，可留空）"
-          : "取消原因（将发给客户，建议填写）",
-      );
-      if (input === null) return;
-      note = input.trim() || undefined;
-    }
-
+  const handleStatusChange = async (id: string, status: OrderStatus, note?: string) => {
     setUpdatingId(id);
     try {
       const updated = await updateBookingStatus(id, status, note);
@@ -86,6 +83,20 @@ export default function AdminBookingsPage() {
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const handleRequestedStatusChange = (id: string, status: OrderStatus) => {
+    if (requiresCustomerNote(status)) {
+      setPendingStatusChange({ id, status });
+      return;
+    }
+    void handleStatusChange(id, status);
+  };
+
+  const handleDialogConfirm = async ({ status, note }: BookingStatusDialogResult) => {
+    if (!pendingStatusChange) return;
+    await handleStatusChange(pendingStatusChange.id, status, note);
+    setPendingStatusChange(null);
   };
 
   return (
@@ -156,7 +167,7 @@ export default function AdminBookingsPage() {
                       value={booking.status}
                       disabled={updatingId === booking.id}
                       onChange={(e) =>
-                        handleStatusChange(booking.id, e.target.value as OrderStatus)
+                        handleRequestedStatusChange(booking.id, e.target.value as OrderStatus)
                       }
                       className="h-8 min-w-[7rem] rounded-lg border border-input bg-background px-2 text-sm disabled:opacity-50"
                     >
@@ -183,6 +194,16 @@ export default function AdminBookingsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {pendingStatusChange && (
+        <BookingStatusDialog
+          isSubmitting={updatingId === pendingStatusChange.id}
+          onCancel={() => setPendingStatusChange(null)}
+          onConfirm={handleDialogConfirm}
+          open
+          status={pendingStatusChange.status}
+        />
       )}
     </div>
   );

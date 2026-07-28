@@ -33,7 +33,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-2xl font-semibold text-warm-charcoal">看板</h1>
-        <p className="text-sm text-muted-foreground">Phase 1 内容管理概览</p>
+        <p className="text-sm text-muted-foreground">预约与内容管理概览</p>
       </div>
 
       {error && (
