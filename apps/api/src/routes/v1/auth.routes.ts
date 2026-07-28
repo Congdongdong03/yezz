@@ -6,6 +6,7 @@ import {
   enforceRateLimitResult,
   resolvePublicRateLimitSubject,
 } from "../../lib/public-request-limit.js";
+import type { RateLimitResult } from "../../services/rate-limits.service.js";
 
 type LoginBody = {
   email?: string;
@@ -13,6 +14,28 @@ type LoginBody = {
 };
 
 const isProduction = process.env.NODE_ENV === "production";
+
+function compareControllingLimit(
+  left: RateLimitResult,
+  right: RateLimitResult,
+): number {
+  if (left.allowed !== right.allowed) return left.allowed ? 1 : -1;
+
+  if (!left.allowed) {
+    const retryDifference =
+      (right.retryAfter ?? right.resetAfter) -
+      (left.retryAfter ?? left.resetAfter);
+    if (retryDifference !== 0) return retryDifference;
+  } else {
+    const remainingRatioDifference =
+      left.remaining * right.limit - right.remaining * left.limit;
+    if (remainingRatioDifference !== 0) return remainingRatioDifference;
+  }
+
+  const resetDifference = right.resetAfter - left.resetAfter;
+  if (resetDifference !== 0) return resetDifference;
+  return left.limit - right.limit;
+}
 
 function setAuthCookie(reply: FastifyReply, token: string) {
   reply.setCookie(
@@ -40,12 +63,10 @@ export default async function authRoutes(app: FastifyInstance) {
       ),
       app.services.rateLimits.consume("login-ip", clientIp, 30, 3600),
     ]);
-    const denied = [ipEmailLimit, ipLimit]
-      .filter((result) => !result.allowed)
-      .sort(
-        (left, right) => (right.retryAfter ?? 0) - (left.retryAfter ?? 0),
-      )[0];
-    enforceRateLimitResult(denied ?? ipEmailLimit, reply);
+    const controllingLimit = [ipEmailLimit, ipLimit].sort(
+      compareControllingLimit,
+    )[0]!;
+    enforceRateLimitResult(controllingLimit, reply);
 
     const result = await app.services.auth.login(
       normalizedEmail,

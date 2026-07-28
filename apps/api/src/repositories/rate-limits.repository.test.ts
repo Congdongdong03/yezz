@@ -1,5 +1,6 @@
 import { createDb } from "@yezz/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createRateLimitsService } from "../services/rate-limits.service.js";
 import { createRateLimitsRepository } from "./rate-limits.repository.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_RATE_LIMIT_DB_TESTS === "1";
@@ -91,7 +92,7 @@ describe.skipIf(!runDatabaseTests)(
         subjectHash: "a".repeat(64),
         limit: 5,
         windowSeconds: 3600,
-        now: new Date("2026-07-28T09:05:00.000Z"),
+        testReferenceTime: new Date("2026-07-28T09:05:00.000Z"),
       };
 
       const results = await Promise.all(
@@ -109,7 +110,7 @@ describe.skipIf(!runDatabaseTests)(
         scope: "booking",
         limit: 1,
         windowSeconds: 3600,
-        now: new Date("2026-07-28T09:05:00.000Z"),
+        testReferenceTime: new Date("2026-07-28T09:05:00.000Z"),
       };
 
       await expect(
@@ -132,29 +133,60 @@ describe.skipIf(!runDatabaseTests)(
       await expect(
         repository.consume({
           ...baseInput,
-          now: new Date("2026-07-28T09:59:59.999Z"),
+          testReferenceTime: new Date("2026-07-28T09:59:59.999Z"),
         }),
       ).resolves.toEqual({
         consumed: true,
         requestCount: 1,
+        observedAt: new Date("2026-07-28T09:59:59.999Z"),
         expiresAt: new Date("2026-07-28T10:00:00.000Z"),
       });
       await expect(
         repository.consume({
           ...baseInput,
-          now: new Date("2026-07-28T09:59:59.999Z"),
+          testReferenceTime: new Date("2026-07-28T09:59:59.999Z"),
         }),
       ).resolves.toMatchObject({ consumed: false, requestCount: 1 });
       await expect(
         repository.consume({
           ...baseInput,
-          now: new Date("2026-07-28T10:00:00.000Z"),
+          testReferenceTime: new Date("2026-07-28T10:00:00.000Z"),
         }),
       ).resolves.toEqual({
         consumed: true,
         requestCount: 1,
+        observedAt: new Date("2026-07-28T10:00:00.000Z"),
         expiresAt: new Date("2026-07-28T11:00:00.000Z"),
       });
+    });
+
+    it("uses PostgreSQL time when concurrent API node clocks are skewed", async () => {
+      const repository = createRateLimitsRepository(testConnection!.db);
+      const slowNode = createRateLimitsService(repository, {
+        hashSecret: "0123456789abcdef0123456789abcdef",
+        now: () => new Date("2000-01-01T00:00:00.000Z"),
+      });
+      const fastNode = createRateLimitsService(repository, {
+        hashSecret: "0123456789abcdef0123456789abcdef",
+        now: () => new Date("2100-01-01T00:00:00.000Z"),
+      });
+
+      const results = await Promise.all([
+        slowNode.consume("booking", "203.0.113.4", 1, 3600),
+        fastNode.consume("booking", "203.0.113.4", 1, 3600),
+      ]);
+
+      expect(results.filter(({ allowed }) => allowed)).toHaveLength(1);
+      expect(new Set(results.map(({ resetAt }) => resetAt.toISOString()))).toHaveLength(
+        1,
+      );
+      const buckets = await testConnection!.client`
+        SELECT request_count
+        FROM request_rate_limits
+        WHERE scope = 'booking'
+      `;
+      expect(buckets).toHaveLength(1);
+      expect(buckets[0]?.request_count).toBe(1);
     });
 
     it("opportunistically removes an expired bucket while consuming", async () => {
@@ -181,7 +213,7 @@ describe.skipIf(!runDatabaseTests)(
         subjectHash: "a".repeat(64),
         limit: 5,
         windowSeconds: 3600,
-        now: new Date("2026-07-28T10:00:00.000Z"),
+        testReferenceTime: new Date("2026-07-28T10:00:00.000Z"),
       });
 
       const expired = await testConnection!.client`
@@ -192,7 +224,7 @@ describe.skipIf(!runDatabaseTests)(
       expect(expired).toHaveLength(0);
     });
 
-    it("deletes all expired buckets in the daily maintenance pass", async () => {
+    it("bounds each maintenance purge batch", async () => {
       await testConnection!.client`
         INSERT INTO request_rate_limits (
           scope,
@@ -212,6 +244,20 @@ describe.skipIf(!runDatabaseTests)(
           (
             'booking',
             ${"f".repeat(64)},
+            '2026-07-28T08:01:00.000Z',
+            1,
+            '2026-07-28T09:01:00.000Z'
+          ),
+          (
+            'booking',
+            ${"g".repeat(64)},
+            '2026-07-28T08:02:00.000Z',
+            1,
+            '2026-07-28T09:02:00.000Z'
+          ),
+          (
+            'booking',
+            ${"h".repeat(64)},
             '2026-07-28T10:00:00.000Z',
             1,
             '2026-07-28T11:00:00.000Z'
@@ -220,8 +266,11 @@ describe.skipIf(!runDatabaseTests)(
       const repository = createRateLimitsRepository(testConnection!.db);
 
       await expect(
-        repository.purgeExpired(new Date("2026-07-28T10:00:00.000Z")),
-      ).resolves.toBe(1);
+        repository.purgeExpired({
+          batchSize: 2,
+          testReferenceTime: new Date("2026-07-28T10:00:00.000Z"),
+        }),
+      ).resolves.toBe(2);
 
       const remaining = await testConnection!.client<
         { subject_hash: string }[]
@@ -231,8 +280,16 @@ describe.skipIf(!runDatabaseTests)(
         ORDER BY subject_hash
       `;
       expect(remaining.map(({ subject_hash }) => subject_hash)).toEqual([
-        "f".repeat(64),
+        "g".repeat(64),
+        "h".repeat(64),
       ]);
+
+      await expect(
+        repository.purgeExpired({
+          batchSize: 2,
+          testReferenceTime: new Date("2026-07-28T10:00:00.000Z"),
+        }),
+      ).resolves.toBe(1);
     });
   },
 );

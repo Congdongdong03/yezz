@@ -26,6 +26,7 @@ export type RateLimitsService = {
 
 type RateLimitsServiceOptions = {
   hashSecret: string | undefined;
+  /** Test-only reference time for deterministic maintenance assertions. */
   now?: () => Date;
 };
 
@@ -88,7 +89,6 @@ export function createRateLimitsService(
           limit,
           windowSeconds,
         );
-        const now = options.now?.() ?? new Date();
         const subjectHash = createHmac("sha256", secret)
           .update(`${normalized.scope}\n${normalized.subject}`)
           .digest("hex");
@@ -97,12 +97,13 @@ export function createRateLimitsService(
           subjectHash,
           limit,
           windowSeconds,
-          now,
         });
         const remaining = Math.max(0, limit - bucket.requestCount);
         const resetAfter = Math.max(
           1,
-          Math.ceil((bucket.expiresAt.getTime() - now.getTime()) / 1000),
+          Math.ceil(
+            (bucket.expiresAt.getTime() - bucket.observedAt.getTime()) / 1000,
+          ),
         );
         const retryAfter = bucket.consumed ? undefined : resetAfter;
 
@@ -120,7 +121,10 @@ export function createRateLimitsService(
     },
 
     async purgeExpired() {
-      await repository.purgeExpired(options.now?.() ?? new Date());
+      await repository.purgeExpired({
+        batchSize: 1_000,
+        ...(options.now ? { testReferenceTime: options.now() } : {}),
+      });
     },
   };
 }
@@ -135,12 +139,37 @@ const DAILY_MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export function scheduleRateLimitMaintenance(
   service: Pick<RateLimitsService, "purgeExpired">,
   options: RateLimitMaintenanceOptions = {},
-): () => void {
-  const timer = setInterval(() => {
-    void service.purgeExpired().catch(() => {
-      options.onError?.();
-    });
-  }, options.intervalMs ?? DAILY_MAINTENANCE_INTERVAL_MS);
+): () => Promise<void> {
+  let inFlight: Promise<void> | null = null;
+  let stopping = false;
+
+  const runMaintenance = () => {
+    if (stopping || inFlight) return;
+
+    const task = Promise.resolve()
+      .then(() => service.purgeExpired())
+      .catch(() => {
+        try {
+          options.onError?.();
+        } catch {
+          // Maintenance reporting must not stop later cleanup or shutdown.
+        }
+      });
+    inFlight = task;
+    const clearInFlight = () => {
+      if (inFlight === task) inFlight = null;
+    };
+    void task.then(clearInFlight, clearInFlight);
+  };
+
+  const timer = setInterval(
+    runMaintenance,
+    options.intervalMs ?? DAILY_MAINTENANCE_INTERVAL_MS,
+  );
   timer.unref();
-  return () => clearInterval(timer);
+  return async () => {
+    stopping = true;
+    clearInterval(timer);
+    await inFlight;
+  };
 }

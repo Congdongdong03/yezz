@@ -19,8 +19,17 @@ function bucketResult(
   return {
     consumed,
     requestCount,
+    observedAt: NOW,
     expiresAt: new Date("2026-07-28T10:00:00.000Z"),
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 function createMemoryRepository(): RateLimitsRepository {
@@ -82,12 +91,9 @@ describe("rate limits service", () => {
     expect(persistedInput?.subjectHash).toBe(
       "231243cc11f5484dd0e35aa214700147545674aae31cc00197716291e743cc8b",
     );
-    expect(persistedInput).not.toEqual(
-      expect.objectContaining({
-        subject: expect.anything(),
-        hashSecret: expect.anything(),
-      }),
-    );
+    expect(persistedInput).not.toHaveProperty("subject");
+    expect(persistedInput).not.toHaveProperty("hashSecret");
+    expect(persistedInput).not.toHaveProperty("now");
   });
 
   it("uses one bucket for equivalent email casing and Unicode normalization", async () => {
@@ -214,12 +220,16 @@ describe("rate limits service", () => {
 
     await service.purgeExpired();
 
-    expect(purgeExpired).toHaveBeenCalledWith(NOW);
+    expect(purgeExpired).toHaveBeenCalledWith({
+      batchSize: 1_000,
+      testReferenceTime: NOW,
+    });
   });
 
-  it("schedules expiry maintenance and stops it during shutdown", async () => {
+  it("does not overlap maintenance and waits for it during shutdown", async () => {
     vi.useFakeTimers();
-    const purgeExpired = vi.fn(async () => undefined);
+    const firstPurge = deferred<void>();
+    const purgeExpired = vi.fn(() => firstPurge.promise);
     const service = {
       consume: vi.fn(),
       purgeExpired,
@@ -229,12 +239,21 @@ describe("rate limits service", () => {
       const stop = scheduleRateLimitMaintenance(service, {
         intervalMs: 1_000,
       });
-      await vi.advanceTimersByTimeAsync(2_000);
-      expect(purgeExpired).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(purgeExpired).toHaveBeenCalledTimes(1);
 
-      stop();
+      let stopped = false;
+      const stopping = stop().then(() => {
+        stopped = true;
+      });
+      await Promise.resolve();
+      expect(stopped).toBe(false);
+
+      firstPurge.resolve();
+      await stopping;
+      expect(stopped).toBe(true);
       await vi.advanceTimersByTimeAsync(1_000);
-      expect(purgeExpired).toHaveBeenCalledTimes(2);
+      expect(purgeExpired).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }
@@ -257,7 +276,32 @@ describe("rate limits service", () => {
       });
       await vi.advanceTimersByTimeAsync(1_000);
       expect(onError).toHaveBeenCalledWith();
-      stop();
+      await stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not latch maintenance when the error reporter throws", async () => {
+    vi.useFakeTimers();
+    const purgeExpired = vi.fn(async () => {
+      throw new Error("database unavailable");
+    });
+    const service = {
+      consume: vi.fn(),
+      purgeExpired,
+    } as unknown as ReturnType<typeof createRateLimitsService>;
+
+    try {
+      const stop = scheduleRateLimitMaintenance(service, {
+        intervalMs: 1_000,
+        onError() {
+          throw new Error("logger unavailable");
+        },
+      });
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(purgeExpired).toHaveBeenCalledTimes(2);
+      await expect(stop()).resolves.toBeUndefined();
     } finally {
       vi.useRealTimers();
     }

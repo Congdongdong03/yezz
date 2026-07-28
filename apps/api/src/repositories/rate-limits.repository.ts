@@ -6,55 +6,87 @@ export type RateLimitBucketInput = {
   subjectHash: string;
   limit: number;
   windowSeconds: number;
-  now: Date;
+  testReferenceTime?: Date;
 };
 
 export type RateLimitBucketResult = {
   consumed: boolean;
   requestCount: number;
+  observedAt: Date;
   expiresAt: Date;
+};
+
+export type RateLimitPurgeInput = {
+  batchSize: number;
+  testReferenceTime?: Date;
 };
 
 export type RateLimitsRepository = {
   consume(input: RateLimitBucketInput): Promise<RateLimitBucketResult>;
-  purgeExpired(now: Date): Promise<number>;
+  purgeExpired(input: RateLimitPurgeInput): Promise<number>;
 };
 
 type RateLimitRow = {
   consumed: boolean;
   request_count: number;
+  observed_at: Date;
   expires_at: Date;
 };
+
+function resolveTestReferenceTime(referenceTime: Date | undefined) {
+  if (!referenceTime) return null;
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("Rate-limit reference time is only available in tests");
+  }
+  return referenceTime.toISOString();
+}
 
 export function createRateLimitsRepository(db: Db): RateLimitsRepository {
   return {
     async consume(input) {
+      const testReferenceTime = resolveTestReferenceTime(
+        input.testReferenceTime,
+      );
       const rows = await db.execute<RateLimitRow>(sql`
         WITH bucket_input AS (
           SELECT
             ${input.scope}::varchar(64) AS scope,
             ${input.subjectHash}::varchar(64) AS subject_hash,
-            ${input.now.toISOString()}::timestamptz AS observed_at,
+            COALESCE(
+              ${testReferenceTime}::timestamptz,
+              statement_timestamp()
+            ) AS observed_at,
             to_timestamp(
-              floor(extract(epoch FROM ${input.now.toISOString()}::timestamptz) / ${input.windowSeconds})
+              floor(
+                extract(
+                  epoch FROM COALESCE(
+                    ${testReferenceTime}::timestamptz,
+                    statement_timestamp()
+                  )
+                ) / ${input.windowSeconds}
+              )
               * ${input.windowSeconds}
             ) AS window_started_at
         ),
+        expired_batch AS (
+          SELECT ctid
+          FROM ${requestRateLimits}
+          WHERE "expires_at" <= (SELECT observed_at FROM bucket_input)
+          ORDER BY "expires_at"
+          FOR UPDATE SKIP LOCKED
+          LIMIT 100
+        ),
         expired_cleanup AS (
-          DELETE FROM ${requestRateLimits}
-          WHERE ctid IN (
-            SELECT ctid
-            FROM ${requestRateLimits}
-            WHERE "expires_at" <= (SELECT observed_at FROM bucket_input)
-            ORDER BY "expires_at"
-            LIMIT 100
-          )
+          DELETE FROM ${requestRateLimits} AS expired
+          USING expired_batch
+          WHERE expired.ctid = expired_batch.ctid
           RETURNING 1
         ),
         prepared_bucket AS (
           SELECT
             scope,
             subject_hash,
+            observed_at,
             window_started_at,
             window_started_at + make_interval(secs => ${input.windowSeconds}) AS expires_at
           FROM bucket_input
@@ -77,14 +109,16 @@ export function createRateLimitsRepository(db: Db): RateLimitsRepository {
         )
         SELECT
           true AS consumed,
-          "request_count",
-          "expires_at"
-        FROM consumed_bucket
+          consumed_bucket."request_count",
+          consumed_bucket."expires_at",
+          prepared_bucket.observed_at
+        FROM consumed_bucket, prepared_bucket
         UNION ALL
         SELECT
           false AS consumed,
           ${input.limit}::integer AS request_count,
-          prepared_bucket.expires_at
+          prepared_bucket.expires_at,
+          prepared_bucket.observed_at
         FROM prepared_bucket
         WHERE NOT EXISTS (SELECT 1 FROM consumed_bucket)
         LIMIT 1
@@ -97,6 +131,10 @@ export function createRateLimitsRepository(db: Db): RateLimitsRepository {
       return {
         consumed: row.consumed,
         requestCount: Number(row.request_count),
+        observedAt:
+          row.observed_at instanceof Date
+            ? row.observed_at
+            : new Date(row.observed_at),
         expiresAt:
           row.expires_at instanceof Date
             ? row.expires_at
@@ -104,11 +142,32 @@ export function createRateLimitsRepository(db: Db): RateLimitsRepository {
       };
     },
 
-    async purgeExpired(now) {
+    async purgeExpired(input) {
+      if (!Number.isSafeInteger(input.batchSize) || input.batchSize < 1) {
+        throw new Error("Rate-limit purge batch size must be a positive integer");
+      }
+      const testReferenceTime = resolveTestReferenceTime(
+        input.testReferenceTime,
+      );
       const rows = await db.execute<{ deleted_count: number }>(sql`
-        WITH deleted_buckets AS (
-          DELETE FROM ${requestRateLimits}
-          WHERE "expires_at" <= ${now.toISOString()}::timestamptz
+        WITH purge_input AS (
+          SELECT COALESCE(
+            ${testReferenceTime}::timestamptz,
+            statement_timestamp()
+          ) AS observed_at
+        ),
+        expired_batch AS (
+          SELECT ctid
+          FROM ${requestRateLimits}
+          WHERE "expires_at" <= (SELECT observed_at FROM purge_input)
+          ORDER BY "expires_at"
+          FOR UPDATE SKIP LOCKED
+          LIMIT ${input.batchSize}
+        ),
+        deleted_buckets AS (
+          DELETE FROM ${requestRateLimits} AS expired
+          USING expired_batch
+          WHERE expired.ctid = expired_batch.ctid
           RETURNING 1
         )
         SELECT count(*)::integer AS deleted_count

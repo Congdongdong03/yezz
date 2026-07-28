@@ -104,5 +104,7 @@ export default fp(async (app: FastifyInstance) => {
       app.log.error("Failed to purge expired rate-limit buckets");
     },
   });
-  app.addHook("onClose", stopRateLimitMaintenance);
+  app.addHook("onClose", async () => {
+    await stopRateLimitMaintenance();
+  });
 });
