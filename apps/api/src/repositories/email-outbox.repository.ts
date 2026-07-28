@@ -1,9 +1,10 @@
-import { emailOutbox, type Db } from "@yezz/db";
+import { emailOutbox, requestStatusEvents, type Db } from "@yezz/db";
 import { and, asc, count, eq, inArray, lt, lte, or, sql } from "drizzle-orm";
 import { AppError } from "../lib/errors.js";
 import {
   canonicalEmailPayload,
   validateEmailOutboxEnvelope,
+  type ValidatedEmailOutboxEnvelope,
 } from "../lib/email-outbox-payload.js";
 
 export type EmailDeliveryStatus = "pending" | "processing" | "sent" | "failed";
@@ -41,62 +42,103 @@ function normalizeListOptions(options: EmailDeliveryListOptions) {
 }
 
 export function createEmailOutboxRepository(db: Db) {
+  async function assertStatusEventIntegrity(
+    tx: Db,
+    validated: ValidatedEmailOutboxEnvelope,
+  ): Promise<void> {
+    if (!validated.statusEventId) return;
+
+    const [event] = await tx
+      .select({
+        bookingId: requestStatusEvents.bookingId,
+        cartOrderId: requestStatusEvents.cartOrderId,
+        toStatus: requestStatusEvents.toStatus,
+      })
+      .from(requestStatusEvents)
+      .where(eq(requestStatusEvents.id, validated.statusEventId))
+      .limit(1)
+      .for("share");
+    const payloadStatus =
+      validated.payload.template === "booking_status"
+        ? validated.payload.status
+        : null;
+    if (
+      !event ||
+      event.bookingId !== validated.bookingId ||
+      event.cartOrderId !== validated.cartOrderId ||
+      event.toStatus !== payloadStatus
+    ) {
+      throw new AppError(
+        422,
+        "INVALID_EMAIL_PAYLOAD",
+        "Status event does not match the email request and status",
+      );
+    }
+  }
+
+  async function enqueueInTransaction(
+    input: EnqueueEmailInput,
+    tx: Db,
+  ): Promise<EmailOutboxRow> {
+    const validated = validateEmailOutboxEnvelope(input);
+    await assertStatusEventIntegrity(tx, validated);
+
+    const [inserted] = await tx
+      .insert(emailOutbox)
+      .values({
+        dedupeKey: input.dedupeKey,
+        bookingId: validated.bookingId,
+        cartOrderId: validated.cartOrderId,
+        statusEventId: validated.statusEventId,
+        messageType: validated.messageType,
+        recipient: validated.recipient,
+        locale: validated.locale,
+        payload: validated.payload,
+        nextAttemptAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .onConflictDoNothing({ target: emailOutbox.dedupeKey })
+      .returning();
+
+    if (inserted) return inserted as EmailOutboxRow;
+
+    const [existing] = await tx
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.dedupeKey, input.dedupeKey))
+      .limit(1);
+    if (!existing) {
+      throw new AppError(
+        409,
+        "EMAIL_DEDUPE_CONFLICT",
+        "The email delivery could not be resolved",
+      );
+    }
+    const sameImmutableContent =
+      existing.bookingId === validated.bookingId &&
+      existing.cartOrderId === validated.cartOrderId &&
+      existing.statusEventId === validated.statusEventId &&
+      existing.messageType === validated.messageType &&
+      existing.recipient === validated.recipient &&
+      existing.locale === validated.locale &&
+      canonicalEmailPayload(existing.payload as typeof validated.payload) ===
+        canonicalEmailPayload(validated.payload);
+    if (!sameImmutableContent) {
+      throw new AppError(
+        409,
+        "EMAIL_DEDUPE_CONFLICT",
+        "The email dedupe key belongs to different immutable content",
+      );
+    }
+    return existing as EmailOutboxRow;
+  }
+
   return {
-    async enqueue(
-      input: EnqueueEmailInput,
-      tx: Db = db,
-    ): Promise<EmailOutboxRow> {
-      const validated = validateEmailOutboxEnvelope(input);
-
-      const [inserted] = await tx
-        .insert(emailOutbox)
-        .values({
-          dedupeKey: input.dedupeKey,
-          bookingId: validated.bookingId,
-          cartOrderId: validated.cartOrderId,
-          statusEventId: validated.statusEventId,
-          messageType: validated.messageType,
-          recipient: validated.recipient,
-          locale: validated.locale,
-          payload: validated.payload,
-          nextAttemptAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .onConflictDoNothing({ target: emailOutbox.dedupeKey })
-        .returning();
-
-      if (inserted) return inserted as EmailOutboxRow;
-
-      const [existing] = await tx
-        .select()
-        .from(emailOutbox)
-        .where(eq(emailOutbox.dedupeKey, input.dedupeKey))
-        .limit(1);
-      if (!existing) {
-        throw new AppError(
-          409,
-          "EMAIL_DEDUPE_CONFLICT",
-          "The email delivery could not be resolved",
-        );
-      }
-      const sameImmutableContent =
-        existing.bookingId === validated.bookingId &&
-        existing.cartOrderId === validated.cartOrderId &&
-        existing.statusEventId === validated.statusEventId &&
-        existing.messageType === validated.messageType &&
-        existing.recipient === validated.recipient &&
-        existing.locale === validated.locale &&
-        canonicalEmailPayload(
-          existing.payload as typeof validated.payload,
-        ) === canonicalEmailPayload(validated.payload);
-      if (!sameImmutableContent) {
-        throw new AppError(
-          409,
-          "EMAIL_DEDUPE_CONFLICT",
-          "The email dedupe key belongs to different immutable content",
-        );
-      }
-      return existing as EmailOutboxRow;
+    async enqueue(input: EnqueueEmailInput, tx?: Db): Promise<EmailOutboxRow> {
+      if (tx) return enqueueInTransaction(input, tx);
+      return db.transaction((transaction) =>
+        enqueueInTransaction(input, transaction as unknown as Db),
+      );
     },
 
     async claimDue(limit = 20, now = new Date()): Promise<EmailOutboxRow[]> {

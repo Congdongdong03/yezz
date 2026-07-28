@@ -3,6 +3,7 @@ import {
   EMAIL_DELIVERY_LABELS,
   EMAIL_MESSAGE_TYPE_LABELS,
   buildEmailDeliveryQuery,
+  formatEmailDeliveryActionError,
   formatDeliveryErrorForAdmin,
 } from "./email-delivery";
 
@@ -43,5 +44,21 @@ describe("email delivery admin presentation", () => {
     expect(EMAIL_MESSAGE_TYPE_LABELS.cart_order_status_customer).toBe(
       "订单状态更新（客户）",
     );
+  });
+
+  it("never exposes raw English load or retry errors to the Chinese admin page", () => {
+    const rawError = new Error(
+      "Failed to fetch: upstream connection refused for customer@example.test",
+    );
+
+    expect(formatEmailDeliveryActionError("load", rawError)).toBe(
+      "邮件记录加载失败，请稍后重试",
+    );
+    expect(formatEmailDeliveryActionError("retry", rawError)).toBe(
+      "重新发送失败，请稍后重试",
+    );
+    expect(
+      formatEmailDeliveryActionError("load", "raw server message"),
+    ).not.toContain("raw server message");
   });
 });

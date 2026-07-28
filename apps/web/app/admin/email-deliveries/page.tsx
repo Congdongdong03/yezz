@@ -9,6 +9,7 @@ import {
   EMAIL_DELIVERY_LABELS,
   EMAIL_MESSAGE_TYPE_LABELS,
   formatDeliveryErrorForAdmin,
+  formatEmailDeliveryActionError,
 } from "@/lib/admin/email-delivery";
 import type { EmailDelivery, EmailDeliveryStatus } from "@/lib/admin/types";
 
@@ -69,7 +70,7 @@ export default function EmailDeliveriesPage() {
     } catch (error) {
       setNotice({
         type: "error",
-        text: error instanceof Error ? error.message : "邮件记录加载失败",
+        text: formatEmailDeliveryActionError("load", error),
       });
     } finally {
       setLoading(false);
@@ -205,10 +206,10 @@ export default function EmailDeliveriesPage() {
                             } catch (error) {
                               setNotice({
                                 type: "error",
-                                text:
-                                  error instanceof Error
-                                    ? error.message
-                                    : "重试失败",
+                                text: formatEmailDeliveryActionError(
+                                  "retry",
+                                  error,
+                                ),
                               });
                             } finally {
                               setRetryingId(null);

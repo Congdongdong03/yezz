@@ -99,15 +99,80 @@ function bookingReceivedPayload(
   };
 }
 
-function bookingStatusPayload() {
+function statusPayload(
+  status: "contacted" | "confirmed" | "cancelled",
+  orderNumber = "booking-20260728-1234",
+) {
   return {
     template: "booking_status",
-    status: "contacted",
+    status,
     customerName: "Queue Customer",
-    orderNumber: "booking-20260728-1234",
+    orderNumber,
     storeName: "YezYY",
     contact: { email: "congdongdong03@gmail.com" },
   };
+}
+
+async function insertActor(client: Sql) {
+  const [actor] = await client<{ id: string }[]>`
+    INSERT INTO users (email, password_hash, name)
+    VALUES (
+      ${`admin-${crypto.randomUUID()}@example.test`},
+      'not-a-real-hash',
+      'Test Admin'
+    )
+    RETURNING id
+  `;
+  return actor.id;
+}
+
+async function insertBooking(client: Sql, name: string, phone: string) {
+  const [booking] = await client<{ id: string }[]>`
+    INSERT INTO bookings (name, phone)
+    VALUES (${name}, ${phone})
+    RETURNING id
+  `;
+  return booking.id;
+}
+
+async function insertCartOrder(client: Sql, name: string, phone: string) {
+  const [order] = await client<{ id: string }[]>`
+    INSERT INTO cart_orders (name, phone)
+    VALUES (${name}, ${phone})
+    RETURNING id
+  `;
+  return order.id;
+}
+
+async function insertStatusEvent(
+  client: Sql,
+  input: {
+    actorUserId: string;
+    bookingId?: string;
+    cartOrderId?: string;
+    toStatus: "contacted" | "confirmed" | "cancelled";
+  },
+) {
+  const [event] = await client<{ id: string }[]>`
+    INSERT INTO request_status_events (
+      booking_id,
+      cart_order_id,
+      operation_id,
+      from_status,
+      to_status,
+      actor_user_id
+    )
+    VALUES (
+      ${input.bookingId ?? null},
+      ${input.cartOrderId ?? null},
+      ${crypto.randomUUID()},
+      'new',
+      ${input.toStatus},
+      ${input.actorUserId}
+    )
+    RETURNING id
+  `;
+  return event.id;
 }
 
 afterEach(async () => {
@@ -256,11 +321,7 @@ describe.skipIf(!runDatabaseTests)(
         }),
       ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
 
-      const [actor] = await client<{ id: string }[]>`
-        INSERT INTO users (email, password_hash, name)
-        VALUES ('admin@example.test', 'not-a-real-hash', 'Test Admin')
-        RETURNING id
-      `;
+      const actorUserId = await insertActor(client);
       const events = await client<{ id: string }[]>`
         INSERT INTO request_status_events (
           booking_id,
@@ -270,8 +331,8 @@ describe.skipIf(!runDatabaseTests)(
           actor_user_id
         )
         VALUES
-          (${bookingId}, ${crypto.randomUUID()}, 'new', 'contacted', ${actor.id}),
-          (${bookingId}, ${crypto.randomUUID()}, 'new', 'contacted', ${actor.id})
+          (${bookingId}, ${crypto.randomUUID()}, 'new', 'contacted', ${actorUserId}),
+          (${bookingId}, ${crypto.randomUUID()}, 'new', 'contacted', ${actorUserId})
         RETURNING id
       `;
       const statusMessage = {
@@ -281,7 +342,7 @@ describe.skipIf(!runDatabaseTests)(
         messageType: "booking_status_customer",
         recipient: "customer@example.test",
         locale: "en",
-        payload: bookingStatusPayload(),
+        payload: statusPayload("contacted"),
       };
       await repo.enqueue(statusMessage);
       await expect(
@@ -290,6 +351,222 @@ describe.skipIf(!runDatabaseTests)(
           statusEventId: events[1].id,
         }),
       ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+      await client.end();
+    });
+
+    it("rejects new booking status mail for a cross-booking event or mismatched final status", async () => {
+      const { bookingId, client, repo } = await setupRepository();
+      const actorUserId = await insertActor(client);
+      const otherBookingId = await insertBooking(
+        client,
+        "Other Booking",
+        "0430000011",
+      );
+      const otherBookingEventId = await insertStatusEvent(client, {
+        actorUserId,
+        bookingId: otherBookingId,
+        toStatus: "contacted",
+      });
+      const confirmedEventId = await insertStatusEvent(client, {
+        actorUserId,
+        bookingId,
+        toStatus: "confirmed",
+      });
+
+      await expect(
+        repo.enqueue({
+          dedupeKey: "booking:new:cross-parent:customer",
+          bookingId,
+          statusEventId: otherBookingEventId,
+          messageType: "booking_status_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: statusPayload("contacted"),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+      await expect(
+        repo.enqueue({
+          dedupeKey: "booking:new:status-mismatch:customer",
+          bookingId,
+          statusEventId: confirmedEventId,
+          messageType: "booking_status_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: statusPayload("contacted"),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+      await expect(
+        repo.enqueue({
+          dedupeKey: "booking:new:malformed-event:customer",
+          bookingId,
+          statusEventId: "not-a-uuid",
+          messageType: "booking_status_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: statusPayload("contacted"),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+
+      const [count] = await client<{ count: number }[]>`
+        SELECT count(*)::int AS count
+        FROM email_outbox
+        WHERE dedupe_key IN (
+          'booking:new:cross-parent:customer',
+          'booking:new:status-mismatch:customer',
+          'booking:new:malformed-event:customer'
+        )
+      `;
+      expect(count.count).toBe(0);
+      await client.end();
+    });
+
+    it("validates booking event integrity before resolving an existing dedupe key", async () => {
+      const { bookingId, client, repo } = await setupRepository();
+      const actorUserId = await insertActor(client);
+      const contactedEventId = await insertStatusEvent(client, {
+        actorUserId,
+        bookingId,
+        toStatus: "contacted",
+      });
+      const confirmedEventId = await insertStatusEvent(client, {
+        actorUserId,
+        bookingId,
+        toStatus: "confirmed",
+      });
+      const message = {
+        dedupeKey: "booking:existing:status:customer",
+        bookingId,
+        statusEventId: contactedEventId,
+        messageType: "booking_status_customer",
+        recipient: "customer@example.test",
+        locale: "en",
+        payload: statusPayload("contacted"),
+      };
+      const existing = await repo.enqueue(message);
+
+      await expect(
+        repo.enqueue({
+          ...message,
+          statusEventId: confirmedEventId,
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+      await expect(
+        repo.enqueue({
+          ...message,
+          statusEventId: confirmedEventId,
+          payload: statusPayload("confirmed"),
+        }),
+      ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+      expect((await repo.findById(existing.id))?.statusEventId).toBe(
+        contactedEventId,
+      );
+      await client.end();
+    });
+
+    it("rejects new cart status mail for a cross-order event or mismatched final status", async () => {
+      const { client, repo } = await setupRepository();
+      const actorUserId = await insertActor(client);
+      const cartOrderId = await insertCartOrder(
+        client,
+        "Cart Customer",
+        "0430000021",
+      );
+      const otherCartOrderId = await insertCartOrder(
+        client,
+        "Other Cart Customer",
+        "0430000022",
+      );
+      const otherOrderEventId = await insertStatusEvent(client, {
+        actorUserId,
+        cartOrderId: otherCartOrderId,
+        toStatus: "contacted",
+      });
+      const cancelledEventId = await insertStatusEvent(client, {
+        actorUserId,
+        cartOrderId,
+        toStatus: "cancelled",
+      });
+
+      await expect(
+        repo.enqueue({
+          dedupeKey: "cart:new:cross-parent:customer",
+          cartOrderId,
+          statusEventId: otherOrderEventId,
+          messageType: "cart_order_status_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: statusPayload("contacted", "cart-20260728-1234"),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+      await expect(
+        repo.enqueue({
+          dedupeKey: "cart:new:status-mismatch:customer",
+          cartOrderId,
+          statusEventId: cancelledEventId,
+          messageType: "cart_order_status_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: statusPayload("contacted", "cart-20260728-1234"),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+
+      const [count] = await client<{ count: number }[]>`
+        SELECT count(*)::int AS count
+        FROM email_outbox
+        WHERE dedupe_key IN (
+          'cart:new:cross-parent:customer',
+          'cart:new:status-mismatch:customer'
+        )
+      `;
+      expect(count.count).toBe(0);
+      await client.end();
+    });
+
+    it("validates cart event integrity before resolving an existing dedupe key", async () => {
+      const { client, repo } = await setupRepository();
+      const actorUserId = await insertActor(client);
+      const cartOrderId = await insertCartOrder(
+        client,
+        "Cart Customer",
+        "0430000031",
+      );
+      const contactedEventId = await insertStatusEvent(client, {
+        actorUserId,
+        cartOrderId,
+        toStatus: "contacted",
+      });
+      const cancelledEventId = await insertStatusEvent(client, {
+        actorUserId,
+        cartOrderId,
+        toStatus: "cancelled",
+      });
+      const message = {
+        dedupeKey: "cart:existing:status:customer",
+        cartOrderId,
+        statusEventId: contactedEventId,
+        messageType: "cart_order_status_customer",
+        recipient: "customer@example.test",
+        locale: "en",
+        payload: statusPayload("contacted", "cart-20260728-5678"),
+      };
+      const existing = await repo.enqueue(message);
+
+      await expect(
+        repo.enqueue({
+          ...message,
+          statusEventId: cancelledEventId,
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+      await expect(
+        repo.enqueue({
+          ...message,
+          statusEventId: cancelledEventId,
+          payload: statusPayload("cancelled", "cart-20260728-5678"),
+        }),
+      ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+      expect((await repo.findById(existing.id))?.statusEventId).toBe(
+        contactedEventId,
+      );
       await client.end();
     });
 

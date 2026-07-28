@@ -48,3 +48,13 @@ export function formatDeliveryErrorForAdmin(value: string | null): string {
   }
   return "发送失败，请重试或联系技术人员";
 }
+
+export function formatEmailDeliveryActionError(
+  action: "load" | "retry",
+  error: unknown,
+): string {
+  void error;
+  return action === "load"
+    ? "邮件记录加载失败，请稍后重试"
+    : "重新发送失败，请稍后重试";
+}

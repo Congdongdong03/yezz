@@ -171,6 +171,19 @@ function dateString(value: unknown, field: string): void {
   }
 }
 
+function uuidValue(value: unknown, field: string): string {
+  const text = stringValue(value, field, { max: 36 });
+  if (
+    !text ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      text,
+    )
+  ) {
+    invalid(`${field} must be a valid UUID`);
+  }
+  return text.toLowerCase();
+}
+
 function bookingInput(value: unknown): void {
   const candidate = record(
     value,
@@ -405,8 +418,12 @@ export function validateEmailOutboxEnvelope(
     invalid("messageType is unsupported");
   }
   const messageType = input.messageType as EmailMessageType;
-  const bookingId = input.bookingId ?? null;
-  const cartOrderId = input.cartOrderId ?? null;
+  const bookingId =
+    input.bookingId == null ? null : uuidValue(input.bookingId, "bookingId");
+  const cartOrderId =
+    input.cartOrderId == null
+      ? null
+      : uuidValue(input.cartOrderId, "cartOrderId");
   if (Boolean(bookingId) === Boolean(cartOrderId)) {
     invalid("exactly one request parent is required");
   }
@@ -415,7 +432,10 @@ export function validateEmailOutboxEnvelope(
     invalid("messageType does not match the request parent");
   }
   const isStatus = messageType.endsWith("_status_customer");
-  const statusEventId = input.statusEventId ?? null;
+  const statusEventId =
+    input.statusEventId == null
+      ? null
+      : uuidValue(input.statusEventId, "statusEventId");
   if (isStatus !== Boolean(statusEventId)) {
     invalid(
       isStatus
