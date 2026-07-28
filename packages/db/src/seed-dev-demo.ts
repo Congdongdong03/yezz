@@ -1,6 +1,9 @@
 import { loadEnv } from "./env.js";
+import { assertDemoSeedAllowed } from "./seed-safety.js";
 
 loadEnv();
+assertDemoSeedAllowed(process.env.NODE_ENV);
+
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import {

@@ -2,11 +2,11 @@
 set -e
 
 # ============================================
-# YEZZ 生产环境部署脚本
+# YezYY 生产环境部署脚本
 # 用法: ./deploy.sh
 # ============================================
 
-echo "🚀 YEZZ 生产环境部署"
+echo "🚀 YezYY 生产环境部署"
 echo "===================="
 
 # 检查 Docker
@@ -51,10 +51,10 @@ echo ""
 # 构建并启动
 echo "🔨 构建并启动服务..."
 
-# 第一次部署：先执行迁移和 seed
+# 第一次部署：只执行迁移和安全的生产初始化
 if [ "$1" = "--init" ]; then
-    echo "📦 首次部署：执行数据库迁移和种子..."
-    docker compose -f docker-compose.prod.yml --profile setup up --build migrate seed
+    echo "📦 首次部署：执行数据库迁移和生产初始化..."
+    docker compose -f docker-compose.prod.yml --profile setup up --build migrate bootstrap
 fi
 
 # 启动所有服务

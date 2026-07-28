@@ -66,23 +66,22 @@ services:
         condition: service_healthy
     networks:
       - yezz
-    profiles:
-      - setup
 
-  seed:
+  bootstrap:
     profiles: ["setup"]
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-yezz}:${POSTGRES_PASSWORD:-change_me_in_env}@postgres:5432/${POSTGRES_DB:-yezz}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@yezz.local}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
-      FORCE_SEED: "true"
-    command: ["sh", "-c", "pnpm db:seed"]
+      NODE_ENV: production
+      ALLOW_PRODUCTION_BOOTSTRAP: ${ALLOW_PRODUCTION_BOOTSTRAP:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    command: ["sh", "-c", "pnpm --filter @yezz/db bootstrap:production"]
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - yezz
 

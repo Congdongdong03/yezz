@@ -218,32 +218,30 @@ pnpm db:migrate
 
 ---
 
-### 步骤 2：运行数据库种子
+### 步骤 2：运行安全的生产初始化
 
-填充初始数据（分类、示例项目、管理员账号等）：
+生产初始化只会在缺失时创建真实的 YezYY 网站设置和第一个管理员。它不会删除数据，也不会插入示例分类、项目、派对或 Gallery 内容。
 
 ```bash
-# 先设置管理员账号（不要用默认值！）
-export ADMIN_EMAIL=your-email@example.com
-export ADMIN_PASSWORD=your-very-strong-password
+# 必须输入精确保护口令；首次创建管理员时还要提供真实账号和强密码
+export ALLOW_PRODUCTION_BOOTSTRAP=YezYY
+export ADMIN_EMAIL=congdongdong03@gmail.com
+export ADMIN_PASSWORD='使用密码管理器生成的至少12位强密码'
 
-# 执行种子
-pnpm db:seed
+# 执行幂等生产初始化
+pnpm --filter @yezz/db bootstrap:production
 ```
 
-**种子会创建：**
-- 5 个项目分类
-- 16 个示例 DIY 项目
-- 3 个派对套餐
-- 9 张 Gallery 图片
-- 1 个管理员账号
-- 1 行网站设置（全为占位符）
+**生产初始化会创建：**
+- 1 个管理员账号（仅数据库里还没有管理员时）
+- 1 行真实 YezYY 网站设置（仅设置不存在时）
+- 0 个示例分类、项目、派对或 Gallery 内容
 
 ---
 
 ### 步骤 3：登录后台修改网站设置
 
-种子数据中的 `site_settings` 全部是占位符，**必须进后台改成真实信息**：
+生产初始化会写入当前已确认的门店信息。登录后台后仍应逐项核对：
 
 | 设置项 | 说明 |
 |--------|------|
@@ -302,8 +300,8 @@ NEXT_PUBLIC_SITE_URL=https://你的域名
 |---|------|------|
 | 开发环境邮件发件人 fallback | `apps/api/src/lib/email.ts` | 生产环境必须配置已验证的 `EMAIL_FROM` |
 | `Australia/Sydney` | `apps/api/src/lib/email.ts` | 可通过 `STORE_TIMEZONE` 覆盖；生产建议 `Australia/Melbourne` |
-| `admin@yezz.local` | `packages/db/src/seed.ts:234` | 种子时通过 `ADMIN_EMAIL` 覆盖 |
-| `changeme` | `packages/db/src/seed.ts:235` | 种子时通过 `ADMIN_PASSWORD` 覆盖 |
+| `admin@yezz.local` | `packages/db/src/seed-dev-demo.ts` | 仅开发演示种子使用；生产初始化会拒绝 |
+| `changeme` | `packages/db/src/seed-dev-demo.ts` | 仅开发演示种子使用；生产初始化会拒绝 |
 | `YezYY` | `apps/web/lib/site/business.ts` | 作为公开 fallback 名称 |
 
 ---
@@ -362,8 +360,9 @@ fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
 - [ ] S3 存储已配置（如需图片上传功能）
 - [ ] `RESEND_API_KEY`、`OWNER_EMAIL`、`EMAIL_FROM` 和 `EMAIL_REPLY_TO` 已配置
 - [ ] 运行了 `pnpm db:migrate`
-- [ ] 运行了 `pnpm db:seed`（并设置了 `ADMIN_EMAIL` 和 `ADMIN_PASSWORD`）
-- [ ] 登录后台 `/admin` 更新了所有"网站设置"
+- [ ] 运行了 `pnpm --filter @yezz/db bootstrap:production`
+- [ ] 生产环境没有运行 `seed:dev-demo` 或设置 `FORCE_SEED`
+- [ ] 登录后台 `/admin` 核对了所有网站设置
 - [ ] `.env.local` 文件已加入 `.gitignore`，未提交到代码仓库
 - [ ] 生产环境密钥通过部署平台（Fly.io / Vercel）注入，不在代码中
 - [ ] （可选）配置了 Redis
@@ -412,9 +411,10 @@ REDIS_URL=redis://localhost:6379
 # -------- 分析（可选） --------
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
 
-# -------- 种子脚本（仅首次部署） --------
-ADMIN_EMAIL=admin@yezyy.com
-ADMIN_PASSWORD=your-strong-password
+# -------- 安全生产初始化（仅首次部署；已有管理员时可不再提供账号密码） --------
+ALLOW_PRODUCTION_BOOTSTRAP=YezYY
+ADMIN_EMAIL=congdongdong03@gmail.com
+ADMIN_PASSWORD=使用密码管理器生成的至少12位强密码
 ```
 
 ---

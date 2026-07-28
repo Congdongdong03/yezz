@@ -123,6 +123,7 @@ export function createProjectsRepository(db: Db) {
           projectType: data.projectType,
           description: data.description ?? null,
           priceRange: data.priceRange ?? null,
+          priceCurrency: "AUD",
           duration: data.duration ?? null,
           tags: data.tags ?? null,
           sortOrder: data.sortOrder ?? 0,
@@ -159,9 +160,12 @@ export function createProjectsRepository(db: Db) {
 
     async update(id: string, data: ProjectUpdateInput) {
       const { styles, images, ...fields } = data;
-      const patch = Object.fromEntries(
-        Object.entries(fields).filter(([, v]) => v !== undefined),
-      );
+      const patch = {
+        ...Object.fromEntries(
+          Object.entries(fields).filter(([, v]) => v !== undefined),
+        ),
+        priceCurrency: "AUD",
+      };
 
       let project;
       if (Object.keys(patch).length > 0) {

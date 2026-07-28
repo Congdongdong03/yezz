@@ -11,7 +11,9 @@
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/migrate.ts",
     "migrate:fix": "tsx src/migrate-fix.ts",
-    "seed": "tsx src/seed.ts",
+    "seed": "pnpm run seed:dev-demo",
+    "seed:dev-demo": "tsx src/seed-dev-demo.ts",
+    "bootstrap:production": "tsx src/bootstrap-production.ts",
     "test": "vitest run src",
     "typecheck": "tsc --noEmit"
   },
