@@ -1,4 +1,5 @@
 import { bookings, type Db } from "@yezz/db";
+import { and, eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import {
   formatBookingOrderId,
@@ -12,6 +13,7 @@ import {
   type OrderStatus,
 } from "../../repositories/bookings.repository.js";
 import { createSettingsRepository } from "../../repositories/settings.repository.js";
+import { createRequestCapacityRepository } from "../../repositories/request-capacity.repository.js";
 import { createTimeSlotsRepository } from "../../repositories/time-slots.repository.js";
 
 export type BookingDto = {
@@ -46,7 +48,9 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   cancelled: [],
 };
 
-export function validateOrderStatus(status: string): asserts status is OrderStatus {
+export function validateOrderStatus(
+  status: string,
+): asserts status is OrderStatus {
   if (!ORDER_STATUSES.includes(status as OrderStatus)) {
     throw new AppError(
       400,
@@ -56,7 +60,10 @@ export function validateOrderStatus(status: string): asserts status is OrderStat
   }
 }
 
-export function validateStatusTransition(from: OrderStatus, to: OrderStatus): void {
+export function validateStatusTransition(
+  from: OrderStatus,
+  to: OrderStatus,
+): void {
   const allowed = VALID_TRANSITIONS[from];
   if (!allowed.includes(to)) {
     throw new AppError(
@@ -89,7 +96,9 @@ export function mapBookingRow(row: BookingRow): BookingDto {
   };
 }
 
-export type AdminBookingsService = ReturnType<typeof createAdminBookingsService>;
+export type AdminBookingsService = ReturnType<
+  typeof createAdminBookingsService
+>;
 
 async function loadStoreContext(db: Db) {
   const settingsRepo = createSettingsRepository(db);
@@ -110,13 +119,27 @@ async function loadStoreContext(db: Db) {
 export function createAdminBookingsService(db: Db) {
   const repo = createBookingsRepository(db);
   const slotsRepo = createTimeSlotsRepository(db);
+  const capacityRepo = createRequestCapacityRepository(db);
 
   return {
-    async list(options?: { page?: number; limit?: number; status?: OrderStatus }): Promise<{ data: BookingDto[]; total: number; page: number; limit: number }> {
+    async list(options?: {
+      page?: number;
+      limit?: number;
+      status?: OrderStatus;
+    }): Promise<{
+      data: BookingDto[];
+      total: number;
+      page: number;
+      limit: number;
+    }> {
       const page = Math.max(1, options?.page ?? 1);
       const limit = Math.min(200, Math.max(1, options?.limit ?? 100));
       const offset = (page - 1) * limit;
-      const { rows, total } = await repo.findAllOrdered({ limit, offset, status: options?.status });
+      const { rows, total } = await repo.findAllOrdered({
+        limit,
+        offset,
+        status: options?.status,
+      });
       return { data: rows.map(mapBookingRow), total, page, limit };
     },
 
@@ -147,8 +170,18 @@ export function createAdminBookingsService(db: Db) {
       validateStatusTransition(previous, status);
 
       const row = await db.transaction(async (tx) => {
-        const updated = await repo.updateStatus(id, status, tx);
-        if (!updated) throw new AppError(404, "NOT_FOUND", "Booking not found");
+        const [updated] = await tx
+          .update(bookings)
+          .set({ status, updatedAt: new Date() })
+          .where(and(eq(bookings.id, id), eq(bookings.status, previous)))
+          .returning();
+        if (!updated) {
+          throw new AppError(
+            409,
+            "STATUS_CONFLICT",
+            "The booking changed. Refresh and try again.",
+          );
+        }
 
         // Restore slot capacity when a booking is cancelled
         if (
@@ -157,9 +190,9 @@ export function createAdminBookingsService(db: Db) {
           existing.timeSlotId &&
           existing.numberOfPeople
         ) {
-          await slotsRepo.incrementBookedCount(
+          await capacityRepo.release(
             existing.timeSlotId,
-            -existing.numberOfPeople,
+            existing.numberOfPeople,
             tx,
           );
         }
@@ -181,7 +214,9 @@ export function createAdminBookingsService(db: Db) {
             const slot = await slotsRepo.findById(row.timeSlotId);
             if (slot) {
               const dateStr =
-                typeof slot.date === "string" ? slot.date : String(slot.date).slice(0, 10);
+                typeof slot.date === "string"
+                  ? slot.date
+                  : String(slot.date).slice(0, 10);
               slotLabel = `${dateStr} ${slot.startTime}–${slot.endTime}`;
             }
           }

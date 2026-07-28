@@ -12,7 +12,7 @@ import {
   createBookingsRepository,
   type BookingCreateInput,
 } from "../repositories/bookings.repository.js";
-import { createTimeSlotsRepository } from "../repositories/time-slots.repository.js";
+import { createRequestCapacityRepository } from "../repositories/request-capacity.repository.js";
 
 export type BookingDto = {
   id: string;
@@ -36,10 +36,18 @@ function validateBookingInput(input: BookingCreateInput) {
     }
   }
   if (input.numberOfPeople != null && input.numberOfPeople < 1) {
-    throw new AppError(400, "VALIDATION_ERROR", "numberOfPeople must be at least 1");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "numberOfPeople must be at least 1",
+    );
   }
   if (input.activityType === "experience" && !input.timeSlotId) {
-    throw new AppError(400, "VALIDATION_ERROR", "timeSlotId is required for experience bookings");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "timeSlotId is required for experience bookings",
+    );
   }
 }
 
@@ -72,7 +80,7 @@ async function loadStoreContact(db: Db): Promise<StoreContact> {
 
 export function createBookingsService(db: Db) {
   const repo = createBookingsRepository(db);
-  const slotsRepo = createTimeSlotsRepository(db);
+  const capacityRepo = createRequestCapacityRepository(db);
 
   return {
     async create(input: BookingCreateInput): Promise<BookingDto> {
@@ -81,21 +89,15 @@ export function createBookingsService(db: Db) {
 
       const row = input.timeSlotId
         ? await db.transaction(async (tx) => {
-            const slot = await slotsRepo.findByIdForUpdate(input.timeSlotId!, tx);
-            if (!slot || !slot.isAvailable) {
-              throw new AppError(400, "VALIDATION_ERROR", "Time slot is not available");
-            }
-            const remaining = slot.capacity - slot.bookedCount;
-            if (remaining < people) {
-              throw new AppError(400, "VALIDATION_ERROR", "Time slot is full");
-            }
-            await slotsRepo.incrementBookedCount(slot.id, people, tx);
-            const dateStr =
-              typeof slot.date === "string" ? slot.date : String(slot.date).slice(0, 10);
+            const slot = await capacityRepo.reserve(
+              input.timeSlotId!,
+              people,
+              tx,
+            );
             return repo.create(
               {
                 ...input,
-                preferredDate: input.preferredDate ?? dateStr,
+                preferredDate: input.preferredDate ?? slot.date,
               },
               tx,
             );

@@ -1,5 +1,5 @@
-import { timeSlots, type Db } from "@yezz/db";
-import { and, asc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
+import { bookings, cartOrders, timeSlots, type Db } from "@yezz/db";
+import { and, asc, eq, gte, isNull, lte, ne, or, sql } from "drizzle-orm";
 
 export type TimeSlotCreateInput = {
   date: string;
@@ -30,11 +30,15 @@ export function createTimeSlotsRepository(db: Db) {
         .then((rows) => rows[0] ?? null);
     },
 
-    findByDate(date: string, categoryId?: string | null) {
+    findByDate(date: string, categoryId?: string | null, minimumDate?: string) {
       const conditions = [eq(timeSlots.date, date)];
+      if (minimumDate) conditions.push(gte(timeSlots.date, minimumDate));
       if (categoryId) {
         conditions.push(
-          or(isNull(timeSlots.categoryId), eq(timeSlots.categoryId, categoryId))!,
+          or(
+            isNull(timeSlots.categoryId),
+            eq(timeSlots.categoryId, categoryId),
+          )!,
         );
       }
       return db
@@ -44,15 +48,24 @@ export function createTimeSlotsRepository(db: Db) {
         .orderBy(asc(timeSlots.startTime));
     },
 
-    findInMonth(year: number, month: number, categoryId?: string | null) {
+    findInMonth(
+      year: number,
+      month: number,
+      categoryId?: string | null,
+      minimumDate?: string,
+    ) {
       const start = `${year}-${String(month).padStart(2, "0")}-01`;
       const lastDay = new Date(year, month, 0).getDate();
       const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
       const conditions = [gte(timeSlots.date, start), lte(timeSlots.date, end)];
+      if (minimumDate) conditions.push(gte(timeSlots.date, minimumDate));
       if (categoryId) {
         conditions.push(
-          or(isNull(timeSlots.categoryId), eq(timeSlots.categoryId, categoryId))!,
+          or(
+            isNull(timeSlots.categoryId),
+            eq(timeSlots.categoryId, categoryId),
+          )!,
         );
       }
 
@@ -70,8 +83,8 @@ export function createTimeSlotsRepository(db: Db) {
         .orderBy(asc(timeSlots.date), asc(timeSlots.startTime));
     },
 
-    async create(input: TimeSlotCreateInput) {
-      const [row] = await db
+    async create(input: TimeSlotCreateInput, tx: Db = db) {
+      const [row] = await tx
         .insert(timeSlots)
         .values({
           date: input.date,
@@ -86,9 +99,9 @@ export function createTimeSlotsRepository(db: Db) {
       return row;
     },
 
-    async createMany(inputs: TimeSlotCreateInput[]) {
+    async createMany(inputs: TimeSlotCreateInput[], tx: Db = db) {
       if (inputs.length === 0) return [];
-      return db
+      return tx
         .insert(timeSlots)
         .values(
           inputs.map((input) => ({
@@ -101,12 +114,11 @@ export function createTimeSlotsRepository(db: Db) {
             updatedAt: new Date(),
           })),
         )
-        .onConflictDoNothing()
         .returning();
     },
 
-    async update(id: string, input: TimeSlotUpdateInput) {
-      const [row] = await db
+    async update(id: string, input: TimeSlotUpdateInput, tx: Db = db) {
+      const [row] = await tx
         .update(timeSlots)
         .set({ ...input, updatedAt: new Date() })
         .where(eq(timeSlots.id, id))
@@ -114,20 +126,11 @@ export function createTimeSlotsRepository(db: Db) {
       return row ?? null;
     },
 
-    async delete(id: string) {
-      const [row] = await db.delete(timeSlots).where(eq(timeSlots.id, id)).returning({ id: timeSlots.id });
-      return row ?? null;
-    },
-
-    async incrementBookedCount(id: string, delta: number, tx: Db = db) {
+    async delete(id: string, tx: Db = db) {
       const [row] = await tx
-        .update(timeSlots)
-        .set({
-          bookedCount: sql`${timeSlots.bookedCount} + ${delta}`,
-          updatedAt: new Date(),
-        })
+        .delete(timeSlots)
         .where(eq(timeSlots.id, id))
-        .returning();
+        .returning({ id: timeSlots.id });
       return row ?? null;
     },
 
@@ -139,6 +142,67 @@ export function createTimeSlotsRepository(db: Db) {
         .for("update")
         .limit(1);
       return row ?? null;
+    },
+
+    async acquireScheduleLocks(
+      keys: Array<{ date: string; categoryId?: string | null }>,
+      tx: Db = db,
+    ) {
+      const normalized = [
+        ...new Set(
+          keys.map(
+            ({ date, categoryId }) => `${date}:${categoryId ?? "global"}`,
+          ),
+        ),
+      ].sort();
+      for (const key of normalized) {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`,
+        );
+      }
+    },
+
+    async findOverlapping(
+      input: {
+        date: string;
+        startTime: string;
+        endTime: string;
+        categoryId?: string | null;
+        excludeId?: string;
+      },
+      tx: Db = db,
+    ) {
+      const categoryCondition = input.categoryId
+        ? eq(timeSlots.categoryId, input.categoryId)
+        : isNull(timeSlots.categoryId);
+      const conditions = [
+        eq(timeSlots.date, input.date),
+        categoryCondition,
+        sql`${timeSlots.startTime} < ${input.endTime}`,
+        sql`${timeSlots.endTime} > ${input.startTime}`,
+      ];
+      if (input.excludeId) conditions.push(ne(timeSlots.id, input.excludeId));
+      const [row] = await tx
+        .select()
+        .from(timeSlots)
+        .where(and(...conditions))
+        .limit(1);
+      return row ?? null;
+    },
+
+    async hasRequestReferences(id: string, tx: Db = db): Promise<boolean> {
+      const [booking] = await tx
+        .select({ id: bookings.id })
+        .from(bookings)
+        .where(eq(bookings.timeSlotId, id))
+        .limit(1);
+      if (booking) return true;
+      const [order] = await tx
+        .select({ id: cartOrders.id })
+        .from(cartOrders)
+        .where(eq(cartOrders.timeSlotId, id))
+        .limit(1);
+      return Boolean(order);
     },
   };
 }

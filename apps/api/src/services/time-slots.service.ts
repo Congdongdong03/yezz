@@ -1,5 +1,6 @@
 import type { Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
+import { assertSlotAllowed, getMelbourneDate } from "../lib/slot-policy.js";
 import {
   createTimeSlotsRepository,
   type TimeSlotCreateInput,
@@ -19,28 +20,25 @@ export type TimeSlotDto = {
   notes: string | null;
   almostFull: boolean;
 };
-
 export type MonthAvailabilityDto = {
   dates: Array<{ date: string; status: "none" | "available" | "full" }>;
 };
+export type DaySlotsDto = { slots: TimeSlotDto[] };
 
-export type DaySlotsDto = {
-  slots: TimeSlotDto[];
-};
+type Repository = ReturnType<typeof createTimeSlotsRepository>;
+type TimeSlotRow = Awaited<ReturnType<Repository["findById"]>>;
 
-type TimeSlotRow = Awaited<ReturnType<ReturnType<typeof createTimeSlotsRepository>["findById"]>>;
-
-function formatDateValue(value: string | Date): string {
-  if (typeof value === "string") return value.slice(0, 10);
-  return value.toISOString().slice(0, 10);
+function dateValue(value: string | Date): string {
+  return typeof value === "string"
+    ? value.slice(0, 10)
+    : value.toISOString().slice(0, 10);
 }
 
 function mapSlot(row: NonNullable<TimeSlotRow>): TimeSlotDto {
   const remaining = Math.max(0, row.capacity - row.bookedCount);
-  const ratio = row.capacity > 0 ? remaining / row.capacity : 0;
   return {
     id: row.id,
-    date: formatDateValue(row.date),
+    date: dateValue(row.date),
     startTime: row.startTime,
     endTime: row.endTime,
     capacity: row.capacity,
@@ -49,60 +47,89 @@ function mapSlot(row: NonNullable<TimeSlotRow>): TimeSlotDto {
     categoryId: row.categoryId ?? null,
     isAvailable: row.isAvailable,
     notes: row.notes ?? null,
-    almostFull: row.isAvailable && remaining > 0 && ratio <= 0.2,
+    almostFull:
+      row.isAvailable && remaining > 0 && remaining / row.capacity <= 0.2,
   };
 }
 
 function slotStatus(slots: TimeSlotDto[]): "none" | "available" | "full" {
-  const open = slots.filter((s) => s.isAvailable);
-  if (open.length === 0) return "none";
-  if (open.every((s) => s.remaining <= 0)) return "full";
-  return "available";
+  const open = slots.filter((slot) => slot.isAvailable);
+  if (!open.length) return "none";
+  return open.every((slot) => slot.remaining <= 0) ? "full" : "available";
+}
+
+function overlapError(): AppError {
+  return new AppError(
+    409,
+    "SLOT_OVERLAP",
+    "This time overlaps an existing slot for the same category",
+  );
+}
+
+function isForeignKeyViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "23503"
+  );
 }
 
 export type TimeSlotsService = ReturnType<typeof createTimeSlotsService>;
 
-export function createTimeSlotsService(db: Db) {
-  const repo = createTimeSlotsRepository(db);
+export function createTimeSlotsService(
+  db: Db,
+  dependencies?: { repo?: Repository; now?: () => Date },
+) {
+  const repo = dependencies?.repo ?? createTimeSlotsRepository(db);
+  const now = dependencies?.now ?? (() => new Date());
 
   return {
     async getMonthAvailability(
       year: number,
       month: number,
       categoryId?: string,
-    ): Promise<MonthAvailabilityDto> {
-      const rows = await repo.findInMonth(year, month, categoryId);
+    ) {
+      const today = getMelbourneDate(now());
+      const rows = await repo.findInMonth(year, month, categoryId, today);
       const byDate = new Map<string, TimeSlotDto[]>();
       for (const row of rows) {
-        const date = formatDateValue(row.date);
-        const list = byDate.get(date) ?? [];
-        list.push(mapSlot(row));
-        byDate.set(date, list);
+        const date = dateValue(row.date);
+        if (date < today) continue;
+        byDate.set(date, [...(byDate.get(date) ?? []), mapSlot(row)]);
       }
-
-      const dates = [...byDate.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, slots]) => ({ date, status: slotStatus(slots) }));
-
-      return { dates };
+      return {
+        dates: [...byDate.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, slots]) => ({ date, status: slotStatus(slots) })),
+      } satisfies MonthAvailabilityDto;
     },
 
-    async getDaySlots(date: string, categoryId?: string): Promise<DaySlotsDto> {
-      const rows = await repo.findByDate(date, categoryId);
-      const slots = rows
-        .map(mapSlot)
-        .filter((s) => s.isAvailable && s.remaining > 0);
-      return { slots };
+    async getDaySlots(date: string, categoryId?: string) {
+      const today = getMelbourneDate(now());
+      if (date < today) return { slots: [] };
+      const rows = await repo.findByDate(date, categoryId, today);
+      return {
+        slots: rows
+          .map(mapSlot)
+          .filter((slot) => slot.isAvailable && slot.remaining > 0),
+      } satisfies DaySlotsDto;
     },
 
-    async listAdmin(): Promise<TimeSlotDto[]> {
-      const rows = await repo.findAllOrdered();
-      return rows.map(mapSlot);
+    async listAdmin() {
+      return (await repo.findAllOrdered()).map(mapSlot);
     },
 
-    async create(input: TimeSlotCreateInput): Promise<TimeSlotDto> {
-      validateSlotInput(input);
-      const row = await repo.create(input);
+    async create(input: TimeSlotCreateInput) {
+      assertSlotAllowed(input, now());
+      const row = await db.transaction(async (tx) => {
+        await repo.acquireScheduleLocks(
+          [{ date: input.date, categoryId: input.categoryId }],
+          tx,
+        );
+        if (await repo.findOverlapping(input, tx)) throw overlapError();
+        return repo.create(input, tx);
+      });
       return mapSlot(row);
     },
 
@@ -113,50 +140,115 @@ export function createTimeSlotsService(db: Db) {
       slots: Array<{ startTime: string; endTime: string; capacity: number }>;
       categoryId?: string | null;
       notes?: string | null;
-    }): Promise<TimeSlotDto[]> {
+    }) {
       const inputs = buildBatchInputs(options);
-      const rows = await repo.createMany(inputs);
+      for (const input of inputs) assertSlotAllowed(input, now());
+      assertNoBatchOverlap(inputs);
+      const rows = await db.transaction(async (tx) => {
+        await repo.acquireScheduleLocks(
+          inputs.map(({ date, categoryId }) => ({ date, categoryId })),
+          tx,
+        );
+        for (const input of inputs) {
+          if (await repo.findOverlapping(input, tx)) throw overlapError();
+        }
+        return repo.createMany(inputs, tx);
+      });
       return rows.map(mapSlot);
     },
 
-    async update(id: string, input: TimeSlotUpdateInput): Promise<TimeSlotDto> {
-      if (input.capacity !== undefined) {
-        const existing = await repo.findById(id);
-        if (!existing) {
+    async update(id: string, input: TimeSlotUpdateInput) {
+      const row = await db.transaction(async (tx) => {
+        const existing = await repo.findByIdForUpdate(id, tx);
+        if (!existing)
           throw new AppError(404, "NOT_FOUND", "Time slot not found");
+        const scheduleChanged =
+          (input.startTime !== undefined &&
+            input.startTime !== existing.startTime) ||
+          (input.endTime !== undefined && input.endTime !== existing.endTime) ||
+          (input.categoryId !== undefined &&
+            input.categoryId !== existing.categoryId);
+        if (existing.bookedCount > 0 && scheduleChanged) {
+          throw new AppError(
+            409,
+            "SLOT_IMMUTABLE",
+            "A reserved slot's time and category cannot change; close it and create a replacement",
+          );
         }
-        if (input.capacity < existing.bookedCount) {
+        const capacity = input.capacity ?? existing.capacity;
+        if (!Number.isInteger(capacity) || capacity < 1) {
           throw new AppError(
             400,
             "VALIDATION_ERROR",
-            `Capacity (${input.capacity}) cannot be less than already booked count (${existing.bookedCount})`,
+            "capacity must be a positive integer",
           );
         }
-      }
-      const row = await repo.update(id, input);
-      if (!row) {
-        throw new AppError(404, "NOT_FOUND", "Time slot not found");
-      }
+        if (capacity < existing.bookedCount) {
+          throw new AppError(
+            409,
+            "CAPACITY_CONFLICT",
+            "Capacity cannot be less than the already booked count",
+          );
+        }
+        if (scheduleChanged) {
+          const candidate = {
+            date: dateValue(existing.date),
+            startTime: input.startTime ?? existing.startTime,
+            endTime: input.endTime ?? existing.endTime,
+            capacity,
+            categoryId:
+              input.categoryId === undefined
+                ? existing.categoryId
+                : input.categoryId,
+          };
+          assertSlotAllowed(candidate, now());
+          await repo.acquireScheduleLocks(
+            [
+              { date: candidate.date, categoryId: existing.categoryId },
+              { date: candidate.date, categoryId: candidate.categoryId },
+            ],
+            tx,
+          );
+          if (await repo.findOverlapping({ ...candidate, excludeId: id }, tx)) {
+            throw overlapError();
+          }
+        }
+        return repo.update(id, input, tx);
+      });
+      if (!row) throw new AppError(404, "NOT_FOUND", "Time slot not found");
       return mapSlot(row);
     },
 
-    async remove(id: string): Promise<{ id: string }> {
-      const row = await repo.delete(id);
-      if (!row) {
-        throw new AppError(404, "NOT_FOUND", "Time slot not found");
+    async remove(id: string) {
+      try {
+        return await db.transaction(async (tx) => {
+          const existing = await repo.findByIdForUpdate(id, tx);
+          if (!existing)
+            throw new AppError(404, "NOT_FOUND", "Time slot not found");
+          if (await repo.hasRequestReferences(id, tx)) {
+            throw new AppError(
+              409,
+              "SLOT_REFERENCED",
+              "This slot has customer requests and cannot be deleted; close it instead",
+            );
+          }
+          const deleted = await repo.delete(id, tx);
+          if (!deleted)
+            throw new AppError(404, "NOT_FOUND", "Time slot not found");
+          return { id: deleted.id };
+        });
+      } catch (error) {
+        if (isForeignKeyViolation(error)) {
+          throw new AppError(
+            409,
+            "SLOT_REFERENCED",
+            "This slot has customer requests and cannot be deleted; close it instead",
+          );
+        }
+        throw error;
       }
-      return { id: row.id };
     },
   };
-}
-
-function validateSlotInput(input: TimeSlotCreateInput) {
-  if (!input.date || !input.startTime || !input.endTime) {
-    throw new AppError(400, "VALIDATION_ERROR", "date, startTime and endTime are required");
-  }
-  if (input.capacity < 1) {
-    throw new AppError(400, "VALIDATION_ERROR", "capacity must be at least 1");
-  }
 }
 
 function buildBatchInputs(options: {
@@ -167,35 +259,57 @@ function buildBatchInputs(options: {
   categoryId?: string | null;
   notes?: string | null;
 }): TimeSlotCreateInput[] {
-  const start = new Date(`${options.startDate}T12:00:00`);
-  const end = new Date(`${options.endDate}T12:00:00`);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+  const start = new Date(`${options.startDate}T00:00:00Z`);
+  const end = new Date(`${options.endDate}T00:00:00Z`);
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    start > end
+  ) {
     throw new AppError(400, "VALIDATION_ERROR", "Invalid date range");
   }
-  if (options.slots.length === 0) {
-    throw new AppError(400, "VALIDATION_ERROR", "At least one slot template is required");
+  if (!options.slots.length) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "At least one slot template is required",
+    );
   }
-
-  const weekdaySet = new Set(options.weekdays);
+  const weekdays = new Set(options.weekdays);
   const inputs: TimeSlotCreateInput[] = [];
-  const cursor = new Date(start);
-
-  while (cursor <= end) {
-    if (weekdaySet.has(cursor.getDay())) {
-      const date = cursor.toISOString().slice(0, 10);
-      for (const slot of options.slots) {
-        inputs.push({
-          date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          capacity: slot.capacity,
-          categoryId: options.categoryId,
-          notes: options.notes,
-        });
-      }
+  for (
+    const cursor = new Date(start);
+    cursor <= end;
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  ) {
+    if (!weekdays.has(cursor.getUTCDay())) continue;
+    for (const slot of options.slots) {
+      inputs.push({
+        ...slot,
+        date: cursor.toISOString().slice(0, 10),
+        categoryId: options.categoryId,
+        notes: options.notes,
+      });
     }
-    cursor.setDate(cursor.getDate() + 1);
   }
-
   return inputs;
+}
+
+function assertNoBatchOverlap(inputs: TimeSlotCreateInput[]): void {
+  const sorted = [...inputs].sort((a, b) =>
+    `${a.date}:${a.categoryId ?? ""}:${a.startTime}`.localeCompare(
+      `${b.date}:${b.categoryId ?? ""}:${b.startTime}`,
+    ),
+  );
+  for (let index = 1; index < sorted.length; index += 1) {
+    const previous = sorted[index - 1];
+    const current = sorted[index];
+    if (
+      previous.date === current.date &&
+      (previous.categoryId ?? null) === (current.categoryId ?? null) &&
+      previous.endTime > current.startTime
+    ) {
+      throw overlapError();
+    }
+  }
 }
