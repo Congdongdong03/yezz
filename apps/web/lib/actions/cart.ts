@@ -1,7 +1,4 @@
-"use server";
-
 import { z } from "zod";
-import { getApiBaseUrl } from "@/lib/api/config";
 
 function cartSchema(locale?: string) {
   const zh = locale?.startsWith("zh") ?? false;
@@ -45,9 +42,12 @@ export async function submitCart(formData: FormData) {
   }
 
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/v1/cart-orders`, {
+    const res = await fetch("/api/backend/v1/cart-orders", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": globalThis.crypto.randomUUID(),
+      },
       body: JSON.stringify({
         name: data.name,
         phone: data.phone,

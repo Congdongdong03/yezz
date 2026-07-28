@@ -6,7 +6,7 @@ describe("authentication cookie options", () => {
     expect(buildAuthCookieOptions(true)).toMatchObject({
       httpOnly: true,
       secure: true,
-      sameSite: "none",
+      sameSite: "lax",
       path: "/",
       maxAge: 86_400,
     });

@@ -1,5 +1,9 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
+import {
+  registerInternalRequestProtection,
+  type InternalRequestEnforcement,
+} from "./lib/internal-request.js";
 import { registerErrorHandler } from "./plugins/error-handler.js";
 import authPlugin from "./plugins/auth.js";
 import dbPlugin from "./plugins/db.js";
@@ -29,6 +33,15 @@ export async function buildApp() {
 
   const allowedOrigins = parseAllowedOrigins();
   const isProduction = process.env.NODE_ENV === "production";
+  const internalRequestEnforcement =
+    process.env.INTERNAL_REQUEST_ENFORCEMENT ?? "log";
+  if (!["log", "require"].includes(internalRequestEnforcement)) {
+    throw new Error("INTERNAL_REQUEST_ENFORCEMENT must be log or require");
+  }
+  registerInternalRequestProtection(app, {
+    enforcement: internalRequestEnforcement as InternalRequestEnforcement,
+    secrets: process.env.WEB_API_SHARED_SECRET?.trim(),
+  });
 
   await app.register(cors, {
     origin(origin, cb) {

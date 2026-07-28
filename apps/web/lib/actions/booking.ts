@@ -1,7 +1,4 @@
-"use server";
-
 import { z } from "zod";
-import { getApiBaseUrl } from "@/lib/api/config";
 
 function bookingSchema(locale?: string) {
   const zh = locale?.startsWith("zh") ?? false;
@@ -35,9 +32,12 @@ export async function submitBooking(formData: FormData) {
   const data = parsed.data;
 
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/v1/bookings`, {
+    const res = await fetch("/api/backend/v1/bookings", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": globalThis.crypto.randomUUID(),
+      },
       body: JSON.stringify({
         name: data.name,
         phone: data.phone,

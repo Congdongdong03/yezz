@@ -21,7 +21,12 @@ import type {
   UploadResult,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+function backendPath(path: string): string {
+  if (!path.startsWith("/api/v1/")) {
+    throw new Error("Admin API paths must start with /api/v1/");
+  }
+  return `/api/backend/v1/${path.slice("/api/v1/".length)}`;
+}
 
 export async function adminFetch<T>(
   path: string,
@@ -30,11 +35,15 @@ export async function adminFetch<T>(
   const { auth = true, ...init } = options;
   const headers = new Headers(init.headers);
 
-  if (init.body && !headers.has("Content-Type")) {
+  if (
+    init.body &&
+    !(init.body instanceof FormData) &&
+    !headers.has("Content-Type")
+  ) {
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(backendPath(path), {
     ...init,
     headers,
     credentials: auth ? "include" : init.credentials,
@@ -141,14 +150,10 @@ export async function updateAdminSettings(
 export async function uploadAdminImage(file: File) {
   const body = new FormData();
   body.append("file", file);
-
-  const res = await fetch(`${API_URL}/api/v1/admin/upload`, {
+  return adminFetch<UploadResult>("/api/v1/admin/upload", {
     method: "POST",
-    credentials: "include",
     body,
   });
-
-  return parseResponse<UploadResult>(res);
 }
 
 export async function getAdminParties() {
