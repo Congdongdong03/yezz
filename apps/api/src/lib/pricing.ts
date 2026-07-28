@@ -1,4 +1,5 @@
 const CURRENCY_SYMBOL: Record<string, string> = {
+  AUD: "$",
   CNY: "¥",
   USD: "$",
   EUR: "€",
@@ -26,13 +27,14 @@ export function formatPriceDisplay(options: {
   currency?: string;
   priceRangeOverride?: string | null;
 }): string | null {
-  const { min, max, currency = "CNY", priceRangeOverride } = options;
+  const { min, max, currency = "AUD", priceRangeOverride } = options;
   if (priceRangeOverride?.trim()) return priceRangeOverride.trim();
 
   const symbol = currencySymbol(currency);
   if (min == null && max == null) return null;
   if (min != null && max != null && min !== max) {
-    return `${symbol}${formatAmount(min)} - ${symbol}${formatAmount(max)}`;
+    const separator = currency === "AUD" ? "–" : " - ";
+    return `${symbol}${formatAmount(min)}${separator}${symbol}${formatAmount(max)}`;
   }
   const value = min ?? max;
   if (value == null) return null;
@@ -41,7 +43,7 @@ export function formatPriceDisplay(options: {
 
 export function formatStylePrice(
   price: string | null | undefined,
-  currency = "CNY",
+  currency = "AUD",
 ): string | null {
   if (!price?.trim()) return null;
   const trimmed = price.trim();
@@ -61,7 +63,7 @@ export function resolveProjectPricing(project: {
   priceMax: number | null;
   priceCurrency: string | null;
 }) {
-  const currency = project.priceCurrency ?? "CNY";
+  const currency = project.priceCurrency ?? "AUD";
   let min = project.priceMin;
   let max = project.priceMax;
   if (min == null && max == null && project.priceRange) {

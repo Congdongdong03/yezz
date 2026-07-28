@@ -63,20 +63,22 @@ async function seedSettingsIfEmpty() {
   const [settingsRow] = await db.select({ id: siteSettings.id }).from(siteSettings).limit(1);
   if (!settingsRow) {
     await db.insert(siteSettings).values({
-      storeName: "YEZZ DIY Studio",
-      address: "上海市静安区创意路 88 号 YEZZ 工作室",
-      businessHours: "每日 10:00 – 21:00",
-      phone: "+86 138 0000 0000",
-      email: "hello@yezz.studio",
-      wechatId: "yezz_studio",
-      wechatQrUrl: "https://picsum.photos/seed/yezz-wechat-qr/400/400",
-      heroImageUrl: "https://picsum.photos/seed/yezz-hero/1920/1080",
-      instagram: "https://instagram.com/yezzstudio",
-      xiaohongshu: "https://xiaohongshu.com/user/yezz",
-      googleMapUrl: "https://maps.google.com/?q=YEZZ+DIY+Studio",
-      seoTitle: "YEZZ DIY Studio — Create Your Own Masterpiece",
+      storeName: "YezYY",
+      address: "G082/235 Springvale Rd, Glen Waverley VIC 3150",
+      businessHours:
+        "Monday 9:30 am–5:00 pm; Tuesday 9:30 am–5:00 pm; Wednesday 9:30 am–5:00 pm; Thursday 9:30 am–8:30 pm; Friday 9:30 am–8:30 pm; Saturday 9:30 am–5:30 pm; Sunday 10:00 am–5:00 pm",
+      phone: "0430 787 712",
+      email: "izzybella.chen@gmail.com",
+      wechatId: null,
+      wechatQrUrl: null,
+      heroImageUrl: null,
+      instagram: null,
+      xiaohongshu: "95848743904",
+      googleMapUrl:
+        "https://www.google.com/maps/search/?api=1&query=G082%2F235%20Springvale%20Rd%2C%20Glen%20Waverley%20VIC%203150",
+      seoTitle: "YezYY",
       seoDescription:
-        "A cozy DIY studio for dates, birthdays, and gatherings. Book your creative experience today.",
+        "A DIY studio in Glen Waverley for creative experiences, dates, birthdays, and gatherings.",
     });
     console.log("Seeded site settings");
   }
@@ -190,7 +192,7 @@ async function seed() {
         priceRange: project.priceRange ?? null,
         priceMin: pricing.min,
         priceMax: pricing.max,
-        priceCurrency: "CNY",
+        priceCurrency: "AUD",
         duration: project.duration ?? null,
         tags: project.tags ?? [],
         sortOrder: project.order ?? 0,

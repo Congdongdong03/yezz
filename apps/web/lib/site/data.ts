@@ -13,20 +13,21 @@ import {
   mapProjectListItemFromApi,
   mapSiteSettingsFromApi,
 } from "@/lib/api/mappers";
+import { YEZYY_BUSINESS_PROFILE, formatBusinessHours } from "./business";
 
-/** Minimal branding when API is enabled but unreachable — no fake contact info. */
+/** Approved public fallback when API is enabled but unreachable. */
 const minimalSiteSettings: SiteSettingsView = {
-  storeName: "YEZZ",
-  address: undefined,
-  businessHours: undefined,
-  phone: undefined,
-  email: undefined,
+  storeName: YEZYY_BUSINESS_PROFILE.storeName,
+  address: YEZYY_BUSINESS_PROFILE.address,
+  businessHours: formatBusinessHours("en"),
+  phone: YEZYY_BUSINESS_PROFILE.phone,
+  email: YEZYY_BUSINESS_PROFILE.email,
   wechatId: undefined,
   wechatQrCodeUrl: undefined,
   heroImageUrl: undefined,
   instagram: undefined,
-  xiaohongshu: undefined,
-  googleMapUrl: undefined,
+  xiaohongshu: YEZYY_BUSINESS_PROFILE.xiaohongshu,
+  googleMapUrl: YEZYY_BUSINESS_PROFILE.googleMapUrl,
   seoTitle: undefined,
   seoDescription: undefined,
 };

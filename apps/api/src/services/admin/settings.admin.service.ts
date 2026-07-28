@@ -37,12 +37,16 @@ export function createAdminSettingsService(db: Db, redis: Redis | null = null) {
       let row = await repo.findSingleton();
       if (!row) {
         row = await repo.upsertSingleton({
-          storeName: "YEZZ DIY Studio",
-          address: "上海市静安区创意路 88 号 YEZZ 工作室",
-          businessHours: "每日 10:00 – 21:00",
-          phone: "+86 138 0000 0000",
-          email: "hello@yezz.studio",
-          wechatId: "yezz_studio",
+          storeName: "YezYY",
+          address: "G082/235 Springvale Rd, Glen Waverley VIC 3150",
+          businessHours:
+            "Monday 9:30 am–5:00 pm; Tuesday 9:30 am–5:00 pm; Wednesday 9:30 am–5:00 pm; Thursday 9:30 am–8:30 pm; Friday 9:30 am–8:30 pm; Saturday 9:30 am–5:30 pm; Sunday 10:00 am–5:00 pm",
+          phone: "0430 787 712",
+          email: "izzybella.chen@gmail.com",
+          wechatId: null,
+          xiaohongshu: "95848743904",
+          googleMapUrl:
+            "https://www.google.com/maps/search/?api=1&query=G082%2F235%20Springvale%20Rd%2C%20Glen%20Waverley%20VIC%203150",
         });
         if (!row) {
           throw new AppError(500, "INTERNAL_ERROR", "Failed to initialize site settings");

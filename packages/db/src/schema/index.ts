@@ -55,7 +55,7 @@ export const diyProjects = pgTable("diy_projects", {
   priceRange: varchar("price_range", { length: 64 }),
   priceMin: integer("price_min"),
   priceMax: integer("price_max"),
-  priceCurrency: varchar("price_currency", { length: 10 }).default("CNY"),
+  priceCurrency: varchar("price_currency", { length: 10 }).default("AUD"),
   duration: varchar("duration", { length: 64 }),
   tags: text("tags").array(),
   sortOrder: integer("sort_order").notNull().default(0),

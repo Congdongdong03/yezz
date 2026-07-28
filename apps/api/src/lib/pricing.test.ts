@@ -29,4 +29,19 @@ describe("pricing helpers", () => {
   it("formats numeric style prices with currency", () => {
     expect(formatStylePrice("128", "CNY")).toBe("¥128");
   });
+
+  it("defaults a numeric range to AUD", () => {
+    expect(formatPriceDisplay({ min: 45, max: 65 })).toBe("$45–$65");
+  });
+
+  it("defaults a project without a currency to AUD", () => {
+    expect(
+      resolveProjectPricing({
+        priceMin: 45,
+        priceMax: 45,
+        priceRange: null,
+        priceCurrency: null,
+      }).priceDisplay,
+    ).toBe("$45");
+  });
 });
