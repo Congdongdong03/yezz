@@ -164,7 +164,7 @@ describe("authRoutes durable rate limits", () => {
     }
   });
 
-  it("emits the IP bucket metadata when its successful quota is tighter", async () => {
+  it("emits the IP bucket when it has fewer successful requests remaining", async () => {
     const app = Fastify();
     app.decorateRequest("verifiedClientIdentity", null);
     app.addHook("onRequest", async (request) => {
@@ -180,7 +180,7 @@ describe("authRoutes durable rate limits", () => {
         async consume(scope: string) {
           return scope === "login-ip-email"
             ? rateLimitResult(true, 5, 4, undefined, 60)
-            : rateLimitResult(true, 30, 2, undefined, 45);
+            : rateLimitResult(true, 30, 3, undefined, 45);
         },
       },
       auth: {
@@ -202,14 +202,14 @@ describe("authRoutes durable rate limits", () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.headers["ratelimit-limit"]).toBe("30");
-      expect(response.headers["ratelimit-remaining"]).toBe("2");
+      expect(response.headers["ratelimit-remaining"]).toBe("3");
       expect(response.headers["ratelimit-reset"]).toBe("45");
     } finally {
       await app.close();
     }
   });
 
-  it("emits the email bucket metadata when its successful quota is tighter", async () => {
+  it("uses absolute remaining when percentage and request count disagree", async () => {
     const app = Fastify();
     app.decorateRequest("verifiedClientIdentity", null);
     app.addHook("onRequest", async (request) => {
@@ -224,8 +224,8 @@ describe("authRoutes durable rate limits", () => {
       rateLimits: {
         async consume(scope: string) {
           return scope === "login-ip-email"
-            ? rateLimitResult(true, 5, 1, undefined, 50)
-            : rateLimitResult(true, 30, 20, undefined, 40);
+            ? rateLimitResult(true, 5, 4, undefined, 60)
+            : rateLimitResult(true, 30, 5, undefined, 40);
         },
       },
       auth: {
@@ -247,14 +247,14 @@ describe("authRoutes durable rate limits", () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.headers["ratelimit-limit"]).toBe("5");
-      expect(response.headers["ratelimit-remaining"]).toBe("1");
-      expect(response.headers["ratelimit-reset"]).toBe("50");
+      expect(response.headers["ratelimit-remaining"]).toBe("4");
+      expect(response.headers["ratelimit-reset"]).toBe("60");
     } finally {
       await app.close();
     }
   });
 
-  it("uses the later reset as the deterministic tie-breaker", async () => {
+  it("uses the earlier reset when successful remaining counts tie", async () => {
     const app = Fastify();
     app.decorateRequest("verifiedClientIdentity", null);
     app.addHook("onRequest", async (request) => {
@@ -269,8 +269,8 @@ describe("authRoutes durable rate limits", () => {
       rateLimits: {
         async consume(scope: string) {
           return scope === "login-ip-email"
-            ? rateLimitResult(true, 5, 4, undefined, 60)
-            : rateLimitResult(true, 30, 24, undefined, 120);
+            ? rateLimitResult(true, 5, 4, undefined, 45)
+            : rateLimitResult(true, 30, 4, undefined, 120);
         },
       },
       auth: {
@@ -291,8 +291,54 @@ describe("authRoutes durable rate limits", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(response.headers["ratelimit-limit"]).toBe("30");
-      expect(response.headers["ratelimit-reset"]).toBe("120");
+      expect(response.headers["ratelimit-limit"]).toBe("5");
+      expect(response.headers["ratelimit-remaining"]).toBe("4");
+      expect(response.headers["ratelimit-reset"]).toBe("45");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("uses the lower limit when remaining count and reset both tie", async () => {
+    const app = Fastify();
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = {
+        clientIp: "203.0.113.12",
+        requestId: "00000000-0000-4000-8000-000000000001",
+        timestamp: 1_785_200_000,
+        idempotencyKey: null,
+      };
+    });
+    app.decorate("services", {
+      rateLimits: {
+        async consume(scope: string) {
+          return scope === "login-ip-email"
+            ? rateLimitResult(true, 5, 4, undefined, 60)
+            : rateLimitResult(true, 30, 4, undefined, 60);
+        },
+      },
+      auth: {
+        async login() {
+          return { token: "token", user: { id: "user-1" } };
+        },
+      },
+    } as never);
+    app.decorate("jwt", { sign: vi.fn(() => "token") } as never);
+    await app.register(cookie);
+    await app.register(authRoutes, { prefix: "/auth" });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/auth/login",
+        payload: { email: "alice@example.com", password: "password" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.headers["ratelimit-limit"]).toBe("5");
+      expect(response.headers["ratelimit-remaining"]).toBe("4");
+      expect(response.headers["ratelimit-reset"]).toBe("60");
     } finally {
       await app.close();
     }

@@ -21,9 +21,8 @@
 - Canonicalized verified IPv4/IPv6 identities before hashing.
 - Booking and cart-order creation use verified signed client IPs at five/hour.
 - Login consumes both `login-ip-email` at five/hour and `login-ip` at
-  thirty/hour. Successful responses emit the quota with the smallest remaining
-  fraction; equal fractions use the later reset as the deterministic
-  tie-breaker.
+  thirty/hour. Successful responses emit the quota with the fewest absolute
+  requests remaining; ties use the earlier reset and then the lower limit.
 - Admin read/write/upload limits use the authenticated user ID; production
   upload routing is verified under the full `/api/v1/admin/upload` prefix.
 - Removed Redis/process-local request limiting.
@@ -54,14 +53,15 @@ Red tests were observed before implementation for:
 - bounded maintenance batches, non-overlap, error isolation, and shutdown
   draining;
 - maintenance remains schedulable when its error reporter itself fails;
-- controlling login metadata for tighter IP, tighter email, and equal-fraction
-  reset ties, plus the longer retry delay when both buckets deny.
+- controlling login metadata for lower absolute remaining counts, including
+  percentage/count disagreement, inverse ordering, earlier-reset and
+  lower-limit ties, plus the longer retry delay when both buckets deny.
 
 ## Verification
 
 - `corepack pnpm --filter @yezz/api test`
   - 20 files passed, 2 gated files skipped.
-  - 120 tests passed, 18 gated tests skipped.
+  - 121 tests passed, 18 gated tests skipped.
 - `TEST_DATABASE_URL=<local-test-db> corepack pnpm test:rate-limits:db`
   - 1 file passed, 6 PostgreSQL tests passed.
   - Covers exactly five of eight concurrent consumptions, subject isolation,
@@ -92,6 +92,10 @@ The second-round independent review found no critical or important issue. Its
 two low-severity observations were also resolved: maintenance now clears its
 single-flight latch even if error reporting throws, and dual-denial selection
 has a direct longest-retry regression test.
+
+A final scoped review then identified that successful dual-policy metadata must
+represent the lower absolute remaining request count, not the lower percentage.
+The selector and disagreement/inverse/tie regressions now enforce that policy.
 
 ## Integration note
 

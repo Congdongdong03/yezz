@@ -27,12 +27,11 @@ function compareControllingLimit(
       (left.retryAfter ?? left.resetAfter);
     if (retryDifference !== 0) return retryDifference;
   } else {
-    const remainingRatioDifference =
-      left.remaining * right.limit - right.remaining * left.limit;
-    if (remainingRatioDifference !== 0) return remainingRatioDifference;
+    const remainingDifference = left.remaining - right.remaining;
+    if (remainingDifference !== 0) return remainingDifference;
   }
 
-  const resetDifference = right.resetAfter - left.resetAfter;
+  const resetDifference = left.resetAfter - right.resetAfter;
   if (resetDifference !== 0) return resetDifference;
   return left.limit - right.limit;
 }
