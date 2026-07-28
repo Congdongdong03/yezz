@@ -321,7 +321,6 @@ export async function sendStaffWelcomeEmail(options: {
   to: string;
   name: string;
   email: string;
-  password: string;
   role: string;
 }): Promise<void> {
   const subject = "YezYY Admin — Your Account / 账号已开通";
@@ -333,10 +332,10 @@ export async function sendStaffWelcomeEmail(options: {
     </p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
       ${infoRow("Email / 邮箱", escapeHtml(options.email))}
-      ${infoRow("Password / 初始密码", escapeHtml(options.password))}
       ${infoRow("Role / 角色", escapeHtml(options.role))}
     </table>
-    <p style="margin-top:24px;color:#E07070;font-size:13px;">⚠ Please change your password immediately after first login. / 请登录后立即修改密码。</p>
+    <p style="margin-top:24px;color:#5C5C5C;font-size:13px;">Your YezYY Admin account is ready.</p>
+    <p style="color:#5C5C5C;font-size:13px;">Please obtain your temporary password from your administrator, then change it after signing in.<br/>请向管理员安全地获取临时密码，并在登录后立即修改。</p>
   `;
   await sendCustomerTemplatedEmail(options.to, subject, body);
 }

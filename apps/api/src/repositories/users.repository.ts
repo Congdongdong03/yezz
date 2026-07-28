@@ -34,6 +34,21 @@ export function createUsersRepository(db: Db) {
       return row ?? null;
     },
 
+    async findByIdWithPasswordHash(id: string) {
+      const [row] = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          passwordHash: users.passwordHash,
+          name: users.name,
+          role: users.role,
+        })
+        .from(users)
+        .where(eq(users.id, id))
+        .limit(1);
+      return row ?? null;
+    },
+
     findAllOrdered() {
       return db
         .select({

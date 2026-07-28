@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
   { href: "/admin/categories", label: "分类", adminOnly: true },
   { href: "/admin/settings", label: "站点设置", adminOnly: true },
   { href: "/admin/users", label: "用户", adminOnly: true },
+  { href: "/admin/account", label: "账户" },
 ];
 
 const STAFF_BLOCKED_PREFIXES = [

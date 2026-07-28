@@ -114,7 +114,7 @@ export default function AdminUsersPage() {
       {createdPassword && (
         <AlertBanner
           type="success"
-          message={`初始密码：${createdPassword}（已尝试发送至用户邮箱）`}
+          message={`初始密码：${createdPassword}。请立即复制，并通过安全方式交给用户；密码不会发送到邮箱。`}
           onDismiss={() => setCreatedPassword(null)}
         />
       )}
@@ -122,7 +122,7 @@ export default function AdminUsersPage() {
       {resetPassword && (
         <AlertBanner
           type="success"
-          message={`新密码：${resetPassword}（已尝试发送至用户邮箱）`}
+          message={`新密码：${resetPassword}。请立即复制，并通过安全方式交给用户；密码不会发送到邮箱。`}
           onDismiss={() => setResetPassword(null)}
         />
       )}
@@ -167,7 +167,8 @@ export default function AdminUsersPage() {
           <Label htmlFor="password">初始密码（留空自动生成）</Label>
           <Input
             id="password"
-            type="text"
+            type="password"
+            minLength={12}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />

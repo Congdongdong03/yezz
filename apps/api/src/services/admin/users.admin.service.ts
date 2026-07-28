@@ -42,7 +42,7 @@ export function createAdminUsersService(db: Db) {
       name: string;
       role: UserRole;
       password?: string;
-    }): Promise<{ user: AdminUserDto }> {
+    }): Promise<{ user: AdminUserDto; initialPassword: string }> {
       if (!input.email?.trim() || !input.name?.trim()) {
         throw new AppError(400, "VALIDATION_ERROR", "email and name are required");
       }
@@ -56,6 +56,9 @@ export function createAdminUsersService(db: Db) {
       }
 
       const initialPassword = input.password?.trim() || generatePassword();
+      if (initialPassword.length < 12) {
+        throw new AppError(400, "VALIDATION_ERROR", "Password must be at least 12 characters");
+      }
       const passwordHash = await bcrypt.hash(initialPassword, 10);
       const row = await repo.create({
         email: input.email,
@@ -69,7 +72,6 @@ export function createAdminUsersService(db: Db) {
           to: row.email,
           name: row.name,
           email: row.email,
-          password: initialPassword,
           role: row.role,
         });
       } catch (error) {
@@ -84,6 +86,7 @@ export function createAdminUsersService(db: Db) {
           role: row.role,
           createdAt: row.createdAt,
         },
+        initialPassword,
       };
     },
 
@@ -132,7 +135,7 @@ export function createAdminUsersService(db: Db) {
       };
     },
 
-    async resetPassword(id: string): Promise<{ user: AdminUserDto }> {
+    async resetPassword(id: string): Promise<{ user: AdminUserDto; newPassword: string }> {
       const existing = await repo.findById(id);
       if (!existing) {
         throw new AppError(404, "NOT_FOUND", "User not found");
@@ -151,7 +154,6 @@ export function createAdminUsersService(db: Db) {
           to: row.email,
           name: row.name,
           email: row.email,
-          password: newPassword,
           role: row.role,
         });
       } catch (error) {
@@ -166,7 +168,36 @@ export function createAdminUsersService(db: Db) {
           role: row.role,
           createdAt: row.createdAt,
         },
+        newPassword,
       };
+    },
+
+    async changePassword(
+      userId: string,
+      currentPassword: string,
+      newPassword: string,
+    ): Promise<{ ok: true }> {
+      if (!currentPassword || !newPassword || newPassword.length < 12) {
+        throw new AppError(400, "VALIDATION_ERROR", "New password must be at least 12 characters");
+      }
+
+      const user = await repo.findByIdWithPasswordHash(userId);
+      if (!user) {
+        throw new AppError(404, "NOT_FOUND", "User not found");
+      }
+
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) {
+        throw new AppError(400, "INVALID_CREDENTIALS", "Current password is incorrect");
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      const row = await repo.update(userId, { passwordHash });
+      if (!row) {
+        throw new AppError(500, "INTERNAL_ERROR", "Failed to change password");
+      }
+
+      return { ok: true };
     },
 
     async remove(id: string, currentUserId: string): Promise<{ id: string }> {

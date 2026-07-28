@@ -36,6 +36,43 @@ describe("email helpers", () => {
   });
 });
 
+describe("staff credential emails", () => {
+  beforeEach(() => {
+    sentEmails.length = 0;
+    vi.resetModules();
+    process.env.NODE_ENV = "test";
+    process.env.RESEND_API_KEY = "test-resend-key";
+    process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
+    process.env.EMAIL_REPLY_TO = "congdongdong03@gmail.com";
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(originalEnvironment)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  });
+
+  it("does not send a plaintext temporary password by email", async () => {
+    const { sendStaffWelcomeEmail } = await import("./email.js");
+
+    await sendStaffWelcomeEmail({
+      to: "staff@example.com",
+      name: "Staff",
+      email: "staff@example.com",
+      role: "staff",
+    });
+
+    const sentEmail = sentEmails[0] as { html: string };
+    expect(sentEmail.html).toContain("obtain your temporary password from your administrator");
+    expect(sentEmail.html).not.toContain("SafeTemporary42!");
+    expect(sentEmail.html).not.toContain("Password / 初始密码");
+  });
+});
+
 describe("booking request acknowledgement email", () => {
   beforeEach(() => {
     sentEmails.length = 0;

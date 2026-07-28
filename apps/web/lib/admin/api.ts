@@ -10,6 +10,7 @@ import type {
   Booking,
   CartOrder,
   AdminUser,
+  PasswordChangeInput,
   TimeSlot,
   UnreadCounts,
   PartyFormInput,
@@ -60,6 +61,13 @@ export async function logout() {
 
 export async function getMe() {
   return adminFetch<AuthUser>("/api/v1/admin/me");
+}
+
+export async function changeMyPassword(data: PasswordChangeInput) {
+  return adminFetch<{ ok: true }>("/api/v1/admin/me/password", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function getAdminProjects() {

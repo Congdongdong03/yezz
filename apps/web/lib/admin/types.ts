@@ -162,6 +162,11 @@ export type AdminUser = {
   createdAt: string;
 };
 
+export type PasswordChangeInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 export type TimeSlot = {
   id: string;
   date: string;
