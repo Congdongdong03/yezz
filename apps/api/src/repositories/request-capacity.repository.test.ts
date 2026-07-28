@@ -142,7 +142,23 @@ describe.skipIf(!runDatabaseTests)(
           sent_at timestamptz,
           created_at timestamptz NOT NULL DEFAULT now(),
           updated_at timestamptz NOT NULL DEFAULT now()
-        )
+        );
+        CREATE TABLE "${schema}".admin_request_reads (
+          user_id uuid NOT NULL
+            REFERENCES "${schema}".users(id) ON DELETE CASCADE,
+          booking_id uuid
+            REFERENCES "${schema}".bookings(id) ON DELETE CASCADE,
+          cart_order_id uuid
+            REFERENCES "${schema}".cart_orders(id) ON DELETE CASCADE,
+          read_at timestamptz NOT NULL DEFAULT now(),
+          CHECK (num_nonnulls(booking_id, cart_order_id) = 1)
+        );
+        CREATE UNIQUE INDEX admin_request_reads_booking_unique
+          ON "${schema}".admin_request_reads (user_id, booking_id)
+          WHERE booking_id IS NOT NULL;
+        CREATE UNIQUE INDEX admin_request_reads_cart_order_unique
+          ON "${schema}".admin_request_reads (user_id, cart_order_id)
+          WHERE cart_order_id IS NOT NULL
       `);
       connection = createDb(withSearchPath(url, schema));
     });
