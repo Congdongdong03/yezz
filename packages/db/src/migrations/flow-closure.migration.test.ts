@@ -454,6 +454,7 @@ describe.skipIf(!runDatabaseTests)(
         client`
           INSERT INTO email_outbox (
             dedupe_key,
+            booking_id,
             message_type,
             recipient,
             locale,
@@ -462,6 +463,7 @@ describe.skipIf(!runDatabaseTests)(
           )
           VALUES (
             'invalid-status',
+            ${legacyBooking.id},
             'request_received',
             'customer@example.test',
             'en',
@@ -469,7 +471,10 @@ describe.skipIf(!runDatabaseTests)(
             'not-a-status'
           )
         `,
-      ).rejects.toMatchObject({ code: "23514" });
+      ).rejects.toMatchObject({
+        code: "23514",
+        constraint_name: "email_outbox_delivery_status_valid",
+      });
     });
 
     it("backfills exact legacy slot snapshots without inventing missing times or rewriting explicit CNY", async () => {
