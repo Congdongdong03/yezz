@@ -182,7 +182,7 @@ export default function AdminBookingsPage() {
                 <th className="px-4 py-3 font-medium">提交时间</th>
                 <th className="px-4 py-3 font-medium">姓名</th>
                 <th className="px-4 py-3 font-medium">电话</th>
-                <th className="px-4 py-3 font-medium">体验项目</th>
+                <th className="px-4 py-3 font-medium">预约内容</th>
                 <th className="px-4 py-3 font-medium">预约时段</th>
                 <th className="px-4 py-3 font-medium">人数</th>
                 <th className="px-4 py-3 font-medium">状态</th>
@@ -214,11 +214,22 @@ export default function AdminBookingsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
+                    <span
+                      className={`mb-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        booking.kind === "party"
+                          ? "bg-soft-pink/30 text-warm-charcoal"
+                          : "bg-sage/20 text-warm-charcoal"
+                      }`}
+                    >
+                      {booking.kind === "party" ? "聚会预约" : "体验预约"}
+                    </span>
                     <span className="font-medium">
+                      <span className="block">
                       {booking.offering?.name?.zh ??
                         booking.offering?.name?.en ??
                         booking.interestedProject ??
                         "资料不完整"}
+                      </span>
                     </span>
                     {booking.offering?.price && (
                       <span className="block text-xs text-muted-foreground">

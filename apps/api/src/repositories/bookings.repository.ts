@@ -4,10 +4,7 @@ import { lockPublicCreateAttempt } from "../lib/public-create-idempotency.js";
 
 export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
 
-export type BookingCreateInput = {
-  kind?: "experience" | "party";
-  projectId?: string | null;
-  partyPackageId?: string | null;
+type BookingContactInput = {
   name: string;
   phone: string;
   wechat?: string | null;
@@ -21,7 +18,24 @@ export type BookingCreateInput = {
   timeSlotId?: string | null;
 };
 
-export type BookingInsertInput = BookingCreateInput & {
+export type ExperienceBookingCreateInput = BookingContactInput & {
+  kind?: "experience";
+  projectId?: string | null;
+  partyPackageId?: null;
+};
+
+export type PartyBookingCreateInput = BookingContactInput & {
+  kind: "party";
+  projectId?: null;
+  partyPackageId?: string | null;
+};
+
+export type BookingCreateInput =
+  | ExperienceBookingCreateInput
+  | PartyBookingCreateInput;
+
+export type BookingInsertInput = BookingContactInput & {
+  kind: "experience" | "party";
   requestKind: "experience" | "party";
   projectId: string | null;
   partyPackageId: string | null;

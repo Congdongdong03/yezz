@@ -64,6 +64,8 @@ export default async function PartiesPage({
                   description?: Record<string, string>;
                   includes?: Record<string, string>[];
                   priceIndicator?: string;
+                  minPeople: number;
+                  maxPeople: number;
                 },
                 index: number,
               ) => (
@@ -105,7 +107,19 @@ export default async function PartiesPage({
                     {party.priceIndicator && (
                       <p className="mt-4 font-medium text-caramel">{party.priceIndicator}</p>
                     )}
-                    <PartyInquiryCTA wechatId={settings.wechatId} />
+                    <PartyInquiryCTA
+                      party={{
+                        id: party._id,
+                        name: {
+                          en: party.name.en,
+                          zh: party.name.zh,
+                        },
+                        minPeople: party.minPeople,
+                        maxPeople: party.maxPeople,
+                        priceIndicator: party.priceIndicator,
+                      }}
+                      wechatId={settings.wechatId}
+                    />
                   </div>
                 </div>
               ),

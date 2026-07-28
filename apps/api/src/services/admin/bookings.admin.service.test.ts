@@ -2,6 +2,7 @@ import {
   bookings,
   diyProjects,
   emailOutbox,
+  partyPackages,
   projectCategories,
   requestStatusEvents,
   timeSlots,
@@ -126,6 +127,87 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
           actor: { id: actorId, name: "值班员工" },
         },
       ],
+    });
+  });
+
+  it("returns exact party kind, package, contact, slot, and delivery state", async () => {
+    const packageId = crypto.randomUUID();
+    const slotId = crypto.randomUUID();
+    const bookingId = crypto.randomUUID();
+    await database.connection.db.insert(partyPackages).values({
+      id: packageId,
+      name: { en: "Studio Party Test Package", zh: "工作室派对测试套餐" },
+      slug: `studio-party-${packageId}`,
+      minPeople: 4,
+      maxPeople: 12,
+      priceIndicator: "A$ test fixture",
+    });
+    await database.connection.db.insert(timeSlots).values({
+      id: slotId,
+      date: "2030-08-13",
+      startTime: "12:00",
+      endTime: "13:30",
+      capacity: 12,
+      bookedCount: 8,
+    });
+    await database.connection.db.insert(bookings).values({
+      id: bookingId,
+      requestKind: "party",
+      partyPackageId: packageId,
+      name: "Mei",
+      phone: "0430000001",
+      email: "mei@example.com",
+      numberOfPeople: 8,
+      preferredDate: "2030-08-13",
+      timeSlotId: slotId,
+      offeringNameSnapshot: {
+        en: "Studio Party Test Package",
+        zh: "工作室派对测试套餐",
+      },
+      offeringPriceSnapshot: "A$ test fixture",
+      slotDate: "2030-08-13",
+      slotStartTime: "12:00",
+      slotEndTime: "13:30",
+      status: "confirmed",
+    });
+    await database.connection.db.insert(emailOutbox).values({
+      bookingId,
+      dedupeKey: `booking:${bookingId}:received:customer`,
+      messageType: "booking_received_customer",
+      recipient: "mei@example.com",
+      locale: "zh",
+      payload: {},
+      deliveryStatus: "pending",
+    });
+
+    await expect(
+      createAdminBookingsService(database.connection.db).getById(bookingId),
+    ).resolves.toMatchObject({
+      kind: "party",
+      name: "Mei",
+      phone: "0430000001",
+      email: "mei@example.com",
+      numberOfPeople: 8,
+      status: "confirmed",
+      offering: {
+        id: packageId,
+        name: {
+          en: "Studio Party Test Package",
+          zh: "工作室派对测试套餐",
+        },
+        price: "A$ test fixture",
+      },
+      slot: {
+        id: slotId,
+        date: "2030-08-13",
+        startTime: "12:00",
+        endTime: "13:30",
+        timeZone: "Australia/Melbourne",
+      },
+      notificationSummary: {
+        latestStatus: "pending",
+        failedCount: 0,
+      },
     });
   });
 });

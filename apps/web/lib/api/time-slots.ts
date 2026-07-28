@@ -31,17 +31,23 @@ async function fetchApi<T>(path: string): Promise<T> {
   return json.data;
 }
 
-export function fetchMonthAvailability(year: number, month: number, categoryId?: string) {
+export function fetchMonthAvailability(
+  year: number,
+  month: number,
+  categoryId?: string | null,
+) {
   const params = new URLSearchParams({
     year: String(year),
     month: String(month),
   });
-  if (categoryId) params.set("categoryId", categoryId);
+  if (categoryId === null) params.set("scope", "global");
+  else if (categoryId) params.set("categoryId", categoryId);
   return fetchApi<MonthAvailability>(`/api/v1/time-slots?${params}`);
 }
 
-export function fetchDaySlots(date: string, categoryId?: string) {
+export function fetchDaySlots(date: string, categoryId?: string | null) {
   const params = new URLSearchParams({ date });
-  if (categoryId) params.set("categoryId", categoryId);
+  if (categoryId === null) params.set("scope", "global");
+  else if (categoryId) params.set("categoryId", categoryId);
   return fetchApi<DaySlots>(`/api/v1/time-slots?${params}`);
 }

@@ -2,12 +2,14 @@ import {
   bookings,
   diyProjects,
   emailOutbox,
+  partyPackages,
   projectCategories,
   timeSlots,
 } from "@yezz/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AppError } from "../lib/errors.js";
+import { createTimeSlotsRepository } from "../repositories/time-slots.repository.js";
 import {
   createBookingsService,
   buildBookingEmailHtml,
@@ -70,7 +72,9 @@ describe.skipIf(!runDatabaseTests)(
   () => {
     let database: RequestFlowTestDatabase;
     let projectId: string;
+    let partyPackageId: string;
     let slotId: string;
+    let partySlotId: string;
     let categoryId: string;
     const previousOwnerEmail = process.env.OWNER_EMAIL;
 
@@ -79,7 +83,9 @@ describe.skipIf(!runDatabaseTests)(
       process.env.OWNER_EMAIL = "owner@example.com";
       categoryId = crypto.randomUUID();
       projectId = crypto.randomUUID();
+      partyPackageId = crypto.randomUUID();
       slotId = crypto.randomUUID();
+      partySlotId = crypto.randomUUID();
       await database.connection.db.insert(projectCategories).values({
         id: categoryId,
         name: { en: "Experiences", zh: "体验" },
@@ -94,6 +100,14 @@ describe.skipIf(!runDatabaseTests)(
         priceRange: "From $43",
         priceCurrency: "AUD",
       });
+      await database.connection.db.insert(partyPackages).values({
+        id: partyPackageId,
+        name: { en: "Studio Party Test Package", zh: "工作室派对测试套餐" },
+        slug: `studio-party-${partyPackageId}`,
+        minPeople: 4,
+        maxPeople: 12,
+        priceIndicator: "A$ test fixture",
+      });
       await database.connection.db.insert(timeSlots).values({
         id: slotId,
         date: "2030-08-12",
@@ -101,6 +115,14 @@ describe.skipIf(!runDatabaseTests)(
         endTime: "11:00",
         capacity: 4,
         categoryId,
+      });
+      await database.connection.db.insert(timeSlots).values({
+        id: partySlotId,
+        date: "2030-08-12",
+        startTime: "12:00",
+        endTime: "13:30",
+        capacity: 12,
+        categoryId: null,
       });
     });
 
@@ -122,6 +144,30 @@ describe.skipIf(!runDatabaseTests)(
         email: "alice@example.com",
         locale: "en",
         interestedProject: "Spoofed display label",
+      };
+    }
+
+    function validParty(
+      overrides: Partial<{
+        partyPackageId: string;
+        timeSlotId: string;
+        preferredDate: string;
+        numberOfPeople: number;
+        email: string;
+      }> = {},
+    ) {
+      return {
+        kind: "party" as const,
+        partyPackageId,
+        timeSlotId: partySlotId,
+        preferredDate: "2030-08-12",
+        numberOfPeople: 8,
+        name: "Mei",
+        phone: "0430000001",
+        email: "mei@example.com",
+        locale: "zh",
+        interestedProject: "Spoofed package label",
+        ...overrides,
       };
     }
 
@@ -326,6 +372,174 @@ describe.skipIf(!runDatabaseTests)(
       expect(
         await database.connection.db.select().from(emailOutbox),
       ).toHaveLength(2);
+    });
+
+    it.each([3, 13])(
+      "rejects party people outside the authoritative package range: %s",
+      async (numberOfPeople) => {
+        const service = createBookingsService(database.connection.db);
+
+        await expect(
+          service.create(
+            validParty({ numberOfPeople }),
+            crypto.randomUUID(),
+          ),
+        ).rejects.toMatchObject({
+          statusCode: 422,
+          code: "PARTY_SIZE_INVALID",
+        });
+
+        const [slot] = await database.connection.db
+          .select()
+          .from(timeSlots)
+          .where(eq(timeSlots.id, partySlotId));
+        expect(slot.bookedCount).toBe(0);
+        expect(
+          await database.connection.db.select().from(bookings),
+        ).toHaveLength(0);
+        expect(
+          await database.connection.db.select().from(emailOutbox),
+        ).toHaveLength(0);
+      },
+    );
+
+    it("derives immutable party/slot snapshots and queues both acknowledgements once", async () => {
+      const service = createBookingsService(database.connection.db);
+      const idempotencyKey = crypto.randomUUID();
+
+      const created = await service.create(validParty(), idempotencyKey);
+      const replayed = await service.create(validParty(), idempotencyKey);
+      const [stored] = await database.connection.db
+        .select()
+        .from(bookings)
+        .where(eq(bookings.id, created.id));
+      const [slot] = await database.connection.db
+        .select()
+        .from(timeSlots)
+        .where(eq(timeSlots.id, partySlotId));
+      const deliveries = await database.connection.db
+        .select()
+        .from(emailOutbox)
+        .where(eq(emailOutbox.bookingId, created.id));
+
+      expect(replayed).toMatchObject({ id: created.id, replayed: true });
+      expect(stored).toMatchObject({
+        requestKind: "party",
+        projectId: null,
+        partyPackageId,
+        preferredDate: "2030-08-12",
+        numberOfPeople: 8,
+        offeringNameSnapshot: {
+          en: "Studio Party Test Package",
+          zh: "工作室派对测试套餐",
+        },
+        offeringPriceSnapshot: "A$ test fixture",
+        slotDate: "2030-08-12",
+        slotStartTime: "12:00",
+        slotEndTime: "13:30",
+        slotTimezone: "Australia/Melbourne",
+        idempotencyKey,
+      });
+      expect(stored.interestedProject).toBe("Spoofed package label");
+      expect(slot.bookedCount).toBe(8);
+      expect(deliveries).toHaveLength(2);
+      expect(deliveries.map(({ messageType }) => messageType).sort()).toEqual([
+        "booking_received_customer",
+        "booking_received_owner",
+      ]);
+      const ownerDelivery = deliveries.find(
+        ({ messageType }) => messageType === "booking_received_owner",
+      );
+      expect(ownerDelivery?.payload).toMatchObject({
+        template: "owner_request",
+        subject: expect.stringContaining("party"),
+        fields: expect.arrayContaining([
+          { label: "Party package", value: "工作室派对测试套餐" },
+          { label: "Payment", value: "Pay in store" },
+        ]),
+      });
+    });
+
+    it("rejects a category-specific experience slot for a party and rolls back", async () => {
+      const service = createBookingsService(database.connection.db);
+
+      await expect(
+        service.create(
+          validParty({ timeSlotId: slotId, numberOfPeople: 4 }),
+          crypto.randomUUID(),
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 422,
+        code: "SLOT_PARTY_MISMATCH",
+      });
+
+      const [slot] = await database.connection.db
+        .select()
+        .from(timeSlots)
+        .where(eq(timeSlots.id, slotId));
+      expect(slot.bookedCount).toBe(0);
+      expect(await database.connection.db.select().from(bookings)).toHaveLength(
+        0,
+      );
+      expect(
+        await database.connection.db.select().from(emailOutbox),
+      ).toHaveLength(0);
+    });
+
+    it("serializes concurrent party replay and reserves capacity once", async () => {
+      const idempotencyKey = crypto.randomUUID();
+      const first = createBookingsService(database.connection.db);
+      const second = createBookingsService(database.connection.db);
+
+      const results = await Promise.all([
+        first.create(validParty(), idempotencyKey),
+        second.create(validParty(), idempotencyKey),
+      ]);
+
+      expect([...new Set(results.map(({ id }) => id))]).toHaveLength(1);
+      expect(results.map(({ replayed }) => replayed).sort()).toEqual([
+        false,
+        true,
+      ]);
+      const [slot] = await database.connection.db
+        .select()
+        .from(timeSlots)
+        .where(eq(timeSlots.id, partySlotId));
+      expect(slot.bookedCount).toBe(8);
+      expect(await database.connection.db.select().from(bookings)).toHaveLength(
+        1,
+      );
+      expect(
+        await database.connection.db.select().from(emailOutbox),
+      ).toHaveLength(2);
+    });
+
+    it("rejects a missing party package without reserving capacity", async () => {
+      const service = createBookingsService(database.connection.db);
+
+      await expect(
+        service.create(
+          validParty({ partyPackageId: crypto.randomUUID() }),
+          crypto.randomUUID(),
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        code: "PARTY_PACKAGE_NOT_FOUND",
+      });
+
+      const [slot] = await database.connection.db
+        .select()
+        .from(timeSlots)
+        .where(eq(timeSlots.id, partySlotId));
+      expect(slot.bookedCount).toBe(0);
+    });
+
+    it("lists only uncategorized slots for the party calendar scope", async () => {
+      const rows = await createTimeSlotsRepository(
+        database.connection.db,
+      ).findByDate("2030-08-12", null);
+
+      expect(rows.map(({ id }) => id)).toEqual([partySlotId]);
     });
   },
 );

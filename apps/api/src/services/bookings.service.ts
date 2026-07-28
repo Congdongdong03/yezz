@@ -11,6 +11,7 @@ import {
   createBookingsRepository,
   type BookingCreateInput,
 } from "../repositories/bookings.repository.js";
+import { createPartiesRepository } from "../repositories/parties.repository.js";
 import { createProjectsRepository } from "../repositories/projects.repository.js";
 import { createRequestCapacityRepository } from "../repositories/request-capacity.repository.js";
 
@@ -70,18 +71,26 @@ function validateBookingInput(input: BookingCreateInput) {
       "numberOfPeople must be at least 1",
     );
   }
-  if ((input.kind ?? "experience") !== "experience") {
+  const kind = input.kind ?? "experience";
+  if (kind !== "experience" && kind !== "party") {
     throw new AppError(
       400,
       "VALIDATION_ERROR",
-      "Only experience bookings are supported by this request path",
+      "kind must be experience or party",
     );
   }
-  if (!input.projectId) {
+  if (kind === "experience" && (!input.projectId || input.partyPackageId)) {
     throw new AppError(
       400,
       "VALIDATION_ERROR",
-      "projectId is required for experience bookings",
+      "experience bookings require projectId and forbid partyPackageId",
+    );
+  }
+  if (kind === "party" && (!input.partyPackageId || input.projectId)) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "party bookings require partyPackageId and forbid projectId",
     );
   }
   if (!input.timeSlotId) {
@@ -120,6 +129,7 @@ function databaseErrorCode(error: unknown): string | undefined {
 type PersistedBookingReplayIdentity = {
   requestKind: string;
   projectId: string | null;
+  partyPackageId: string | null;
   timeSlotId: string | null;
   name: string;
   phone: string;
@@ -143,15 +153,18 @@ function assertReplayMatches(
   existing: PersistedBookingReplayIdentity,
   input: BookingCreateInput & { numberOfPeople: number },
   identity: {
-    projectId: string;
+    kind: "experience" | "party";
+    projectId: string | null;
+    partyPackageId: string | null;
     timeSlotId: string;
     customerEmail: string;
     locale: "en" | "zh";
   },
 ): void {
   const mismatched =
-    existing.requestKind !== "experience" ||
+    existing.requestKind !== identity.kind ||
     existing.projectId !== identity.projectId ||
+    existing.partyPackageId !== identity.partyPackageId ||
     existing.timeSlotId !== identity.timeSlotId ||
     existing.name !== input.name.trim() ||
     existing.phone !== input.phone.trim() ||
@@ -205,6 +218,7 @@ async function loadStoreContact(db: Db): Promise<StoreContact> {
 export function createBookingsService(db: Db) {
   const repo = createBookingsRepository(db);
   const projectsRepo = createProjectsRepository(db);
+  const partiesRepo = createPartiesRepository(db);
   const capacityRepo = createRequestCapacityRepository(db);
   const outboxRepo = createEmailOutboxRepository(db);
 
@@ -217,7 +231,18 @@ export function createBookingsService(db: Db) {
       const normalizedInput = normalizeBookingInput(input);
       const people = normalizedInput.numberOfPeople;
       const normalizedKey = assertUuid(idempotencyKey, "Idempotency-Key");
-      const projectId = assertUuid(normalizedInput.projectId ?? undefined, "projectId");
+      const kind = normalizedInput.kind ?? "experience";
+      const projectId =
+        kind === "experience"
+          ? assertUuid(normalizedInput.projectId ?? undefined, "projectId")
+          : null;
+      const partyPackageId =
+        kind === "party"
+          ? assertUuid(
+              normalizedInput.partyPackageId ?? undefined,
+              "partyPackageId",
+            )
+          : null;
       const timeSlotId = assertUuid(
         normalizedInput.timeSlotId ?? undefined,
         "timeSlotId",
@@ -227,7 +252,9 @@ export function createBookingsService(db: Db) {
         ? "zh"
         : "en";
       const replayIdentity = {
+        kind,
         projectId,
+        partyPackageId,
         timeSlotId,
         customerEmail,
         locale,
@@ -267,24 +294,66 @@ export function createBookingsService(db: Db) {
             );
           }
 
-          const project = await projectsRepo.findById(projectId, tx);
-          if (!project) {
-            throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+          const offering =
+            kind === "experience"
+              ? await projectsRepo.findById(projectId!, tx)
+              : await partiesRepo.findById(partyPackageId!, tx);
+          if (!offering) {
+            throw new AppError(
+              404,
+              kind === "party"
+                ? "PARTY_PACKAGE_NOT_FOUND"
+                : "PROJECT_NOT_FOUND",
+              kind === "party"
+                ? "Party package not found"
+                : "Project not found",
+            );
           }
-          if (project.projectType !== "experience") {
+          if (
+            kind === "experience" &&
+            "projectType" in offering &&
+            offering.projectType !== "experience"
+          ) {
             throw new AppError(
               422,
               "PROJECT_TYPE_MISMATCH",
               "The selected project is not an experience",
             );
           }
+          if (
+            kind === "party" &&
+            "minPeople" in offering &&
+            (people < offering.minPeople || people > offering.maxPeople)
+          ) {
+            throw new AppError(
+              422,
+              "PARTY_SIZE_INVALID",
+              `Party size must be between ${offering.minPeople} and ${offering.maxPeople}`,
+              {
+                minPeople: offering.minPeople,
+                maxPeople: offering.maxPeople,
+              },
+            );
+          }
 
           const slot = await capacityRepo.reserve(timeSlotId, people, tx);
-          if (slot.categoryId && slot.categoryId !== project.categoryId) {
+          if (
+            kind === "experience" &&
+            "categoryId" in offering &&
+            slot.categoryId &&
+            slot.categoryId !== offering.categoryId
+          ) {
             throw new AppError(
               422,
               "SLOT_PROJECT_MISMATCH",
               "The selected time slot does not belong to this experience",
+            );
+          }
+          if (kind === "party" && slot.categoryId !== null) {
+            throw new AppError(
+              422,
+              "SLOT_PARTY_MISMATCH",
+              "The selected time slot is reserved for an experience category",
             );
           }
           if (
@@ -301,14 +370,17 @@ export function createBookingsService(db: Db) {
           const created = await repo.create(
             {
               ...normalizedInput,
-              kind: "experience",
-              requestKind: "experience",
+              kind,
+              requestKind: kind,
               projectId,
-              partyPackageId: null,
+              partyPackageId,
               preferredDate: slot.date,
               timeSlotId,
-              offeringNameSnapshot: project.name,
-              offeringPriceSnapshot: project.priceRange ?? null,
+              offeringNameSnapshot: offering.name,
+              offeringPriceSnapshot:
+                ("priceRange" in offering
+                  ? offering.priceRange
+                  : offering.priceIndicator) ?? null,
               slotDate: slot.date,
               slotStartTime: slot.startTime,
               slotEndTime: slot.endTime,
@@ -324,8 +396,12 @@ export function createBookingsService(db: Db) {
             created.id,
             created.createdAt,
           );
-          const localizedProjectName =
-            locale === "zh" ? project.name.zh : project.name.en;
+          const localizedOfferingName =
+            locale === "zh" ? offering.name.zh : offering.name.en;
+          const offeringPrice =
+            ("priceRange" in offering
+              ? offering.priceRange
+              : offering.priceIndicator) ?? null;
           const emailInput: BookingCreateInput = {
             name: created.name,
             phone: created.phone,
@@ -333,8 +409,8 @@ export function createBookingsService(db: Db) {
             email: customerEmail,
             preferredDate: slot.date,
             numberOfPeople: people,
-            activityType: normalizedInput.activityType ?? "experience",
-            interestedProject: localizedProjectName,
+            activityType: normalizedInput.activityType ?? kind,
+            interestedProject: localizedOfferingName,
             message: created.message,
             locale,
             timeSlotId,
@@ -367,16 +443,20 @@ export function createBookingsService(db: Db) {
               locale: "en",
               payload: {
                 template: "owner_request",
-                subject: `New experience booking ${orderNumber}`,
-                heading: "New experience booking",
+                subject: `New ${kind} booking ${orderNumber}`,
+                heading: `New ${kind} booking`,
                 fields: [
                   { label: "Customer", value: created.name },
                   { label: "Phone", value: created.phone },
                   { label: "Email", value: customerEmail },
-                  { label: "Experience", value: localizedProjectName },
+                  {
+                    label:
+                      kind === "party" ? "Party package" : "Experience",
+                    value: localizedOfferingName,
+                  },
                   {
                     label: "Price",
-                    value: project.priceRange ?? "Not listed",
+                    value: offeringPrice ?? "Not listed",
                   },
                   {
                     label: "Time",

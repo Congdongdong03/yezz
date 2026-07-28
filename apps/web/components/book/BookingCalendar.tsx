@@ -10,7 +10,7 @@ import {
 
 type BookingCalendarProps = {
   people: number;
-  categoryId?: string;
+  categoryId?: string | null;
   selectedSlotId: string | null;
   onSelectSlot: (slot: TimeSlotOption | null) => void;
   onDateChange: (date: string) => void;

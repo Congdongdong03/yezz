@@ -3,12 +3,22 @@ import { success } from "../../lib/response.js";
 
 export default async function timeSlotsRoutes(app: FastifyInstance) {
   app.get<{
-    Querystring: { year?: string; month?: string; date?: string; categoryId?: string };
+    Querystring: {
+      year?: string;
+      month?: string;
+      date?: string;
+      categoryId?: string;
+      scope?: string;
+    };
   }>("/", async (request) => {
-    const { year, month, date, categoryId } = request.query;
+    const { year, month, date, categoryId, scope } = request.query;
+    const categoryFilter = scope === "global" ? null : categoryId;
 
     if (date) {
-      const data = await app.services.timeSlots.getDaySlots(date, categoryId);
+      const data = await app.services.timeSlots.getDaySlots(
+        date,
+        categoryFilter,
+      );
       return success(data);
     }
 
@@ -18,7 +28,11 @@ export default async function timeSlotsRoutes(app: FastifyInstance) {
       return success({ dates: [] });
     }
 
-    const data = await app.services.timeSlots.getMonthAvailability(y, m, categoryId);
+    const data = await app.services.timeSlots.getMonthAvailability(
+      y,
+      m,
+      categoryFilter,
+    );
     return success(data);
   });
 }

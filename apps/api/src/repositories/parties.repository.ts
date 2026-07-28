@@ -32,8 +32,8 @@ export function createPartiesRepository(db: Db) {
       return Number(row?.value ?? 0);
     },
 
-    async findById(id: string) {
-      const [row] = await db
+    async findById(id: string, tx: Db = db) {
+      const [row] = await tx
         .select()
         .from(partyPackages)
         .where(eq(partyPackages.id, id))

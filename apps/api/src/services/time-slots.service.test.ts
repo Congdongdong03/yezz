@@ -28,21 +28,23 @@ function harness(initialRows = [row()]) {
       rows.find((item) => item.id === id) ?? null,
     findByDate: async (
       date: string,
-      categoryId?: string,
+      categoryId?: string | null,
       minimumDate?: string,
     ) =>
       rows.filter(
         (item) =>
           item.date === date &&
           (!minimumDate || item.date >= minimumDate) &&
-          (!categoryId ||
-            item.categoryId === null ||
-            item.categoryId === categoryId),
+          (categoryId === undefined ||
+            (categoryId === null
+              ? item.categoryId === null
+              : item.categoryId === null ||
+                item.categoryId === categoryId)),
       ),
     findInMonth: async (
       _year: number,
       _month: number,
-      _categoryId?: string,
+      _categoryId?: string | null,
       minimumDate?: string,
     ) => rows.filter((item) => !minimumDate || item.date >= minimumDate),
     findAllOrdered: async () => rows,
@@ -129,6 +131,19 @@ describe("time slot service invariants", () => {
     });
     await expect(service.getMonthAvailability(2026, 7)).resolves.toEqual({
       dates: [{ date: "2026-07-30", status: "available" }],
+    });
+  });
+
+  it("returns only global slots when the party calendar requests null category", async () => {
+    const { service } = harness([
+      row({ id: "global", categoryId: null }),
+      row({ id: "experience", categoryId: "category-1" }),
+    ]);
+
+    await expect(
+      service.getDaySlots("2026-07-30", null as never),
+    ).resolves.toMatchObject({
+      slots: [{ id: "global", categoryId: null }],
     });
   });
 

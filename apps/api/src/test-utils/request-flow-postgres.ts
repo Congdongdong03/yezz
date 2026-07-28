@@ -89,6 +89,22 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       sort_order integer NOT NULL DEFAULT 0,
       created_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE "${schema}".party_packages (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      name jsonb NOT NULL,
+      slug varchar(128) NOT NULL UNIQUE,
+      description jsonb,
+      includes jsonb NOT NULL DEFAULT '[]'::jsonb,
+      cover_image_url text,
+      image_urls text[] NOT NULL DEFAULT '{}',
+      min_people integer NOT NULL,
+      max_people integer NOT NULL,
+      price_indicator varchar(128),
+      tags text[],
+      sort_order integer NOT NULL DEFAULT 0,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE "${schema}".time_slots (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       date date NOT NULL,
@@ -118,7 +134,7 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       time_slot_id uuid REFERENCES "${schema}".time_slots(id) ON DELETE RESTRICT,
       request_kind varchar(32) NOT NULL DEFAULT 'experience',
       project_id uuid REFERENCES "${schema}".diy_projects(id) ON DELETE RESTRICT,
-      party_package_id uuid,
+      party_package_id uuid REFERENCES "${schema}".party_packages(id) ON DELETE RESTRICT,
       offering_name_snapshot jsonb,
       offering_price_snapshot varchar(128),
       slot_date date,

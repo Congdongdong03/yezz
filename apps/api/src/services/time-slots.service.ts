@@ -95,7 +95,7 @@ export function createTimeSlotsService(
     async getMonthAvailability(
       year: number,
       month: number,
-      categoryId?: string,
+      categoryId?: string | null,
     ) {
       const today = getMelbourneDate(now());
       if (
@@ -136,7 +136,7 @@ export function createTimeSlotsService(
       } satisfies MonthAvailabilityDto;
     },
 
-    async getDaySlots(date: string, categoryId?: string) {
+    async getDaySlots(date: string, categoryId?: string | null) {
       parseCalendarDate(date);
       const today = getMelbourneDate(now());
       if (date < today) return { slots: [] };

@@ -122,7 +122,9 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
         <Button variant="outline" size="sm" onClick={() => router.back()}>
           ← 返回
         </Button>
-        <h1 className="font-serif text-2xl font-semibold text-warm-charcoal">预约详情</h1>
+        <h1 className="font-serif text-2xl font-semibold text-warm-charcoal">
+          {booking.kind === "party" ? "聚会预约详情" : "体验预约详情"}
+        </h1>
       </div>
 
       {message && <AlertBanner type={message.type} message={message.text} onDismiss={() => setMessage(null)} />}
@@ -157,8 +159,14 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
             )}
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">类型</p>
-            <p className="font-medium">{ACTIVITY_LABELS[booking.activityType || ""] || booking.activityType || "—"}</p>
+            <p className="text-xs text-muted-foreground">预约类型</p>
+            <p className="font-medium">
+              {booking.kind === "party"
+                ? "聚会预约"
+                : ACTIVITY_LABELS[booking.activityType || ""] ||
+                  booking.activityType ||
+                  "体验预约"}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">预约时段</p>
@@ -182,7 +190,9 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
             <p className="font-medium">{booking.numberOfPeople ?? "—"}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">体验项目</p>
+            <p className="text-xs text-muted-foreground">
+              {booking.kind === "party" ? "派对套餐" : "体验项目"}
+            </p>
             <p className="font-medium">
               {booking.offering?.name?.zh ??
                 booking.offering?.name?.en ??

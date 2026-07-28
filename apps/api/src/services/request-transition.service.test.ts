@@ -1,6 +1,7 @@
 import {
   bookings,
   emailOutbox,
+  partyPackages,
   requestStatusEvents,
   timeSlots,
   users,
@@ -20,11 +21,13 @@ describe.skipIf(!runDatabaseTests)(
   () => {
     let database: RequestFlowTestDatabase;
     let actorId: string;
+    let partyPackageId: string;
     let slotId: string;
 
     beforeEach(async () => {
       database = await createRequestFlowTestDatabase();
       actorId = crypto.randomUUID();
+      partyPackageId = crypto.randomUUID();
       slotId = crypto.randomUUID();
       await database.connection.db.insert(users).values({
         id: actorId,
@@ -41,13 +44,23 @@ describe.skipIf(!runDatabaseTests)(
         capacity: 2,
         bookedCount: 2,
       });
+      await database.connection.db.insert(partyPackages).values({
+        id: partyPackageId,
+        name: { en: "Studio Party Test Package", zh: "工作室派对测试套餐" },
+        slug: `studio-party-${partyPackageId}`,
+        minPeople: 2,
+        maxPeople: 12,
+      });
     });
 
     afterEach(async () => {
       await database.close();
     });
 
-    async function insertBooking(status: "new" | "confirmed") {
+    async function insertBooking(
+      status: "new" | "confirmed",
+      kind: "experience" | "party" = "experience",
+    ) {
       const [booking] = await database.connection.db
         .insert(bookings)
         .values({
@@ -62,13 +75,15 @@ describe.skipIf(!runDatabaseTests)(
           slotEndTime: "11:00",
           locale: "en",
           status,
+          requestKind: kind,
+          partyPackageId: kind === "party" ? partyPackageId : null,
         })
         .returning();
       return booking;
     }
 
     it("releases capacity once and records one event/email for concurrent cancellation", async () => {
-      const booking = await insertBooking("confirmed");
+      const booking = await insertBooking("confirmed", "party");
       const first = createRequestTransitionService(database.connection.db);
       const second = createRequestTransitionService(database.connection.db);
 

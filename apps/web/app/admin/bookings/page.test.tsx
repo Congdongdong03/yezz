@@ -69,6 +69,31 @@ function booking(status: Booking["status"]): Booking {
   };
 }
 
+function partyBooking(): Booking {
+  return {
+    ...booking("confirmed"),
+    kind: "party",
+    name: "Mei",
+    phone: "0430000001",
+    email: "mei@example.com",
+    numberOfPeople: 8,
+    activityType: "party",
+    interestedProject: "Spoofed package label",
+    offering: {
+      id: "00000000-0000-4000-8000-000000000004",
+      name: { en: "Studio Party", zh: "工作室派对" },
+      price: "A$ test fixture",
+    },
+    slot: {
+      id: "00000000-0000-4000-8000-000000000005",
+      date: "2030-08-12",
+      startTime: "12:00",
+      endTime: "13:30",
+      timeZone: "Australia/Melbourne",
+    },
+  };
+}
+
 describe("AdminBookingsPage stale status focus", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -202,5 +227,27 @@ describe("AdminBookingsPage stale status focus", () => {
     expect(document.activeElement?.isConnected).toBe(true);
     expect(document.activeElement).not.toBe(document.body);
     expect(document.activeElement).toBe(heading);
+  });
+
+  it("distinguishes a party request and shows exact package/contact/slot/status/delivery", async () => {
+    api.getAdminBookings.mockReset().mockResolvedValue({
+      data: [partyBooking()],
+      total: 1,
+      page: 1,
+      limit: 100,
+    });
+
+    await act(async () => root.render(<AdminBookingsPage />));
+    await act(async () => {});
+
+    expect(container.textContent).toContain("聚会预约");
+    expect(container.textContent).toContain("工作室派对");
+    expect(container.textContent).toContain("A$ test fixture");
+    expect(container.textContent).toContain("0430000001");
+    expect(container.textContent).toContain("mei@example.com");
+    expect(container.textContent).toContain("2030-08-12");
+    expect(container.textContent).toContain("12:00–13:30");
+    expect(container.textContent).toContain("已确认");
+    expect(container.textContent).toContain("等待发送");
   });
 });

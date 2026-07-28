@@ -33,7 +33,9 @@ export function createTimeSlotsRepository(db: Db) {
     findByDate(date: string, categoryId?: string | null, minimumDate?: string) {
       const conditions = [eq(timeSlots.date, date)];
       if (minimumDate) conditions.push(gte(timeSlots.date, minimumDate));
-      if (categoryId) {
+      if (categoryId === null) {
+        conditions.push(isNull(timeSlots.categoryId));
+      } else if (categoryId) {
         conditions.push(
           or(
             isNull(timeSlots.categoryId),
@@ -60,7 +62,9 @@ export function createTimeSlotsRepository(db: Db) {
 
       const conditions = [gte(timeSlots.date, start), lte(timeSlots.date, end)];
       if (minimumDate) conditions.push(gte(timeSlots.date, minimumDate));
-      if (categoryId) {
+      if (categoryId === null) {
+        conditions.push(isNull(timeSlots.categoryId));
+      } else if (categoryId) {
         conditions.push(
           or(
             isNull(timeSlots.categoryId),
