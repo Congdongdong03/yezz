@@ -12,6 +12,13 @@ export type CreateBookingStatusEventInput = {
   actorUserId: string;
 };
 
+export type CreateCartOrderStatusEventInput = Omit<
+  CreateBookingStatusEventInput,
+  "bookingId"
+> & {
+  cartOrderId: string;
+};
+
 export function createStatusEventsRepository(db: Db) {
   return {
     async lockOperation(operationId: string, tx: Db = db): Promise<void> {
@@ -47,6 +54,24 @@ export function createStatusEventsRepository(db: Db) {
       return row;
     },
 
+    async createCartOrder(
+      input: CreateCartOrderStatusEventInput,
+      tx: Db = db,
+    ) {
+      const [row] = await tx
+        .insert(requestStatusEvents)
+        .values({
+          cartOrderId: input.cartOrderId,
+          operationId: input.operationId,
+          fromStatus: input.fromStatus,
+          toStatus: input.toStatus,
+          adminNote: input.adminNote?.trim() || null,
+          actorUserId: input.actorUserId,
+        })
+        .returning();
+      return row;
+    },
+
     listForBooking(bookingId: string) {
       return db
         .select({
@@ -63,6 +88,25 @@ export function createStatusEventsRepository(db: Db) {
         .from(requestStatusEvents)
         .innerJoin(users, eq(requestStatusEvents.actorUserId, users.id))
         .where(eq(requestStatusEvents.bookingId, bookingId))
+        .orderBy(asc(requestStatusEvents.createdAt));
+    },
+
+    listForCartOrder(cartOrderId: string) {
+      return db
+        .select({
+          id: requestStatusEvents.id,
+          operationId: requestStatusEvents.operationId,
+          fromStatus: requestStatusEvents.fromStatus,
+          toStatus: requestStatusEvents.toStatus,
+          note: requestStatusEvents.adminNote,
+          createdAt: requestStatusEvents.createdAt,
+          actorId: users.id,
+          actorName: users.name,
+          actorEmail: users.email,
+        })
+        .from(requestStatusEvents)
+        .innerJoin(users, eq(requestStatusEvents.actorUserId, users.id))
+        .where(eq(requestStatusEvents.cartOrderId, cartOrderId))
         .orderBy(asc(requestStatusEvents.createdAt));
     },
   };

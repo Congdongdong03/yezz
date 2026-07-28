@@ -1,10 +1,15 @@
 import type { Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
-import { formatBookingOrderId, type StoreContact } from "../lib/email.js";
+import {
+  formatBookingOrderId,
+  formatCartOrderId,
+  type StoreContact,
+} from "../lib/email.js";
 import {
   createBookingsRepository,
   type OrderStatus,
 } from "../repositories/bookings.repository.js";
+import { createCartOrdersRepository } from "../repositories/cart-orders.repository.js";
 import { createEmailOutboxRepository } from "../repositories/email-outbox.repository.js";
 import { createRequestCapacityRepository } from "../repositories/request-capacity.repository.js";
 import { createSettingsRepository } from "../repositories/settings.repository.js";
@@ -27,6 +32,15 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 export type BookingTransitionInput = {
   bookingId: string;
+  expectedStatus: OrderStatus;
+  status: OrderStatus;
+  operationId: string;
+  actorUserId: string;
+  note?: string | null;
+};
+
+export type CartOrderTransitionInput = {
+  cartOrderId: string;
   expectedStatus: OrderStatus;
   status: OrderStatus;
   operationId: string;
@@ -91,6 +105,7 @@ async function loadStoreContext(db: Db) {
 
 export function createRequestTransitionService(db: Db) {
   const bookingsRepo = createBookingsRepository(db);
+  const cartOrdersRepo = createCartOrdersRepository(db);
   const statusEventsRepo = createStatusEventsRepository(db);
   const capacityRepo = createRequestCapacityRepository(db);
   const outboxRepo = createEmailOutboxRepository(db);
@@ -218,6 +233,147 @@ export function createRequestTransitionService(db: Db) {
                 locale,
                 customerName: updated.name,
                 orderNumber: formatBookingOrderId(
+                  updated.id,
+                  updated.createdAt,
+                ),
+                preferredDate: updated.preferredDate,
+                slotLabel,
+                storeName: store.storeName,
+                address: store.address,
+                businessHours: store.businessHours,
+                contact: store.contact,
+                adminNote: note,
+              },
+            },
+            tx,
+          );
+        }
+
+        return {
+          row: updated,
+          eventId: event.id,
+          replayed: false,
+        };
+      });
+    },
+
+    async transitionCartOrder(input: CartOrderTransitionInput) {
+      validateOrderStatus(input.expectedStatus);
+      validateOrderStatus(input.status);
+      validateStatusTransition(input.expectedStatus, input.status);
+      const cartOrderId = assertUuid(input.cartOrderId, "cartOrderId");
+      const operationId = assertUuid(input.operationId, "operationId");
+      const actorUserId = assertUuid(input.actorUserId, "actorUserId");
+      const note = normalizeNote(input.note);
+
+      return db.transaction(async (tx) => {
+        await statusEventsRepo.lockOperation(operationId, tx);
+        const priorEvent = await statusEventsRepo.findByOperationId(
+          operationId,
+          tx,
+        );
+        if (priorEvent) {
+          if (
+            priorEvent.cartOrderId !== cartOrderId ||
+            priorEvent.fromStatus !== input.expectedStatus ||
+            priorEvent.toStatus !== input.status ||
+            priorEvent.actorUserId !== actorUserId ||
+            normalizeNote(priorEvent.adminNote) !== note
+          ) {
+            throw new AppError(
+              409,
+              "OPERATION_ID_CONFLICT",
+              "The operation ID belongs to a different status change",
+            );
+          }
+          const replayedOrder = await cartOrdersRepo.findById(
+            cartOrderId,
+            tx,
+          );
+          if (!replayedOrder) {
+            throw new AppError(404, "NOT_FOUND", "Cart order not found");
+          }
+          return {
+            row: replayedOrder,
+            eventId: priorEvent.id,
+            replayed: true,
+          };
+        }
+
+        const existing = await cartOrdersRepo.findById(cartOrderId, tx);
+        if (!existing) {
+          throw new AppError(404, "NOT_FOUND", "Cart order not found");
+        }
+        if (existing.status !== input.expectedStatus) {
+          throw new AppError(
+            409,
+            "STATUS_CONFLICT",
+            "The request changed. Refresh and try again.",
+            { currentStatus: existing.status },
+          );
+        }
+
+        const updated = await cartOrdersRepo.compareAndSetStatus(
+          cartOrderId,
+          input.expectedStatus,
+          input.status,
+          tx,
+        );
+        if (!updated) {
+          const current = await cartOrdersRepo.findById(cartOrderId, tx);
+          throw new AppError(
+            409,
+            "STATUS_CONFLICT",
+            "The request changed. Refresh and try again.",
+            { currentStatus: current?.status ?? null },
+          );
+        }
+
+        if (input.status === "cancelled" && existing.timeSlotId) {
+          await capacityRepo.release(
+            existing.timeSlotId,
+            existing.numberOfPeople ?? 1,
+            tx,
+          );
+        }
+
+        const event = await statusEventsRepo.createCartOrder(
+          {
+            cartOrderId,
+            operationId,
+            fromStatus: input.expectedStatus,
+            toStatus: input.status,
+            adminNote: note,
+            actorUserId,
+          },
+          tx,
+        );
+        const customerEmail = updated.email?.trim().toLowerCase();
+        if (customerEmail) {
+          const store = await loadStoreContext(tx);
+          const locale = updated.locale?.toLowerCase().startsWith("zh")
+            ? "zh"
+            : "en";
+          const slotLabel =
+            updated.slotDate &&
+            updated.slotStartTime &&
+            updated.slotEndTime
+              ? `${updated.slotDate} ${updated.slotStartTime}–${updated.slotEndTime} ${updated.slotTimezone}`
+              : null;
+          await outboxRepo.enqueue(
+            {
+              dedupeKey: `cart-order:${cartOrderId}:status:${event.id}:customer`,
+              cartOrderId,
+              statusEventId: event.id,
+              messageType: "cart_order_status_customer",
+              recipient: customerEmail,
+              locale,
+              payload: {
+                template: "booking_status",
+                status: input.status,
+                locale,
+                customerName: updated.name,
+                orderNumber: formatCartOrderId(
                   updated.id,
                   updated.createdAt,
                 ),

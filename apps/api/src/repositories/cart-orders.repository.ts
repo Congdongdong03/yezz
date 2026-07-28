@@ -4,7 +4,7 @@ import {
   type CartOrderItemSnapshot,
   type Db,
 } from "@yezz/db";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { lockPublicCreateAttempt } from "../lib/public-create-idempotency.js";
 
 export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
@@ -86,8 +86,26 @@ export function createCartOrdersRepository(db: Db) {
       return db.transaction((transaction) => insertOrder(input, transaction));
     },
 
-    findAllOrdered() {
-      return db.select().from(cartOrders).orderBy(desc(cartOrders.createdAt));
+    async findAllOrdered(opts?: {
+      limit?: number;
+      offset?: number;
+      status?: OrderStatus;
+    }) {
+      const condition = opts?.status
+        ? eq(cartOrders.status, opts.status)
+        : sql`true`;
+      const [totalRow] = await db
+        .select({ total: count() })
+        .from(cartOrders)
+        .where(condition);
+      const rows = await db
+        .select()
+        .from(cartOrders)
+        .where(condition)
+        .orderBy(desc(cartOrders.createdAt))
+        .limit(opts?.limit ?? 100)
+        .offset(opts?.offset ?? 0);
+      return { rows, total: Number(totalRow?.total ?? 0) };
     },
 
     async findById(id: string, tx: Db = db) {
@@ -125,11 +143,21 @@ export function createCartOrdersRepository(db: Db) {
         .orderBy(asc(cartOrderItems.sortOrder));
     },
 
-    async updateStatus(id: string, status: OrderStatus) {
-      const [row] = await db
+    async compareAndSetStatus(
+      id: string,
+      expectedStatus: OrderStatus,
+      status: OrderStatus,
+      tx: Db = db,
+    ) {
+      const [row] = await tx
         .update(cartOrders)
         .set({ status, updatedAt: new Date() })
-        .where(eq(cartOrders.id, id))
+        .where(
+          and(
+            eq(cartOrders.id, id),
+            eq(cartOrders.status, expectedStatus),
+          ),
+        )
         .returning();
       return row ?? null;
     },

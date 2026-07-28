@@ -273,12 +273,14 @@ export type EmailDeliveryList = {
 export type CartOrderItem = {
   id: string;
   projectId: string | null;
+  styleId: string | null;
   projectName: LocalizedString | string | null;
   projectType: "experience" | "product" | null;
   styleName: LocalizedString | string | null;
   date: string | null;
   people: number | null;
   price: string | null;
+  priceCurrency: string;
   sortOrder: number;
 };
 
@@ -287,11 +289,38 @@ export type CartOrder = {
   name: string;
   phone: string;
   wechat: string | null;
+  email: string | null;
   message: string | null;
+  preferredDate: string | null;
+  numberOfPeople: number | null;
+  locale: string | null;
+  timeSlotId: string | null;
+  slot: {
+    id: string | null;
+    date: string;
+    startTime: string | null;
+    endTime: string | null;
+    timeZone: string;
+  } | null;
   status: OrderStatus;
   items: CartOrderItem[];
+  notificationSummary: {
+    latestStatus: EmailDeliveryStatus | null;
+    failedCount: number;
+  };
+  statusHistory: Booking["statusHistory"];
+  emailDeliveries: Booking["emailDeliveries"];
   createdAt: string;
   updatedAt: string;
+  replayed?: boolean;
+};
+
+export type CartOrderList = {
+  data: CartOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages?: number;
 };
 
 export type ProjectFormInput = {

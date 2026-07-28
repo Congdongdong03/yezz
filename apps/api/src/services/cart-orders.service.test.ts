@@ -23,6 +23,8 @@ describe.skipIf(!runDatabaseTests)(
     let database: RequestFlowTestDatabase;
     let projectId: string;
     let styleId: string;
+    let otherProjectId: string;
+    let otherStyleId: string;
     let slotId: string;
     const previousOwnerEmail = process.env.OWNER_EMAIL;
 
@@ -32,6 +34,8 @@ describe.skipIf(!runDatabaseTests)(
       const categoryId = crypto.randomUUID();
       projectId = crypto.randomUUID();
       styleId = crypto.randomUUID();
+      otherProjectId = crypto.randomUUID();
+      otherStyleId = crypto.randomUUID();
       slotId = crypto.randomUUID();
       await database.connection.db.insert(projectCategories).values({
         id: categoryId,
@@ -47,11 +51,26 @@ describe.skipIf(!runDatabaseTests)(
         priceRange: "From $43",
         priceCurrency: "AUD",
       });
+      await database.connection.db.insert(diyProjects).values({
+        id: otherProjectId,
+        categoryId,
+        name: { en: "Lamp", zh: "台灯" },
+        slug: `lamp-${otherProjectId}`,
+        projectType: "product",
+        priceRange: "From $55",
+        priceCurrency: "AUD",
+      });
       await database.connection.db.insert(projectStyles).values({
         id: styleId,
         projectId,
         name: { en: "Pink", zh: "粉色" },
         price: "$49",
+      });
+      await database.connection.db.insert(projectStyles).values({
+        id: otherStyleId,
+        projectId: otherProjectId,
+        name: { en: "Blue", zh: "蓝色" },
+        price: "$59",
       });
       await database.connection.db.insert(timeSlots).values({
         id: slotId,
@@ -123,6 +142,35 @@ describe.skipIf(!runDatabaseTests)(
         priceCurrency: "AUD",
       });
       expect(deliveries).toHaveLength(2);
+    });
+
+    it("rejects a style that belongs to another authoritative product", async () => {
+      const service = createCartOrdersService(database.connection.db);
+
+      await expect(
+        service.create(
+          {
+            ...validCart(),
+            items: [{ projectId, styleId: otherStyleId }],
+          },
+          crypto.randomUUID(),
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 422,
+        code: "STYLE_PROJECT_MISMATCH",
+      });
+
+      const [slot] = await database.connection.db
+        .select()
+        .from(timeSlots)
+        .where(eq(timeSlots.id, slotId));
+      expect(slot.bookedCount).toBe(0);
+      expect(
+        await database.connection.db.select().from(cartOrders),
+      ).toHaveLength(0);
+      expect(
+        await database.connection.db.select().from(emailOutbox),
+      ).toHaveLength(0);
     });
 
     it("serializes concurrent retries at exact capacity into one create and one replay", async () => {

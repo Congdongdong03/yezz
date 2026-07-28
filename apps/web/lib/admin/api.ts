@@ -10,6 +10,7 @@ import type {
   Booking,
   BookingTransitionInput,
   CartOrder,
+  CartOrderList,
   AdminUser,
   PasswordChangeInput,
   TimeSlot,
@@ -329,16 +330,19 @@ export async function deleteAdminUser(id: string) {
 }
 
 export async function getAdminOrders() {
-  return adminFetch<CartOrder[]>("/api/v1/admin/orders");
+  return adminFetch<CartOrderList>("/api/v1/admin/orders");
 }
 
 export async function getAdminOrder(id: string) {
   return adminFetch<CartOrder>(`/api/v1/admin/orders/${id}`);
 }
 
-export async function updateOrderStatus(id: string, status: CartOrder["status"]) {
-  return adminFetch<CartOrder>(`/api/v1/admin/orders/${id}`, {
+export async function updateOrderStatus(
+  id: string,
+  input: BookingTransitionInput,
+) {
+  return adminFetch<CartOrder>(`/api/v1/admin/orders/${id}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(input),
   });
 }
