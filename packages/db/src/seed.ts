@@ -68,7 +68,7 @@ async function seedSettingsIfEmpty() {
       businessHours:
         "Monday 9:30 am–5:00 pm; Tuesday 9:30 am–5:00 pm; Wednesday 9:30 am–5:00 pm; Thursday 9:30 am–8:30 pm; Friday 9:30 am–8:30 pm; Saturday 9:30 am–5:30 pm; Sunday 10:00 am–5:00 pm",
       phone: "0430 787 712",
-      email: "izzybella.chen@gmail.com",
+      email: "congdongdong03@gmail.com",
       wechatId: null,
       wechatQrUrl: null,
       heroImageUrl: null,

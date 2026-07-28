@@ -3,7 +3,7 @@ export const YEZYY_BUSINESS_PROFILE = {
   website: "https://yezyy.com",
   address: "G082/235 Springvale Rd, Glen Waverley VIC 3150",
   phone: "0430 787 712",
-  email: "izzybella.chen@gmail.com",
+  email: "congdongdong03@gmail.com",
   xiaohongshu: "95848743904",
   currency: "AUD",
   googleMapUrl:
