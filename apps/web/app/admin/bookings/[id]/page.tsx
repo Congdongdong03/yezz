@@ -7,7 +7,10 @@ import BookingStatusDialog, {
   type BookingStatusDialogResult,
 } from "@/components/admin/BookingStatusDialog";
 import { getAdminBooking, updateBookingStatus } from "@/lib/admin/api";
-import { formatBookingActionError } from "@/lib/admin/booking-status";
+import {
+  formatBookingActionError,
+  isStaleBookingStatus,
+} from "@/lib/admin/booking-status";
 import type { Booking, OrderStatus } from "@/lib/admin/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,9 +79,21 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
       setBooking(updated);
       setMessage({ type: "success", text: "状态已更新" });
     } catch (err) {
+      const stale = isStaleBookingStatus(err);
       const localized = formatBookingActionError(err);
       setMessage({ type: "error", text: localized });
-      throw new Error(localized);
+      if (stale) {
+        setPendingStatusChange(null);
+        try {
+          setBooking(await getAdminBooking(id));
+        } catch {
+          setMessage({
+            type: "error",
+            text: "预约状态已变化，详情刷新失败，请手动刷新页面",
+          });
+        }
+      }
+      return localized;
     } finally {
       setUpdating(false);
     }
@@ -93,8 +108,9 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
   };
 
   const handleDialogConfirm = async (result: BookingStatusDialogResult) => {
-    await handleStatusChange(result);
-    setPendingStatusChange(null);
+    const error = await handleStatusChange(result);
+    if (!error) setPendingStatusChange(null);
+    return error;
   };
 
   if (loading) return <p className="text-sm text-muted-foreground">加载中…</p>;

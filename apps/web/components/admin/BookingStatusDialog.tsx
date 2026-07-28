@@ -18,7 +18,9 @@ type BookingStatusDialogProps = {
   expectedStatus: OrderStatus;
   isSubmitting?: boolean;
   onCancel: () => void;
-  onConfirm: (result: BookingStatusDialogResult) => void | Promise<void>;
+  onConfirm: (
+    result: BookingStatusDialogResult,
+  ) => void | string | Promise<void | string>;
 };
 
 const TITLES: Record<OrderStatus, string> = {
@@ -70,12 +72,13 @@ export default function BookingStatusDialog({
   const handleConfirm = async () => {
     setSubmissionError(null);
     try {
-      await onConfirm({
+      const safeError = await onConfirm({
         status,
         expectedStatus,
         operationId: operationIdRef.current,
         note: note.trim() || undefined,
       });
+      if (safeError) setSubmissionError(safeError);
     } catch {
       setSubmissionError("状态更新失败，请重试");
     }

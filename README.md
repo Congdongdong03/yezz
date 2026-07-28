@@ -129,6 +129,21 @@ pnpm --filter @yezz/web build
 
 The test suite covers API helpers and validation as well as browser-level customer and administration flows.
 
+The booking transaction suite is a required release gate. Run it against a
+disposable local PostgreSQL database whose name contains `test`, `local`, or
+`dev`:
+
+```bash
+TEST_DATABASE_URL=postgres://localhost/yezyy_test pnpm test:api:booking-db
+```
+
+This dedicated command enables the PostgreSQL booking tests explicitly and
+fails closed when the test database is missing, unavailable, equal to
+`DATABASE_URL`, or not clearly named as a non-production database. It covers
+reservation rollback, concurrent create/cancel idempotency, status-event and
+outbox atomicity, and immutable admin booking views. CI and release workflows
+must run this command in addition to `pnpm verify`.
+
 ## Deployment
 
 | Component | Platform |

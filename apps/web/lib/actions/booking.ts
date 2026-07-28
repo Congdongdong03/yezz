@@ -47,7 +47,18 @@ function bookingSchema(locale?: string) {
 type ApiSuccess<T> = { success: true; data: T };
 type ApiError = { success: false; error: { code: string; message: string } };
 
-export async function submitBooking(formData: FormData) {
+export type BookingAttempt = {
+  idempotencyKey: string;
+};
+
+export function createBookingAttempt(): BookingAttempt {
+  return { idempotencyKey: globalThis.crypto.randomUUID() };
+}
+
+export async function submitBooking(
+  formData: FormData,
+  attempt: BookingAttempt = createBookingAttempt(),
+) {
   const rawData = Object.fromEntries(formData.entries());
   const locale = typeof rawData.locale === "string" ? rawData.locale : undefined;
   const parsed = bookingSchema(locale).safeParse({
@@ -69,7 +80,7 @@ export async function submitBooking(formData: FormData) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Idempotency-Key": globalThis.crypto.randomUUID(),
+        "Idempotency-Key": attempt.idempotencyKey,
       },
       body: JSON.stringify({
         kind: "experience",
@@ -99,6 +110,7 @@ export async function submitBooking(formData: FormData) {
       };
     }
 
+    attempt.idempotencyKey = globalThis.crypto.randomUUID();
     return { success: true, bookingId: json.data.id };
   } catch {
     return {

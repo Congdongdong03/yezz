@@ -5,10 +5,14 @@ export function requiresCustomerNote(status: OrderStatus) {
   return status === "confirmed" || status === "cancelled";
 }
 
+export function isStaleBookingStatus(error: unknown): boolean {
+  return error instanceof ApiClientError && error.code === "STATUS_CONFLICT";
+}
+
 export function formatBookingActionError(error: unknown): string {
   if (error instanceof ApiClientError) {
     if (error.code === "STATUS_CONFLICT") {
-      return "预约状态已变化，请刷新后重试";
+      return "预约状态已变化，列表已刷新，请重新选择操作";
     }
     if (error.code === "INVALID_TRANSITION") {
       return "不能进行此状态变更，请刷新后重试";

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { submitBooking } from "./booking";
+import { createBookingAttempt, submitBooking } from "./booking";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -81,5 +81,46 @@ describe("submitBooking", () => {
       },
     });
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it("retains one attempt key across failure and rotates only after confirmed success", async () => {
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce(
+        Response.json({
+          success: true,
+          data: { id: "booking-1", status: "new" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          success: true,
+          data: { id: "booking-2", status: "new" },
+        }),
+      );
+    vi.stubGlobal("fetch", request);
+    const attempt = createBookingAttempt();
+    const originalKey = attempt.idempotencyKey;
+
+    await expect(submitBooking(validFormData(), attempt)).resolves.toMatchObject({
+      success: false,
+    });
+    expect(attempt.idempotencyKey).toBe(originalKey);
+
+    await expect(submitBooking(validFormData(), attempt)).resolves.toMatchObject({
+      success: true,
+      bookingId: "booking-1",
+    });
+    expect(attempt.idempotencyKey).not.toBe(originalKey);
+
+    const nextAttemptKey = attempt.idempotencyKey;
+    await submitBooking(validFormData(), attempt);
+    const keys = request.mock.calls.map(
+      ([, init]) => new Headers((init as RequestInit).headers).get("Idempotency-Key"),
+    );
+    expect(keys[0]).toBe(originalKey);
+    expect(keys[1]).toBe(originalKey);
+    expect(keys[2]).toBe(nextAttemptKey);
   });
 });

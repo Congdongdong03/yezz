@@ -5,7 +5,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
-import { submitBooking } from "@/lib/actions/booking";
+import {
+  createBookingAttempt,
+  submitBooking,
+} from "@/lib/actions/booking";
 import { trackSubmitBooking } from "@/lib/analytics/gtag";
 
 export type BookingFormDefaults = {
@@ -33,6 +36,7 @@ export default function BookingForm({
   const b = useTranslations("book");
   const id = useId();
   const fieldId = (name: string) => `${id}-${name}`;
+  const [bookingAttempt] = useState(createBookingAttempt);
 
   const formSchema = z.object({
     name: z.string().min(1, t("nameRequired")),
@@ -102,7 +106,7 @@ export default function BookingForm({
     if (defaults?.projectId) formData.append("projectId", defaults.projectId);
     if (defaults?.locale) formData.append("locale", defaults.locale);
 
-    const response = await submitBooking(formData);
+    const response = await submitBooking(formData, bookingAttempt);
 
     if (response.success) {
       trackSubmitBooking({

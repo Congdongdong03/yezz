@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ApiClientError } from "../api/base";
 import {
   formatBookingActionError,
+  isStaleBookingStatus,
   requiresCustomerNote,
 } from "./booking-status";
 
@@ -19,17 +20,19 @@ describe("requiresCustomerNote", () => {
   });
 
   it("localizes stale status conflicts and hides raw transport errors", () => {
-    expect(
-      formatBookingActionError(
-        new ApiClientError(
-          "The request changed. Refresh and try again.",
-          "STATUS_CONFLICT",
-          409,
-        ),
-      ),
-    ).toBe("预约状态已变化，请刷新后重试");
+    const conflict = new ApiClientError(
+      "The request changed. Refresh and try again.",
+      "STATUS_CONFLICT",
+      409,
+      { currentStatus: "cancelled" },
+    );
+    expect(formatBookingActionError(conflict)).toBe(
+      "预约状态已变化，列表已刷新，请重新选择操作",
+    );
+    expect(isStaleBookingStatus(conflict)).toBe(true);
     expect(formatBookingActionError(new Error("socket hang up"))).toBe(
       "状态更新失败，请稍后重试",
     );
+    expect(isStaleBookingStatus(new Error("socket hang up"))).toBe(false);
   });
 });

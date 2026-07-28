@@ -19,6 +19,7 @@
     "db:seed": "pnpm --filter @yezz/db seed",
     "pretest:api": "pnpm build:db",
     "test:api": "pnpm --filter @yezz/api test",
+    "test:api:booking-db": "pnpm build:db && pnpm --filter @yezz/api test:booking-db",
     "test:e2e": "pnpm --filter @yezz/web test:e2e",
     "test:e2e:ui": "pnpm --filter @yezz/web test:e2e:ui",
     "docker:up": "docker compose up -d --build",

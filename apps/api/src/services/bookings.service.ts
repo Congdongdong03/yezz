@@ -168,14 +168,6 @@ export function createBookingsService(db: Db) {
       const locale = normalizedInput.locale?.toLowerCase().startsWith("zh")
         ? "zh"
         : "en";
-      const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
-      if (!ownerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) {
-        throw new AppError(
-          503,
-          "EMAIL_NOT_CONFIGURED",
-          "Owner email is not configured",
-        );
-      }
 
       const replay = await repo.findByIdempotencyKey(normalizedKey);
       if (replay) {
@@ -186,6 +178,15 @@ export function createBookingsService(db: Db) {
           replayed: true,
           notification: "queued",
         };
+      }
+
+      const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
+      if (!ownerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) {
+        throw new AppError(
+          503,
+          "EMAIL_NOT_CONFIGURED",
+          "Owner email is not configured",
+        );
       }
 
       try {

@@ -141,6 +141,23 @@ describe("BookingStatusDialog", () => {
     expect(container.querySelector("[role='dialog']")).not.toBeNull();
   });
 
+  it("shows only the safe localized error returned by the status action", async () => {
+    await renderDialog({
+      onConfirm: vi
+        .fn()
+        .mockResolvedValue("预约状态已变化，列表已刷新，请重新选择操作"),
+    });
+    const confirmButton = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).at(-1);
+
+    await act(async () => confirmButton?.click());
+
+    expect(container.textContent).toContain(
+      "预约状态已变化，列表已刷新，请重新选择操作",
+    );
+  });
+
   it("retains one operation ID and expected status across a network retry", async () => {
     const onConfirm = vi
       .fn()

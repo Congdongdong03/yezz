@@ -12,7 +12,10 @@ import {
   updateBookingStatus,
 } from "@/lib/admin/api";
 import type { Booking, OrderStatus } from "@/lib/admin/types";
-import { formatBookingActionError } from "@/lib/admin/booking-status";
+import {
+  formatBookingActionError,
+  isStaleBookingStatus,
+} from "@/lib/admin/booking-status";
 import { EMAIL_DELIVERY_LABELS } from "@/lib/admin/email-delivery";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -56,14 +59,18 @@ export default function AdminBookingsPage() {
     null,
   );
 
-  const load = () => {
+  const load = async () => {
     setLoading(true);
-    getAdminBookings()
-      .then((result) => setItems("data" in result ? result.data : result as unknown as Booking[]))
-      .catch(() =>
-        setMessage({ type: "error", text: "预约记录加载失败，请稍后重试" }),
-      )
-      .finally(() => setLoading(false));
+    try {
+      const result = await getAdminBookings();
+      setItems(
+        "data" in result ? result.data : (result as unknown as Booking[]),
+      );
+    } catch {
+      setMessage({ type: "error", text: "预约记录加载失败，请稍后重试" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -81,12 +88,17 @@ export default function AdminBookingsPage() {
       setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
       setMessage({ type: "success", text: "状态已更新" });
     } catch (err) {
+      const stale = isStaleBookingStatus(err);
       const localized = formatBookingActionError(err);
       setMessage({
         type: "error",
         text: localized,
       });
-      throw new Error(localized);
+      if (stale) {
+        setPendingStatusChange(null);
+        await load();
+      }
+      return localized;
     } finally {
       setUpdatingId(null);
     }
@@ -104,8 +116,9 @@ export default function AdminBookingsPage() {
 
   const handleDialogConfirm = async (result: BookingStatusDialogResult) => {
     if (!pendingStatusChange) return;
-    await handleStatusChange(pendingStatusChange.id, result);
-    setPendingStatusChange(null);
+    const error = await handleStatusChange(pendingStatusChange.id, result);
+    if (!error) setPendingStatusChange(null);
+    return error;
   };
 
   return (

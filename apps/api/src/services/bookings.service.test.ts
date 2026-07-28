@@ -185,6 +185,20 @@ describe.skipIf(!runDatabaseTests)(
       ]);
     });
 
+    it("replays a committed booking even when owner email configuration later disappears", async () => {
+      const service = createBookingsService(database.connection.db);
+      const idempotencyKey = crypto.randomUUID();
+      const created = await service.create(validExperience(), idempotencyKey);
+      delete process.env.OWNER_EMAIL;
+
+      await expect(
+        service.create(validExperience(), idempotencyKey),
+      ).resolves.toMatchObject({
+        id: created.id,
+        replayed: true,
+      });
+    });
+
     it("rejects a preferred date that disagrees with the authoritative slot and rolls back", async () => {
       const service = createBookingsService(database.connection.db);
       await expect(
