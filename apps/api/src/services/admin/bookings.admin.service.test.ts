@@ -210,4 +210,89 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
       },
     });
   });
+
+  it("returns fixed 25-row unresolved-first pages and applies status and search filters", async () => {
+    const staffId = crypto.randomUUID();
+    await database.connection.db.insert(users).values({
+      id: staffId,
+      email: "queue-staff@example.com",
+      passwordHash: "not-used",
+      name: "队列员工",
+      role: "staff",
+    });
+    const rows = Array.from({ length: 31 }, (_, index) => ({
+      id: crypto.randomUUID(),
+      name: index === 30 ? "Needle Customer" : `Customer ${index}`,
+      phone: `0430000${String(index).padStart(3, "0")}`,
+      status: (index < 24
+        ? "new"
+        : index < 26
+          ? "contacted"
+          : "confirmed") as "new" | "contacted" | "confirmed",
+      createdAt: new Date(`2030-08-${String((index % 20) + 1).padStart(2, "0")}T10:00:00.000Z`),
+    }));
+    await database.connection.db.insert(bookings).values(rows);
+    const service = createAdminBookingsService(database.connection.db);
+
+    const firstPage = await service.list({ actorUserId: staffId });
+    const secondPage = await service.list({ actorUserId: staffId, page: 2 });
+    const contacted = await service.list({
+      actorUserId: staffId,
+      status: "contacted",
+    });
+    const search = await service.list({
+      actorUserId: staffId,
+      search: "Needle",
+    });
+
+    expect(firstPage).toMatchObject({ total: 31, page: 1, limit: 25 });
+    expect(firstPage.data).toHaveLength(25);
+    expect(firstPage.data.every((booking) => booking.status !== "confirmed")).toBe(true);
+    expect(secondPage).toMatchObject({ total: 31, page: 2, limit: 25 });
+    expect(secondPage.data).toHaveLength(6);
+    expect(contacted).toMatchObject({ total: 2 });
+    expect(contacted.data).toHaveLength(2);
+    expect(search).toMatchObject({ total: 1 });
+    expect(search.data[0]?.name).toBe("Needle Customer");
+  });
+
+  it("does not mark a list read and marks only the opened booking for that staff member", async () => {
+    const staffA = crypto.randomUUID();
+    const staffB = crypto.randomUUID();
+    const bookingId = crypto.randomUUID();
+    await database.connection.db.insert(users).values([
+      {
+        id: staffA,
+        email: "reader-a@example.com",
+        passwordHash: "not-used",
+        name: "员工 A",
+        role: "staff",
+      },
+      {
+        id: staffB,
+        email: "reader-b@example.com",
+        passwordHash: "not-used",
+        name: "员工 B",
+        role: "staff",
+      },
+    ]);
+    await database.connection.db.insert(bookings).values({
+      id: bookingId,
+      name: "待阅读预约",
+      phone: "0430000000",
+    });
+    const service = createAdminBookingsService(database.connection.db);
+
+    await expect(service.list({ actorUserId: staffA })).resolves.toMatchObject({
+      data: [{ id: bookingId, isUnread: true }],
+    });
+    await service.getById(bookingId, staffA);
+
+    await expect(service.list({ actorUserId: staffA })).resolves.toMatchObject({
+      data: [{ id: bookingId, isUnread: false }],
+    });
+    await expect(service.list({ actorUserId: staffB })).resolves.toMatchObject({
+      data: [{ id: bookingId, isUnread: true }],
+    });
+  });
 });

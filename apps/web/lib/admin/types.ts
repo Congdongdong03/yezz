@@ -193,6 +193,7 @@ export type Booking = {
   createdAt: string;
   updatedAt: string;
   replayed?: boolean;
+  isUnread?: boolean;
 };
 
 export type BookingTransitionInput = {
@@ -233,6 +234,24 @@ export type UnreadCounts = {
   bookings: number;
   orders: number;
   total: number;
+};
+
+export type AdminQueueSummary = {
+  unseen: UnreadCounts;
+  new: number;
+  contacted: number;
+  overdue: number;
+  confirmedToday: number;
+  emailFailures: number;
+};
+
+export type AdminQueueListOptions = {
+  page?: number;
+  status?: OrderStatus;
+  search?: string;
+  unread?: boolean;
+  overdue?: boolean;
+  confirmedToday?: boolean;
 };
 
 export type EmailDeliveryStatus = "pending" | "processing" | "sent" | "failed";
@@ -313,6 +332,7 @@ export type CartOrder = {
   createdAt: string;
   updatedAt: string;
   replayed?: boolean;
+  isUnread?: boolean;
 };
 
 export type CartOrderList = {

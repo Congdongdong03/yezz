@@ -11,6 +11,7 @@ import {
   createCartOrdersRepository,
   type OrderStatus,
 } from "../../repositories/cart-orders.repository.js";
+import { createAdminRequestReadsRepository } from "../../repositories/admin-request-reads.repository.js";
 import { createStatusEventsRepository } from "../../repositories/status-events.repository.js";
 import { createRequestTransitionService } from "../request-transition.service.js";
 
@@ -81,6 +82,7 @@ export type CartOrderDto = {
   };
   statusHistory: CartOrderStatusHistoryItem[];
   emailDeliveries: CartOrderEmailDelivery[];
+  isUnread: boolean;
   createdAt: Date;
   updatedAt: Date;
   replayed?: boolean;
@@ -150,6 +152,7 @@ function mapOrderRow(
     notificationSummary: extras.notificationSummary,
     statusHistory: extras.statusHistory,
     emailDeliveries: extras.emailDeliveries,
+    isUnread: false,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -161,6 +164,7 @@ export type AdminCartOrdersService = ReturnType<
 
 export function createAdminCartOrdersService(db: Db) {
   const repo = createCartOrdersRepository(db);
+  const readsRepo = createAdminRequestReadsRepository(db);
   const eventsRepo = createStatusEventsRepository(db);
   const transitionService = createRequestTransitionService(db);
 
@@ -211,10 +215,13 @@ export function createAdminCartOrdersService(db: Db) {
     };
   }
 
-  async function getById(id: string): Promise<CartOrderDto> {
+  async function getById(id: string, actorUserId?: string): Promise<CartOrderDto> {
     const order = await repo.findById(id);
     if (!order) {
       throw new AppError(404, "NOT_FOUND", "Cart order not found");
+    }
+    if (actorUserId) {
+      await readsRepo.markCartOrderRead(actorUserId, order.id);
     }
     const items = await repo.findItemsByOrderId(id);
     return mapOrderRow(order, items, await loadExtras(id, true));
@@ -222,9 +229,13 @@ export function createAdminCartOrdersService(db: Db) {
 
   return {
     async list(options?: {
+      actorUserId: string;
       page?: number;
-      limit?: number;
       status?: OrderStatus;
+      search?: string;
+      unreadOnly?: boolean;
+      overdue?: boolean;
+      confirmedToday?: boolean;
     }): Promise<{
       data: CartOrderDto[];
       total: number;
@@ -233,15 +244,20 @@ export function createAdminCartOrdersService(db: Db) {
       totalPages: number;
     }> {
       const page = Math.max(1, options?.page ?? 1);
-      const limit = Math.min(200, Math.max(1, options?.limit ?? 25));
+      const limit = 25;
       const offset = (page - 1) * limit;
       const { rows, total } = await repo.findAllOrdered({
+        userId: options?.actorUserId ?? "00000000-0000-0000-0000-000000000000",
         limit,
         offset,
         status: options?.status,
+        search: options?.search,
+        unreadOnly: options?.unreadOnly,
+        overdue: options?.overdue,
+        confirmedToday: options?.confirmedToday,
       });
       const allItems = await repo.findItemsByOrderIds(
-        rows.map((order) => order.id),
+        rows.map(({ row }) => row.id),
       );
       const itemsByOrder = new Map<string, CartOrderItemRow[]>();
       for (const item of allItems) {
@@ -250,13 +266,14 @@ export function createAdminCartOrdersService(db: Db) {
         itemsByOrder.set(item.orderId, items);
       }
       const data = await Promise.all(
-        rows.map(async (order) =>
-          mapOrderRow(
-            order,
-            itemsByOrder.get(order.id) ?? [],
-            await loadExtras(order.id, false),
+        rows.map(async ({ row, isUnread }) => ({
+          ...mapOrderRow(
+            row,
+            itemsByOrder.get(row.id) ?? [],
+            await loadExtras(row.id, false),
           ),
-        ),
+          isUnread,
+        })),
       );
       return {
         data,

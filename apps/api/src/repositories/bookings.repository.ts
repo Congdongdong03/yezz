@@ -1,5 +1,5 @@
-import { bookings, type Db } from "@yezz/db";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { adminRequestReads, bookings, type Db } from "@yezz/db";
+import { and, count, desc, eq, ilike, isNull, lt, or, sql } from "drizzle-orm";
 import { lockPublicCreateAttempt } from "../lib/public-create-idempotency.js";
 
 export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
@@ -86,25 +86,68 @@ export function createBookingsRepository(db: Db) {
       return row;
     },
 
-    async findAllOrdered(opts?: { limit?: number; offset?: number; status?: OrderStatus }) {
-      const conditions = opts?.status ? [eq(bookings.status, opts.status)] : [];
-      const query = db
-        .select()
-        .from(bookings)
-        .orderBy(desc(bookings.createdAt));
+    async findAllOrdered(opts: {
+      userId: string;
+      limit: number;
+      offset: number;
+      status?: OrderStatus;
+      search?: string;
+      unreadOnly?: boolean;
+      overdue?: boolean;
+      confirmedToday?: boolean;
+    }) {
+      const readJoin = and(
+        eq(adminRequestReads.userId, opts.userId),
+        eq(adminRequestReads.bookingId, bookings.id),
+      );
+      const search = opts.search?.trim();
+      const conditions = [
+        ...(opts.status ? [eq(bookings.status, opts.status)] : []),
+        ...(search
+          ? [
+              or(
+                ilike(bookings.name, `%${search}%`),
+                ilike(bookings.phone, `%${search}%`),
+                ilike(bookings.email, `%${search}%`),
+                ilike(bookings.wechat, `%${search}%`),
+              ),
+            ]
+          : []),
+        ...(opts.unreadOnly ? [isNull(adminRequestReads.userId)] : []),
+        ...(opts.overdue
+          ? [and(eq(bookings.status, "new"), lt(bookings.createdAt, new Date(Date.now() - 2 * 60 * 60 * 1000)))]
+          : []),
+        ...(opts.confirmedToday
+          ? [
+              and(
+                eq(bookings.status, "confirmed"),
+                sql`(${bookings.updatedAt} AT TIME ZONE 'Australia/Melbourne')::date = ((CURRENT_TIMESTAMP AT TIME ZONE 'Australia/Melbourne')::date)`,
+              ),
+            ]
+          : []),
+      ];
+      const condition = conditions.length ? and(...conditions) : undefined;
 
       const [totalRow] = await db
         .select({ total: count() })
         .from(bookings)
-        .where(conditions.length ? conditions[0] : sql`true`);
+        .leftJoin(adminRequestReads, readJoin)
+        .where(condition);
 
       const rows = await db
-        .select()
+        .select({
+          row: bookings,
+          isUnread: sql<boolean>`${adminRequestReads.userId} IS NULL`,
+        })
         .from(bookings)
-        .where(conditions.length ? conditions[0] : sql`true`)
-        .orderBy(desc(bookings.createdAt))
-        .limit(opts?.limit ?? 100)
-        .offset(opts?.offset ?? 0);
+        .leftJoin(adminRequestReads, readJoin)
+        .where(condition)
+        .orderBy(
+          sql`CASE WHEN ${bookings.status} = 'new' THEN 0 WHEN ${bookings.status} = 'contacted' THEN 1 ELSE 2 END`,
+          desc(bookings.createdAt),
+        )
+        .limit(opts.limit)
+        .offset(opts.offset);
 
       return { rows, total: Number(totalRow?.total ?? 0) };
     },

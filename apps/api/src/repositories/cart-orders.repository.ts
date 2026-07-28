@@ -1,10 +1,23 @@
 import {
   cartOrderItems,
   cartOrders,
+  adminRequestReads,
   type CartOrderItemSnapshot,
   type Db,
 } from "@yezz/db";
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 import { lockPublicCreateAttempt } from "../lib/public-create-idempotency.js";
 
 export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
@@ -86,25 +99,66 @@ export function createCartOrdersRepository(db: Db) {
       return db.transaction((transaction) => insertOrder(input, transaction));
     },
 
-    async findAllOrdered(opts?: {
-      limit?: number;
-      offset?: number;
+    async findAllOrdered(opts: {
+      userId: string;
+      limit: number;
+      offset: number;
       status?: OrderStatus;
+      search?: string;
+      unreadOnly?: boolean;
+      overdue?: boolean;
+      confirmedToday?: boolean;
     }) {
-      const condition = opts?.status
-        ? eq(cartOrders.status, opts.status)
-        : sql`true`;
+      const readJoin = and(
+        eq(adminRequestReads.userId, opts.userId),
+        eq(adminRequestReads.cartOrderId, cartOrders.id),
+      );
+      const search = opts.search?.trim();
+      const conditions = [
+        ...(opts.status ? [eq(cartOrders.status, opts.status)] : []),
+        ...(search
+          ? [
+              or(
+                ilike(cartOrders.name, `%${search}%`),
+                ilike(cartOrders.phone, `%${search}%`),
+                ilike(cartOrders.email, `%${search}%`),
+                ilike(cartOrders.wechat, `%${search}%`),
+              ),
+            ]
+          : []),
+        ...(opts.unreadOnly ? [isNull(adminRequestReads.userId)] : []),
+        ...(opts.overdue
+          ? [and(eq(cartOrders.status, "new"), lt(cartOrders.createdAt, new Date(Date.now() - 2 * 60 * 60 * 1000)))]
+          : []),
+        ...(opts.confirmedToday
+          ? [
+              and(
+                eq(cartOrders.status, "confirmed"),
+                sql`(${cartOrders.updatedAt} AT TIME ZONE 'Australia/Melbourne')::date = ((CURRENT_TIMESTAMP AT TIME ZONE 'Australia/Melbourne')::date)`,
+              ),
+            ]
+          : []),
+      ];
+      const condition = conditions.length ? and(...conditions) : undefined;
       const [totalRow] = await db
         .select({ total: count() })
         .from(cartOrders)
+        .leftJoin(adminRequestReads, readJoin)
         .where(condition);
       const rows = await db
-        .select()
+        .select({
+          row: cartOrders,
+          isUnread: sql<boolean>`${adminRequestReads.userId} IS NULL`,
+        })
         .from(cartOrders)
+        .leftJoin(adminRequestReads, readJoin)
         .where(condition)
-        .orderBy(desc(cartOrders.createdAt))
-        .limit(opts?.limit ?? 100)
-        .offset(opts?.offset ?? 0);
+        .orderBy(
+          sql`CASE WHEN ${cartOrders.status} = 'new' THEN 0 WHEN ${cartOrders.status} = 'contacted' THEN 1 ELSE 2 END`,
+          desc(cartOrders.createdAt),
+        )
+        .limit(opts.limit)
+        .offset(opts.offset);
       return { rows, total: Number(totalRow?.total ?? 0) };
     },
 

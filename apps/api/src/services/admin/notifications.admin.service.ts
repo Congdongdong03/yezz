@@ -1,31 +1,34 @@
 import type { Db } from "@yezz/db";
-import { AppError } from "../../lib/errors.js";
 import { createNotificationsRepository } from "../../repositories/notifications.repository.js";
 
 export type NotificationsAdminService = ReturnType<typeof createNotificationsAdminService>;
 
-export function createNotificationsAdminService(db: Db) {
+export function createNotificationsAdminService(
+  db: Db,
+  options: { now?: () => Date } = {},
+) {
   const repo = createNotificationsRepository(db);
+  const now = options.now ?? (() => new Date());
 
   return {
-    async unreadCount() {
+    async unreadCount(userId: string) {
       const [bookings, orders] = await Promise.all([
-        repo.countUnreadBookings(),
-        repo.countUnreadOrders(),
+        repo.countUnreadBookings(userId),
+        repo.countUnreadOrders(userId),
       ]);
       return { bookings, orders, total: bookings + orders };
     },
 
-    async markRead(type: "bookings" | "orders") {
-      if (type === "bookings") {
-        await repo.markBookingsRead();
-        return { type };
-      }
-      if (type === "orders") {
-        await repo.markOrdersRead();
-        return { type };
-      }
-      throw new AppError(400, "VALIDATION_ERROR", "type must be bookings or orders");
+    async summary(userId: string) {
+      const [bookings, orders, counts] = await Promise.all([
+        repo.countUnreadBookings(userId),
+        repo.countUnreadOrders(userId),
+        repo.summary(now()),
+      ]);
+      return {
+        unseen: { bookings, orders, total: bookings + orders },
+        ...counts,
+      };
     },
   };
 }

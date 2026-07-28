@@ -15,6 +15,8 @@ import type {
   PasswordChangeInput,
   TimeSlot,
   UnreadCounts,
+  AdminQueueSummary,
+  AdminQueueListOptions,
   PartyFormInput,
   PartyPackage,
   ProjectDetail,
@@ -218,9 +220,16 @@ export async function deleteGalleryImage(id: string) {
   });
 }
 
-export async function getAdminBookings(params?: { page?: number; limit?: number; status?: string }) {
-  const qs = params ? `?${new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))).toString()}` : "";
-  const result = await adminFetch<{ data: Booking[]; total: number; page: number; limit: number } | Booking[]>(`/api/v1/admin/bookings${qs}`);
+function buildQueueQuery(params: AdminQueueListOptions = {}) {
+  const entries = Object.entries(params)
+    .filter(([, value]) => value != null && value !== "" && value !== false)
+    .map(([key, value]) => [key, String(value)]);
+  return entries.length ? `?${new URLSearchParams(entries).toString()}` : "";
+}
+
+export async function getAdminBookings(params: AdminQueueListOptions = {}) {
+  const qs = buildQueueQuery(params);
+  const result = await adminFetch<{ data: Booking[]; total: number; page: number; limit: number; totalPages?: number } | Booking[]>(`/api/v1/admin/bookings${qs}`);
   // Support both old array format and new paginated format
   if (Array.isArray(result)) return { data: result, total: result.length, page: 1, limit: result.length };
   return result;
@@ -244,11 +253,8 @@ export async function getUnreadCounts() {
   return adminFetch<UnreadCounts>("/api/v1/admin/notifications/unread-count");
 }
 
-export async function markNotificationsRead(type: "bookings" | "orders") {
-  return adminFetch<{ type: string }>(
-    `/api/v1/admin/notifications/mark-read?type=${type}`,
-    { method: "PATCH" },
-  );
+export async function getAdminQueueSummary() {
+  return adminFetch<AdminQueueSummary>("/api/v1/admin/notifications/summary");
 }
 
 export async function getAdminTimeSlots() {
@@ -329,8 +335,8 @@ export async function deleteAdminUser(id: string) {
   });
 }
 
-export async function getAdminOrders() {
-  return adminFetch<CartOrderList>("/api/v1/admin/orders");
+export async function getAdminOrders(params: AdminQueueListOptions = {}) {
+  return adminFetch<CartOrderList>(`/api/v1/admin/orders${buildQueueQuery(params)}`);
 }
 
 export async function getAdminOrder(id: string) {

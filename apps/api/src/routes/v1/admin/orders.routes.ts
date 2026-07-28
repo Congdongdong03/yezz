@@ -7,24 +7,32 @@ export default async function adminOrdersRoutes(app: FastifyInstance) {
   app.get<{
     Querystring: {
       page?: string;
-      limit?: string;
       status?: OrderStatus;
+      search?: string;
+      unread?: string;
+      overdue?: string;
+      confirmedToday?: string;
     };
   }>("/", async (request) => {
     const data = await app.services.adminCartOrders.list({
+      actorUserId: request.user.sub,
       page: request.query.page
         ? parsePositiveInt(request.query.page, 1)
         : undefined,
-      limit: request.query.limit
-        ? parsePositiveInt(request.query.limit, 100)
-        : undefined,
       status: request.query.status,
+      search: request.query.search,
+      unreadOnly: request.query.unread === "true",
+      overdue: request.query.overdue === "true",
+      confirmedToday: request.query.confirmedToday === "true",
     });
     return success(data);
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (request) => {
-    const data = await app.services.adminCartOrders.getById(request.params.id);
+    const data = await app.services.adminCartOrders.getById(
+      request.params.id,
+      request.user.sub,
+    );
     return success(data);
   });
 

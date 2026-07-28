@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
 import BookingStatusDialog, {
   type BookingStatusDialogResult,
 } from "@/components/admin/BookingStatusDialog";
 import {
   getAdminBookings,
-  markNotificationsRead,
   updateBookingStatus,
 } from "@/lib/admin/api";
 import type { Booking, OrderStatus } from "@/lib/admin/types";
@@ -47,9 +47,22 @@ function formatDate(value: string | null) {
 }
 
 export default function AdminBookingsPage() {
+  const searchParams = useSearchParams();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusBookingAfterRefreshRef = useRef<string | null>(null);
   const [items, setItems] = useState<Booking[]>([]);
+  const [page, setPage] = useState(() => Number(searchParams.get("page")) || 1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [status, setStatus] = useState<OrderStatus | "">(
+    () => (searchParams.get("status") as OrderStatus | null) ?? "",
+  );
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
+  const [unread, setUnread] = useState(() => searchParams.get("unread") === "true");
+  const [overdue, setOverdue] = useState(() => searchParams.get("overdue") === "true");
+  const [confirmedToday, setConfirmedToday] = useState(
+    () => searchParams.get("confirmedToday") === "true",
+  );
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [pendingStatusChange, setPendingStatusChange] = useState<{
@@ -61,12 +74,25 @@ export default function AdminBookingsPage() {
     null,
   );
 
-  const load = async ({ showLoading = true } = {}) => {
+  const load = async ({ showLoading = true, nextPage = page } = {}) => {
     if (showLoading) setLoading(true);
     try {
-      const result = await getAdminBookings();
-      setItems(
-        "data" in result ? result.data : (result as unknown as Booking[]),
+      const result = await getAdminBookings({
+        page: nextPage,
+        status: status || undefined,
+        search: search || undefined,
+        unread,
+        overdue,
+        confirmedToday,
+      });
+      const data = "data" in result ? result.data : (result as unknown as Booking[]);
+      const resultTotal = Array.isArray(result) ? data.length : result.total;
+      setItems(data);
+      setTotal(resultTotal);
+      setTotalPages(
+        !Array.isArray(result) && result.totalPages
+          ? result.totalPages
+          : Math.max(1, Math.ceil(resultTotal / 25)),
       );
       return true;
     } catch {
@@ -79,8 +105,17 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     void Promise.resolve().then(() => load());
-    markNotificationsRead("bookings").catch(() => {});
   }, []);
+
+  const applyFilters = () => {
+    setPage(1);
+    void load({ nextPage: 1 });
+  };
+
+  const goToPage = (nextPage: number) => {
+    setPage(nextPage);
+    void load({ nextPage });
+  };
 
   useEffect(() => {
     const bookingId = focusBookingAfterRefreshRef.current;
@@ -170,6 +205,40 @@ export default function AdminBookingsPage() {
         />
       )}
 
+      <form
+        className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          applyFilters();
+        }}
+      >
+        <label className="grid gap-1 text-sm">
+          搜索姓名、电话或邮箱
+          <input
+            className="h-9 min-w-56 rounded-lg border border-input bg-background px-3"
+            onChange={(event) => setSearch(event.target.value)}
+            value={search}
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          状态
+          <select
+            className="h-9 rounded-lg border border-input bg-background px-3"
+            onChange={(event) => setStatus(event.target.value as OrderStatus | "")}
+            value={status}
+          >
+            <option value="">全部状态</option>
+            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm"><input checked={unread} onChange={(event) => setUnread(event.target.checked)} type="checkbox" />仅未读</label>
+        <label className="flex items-center gap-2 text-sm"><input checked={overdue} onChange={(event) => setOverdue(event.target.checked)} type="checkbox" />超时未处理</label>
+        <label className="flex items-center gap-2 text-sm"><input checked={confirmedToday} onChange={(event) => setConfirmedToday(event.target.checked)} type="checkbox" />今日确认</label>
+        <button className="h-9 rounded-lg bg-primary px-4 text-sm text-primary-foreground" type="submit">筛选</button>
+      </form>
+
       {loading ? (
         <p className="text-sm text-muted-foreground">加载中…</p>
       ) : items.length === 0 ? (
@@ -196,7 +265,10 @@ export default function AdminBookingsPage() {
                   <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
                     {formatDate(booking.createdAt)}
                   </td>
-                  <td className="px-4 py-3 font-medium">{booking.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {booking.isUnread && <span className="mr-2 inline-flex rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">未读</span>}
+                    {booking.name}
+                  </td>
                   <td className="px-4 py-3">
                     <a className="hover:underline" href={`tel:${booking.phone}`}>
                       {booking.phone}
@@ -296,6 +368,16 @@ export default function AdminBookingsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && total > 0 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>共 {total} 条，第 {page} / {totalPages} 页（每页 25 条）</span>
+          <div className="flex gap-2">
+            <button className="rounded border px-3 py-1 disabled:opacity-50" disabled={page <= 1} onClick={() => goToPage(page - 1)} type="button">上一页</button>
+            <button className="rounded border px-3 py-1 disabled:opacity-50" disabled={page >= totalPages} onClick={() => goToPage(page + 1)} type="button">下一页</button>
+          </div>
         </div>
       )}
 

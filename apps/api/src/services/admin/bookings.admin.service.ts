@@ -5,6 +5,7 @@ import {
   createBookingsRepository,
   type OrderStatus,
 } from "../../repositories/bookings.repository.js";
+import { createAdminRequestReadsRepository } from "../../repositories/admin-request-reads.repository.js";
 import { createStatusEventsRepository } from "../../repositories/status-events.repository.js";
 import {
   createRequestTransitionService,
@@ -74,6 +75,7 @@ export type BookingDto = {
   };
   statusHistory: BookingStatusHistoryItem[];
   emailDeliveries: BookingEmailDelivery[];
+  isUnread: boolean;
   createdAt: Date;
   updatedAt: Date;
   replayed?: boolean;
@@ -137,6 +139,7 @@ export function mapBookingRow(
     notificationSummary: extras.notificationSummary,
     statusHistory: extras.statusHistory,
     emailDeliveries: extras.emailDeliveries,
+    isUnread: false,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -148,6 +151,7 @@ export type AdminBookingsService = ReturnType<
 
 export function createAdminBookingsService(db: Db) {
   const repo = createBookingsRepository(db);
+  const readsRepo = createAdminRequestReadsRepository(db);
   const eventsRepo = createStatusEventsRepository(db);
   const transitionService = createRequestTransitionService(db);
 
@@ -198,19 +202,25 @@ export function createAdminBookingsService(db: Db) {
   }
 
   async function getById(id: string, actorUserId?: string): Promise<BookingDto> {
-    void actorUserId;
     const row = await repo.findById(id);
     if (!row) {
       throw new AppError(404, "NOT_FOUND", "Booking not found");
+    }
+    if (actorUserId) {
+      await readsRepo.markBookingRead(actorUserId, row.id);
     }
     return mapBookingRow(row, await loadExtras(row.id, true));
   }
 
   return {
     async list(options?: {
+      actorUserId: string;
       page?: number;
-      limit?: number;
       status?: OrderStatus;
+      search?: string;
+      unreadOnly?: boolean;
+      overdue?: boolean;
+      confirmedToday?: boolean;
     }): Promise<{
       data: BookingDto[];
       total: number;
@@ -219,16 +229,24 @@ export function createAdminBookingsService(db: Db) {
       totalPages: number;
     }> {
       const page = Math.max(1, options?.page ?? 1);
-      const limit = Math.min(200, Math.max(1, options?.limit ?? 25));
+      const limit = 25;
       const offset = (page - 1) * limit;
       const { rows, total } = await repo.findAllOrdered({
+        userId: options?.actorUserId ?? "00000000-0000-0000-0000-000000000000",
         limit,
         offset,
         status: options?.status,
+        search: options?.search,
+        unreadOnly: options?.unreadOnly,
+        overdue: options?.overdue,
+        confirmedToday: options?.confirmedToday,
       });
       const data = await Promise.all(
-        rows.map(async (row) =>
-          mapBookingRow(row, await loadExtras(row.id, false)),
+        rows.map(async ({ row, isUnread }) =>
+          ({
+            ...mapBookingRow(row, await loadExtras(row.id, false)),
+            isUnread,
+          }),
         ),
       );
       return {
