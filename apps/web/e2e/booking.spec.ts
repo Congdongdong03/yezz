@@ -108,19 +108,20 @@ test.describe("体验项目预约流程", () => {
     }
 
     // 7. Scroll to booking form and fill it
-    await page.getByRole("heading", { name: /提交预约/i }).scrollIntoViewIfNeeded();
+    await page.getByRole("heading", { name: /提交预约申请/i }).scrollIntoViewIfNeeded();
 
     await page.getByLabel(/姓名|Name/i).fill("E2E预约测试");
     await page.getByLabel(/电话|Phone|手机/i).fill("13800138002");
     await page.getByLabel(/微信|WeChat/i).fill("e2e_booking_wechat");
     await page.getByLabel(/邮箱|Email/i).fill("e2e-booking@example.com");
 
-    // 8. Submit booking (button text is "立即预约" in the form)
-    const submitButton = page.locator("#booking-form").getByRole("button", { name: /立即预约/i });
+    // 8. Submit booking request
+    const submitButton = page.locator("#booking-form").getByRole("button", { name: /提交预约申请/i });
     await submitButton.click();
 
     // 9. Verify success
-    await expect(page.getByText(/感谢您的预约！|Thank|成功/i)).toBeVisible();
+    await expect(page.getByText(/预约申请已收到|Booking Request Received/i)).toBeVisible();
+    await expect(page.getByText(/无需线上付款，请到店付款|No online payment is required; please pay in store/i)).toBeVisible();
   });
 
   test("预约表单应该验证必填字段", async ({ page }) => {
@@ -131,10 +132,10 @@ test.describe("体验项目预约流程", () => {
 
     // Try submitting without filling required fields
     // Scroll to form
-    await page.getByRole("heading", { name: /提交预约/i }).scrollIntoViewIfNeeded();
+    await page.getByRole("heading", { name: /提交预约申请/i }).scrollIntoViewIfNeeded();
 
     // Submit empty form
-    const submitButton = page.locator("#booking-form").getByRole("button", { name: /立即预约/i });
+    const submitButton = page.locator("#booking-form").getByRole("button", { name: /提交预约申请/i });
     await submitButton.click();
 
     // Should show validation errors

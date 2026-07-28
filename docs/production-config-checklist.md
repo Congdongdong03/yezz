@@ -121,6 +121,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 |------|------|---------|
 | `RESEND_API_KEY` | Resend API 密钥 | 建议配置 |
 | `OWNER_EMAIL` | 接收订单/预约通知的商家邮箱 | 建议配置 |
+| `EMAIL_FROM` | Resend 已验证的交易邮件发件人 | ✅ 生产环境必须 |
+| `EMAIL_REPLY_TO` | 顾客回复邮件的地址 | 建议配置，当前使用 `izzybella.chen@gmail.com` |
 
 > 代码位置：`apps/api/src/lib/email.ts`
 
@@ -129,11 +131,19 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 - 但后台的"未读消息计数"仍然有效
 - 用户端也**收不到确认邮件**
 
-**目标发件人地址（Customer Task 3 完成并验证域名后）：**
+**计划发件人地址（仅在 Resend 完成域名验证后配置）：**
 ```
 YezYY <bookings@yezyy.com>
 ```
-> 当前代码仍使用旧的写死发件人。Customer Task 3 将改为通过 `EMAIL_FROM` 配置；在该任务完成且 Resend 域名验证通过前，不应把上面的目标地址视为已启用。
+> API 在生产环境启动时会检查 `EMAIL_FROM`：缺少时将拒绝启动，避免从旧域名或未配置的地址发送邮件。`EMAIL_REPLY_TO` 可以配置为 `izzybella.chen@gmail.com`，它是顾客回复地址，不代表 Gmail 已被验证为 Resend 的交易邮件发件人。
+
+**上线前填写：**
+```bash
+RESEND_API_KEY=re_...
+OWNER_EMAIL=izzybella.chen@gmail.com
+EMAIL_FROM="YezYY <bookings@yezyy.com>"
+EMAIL_REPLY_TO=izzybella.chen@gmail.com
+```
 
 **邮件 DNS 建议：** 如果使用 `yezyy.com` 发邮件，建议在域名 DNS 中添加：
 - SPF 记录

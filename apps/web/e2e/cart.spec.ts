@@ -40,7 +40,7 @@ test.describe("购物车下单流程", () => {
 
     // 7. Navigate to cart page
     await page.goto("/zh/cart");
-    await expect(page.getByRole("heading", { name: /预约确认/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /预约申请/i })).toBeVisible();
 
     // 8. Cart should contain the item
     await expect(page.getByText(/奶油胶|Cream Glue/)).toBeVisible();
@@ -54,11 +54,12 @@ test.describe("购物车下单流程", () => {
     await page.getByLabel(/备注|Note|Message/i).fill("E2E自动化测试订单");
 
     // 10. Submit order
-    const submitButton = page.getByRole("button", { name: /确认|提交|Submit|Confirm/i });
+    const submitButton = page.getByRole("button", { name: /提交预约申请|Submit Booking Request/i });
     await submitButton.click();
 
     // 11. Verify success
-    await expect(page.getByText(/感谢您的预约！|Thank|Success/i)).toBeVisible();
+    await expect(page.getByText(/预约申请已收到|Booking Request Received/i)).toBeVisible();
+    await expect(page.getByText(/无需线上付款，请到店付款|No online payment is required; please pay in store/i)).toBeVisible();
 
     // 12. Cart should be empty after successful submission
     await page.goto("/zh/cart");

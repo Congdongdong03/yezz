@@ -9,7 +9,16 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-const FROM = "YEZZ <bookings@yezz.studio>";
+const configuredFrom = process.env.EMAIL_FROM?.trim();
+
+if (process.env.NODE_ENV === "production" && !configuredFrom) {
+  throw new Error("EMAIL_FROM must be configured in production");
+}
+
+// Development has no transactional mail configuration by default. Production
+// always uses the configured, verified Resend sender instead of a legacy domain.
+const FROM = configuredFrom || "YezYY <onboarding@resend.dev>";
+const REPLY_TO = process.env.EMAIL_REPLY_TO?.trim() || "izzybella.chen@gmail.com";
 
 export type StoreContact = {
   phone?: string | null;
@@ -26,6 +35,7 @@ export async function sendOwnerEmail(subject: string, html: string): Promise<voi
   await resend.emails.send({
     from: FROM,
     to: ownerEmail,
+    replyTo: REPLY_TO,
     subject,
     html,
   });
@@ -37,7 +47,7 @@ async function sendCustomerEmail(
   html: string,
 ): Promise<void> {
   if (!resend) return;
-  await resend.emails.send({ from: FROM, to, subject, html });
+  await resend.emails.send({ from: FROM, to, replyTo: REPLY_TO, subject, html });
 }
 
 function formatOrderId(prefix: string, id: string, createdAt: Date): string {
@@ -56,7 +66,7 @@ export function formatCartOrderId(id: string, createdAt: Date): string {
   return formatOrderId("order", id, createdAt);
 }
 
-/** Wraps email body content in a branded YEZZ HTML shell. */
+/** Wraps email body content in a branded YezYY HTML shell. */
 function brandedEmail(title: string, body: string): string {
   return `<!DOCTYPE html>
 <html lang="zh">
@@ -73,7 +83,7 @@ function brandedEmail(title: string, body: string): string {
           <!-- Header -->
           <tr>
             <td style="background:#B07D5C;padding:28px 32px;text-align:center;">
-              <h1 style="margin:0;font-size:26px;font-weight:700;color:#FAF6F1;letter-spacing:2px;font-family:Georgia,serif;">YEZZ</h1>
+              <h1 style="margin:0;font-size:26px;font-weight:700;color:#FAF6F1;letter-spacing:2px;font-family:Georgia,serif;">YezYY</h1>
               <p style="margin:4px 0 0;font-size:12px;color:rgba(250,246,241,0.75);letter-spacing:1px;text-transform:uppercase;">DIY Studio</p>
             </td>
           </tr>
@@ -86,7 +96,7 @@ function brandedEmail(title: string, body: string): string {
           <!-- Footer -->
           <tr>
             <td style="background:#F4EFE9;padding:20px 32px;text-align:center;border-top:1px solid #E8DDD4;">
-              <p style="margin:0;font-size:12px;color:#8A7968;">© ${new Date().getFullYear()} YEZZ DIY Studio. All rights reserved.</p>
+              <p style="margin:0;font-size:12px;color:#8A7968;">© ${new Date().getFullYear()} YezYY DIY Studio. All rights reserved.</p>
             </td>
           </tr>
         </table>
@@ -152,8 +162,8 @@ export async function sendBookingConfirmationToCustomer(options: {
   const submitted = formatDate(submittedAt, input.locale);
 
   const body = `
-    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约已收到 / Booking Received</h2>
-    <p style="color:#5C5C5C;margin:0 0 24px;">您好 <strong>${escapeHtml(input.name.trim())}</strong>，感谢您在 YEZZ 提交预约。<br/>Thank you for your booking at YEZZ Studio.</p>
+    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约申请已收到 / Booking Request Received</h2>
+    <p style="color:#5C5C5C;margin:0 0 24px;">您好 <strong>${escapeHtml(input.name.trim())}</strong>，感谢您向 YezYY 提交预约申请。<br/>Thank you for submitting a booking request to YezYY.</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
       ${infoRow("订单号 / Order No.", escapeHtml(orderNumber))}
       ${infoRow("提交时间 / Submitted", escapeHtml(submitted))}
@@ -163,13 +173,13 @@ export async function sendBookingConfirmationToCustomer(options: {
       ${input.activityType?.trim() ? infoRow("活动类型 / Activity", escapeHtml(input.activityType.trim())) : ""}
       ${input.message?.trim() ? infoRow("留言 / Message", escapeHtml(input.message.trim())) : ""}
     </table>
-    <p style="margin:24px 0 0;color:#5C5C5C;font-size:14px;">我们将在 <strong>24 小时内</strong>与您联系确认详情。<br/>We will contact you within <strong>24 hours</strong>.</p>
+    <p style="margin:24px 0 0;color:#5C5C5C;font-size:14px;">我们会人工审核并联系您确认。无需线上付款，请到店付款。<br/>Your request is awaiting confirmation. We will review it manually and contact you to confirm it. No online payment is required; please Pay in Store.</p>
     ${contactFooter(contact)}
   `;
 
   await sendCustomerTemplatedEmail(
     to,
-    `YEZZ 预约确认 ${orderNumber} / Booking Confirmation`,
+    `YezYY Booking Request Received ${orderNumber} / 预约申请已收到`,
     body,
   );
 }
@@ -198,21 +208,21 @@ export async function sendOrderConfirmationToCustomer(options: {
     .join("");
 
   const body = `
-    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">订单已收到 / Order Received</h2>
-    <p style="color:#5C5C5C;margin:0 0 24px;">您好 <strong>${escapeHtml(input.name.trim())}</strong>，感谢您在 YEZZ 提交订单。<br/>Thank you for your order at YEZZ Studio.</p>
+    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约申请已收到 / Booking Request Received</h2>
+    <p style="color:#5C5C5C;margin:0 0 24px;">您好 <strong>${escapeHtml(input.name.trim())}</strong>，感谢您向 YezYY 提交预约申请。<br/>Thank you for submitting a booking request to YezYY.</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
       ${infoRow("订单号 / Order No.", escapeHtml(orderNumber))}
       ${infoRow("提交时间 / Submitted", escapeHtml(submitted))}
     </table>
     <h3 style="margin:24px 0 12px;font-size:14px;color:#8A7968;text-transform:uppercase;letter-spacing:0.5px;">订单摘要 / Order Summary</h3>
     <table width="100%" cellpadding="0" cellspacing="0">${itemsHtml}</table>
-    <p style="margin:24px 0 0;color:#5C5C5C;font-size:14px;">我们将在 <strong>24 小时内</strong>与您联系确认详情。<br/>We will contact you within <strong>24 hours</strong>.</p>
+    <p style="margin:24px 0 0;color:#5C5C5C;font-size:14px;">我们会人工审核并联系您确认。无需线上付款，请到店付款。<br/>Your request is awaiting confirmation. We will review it manually and contact you to confirm it. No online payment is required; please Pay in Store.</p>
     ${contactFooter(contact)}
   `;
 
   await sendCustomerTemplatedEmail(
     options.to,
-    `YEZZ 订单确认 ${orderNumber} / Order Confirmation`,
+    `YezYY Booking Request Received ${orderNumber} / 预约申请已收到`,
     body,
   );
 }
@@ -239,7 +249,7 @@ export async function sendBookingStatusContactedEmail(
   ctx: BookingStatusEmailContext,
 ): Promise<void> {
   const zh = isZh(ctx.locale);
-  const subject = zh ? `YEZZ 预约跟进 ${ctx.orderNumber}` : `YEZZ booking update ${ctx.orderNumber}`;
+  const subject = zh ? `YezYY 预约跟进 ${ctx.orderNumber}` : `YezYY booking update ${ctx.orderNumber}`;
   const body = zh
     ? `<h2 style="margin:0 0 16px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约进度更新</h2>
        <p style="color:#5C5C5C;">${escapeHtml(ctx.customerName)} 您好，我们已查看您的预约（<strong>${escapeHtml(ctx.orderNumber)}</strong>），稍后将联系您确认细节。</p>
@@ -255,7 +265,7 @@ export async function sendBookingStatusConfirmedEmail(
 ): Promise<void> {
   const zh = isZh(ctx.locale);
   const when = ctx.slotLabel ?? ctx.preferredDate ?? (zh ? "待确认" : "TBD");
-  const subject = zh ? `YEZZ 预约已确认 ${ctx.orderNumber}` : `YEZZ booking confirmed ${ctx.orderNumber}`;
+  const subject = zh ? `YezYY 预约已确认 ${ctx.orderNumber}` : `YezYY booking confirmed ${ctx.orderNumber}`;
   const note = ctx.adminNote?.trim()
     ? `<p style="background:#FFF8F3;border-left:3px solid #B07D5C;padding:8px 12px;margin-top:16px;font-size:13px;"><strong>${zh ? "备注" : "Note"}:</strong> ${escapeHtml(ctx.adminNote)}</p>`
     : "";
@@ -288,7 +298,7 @@ export async function sendBookingStatusCancelledEmail(
   ctx: BookingStatusEmailContext,
 ): Promise<void> {
   const zh = isZh(ctx.locale);
-  const subject = zh ? `YEZZ 预约取消 ${ctx.orderNumber}` : `YEZZ booking cancelled ${ctx.orderNumber}`;
+  const subject = zh ? `YezYY 预约取消 ${ctx.orderNumber}` : `YezYY booking cancelled ${ctx.orderNumber}`;
   const reason = ctx.adminNote?.trim()
     ? escapeHtml(ctx.adminNote)
     : zh ? "档期已满或时间冲突" : "schedule conflict or capacity limit";
@@ -314,9 +324,9 @@ export async function sendStaffWelcomeEmail(options: {
   password: string;
   role: string;
 }): Promise<void> {
-  const subject = "YEZZ Admin — Your Account / 账号已开通";
+  const subject = "YezYY Admin — Your Account / 账号已开通";
   const body = `
-    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Welcome to YEZZ Admin / 欢迎使用后台</h2>
+    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Welcome to YezYY Admin / 欢迎使用后台</h2>
     <p style="color:#5C5C5C;margin:0 0 24px;">
       Hi <strong>${escapeHtml(options.name)}</strong>, your admin account has been created.<br/>
       您好，您的后台账号已开通。

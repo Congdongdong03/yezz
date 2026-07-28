@@ -144,6 +144,9 @@ export default function BookingForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <p className="rounded-lg bg-sage/15 px-4 py-3 text-sm text-warm-grey">
+        {b("confirmMessage")}
+      </p>
       <div>
         <label htmlFor={fieldId("name")} className="block text-sm font-medium text-warm-charcoal">
           {t("name")} *

@@ -183,6 +183,8 @@ export default function BookingCalendar({
         </span>
       </div>
 
+      <p className="text-xs text-warm-grey">{t("manualConfirmation")}</p>
+
       {selectedDate && (
         <div>
           <p className="text-sm font-medium text-warm-charcoal">{t("pickSlot")}</p>
