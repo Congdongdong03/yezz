@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
 import { createEmailOutboxRepository } from "../repositories/email-outbox.repository.js";
+import { createRateLimitsRepository } from "../repositories/rate-limits.repository.js";
 import { createAdminBookingsService, type AdminBookingsService } from "../services/admin/bookings.admin.service.js";
 import { createAdminCartOrdersService, type AdminCartOrdersService } from "../services/admin/cart-orders.admin.service.js";
 import { createAdminCategoriesService, type AdminCategoriesService } from "../services/admin/categories.admin.service.js";
@@ -23,6 +24,11 @@ import {
 import { createGalleryService, type GalleryService } from "../services/gallery.service.js";
 import { createPartiesService, type PartiesService } from "../services/parties.service.js";
 import { createProjectsService, type ProjectsService } from "../services/projects.service.js";
+import {
+  createRateLimitsService,
+  scheduleRateLimitMaintenance,
+  type RateLimitsService,
+} from "../services/rate-limits.service.js";
 import { createSettingsService, type SettingsService } from "../services/settings.service.js";
 import { createTimeSlotsService, type TimeSlotsService } from "../services/time-slots.service.js";
 import { createResendOutboxProvider } from "../lib/email.js";
@@ -49,6 +55,7 @@ export type AppServices = {
   adminNotifications: NotificationsAdminService;
   adminUsers: AdminUsersService;
   emailOutbox: EmailOutboxService;
+  rateLimits: RateLimitsService;
 };
 
 declare module "fastify" {
@@ -58,6 +65,12 @@ declare module "fastify" {
 }
 
 export default fp(async (app: FastifyInstance) => {
+  const rateLimits = createRateLimitsService(
+    createRateLimitsRepository(app.db),
+    {
+      hashSecret: process.env.RATE_LIMIT_HASH_SECRET,
+    },
+  );
   app.decorate("services", {
     auth: createAuthService(app.db),
     bookings: createBookingsService(app.db),
@@ -83,5 +96,13 @@ export default fp(async (app: FastifyInstance) => {
       createEmailOutboxRepository(app.db),
       createResendOutboxProvider(),
     ),
+    rateLimits,
   });
+
+  const stopRateLimitMaintenance = scheduleRateLimitMaintenance(rateLimits, {
+    onError: () => {
+      app.log.error("Failed to purge expired rate-limit buckets");
+    },
+  });
+  app.addHook("onClose", stopRateLimitMaintenance);
 });

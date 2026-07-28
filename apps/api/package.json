@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:booking-db": "YEZYY_RUN_DB_BOOKING_TESTS=1 vitest run src/services/bookings.service.test.ts src/services/request-transition.service.test.ts src/services/admin/bookings.admin.service.test.ts",
+    "test:rate-limits:db": "YEZYY_RUN_RATE_LIMIT_DB_TESTS=1 vitest run src/repositories/rate-limits.repository.test.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

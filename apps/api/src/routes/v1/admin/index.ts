@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { checkRateLimit } from "../../../lib/cache.js";
 import { AppError } from "../../../lib/errors.js";
+import { enforceRequestLimit } from "../../../lib/public-request-limit.js";
 import adminBookingsRoutes from "./bookings.routes.js";
 import adminOrdersRoutes from "./orders.routes.js";
 import adminCategoriesRoutes from "./categories.routes.js";
@@ -23,28 +23,45 @@ export default async function adminRoutes(app: FastifyInstance) {
 
     const method = request.method;
     const url = request.url.split("?")[0];
-    const userId = request.user?.sub ?? request.ip;
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new AppError(
+        503,
+        "RATE_LIMIT_UNAVAILABLE",
+        "Please try again shortly.",
+      );
+    }
 
     let limit: number;
-    let keySuffix: string;
+    let scope: string;
 
-    if (method === "POST" && (url === "/upload" || url.startsWith("/upload/"))) {
+    if (
+      method === "POST" &&
+      (url === "/upload" ||
+        url.startsWith("/upload/") ||
+        url === "/admin/upload" ||
+        url.startsWith("/admin/upload/") ||
+        url === "/api/v1/admin/upload" ||
+        url.startsWith("/api/v1/admin/upload/"))
+    ) {
       limit = 50;
-      keySuffix = "upload";
+      scope = "admin-upload";
     } else if (["POST", "PATCH", "PUT", "DELETE"].includes(method)) {
       limit = 200;
-      keySuffix = "write";
+      scope = "admin-write";
     } else {
       limit = 300;
-      keySuffix = "read";
+      scope = "admin-read";
     }
 
-    const key = `admin:rl:${keySuffix}:${userId}`;
-    const rl = await checkRateLimit(app.redis, key, limit, 3600);
-    if (!rl.allowed) {
-      reply.header("Retry-After", String(rl.retryAfter ?? 3600));
-      throw new AppError(429, "RATE_LIMITED", "Too many requests. Please try again later.");
-    }
+    await enforceRequestLimit(
+      app.services.rateLimits,
+      scope,
+      userId,
+      limit,
+      3600,
+      reply,
+    );
   });
 
   await app.register(adminMeRoutes);

@@ -1,9 +1,11 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { AUTH_COOKIE_NAME } from "../../plugins/auth.js";
 import { success } from "../../lib/response.js";
-import { AppError } from "../../lib/errors.js";
-import { checkRateLimit } from "../../lib/cache.js";
 import { buildAuthCookieOptions } from "../../lib/auth-cookie.js";
+import {
+  enforceRateLimitResult,
+  resolvePublicRateLimitSubject,
+} from "../../lib/public-request-limit.js";
 
 type LoginBody = {
   email?: string;
@@ -13,7 +15,11 @@ type LoginBody = {
 const isProduction = process.env.NODE_ENV === "production";
 
 function setAuthCookie(reply: FastifyReply, token: string) {
-  reply.setCookie(AUTH_COOKIE_NAME, token, buildAuthCookieOptions(isProduction));
+  reply.setCookie(
+    AUTH_COOKIE_NAME,
+    token,
+    buildAuthCookieOptions(isProduction),
+  );
 }
 
 function clearAuthCookie(reply: FastifyReply) {
@@ -22,16 +28,29 @@ function clearAuthCookie(reply: FastifyReply) {
 
 export default async function authRoutes(app: FastifyInstance) {
   app.post<{ Body: LoginBody }>("/login", async (request, reply) => {
-    const ip = request.ip;
-    const rl = await checkRateLimit(app.redis, `login:${ip}`, 5, 3600);
-    if (!rl.allowed) {
-      reply.header("Retry-After", String(rl.retryAfter ?? 3600));
-      throw new AppError(429, "RATE_LIMITED", "Too many login attempts. Please try again later.");
-    }
-
     const { email = "", password = "" } = request.body ?? {};
-    const result = await app.services.auth.login(email, password, (payload) =>
-      request.server.jwt.sign(payload),
+    const clientIp = resolvePublicRateLimitSubject(request);
+    const normalizedEmail = email.normalize("NFKC").trim().toLowerCase();
+    const [ipEmailLimit, ipLimit] = await Promise.all([
+      app.services.rateLimits.consume(
+        "login-ip-email",
+        `${clientIp}\n${normalizedEmail}`,
+        5,
+        3600,
+      ),
+      app.services.rateLimits.consume("login-ip", clientIp, 30, 3600),
+    ]);
+    const denied = [ipEmailLimit, ipLimit]
+      .filter((result) => !result.allowed)
+      .sort(
+        (left, right) => (right.retryAfter ?? 0) - (left.retryAfter ?? 0),
+      )[0];
+    enforceRateLimitResult(denied ?? ipEmailLimit, reply);
+
+    const result = await app.services.auth.login(
+      normalizedEmail,
+      password,
+      (payload) => request.server.jwt.sign(payload),
     );
 
     setAuthCookie(reply, result.token);

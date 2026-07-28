@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { checkRateLimit } from "../../lib/cache.js";
-import { AppError } from "../../lib/errors.js";
+import {
+  enforceRequestLimit,
+  resolvePublicRateLimitSubject,
+} from "../../lib/public-request-limit.js";
 import type { BookingCreateInput } from "../../repositories/bookings.repository.js";
 import { success } from "../../lib/response.js";
 
@@ -9,23 +11,14 @@ const BOOKING_RATE_WINDOW_SECONDS = 3600;
 
 export default async function bookingsRoutes(app: FastifyInstance) {
   app.post<{ Body: BookingCreateInput }>("/", async (request, reply) => {
-    const ip = request.ip;
-    const rateKey = `ratelimit:bookings:${ip}`;
-    const { allowed, retryAfter } = await checkRateLimit(
-      app.redis,
-      rateKey,
+    await enforceRequestLimit(
+      app.services.rateLimits,
+      "booking",
+      resolvePublicRateLimitSubject(request),
       BOOKING_RATE_LIMIT,
       BOOKING_RATE_WINDOW_SECONDS,
+      reply,
     );
-
-    if (!allowed) {
-      reply.header("Retry-After", String(retryAfter ?? BOOKING_RATE_WINDOW_SECONDS));
-      throw new AppError(
-        429,
-        "RATE_LIMITED",
-        `Too many booking requests. Try again in ${retryAfter ?? BOOKING_RATE_WINDOW_SECONDS} seconds.`,
-      );
-    }
 
     const idempotencyHeader = request.headers["idempotency-key"];
     const idempotencyKey = Array.isArray(idempotencyHeader)

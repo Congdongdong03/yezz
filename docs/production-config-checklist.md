@@ -96,12 +96,15 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 |------|----------|------|
 | `WEB_API_SHARED_SECRET` | Fly API + Vercel Web | 当前 HMAC 密钥，至少 32 个字符 |
 | `WEB_API_SHARED_SECRET_PREVIOUS` | 仅 Fly API，可选 | 轮换期间临时接受上一把密钥 |
+| `RATE_LIMIT_HASH_SECRET` | 仅 Fly API | 请求主体 HMAC 密钥，独立随机生成且至少 32 字节 |
 | `INTERNAL_REQUEST_ENFORCEMENT` | 仅 Fly API | 首次上线用 `log`，验证完成后改为 `require` |
 | `API_URL` | 仅 Vercel Web | BFF 访问 Fly API 的服务端地址 |
 
 这些变量全部是**服务端密钥**。不得使用 `NEXT_PUBLIC_` 前缀，也不得写入
 代码、日志或客户端错误信息。当前密钥和上一把密钥必须不同；任一已配置
 密钥少于 32 个字符都会使服务拒绝启动或拒绝代理请求。
+`RATE_LIMIT_HASH_SECRET` 必须与 Web/API 签名密钥不同，只配置在 Fly API，
+且不得记录到日志。可使用 `openssl rand -base64 32` 独立生成。
 
 **首次上线顺序：**
 
@@ -307,6 +310,7 @@ CORS_ORIGIN=https://你的域名
 NODE_ENV=production
 INTERNAL_REQUEST_ENFORCEMENT=require
 WEB_API_SHARED_SECRET=... # 至少 32 个字符；与 Vercel 当前值一致
+RATE_LIMIT_HASH_SECRET=... # 独立生成，至少 32 字节；仅 Fly API
 # WEB_API_SHARED_SECRET_PREVIOUS=... # 仅轮换期间在 Fly 配置
 S3_ENDPOINT=...
 S3_ACCESS_KEY=...
@@ -377,7 +381,7 @@ WEB_API_SHARED_SECRET=... # 服务端变量，不得添加 NEXT_PUBLIC_ 前缀
 ```bash
 # API 密钥
 fly secrets set DATABASE_URL="..." JWT_SECRET="..." CORS_ORIGIN="..."
-fly secrets set WEB_API_SHARED_SECRET="..." INTERNAL_REQUEST_ENFORCEMENT="log"
+fly secrets set WEB_API_SHARED_SECRET="..." RATE_LIMIT_HASH_SECRET="..." INTERNAL_REQUEST_ENFORCEMENT="log"
 fly secrets set S3_ENDPOINT="..." S3_ACCESS_KEY="..." S3_SECRET_KEY="..."
 fly secrets set RESEND_API_KEY="..." OWNER_EMAIL="..." EMAIL_FROM="YezYY <bookings@yezyy.com>" EMAIL_REPLY_TO="congdongdong03@gmail.com" STORE_TIMEZONE="Australia/Melbourne"
 
@@ -397,6 +401,7 @@ fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
 - [ ] `NODE_ENV=production`
 - [ ] Fly 与 Vercel 的 `WEB_API_SHARED_SECRET` 当前值一致且至少 32 个字符
 - [ ] `WEB_API_SHARED_SECRET` 未使用 `NEXT_PUBLIC_` 前缀
+- [ ] Fly 已设置独立强随机的 `RATE_LIMIT_HASH_SECRET`，且未写入日志或 Vercel
 - [ ] 首次签名流量验证后，Fly 已设置 `INTERNAL_REQUEST_ENFORCEMENT=require`
 - [ ] 非轮换期间，Fly 未保留 `WEB_API_SHARED_SECRET_PREVIOUS`
 - [ ] S3 存储已配置（如需图片上传功能）
@@ -428,6 +433,7 @@ NODE_ENV=production
 PORT=4000
 INTERNAL_REQUEST_ENFORCEMENT=require
 WEB_API_SHARED_SECRET=xxxx                # openssl rand -base64 32
+RATE_LIMIT_HASH_SECRET=xxxx               # 独立运行 openssl rand -base64 32
 # WEB_API_SHARED_SECRET_PREVIOUS=xxxx     # 仅 Fly 轮换窗口使用
 
 # -------- 前端必须（构建时） --------
