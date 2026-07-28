@@ -5,7 +5,9 @@ import { apiError } from "../lib/response.js";
 export function registerErrorHandler(app: FastifyInstance) {
   app.setErrorHandler((error, _request, reply) => {
     if (isAppError(error)) {
-      return reply.status(error.statusCode).send(apiError(error.code, error.message));
+      return reply
+        .status(error.statusCode)
+        .send(apiError(error.code, error.message, error.details));
     }
 
     app.log.error(error);

@@ -1,24 +1,49 @@
-import { bookings, type Db } from "@yezz/db";
-import { and, eq } from "drizzle-orm";
+import { bookings, emailOutbox, type Db } from "@yezz/db";
+import { desc, eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
-import {
-  formatBookingOrderId,
-  sendBookingStatusCancelledEmail,
-  sendBookingStatusConfirmedEmail,
-  sendBookingStatusContactedEmail,
-  type StoreContact,
-} from "../../lib/email.js";
 import {
   createBookingsRepository,
   type OrderStatus,
 } from "../../repositories/bookings.repository.js";
-import { createSettingsRepository } from "../../repositories/settings.repository.js";
-import { createRequestCapacityRepository } from "../../repositories/request-capacity.repository.js";
-import { createTimeSlotsRepository } from "../../repositories/time-slots.repository.js";
-import { reservedPeopleForBooking } from "../bookings.service.js";
+import { createStatusEventsRepository } from "../../repositories/status-events.repository.js";
+import {
+  createRequestTransitionService,
+  ORDER_STATUSES,
+  validateOrderStatus,
+  validateStatusTransition,
+} from "../request-transition.service.js";
+
+type BookingRow = typeof bookings.$inferSelect;
+type DeliveryStatus = "pending" | "processing" | "sent" | "failed";
+
+export type BookingStatusHistoryItem = {
+  id: string;
+  operationId: string;
+  fromStatus: OrderStatus;
+  toStatus: OrderStatus;
+  note: string | null;
+  createdAt: Date;
+  actor: {
+    id: string;
+    name: string;
+    email: string;
+  };
+};
+
+export type BookingEmailDelivery = {
+  id: string;
+  messageType: string;
+  recipient: string;
+  deliveryStatus: DeliveryStatus;
+  attemptCount: number;
+  lastError: string | null;
+  sentAt: Date | null;
+  updatedAt: Date;
+};
 
 export type BookingDto = {
   id: string;
+  kind: "experience" | "party";
   name: string;
   phone: string;
   wechat: string | null;
@@ -31,55 +56,70 @@ export type BookingDto = {
   locale: string | null;
   timeSlotId: string | null;
   status: OrderStatus;
+  offering: {
+    id: string | null;
+    name: { en: string; zh: string } | null;
+    price: string | null;
+  } | null;
+  slot: {
+    id: string | null;
+    date: string;
+    startTime: string | null;
+    endTime: string | null;
+    timeZone: string;
+  } | null;
+  notificationSummary: {
+    latestStatus: DeliveryStatus | null;
+    failedCount: number;
+  };
+  statusHistory: BookingStatusHistoryItem[];
+  emailDeliveries: BookingEmailDelivery[];
   createdAt: Date;
   updatedAt: Date;
+  replayed?: boolean;
 };
 
-export const ORDER_STATUSES: OrderStatus[] = [
-  "new",
-  "contacted",
-  "confirmed",
-  "cancelled",
-];
+type BookingDtoExtras = Pick<
+  BookingDto,
+  "notificationSummary" | "statusHistory" | "emailDeliveries"
+>;
 
-const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  new: ["contacted", "confirmed", "cancelled"],
-  contacted: ["confirmed", "cancelled"],
-  confirmed: ["cancelled"],
-  cancelled: [],
+const EMPTY_EXTRAS: BookingDtoExtras = {
+  notificationSummary: {
+    latestStatus: null,
+    failedCount: 0,
+  },
+  statusHistory: [],
+  emailDeliveries: [],
 };
 
-export function validateOrderStatus(
-  status: string,
-): asserts status is OrderStatus {
-  if (!ORDER_STATUSES.includes(status as OrderStatus)) {
-    throw new AppError(
-      400,
-      "VALIDATION_ERROR",
-      `status must be one of: ${ORDER_STATUSES.join(", ")}`,
-    );
-  }
-}
+export function mapBookingRow(
+  row: BookingRow,
+  extras: BookingDtoExtras = EMPTY_EXTRAS,
+): BookingDto {
+  const offeringName = row.offeringNameSnapshot ?? null;
+  const offering =
+    row.projectId || row.partyPackageId || offeringName || row.offeringPriceSnapshot
+      ? {
+          id: row.requestKind === "party" ? row.partyPackageId : row.projectId,
+          name: offeringName,
+          price: row.offeringPriceSnapshot ?? null,
+        }
+      : null;
+  const slot =
+    row.slotDate || row.preferredDate
+      ? {
+          id: row.timeSlotId ?? null,
+          date: row.slotDate ?? row.preferredDate!,
+          startTime: row.slotStartTime ?? null,
+          endTime: row.slotEndTime ?? null,
+          timeZone: row.slotTimezone,
+        }
+      : null;
 
-export function validateStatusTransition(
-  from: OrderStatus,
-  to: OrderStatus,
-): void {
-  const allowed = VALID_TRANSITIONS[from];
-  if (!allowed.includes(to)) {
-    throw new AppError(
-      400,
-      "INVALID_TRANSITION",
-      `Cannot transition from "${from}" to "${to}". Allowed: ${allowed.join(", ") || "none"}`,
-    );
-  }
-}
-
-type BookingRow = typeof bookings.$inferSelect;
-
-export function mapBookingRow(row: BookingRow): BookingDto {
   return {
     id: row.id,
+    kind: row.requestKind as "experience" | "party",
     name: row.name,
     phone: row.phone,
     wechat: row.wechat ?? null,
@@ -92,6 +132,11 @@ export function mapBookingRow(row: BookingRow): BookingDto {
     locale: row.locale ?? null,
     timeSlotId: row.timeSlotId ?? null,
     status: row.status,
+    offering,
+    slot,
+    notificationSummary: extras.notificationSummary,
+    statusHistory: extras.statusHistory,
+    emailDeliveries: extras.emailDeliveries,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -101,26 +146,65 @@ export type AdminBookingsService = ReturnType<
   typeof createAdminBookingsService
 >;
 
-async function loadStoreContext(db: Db) {
-  const settingsRepo = createSettingsRepository(db);
-  const row = await settingsRepo.findSingleton();
-  const contact: StoreContact = {
-    phone: row?.phone,
-    wechatId: row?.wechatId,
-    email: row?.email,
-  };
-  return {
-    storeName: row?.storeName ?? "YEZZ Studio",
-    address: row?.address ?? null,
-    businessHours: row?.businessHours ?? null,
-    contact,
-  };
-}
-
 export function createAdminBookingsService(db: Db) {
   const repo = createBookingsRepository(db);
-  const slotsRepo = createTimeSlotsRepository(db);
-  const capacityRepo = createRequestCapacityRepository(db);
+  const eventsRepo = createStatusEventsRepository(db);
+  const transitionService = createRequestTransitionService(db);
+
+  async function loadExtras(
+    bookingId: string,
+    includeHistory: boolean,
+  ): Promise<BookingDtoExtras> {
+    const deliveries = await db
+      .select({
+        id: emailOutbox.id,
+        messageType: emailOutbox.messageType,
+        recipient: emailOutbox.recipient,
+        deliveryStatus: emailOutbox.deliveryStatus,
+        attemptCount: emailOutbox.attemptCount,
+        lastError: emailOutbox.lastError,
+        sentAt: emailOutbox.sentAt,
+        updatedAt: emailOutbox.updatedAt,
+      })
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, bookingId))
+      .orderBy(desc(emailOutbox.createdAt));
+    const history = includeHistory
+      ? await eventsRepo.listForBooking(bookingId)
+      : [];
+    return {
+      emailDeliveries: deliveries as BookingEmailDelivery[],
+      notificationSummary: {
+        latestStatus:
+          (deliveries[0]?.deliveryStatus as DeliveryStatus | undefined) ?? null,
+        failedCount: deliveries.filter(
+          ({ deliveryStatus }) => deliveryStatus === "failed",
+        ).length,
+      },
+      statusHistory: history.map((event) => ({
+        id: event.id,
+        operationId: event.operationId,
+        fromStatus: event.fromStatus as OrderStatus,
+        toStatus: event.toStatus as OrderStatus,
+        note: event.note,
+        createdAt: event.createdAt,
+        actor: {
+          id: event.actorId,
+          name: event.actorName,
+          email: event.actorEmail,
+        },
+      })),
+    };
+  }
+
+  async function getById(id: string, actorUserId?: string): Promise<BookingDto> {
+    void actorUserId;
+    const row = await repo.findById(id);
+    if (!row) {
+      throw new AppError(404, "NOT_FOUND", "Booking not found");
+    }
+    return mapBookingRow(row, await loadExtras(row.id, true));
+  }
 
   return {
     async list(options?: {
@@ -132,125 +216,66 @@ export function createAdminBookingsService(db: Db) {
       total: number;
       page: number;
       limit: number;
+      totalPages: number;
     }> {
       const page = Math.max(1, options?.page ?? 1);
-      const limit = Math.min(200, Math.max(1, options?.limit ?? 100));
+      const limit = Math.min(200, Math.max(1, options?.limit ?? 25));
       const offset = (page - 1) * limit;
       const { rows, total } = await repo.findAllOrdered({
         limit,
         offset,
         status: options?.status,
       });
-      return { data: rows.map(mapBookingRow), total, page, limit };
+      const data = await Promise.all(
+        rows.map(async (row) =>
+          mapBookingRow(row, await loadExtras(row.id, false)),
+        ),
+      );
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
     },
 
-    async getById(id: string): Promise<BookingDto> {
-      const row = await repo.findById(id);
-      if (!row) {
-        throw new AppError(404, "NOT_FOUND", "Booking not found");
-      }
-      return mapBookingRow(row);
-    },
+    getById,
 
     async updateStatus(
       id: string,
-      status: OrderStatus,
-      adminNote?: string | null,
+      input: {
+        status: OrderStatus;
+        expectedStatus: OrderStatus;
+        operationId: string;
+        note?: string | null;
+      },
+      actorUserId: string,
     ): Promise<BookingDto> {
-      if (!status) {
-        throw new AppError(400, "VALIDATION_ERROR", "status is required");
-      }
-      validateOrderStatus(status);
-
-      const existing = await repo.findById(id);
-      if (!existing) {
-        throw new AppError(404, "NOT_FOUND", "Booking not found");
-      }
-
-      const previous = existing.status;
-      validateStatusTransition(previous, status);
-
-      const row = await db.transaction(async (tx) => {
-        const [updated] = await tx
-          .update(bookings)
-          .set({ status, updatedAt: new Date() })
-          .where(and(eq(bookings.id, id), eq(bookings.status, previous)))
-          .returning();
-        if (!updated) {
-          throw new AppError(
-            409,
-            "STATUS_CONFLICT",
-            "The booking changed. Refresh and try again.",
-          );
-        }
-
-        // Restore slot capacity when a booking is cancelled
-        const reservedPeople = reservedPeopleForBooking(
-          existing.numberOfPeople,
-          existing.timeSlotId,
+      if (!input?.status || !input.expectedStatus || !input.operationId) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          "status, expectedStatus, and operationId are required",
         );
-        if (
-          status === "cancelled" &&
-          previous !== "cancelled" &&
-          existing.timeSlotId &&
-          reservedPeople
-        ) {
-          await capacityRepo.release(existing.timeSlotId, reservedPeople, tx);
-        }
-
-        return updated;
+      }
+      const result = await transitionService.transitionBooking({
+        bookingId: id,
+        expectedStatus: input.expectedStatus,
+        status: input.status,
+        operationId: input.operationId,
+        actorUserId,
+        note: input.note,
       });
-
-      if (!row) {
-        throw new AppError(404, "NOT_FOUND", "Booking not found");
-      }
-
-      const customerEmail = row.email?.trim();
-      if (customerEmail && previous !== status) {
-        try {
-          const store = await loadStoreContext(db);
-          const orderNumber = formatBookingOrderId(row.id, row.createdAt);
-          let slotLabel: string | null = null;
-          if (row.timeSlotId) {
-            const slot = await slotsRepo.findById(row.timeSlotId);
-            if (slot) {
-              const dateStr =
-                typeof slot.date === "string"
-                  ? slot.date
-                  : String(slot.date).slice(0, 10);
-              slotLabel = `${dateStr} ${slot.startTime}–${slot.endTime}`;
-            }
-          }
-
-          const ctx = {
-            to: customerEmail,
-            locale: row.locale,
-            customerName: row.name,
-            orderNumber,
-            preferredDate: row.preferredDate,
-            slotLabel,
-            storeName: store.storeName,
-            address: store.address,
-            businessHours: store.businessHours,
-            contact: store.contact,
-            adminNote,
-          };
-
-          if (status === "contacted" && previous === "new") {
-            await sendBookingStatusContactedEmail(ctx);
-          } else if (status === "confirmed") {
-            await sendBookingStatusConfirmedEmail(ctx);
-          } else if (status === "cancelled") {
-            await sendBookingStatusCancelledEmail(ctx);
-          }
-        } catch (error) {
-          console.error("Booking status email failed:", error);
-        }
-      }
-
-      return mapBookingRow(row);
+      const dto = await getById(result.row.id, actorUserId);
+      return { ...dto, replayed: result.replayed };
     },
   };
 }
 
+export {
+  ORDER_STATUSES,
+  validateOrderStatus,
+  validateStatusTransition,
+};
 export type { OrderStatus };

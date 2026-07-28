@@ -9,6 +9,7 @@ import { submitBooking } from "@/lib/actions/booking";
 import { trackSubmitBooking } from "@/lib/analytics/gtag";
 
 export type BookingFormDefaults = {
+  projectId?: string;
   interestedProject?: string;
   preferredDate?: string;
   numberOfPeople?: string;
@@ -37,9 +38,21 @@ export default function BookingForm({
     name: z.string().min(1, t("nameRequired")),
     phone: z.string().min(1, t("phoneRequired")),
     wechat: z.string().optional(),
-    email: z.string().email(t("emailInvalid")).optional().or(z.literal("")),
+    email: z
+      .string()
+      .min(1, t("emailRequired"))
+      .pipe(z.string().email(t("emailInvalid"))),
     preferredDate: z.string().optional(),
-    numberOfPeople: z.string().optional(),
+    numberOfPeople: z
+      .string()
+      .min(1, t("peopleRequired"))
+      .refine(
+        (value) => {
+          const people = Number(value);
+          return Number.isInteger(people) && people >= 1;
+        },
+        t("peopleInvalid"),
+      ),
     activityType: z.string().optional(),
     interestedProject: z.string().optional(),
     message: z.string().optional(),
@@ -76,7 +89,7 @@ export default function BookingForm({
   }, [defaults, setValue]);
 
   const onSubmit = async (data: FormData) => {
-    if (requireTimeSlot && !defaults?.timeSlotId) {
+    if (requireTimeSlot && (!defaults?.timeSlotId || !defaults.projectId)) {
       setResult({ success: false, message: b("selectSlotFirst") });
       return;
     }
@@ -86,6 +99,7 @@ export default function BookingForm({
       if (value) formData.append(key, value);
     });
     if (defaults?.timeSlotId) formData.append("timeSlotId", defaults.timeSlotId);
+    if (defaults?.projectId) formData.append("projectId", defaults.projectId);
     if (defaults?.locale) formData.append("locale", defaults.locale);
 
     const response = await submitBooking(formData);
@@ -192,12 +206,13 @@ export default function BookingForm({
         </div>
         <div>
           <label htmlFor={fieldId("email")} className="block text-sm font-medium text-warm-charcoal">
-            {t("email")}
+            {t("email")} *
           </label>
           <input
             id={fieldId("email")}
             {...register("email")}
             type="email"
+            required
             className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
           />
           {errors.email && (
@@ -225,13 +240,14 @@ export default function BookingForm({
             </div>
             <div>
               <label htmlFor={fieldId("numberOfPeople")} className="block text-sm font-medium text-warm-charcoal">
-                {t("numberOfPeople")}
+                {t("numberOfPeople")} *
               </label>
               <input
                 id={fieldId("numberOfPeople")}
                 {...register("numberOfPeople")}
                 type="number"
                 min="1"
+                required
                 className="mt-1 w-full rounded-lg border border-warm-grey/20 px-4 py-2 focus:border-caramel focus:outline-none"
               />
               {errors.numberOfPeople && (
@@ -281,6 +297,7 @@ export default function BookingForm({
       {embedded && (
         <>
           <input type="hidden" {...register("interestedProject")} />
+          <input type="hidden" name="projectId" value={defaults?.projectId ?? ""} />
           <input type="hidden" {...register("preferredDate")} />
           <input type="hidden" {...register("numberOfPeople")} />
         </>

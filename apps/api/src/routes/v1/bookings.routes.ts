@@ -27,7 +27,14 @@ export default async function bookingsRoutes(app: FastifyInstance) {
       );
     }
 
-    const data = await app.services.bookings.create(request.body);
+    const idempotencyHeader = request.headers["idempotency-key"];
+    const idempotencyKey = Array.isArray(idempotencyHeader)
+      ? idempotencyHeader[0]
+      : idempotencyHeader;
+    const data = await app.services.bookings.create(
+      request.body,
+      idempotencyKey,
+    );
     return reply.status(201).send(success(data));
   });
 }

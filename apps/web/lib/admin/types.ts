@@ -138,6 +138,7 @@ export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
 
 export type Booking = {
   id: string;
+  kind: "experience" | "party";
   name: string;
   phone: string;
   wechat: string | null;
@@ -150,8 +151,55 @@ export type Booking = {
   locale: string | null;
   timeSlotId: string | null;
   status: OrderStatus;
+  offering: {
+    id: string | null;
+    name: LocalizedString | null;
+    price: string | null;
+  } | null;
+  slot: {
+    id: string | null;
+    date: string;
+    startTime: string | null;
+    endTime: string | null;
+    timeZone: string;
+  } | null;
+  notificationSummary: {
+    latestStatus: EmailDeliveryStatus | null;
+    failedCount: number;
+  };
+  statusHistory: Array<{
+    id: string;
+    operationId: string;
+    fromStatus: OrderStatus;
+    toStatus: OrderStatus;
+    note: string | null;
+    createdAt: string;
+    actor: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
+  emailDeliveries: Array<{
+    id: string;
+    messageType: string;
+    recipient: string;
+    deliveryStatus: EmailDeliveryStatus;
+    attemptCount: number;
+    lastError: string | null;
+    sentAt: string | null;
+    updatedAt: string;
+  }>;
   createdAt: string;
   updatedAt: string;
+  replayed?: boolean;
+};
+
+export type BookingTransitionInput = {
+  status: OrderStatus;
+  expectedStatus: OrderStatus;
+  operationId: string;
+  note?: string;
 };
 
 export type AdminUser = {

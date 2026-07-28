@@ -8,6 +8,7 @@ import type {
   GalleryImage,
   LoginResponse,
   Booking,
+  BookingTransitionInput,
   CartOrder,
   AdminUser,
   PasswordChangeInput,
@@ -230,12 +231,11 @@ export async function getAdminBooking(id: string) {
 
 export async function updateBookingStatus(
   id: string,
-  status: Booking["status"],
-  note?: string,
+  input: BookingTransitionInput,
 ) {
-  return adminFetch<Booking>(`/api/v1/admin/bookings/${id}`, {
+  return adminFetch<Booking>(`/api/v1/admin/bookings/${id}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ status, note }),
+    body: JSON.stringify(input),
   });
 }
 

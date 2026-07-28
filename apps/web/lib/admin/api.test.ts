@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getMe, login } from "./api";
+import { getMe, login, updateBookingStatus } from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -29,5 +29,36 @@ describe("admin API transport", () => {
       credentials: "include",
       method: "POST",
     });
+  });
+
+  it("sends compare-and-set booking status data to the dedicated endpoint", async () => {
+    const request = vi.fn(async () =>
+      Response.json({
+        success: true,
+        data: { id: "booking-1", status: "confirmed", replayed: false },
+      }),
+    );
+    vi.stubGlobal("fetch", request);
+    const operationId = "00000000-0000-4000-8000-000000000001";
+
+    await updateBookingStatus("booking-1", {
+      status: "confirmed",
+      expectedStatus: "contacted",
+      operationId,
+      note: "已电话确认",
+    });
+
+    expect(request).toHaveBeenCalledWith(
+      "/api/backend/v1/admin/bookings/booking-1/status",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          status: "confirmed",
+          expectedStatus: "contacted",
+          operationId,
+          note: "已电话确认",
+        }),
+      }),
+    );
   });
 });

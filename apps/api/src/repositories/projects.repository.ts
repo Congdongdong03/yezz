@@ -92,8 +92,8 @@ export function createProjectsRepository(db: Db) {
       return row ?? null;
     },
 
-    async findById(id: string) {
-      const [row] = await db
+    async findById(id: string, tx: Db = db) {
+      const [row] = await tx
         .select()
         .from(diyProjects)
         .where(eq(diyProjects.id, id))

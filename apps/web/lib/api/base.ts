@@ -1,7 +1,11 @@
 export type ApiSuccess<T> = { success: true; data: T };
 export type ApiErrorBody = {
   success: false;
-  error: { code: string; message: string };
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+  };
 };
 
 export class ApiClientError extends Error {
@@ -9,6 +13,7 @@ export class ApiClientError extends Error {
     message: string,
     public readonly code?: string,
     public readonly status?: number,
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiClientError";
@@ -23,6 +28,7 @@ export async function parseResponse<T>(res: Response): Promise<T> {
       json.error?.message ?? "Request failed",
       json.error?.code,
       res.status,
+      json.error?.details,
     );
   }
 

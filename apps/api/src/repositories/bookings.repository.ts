@@ -1,9 +1,12 @@
 import { bookings, type Db } from "@yezz/db";
-import { count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 
 export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
 
 export type BookingCreateInput = {
+  kind?: "experience" | "party";
+  projectId?: string | null;
+  partyPackageId?: string | null;
   name: string;
   phone: string;
   wechat?: string | null;
@@ -17,9 +20,22 @@ export type BookingCreateInput = {
   timeSlotId?: string | null;
 };
 
+export type BookingInsertInput = BookingCreateInput & {
+  requestKind: "experience" | "party";
+  projectId: string | null;
+  partyPackageId: string | null;
+  offeringNameSnapshot: { en: string; zh: string } | null;
+  offeringPriceSnapshot: string | null;
+  slotDate: string;
+  slotStartTime: string;
+  slotEndTime: string;
+  slotTimezone: "Australia/Melbourne";
+  idempotencyKey: string;
+};
+
 export function createBookingsRepository(db: Db) {
   return {
-    async create(input: BookingCreateInput, tx: Db = db) {
+    async create(input: BookingInsertInput, tx: Db = db) {
       const [row] = await tx
         .insert(bookings)
         .values({
@@ -34,6 +50,16 @@ export function createBookingsRepository(db: Db) {
           message: input.message?.trim() || null,
           locale: input.locale?.trim() || null,
           timeSlotId: input.timeSlotId ?? null,
+          requestKind: input.requestKind,
+          projectId: input.projectId,
+          partyPackageId: input.partyPackageId,
+          offeringNameSnapshot: input.offeringNameSnapshot,
+          offeringPriceSnapshot: input.offeringPriceSnapshot,
+          slotDate: input.slotDate,
+          slotStartTime: input.slotStartTime,
+          slotEndTime: input.slotEndTime,
+          slotTimezone: input.slotTimezone,
+          idempotencyKey: input.idempotencyKey,
           isRead: false,
           updatedAt: new Date(),
         })
@@ -64,8 +90,8 @@ export function createBookingsRepository(db: Db) {
       return { rows, total: Number(totalRow?.total ?? 0) };
     },
 
-    async findById(id: string) {
-      const [row] = await db
+    async findById(id: string, tx: Db = db) {
+      const [row] = await tx
         .select()
         .from(bookings)
         .where(eq(bookings.id, id))
@@ -73,11 +99,30 @@ export function createBookingsRepository(db: Db) {
       return row ?? null;
     },
 
-    async updateStatus(id: string, status: OrderStatus, tx: Db = db) {
+    async findByIdempotencyKey(idempotencyKey: string, tx: Db = db) {
+      const [row] = await tx
+        .select()
+        .from(bookings)
+        .where(eq(bookings.idempotencyKey, idempotencyKey))
+        .limit(1);
+      return row ?? null;
+    },
+
+    async compareAndSetStatus(
+      id: string,
+      expectedStatus: OrderStatus,
+      status: OrderStatus,
+      tx: Db = db,
+    ) {
       const [row] = await tx
         .update(bookings)
         .set({ status, updatedAt: new Date() })
-        .where(eq(bookings.id, id))
+        .where(
+          and(
+            eq(bookings.id, id),
+            eq(bookings.status, expectedStatus),
+          ),
+        )
         .returning();
       return row ?? null;
     },

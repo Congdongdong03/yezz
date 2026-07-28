@@ -222,6 +222,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
                     embedded
                     requireTimeSlot
                     defaults={{
+                      projectId: project._id,
                       interestedProject: projectLabel,
                       preferredDate: date,
                       numberOfPeople: String(people),

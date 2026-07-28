@@ -14,19 +14,46 @@ export default async function adminBookingsRoutes(app: FastifyInstance) {
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (request) => {
-    const data = await app.services.adminBookings.getById(request.params.id);
+    const data = await app.services.adminBookings.getById(
+      request.params.id,
+      request.user.sub,
+    );
     return success(data);
   });
 
-  app.patch<{ Params: { id: string }; Body: { status: OrderStatus; note?: string } }>(
+  type StatusBody = {
+    status: OrderStatus;
+    expectedStatus: OrderStatus;
+    operationId: string;
+    note?: string;
+  };
+
+  const updateStatus = async (
+    request: {
+      params: { id: string };
+      body: StatusBody;
+      user: { sub: string };
+    },
+  ) => {
+    const data = await app.services.adminBookings.updateStatus(
+      request.params.id,
+      request.body,
+      request.user.sub,
+    );
+    return success(data);
+  };
+
+  app.patch<{ Params: { id: string }; Body: StatusBody }>(
+    "/:id/status",
+    async (request) => {
+      return updateStatus(request);
+    },
+  );
+
+  app.patch<{ Params: { id: string }; Body: StatusBody }>(
     "/:id",
     async (request) => {
-      const data = await app.services.adminBookings.updateStatus(
-        request.params.id,
-        request.body.status,
-        request.body.note,
-      );
-      return success(data);
+      return updateStatus(request);
     },
   );
 }

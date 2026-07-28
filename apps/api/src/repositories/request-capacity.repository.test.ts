@@ -81,6 +81,15 @@ describe.skipIf(!runDatabaseTests)(
         )
       `);
       await bootstrap.client.unsafe(`
+        CREATE TABLE "${schema}".users (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          email varchar(255) NOT NULL UNIQUE,
+          password_hash varchar(255) NOT NULL,
+          name varchar(255) NOT NULL,
+          role varchar(32) NOT NULL DEFAULT 'staff',
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
         CREATE TABLE "${schema}".bookings (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           name varchar(255) NOT NULL, phone varchar(64) NOT NULL,
@@ -102,6 +111,37 @@ describe.skipIf(!runDatabaseTests)(
         CREATE TABLE "${schema}".cart_orders (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           time_slot_id uuid REFERENCES "${schema}".time_slots(id) ON DELETE RESTRICT
+        );
+        CREATE TABLE "${schema}".request_status_events (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          booking_id uuid REFERENCES "${schema}".bookings(id) ON DELETE RESTRICT,
+          cart_order_id uuid REFERENCES "${schema}".cart_orders(id) ON DELETE RESTRICT,
+          operation_id uuid NOT NULL UNIQUE,
+          from_status varchar(32) NOT NULL,
+          to_status varchar(32) NOT NULL,
+          admin_note text,
+          actor_user_id uuid NOT NULL REFERENCES "${schema}".users(id) ON DELETE RESTRICT,
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE TABLE "${schema}".email_outbox (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          dedupe_key varchar(255) NOT NULL UNIQUE,
+          booking_id uuid REFERENCES "${schema}".bookings(id) ON DELETE RESTRICT,
+          cart_order_id uuid REFERENCES "${schema}".cart_orders(id) ON DELETE RESTRICT,
+          status_event_id uuid REFERENCES "${schema}".request_status_events(id) ON DELETE RESTRICT,
+          message_type varchar(64) NOT NULL,
+          recipient varchar(255) NOT NULL,
+          locale varchar(8) NOT NULL,
+          payload jsonb NOT NULL,
+          delivery_status varchar(16) NOT NULL DEFAULT 'pending',
+          attempt_count integer NOT NULL DEFAULT 0,
+          next_attempt_at timestamptz NOT NULL DEFAULT now(),
+          lease_expires_at timestamptz,
+          provider_message_id varchar(255),
+          last_error text,
+          sent_at timestamptz,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
         )
       `);
       connection = createDb(withSearchPath(url, schema));
@@ -138,6 +178,21 @@ describe.skipIf(!runDatabaseTests)(
         .from(timeSlots)
         .where(eq(timeSlots.id, id));
       return row?.bookedCount;
+    }
+
+    async function insertActor() {
+      const actorId = crypto.randomUUID();
+      await connection!.client`
+        INSERT INTO users (id, email, password_hash, name, role)
+        VALUES (
+          ${actorId},
+          ${`${actorId}@example.com`},
+          'not-used',
+          'Test staff',
+          'staff'
+        )
+      `;
+      return actorId;
     }
 
     it("never reserves beyond capacity under concurrent transactions", async () => {
@@ -373,9 +428,26 @@ describe.skipIf(!runDatabaseTests)(
         .returning();
       const first = createAdminBookingsService(connection!.db);
       const second = createAdminBookingsService(connection!.db);
+      const actorId = await insertActor();
       const outcomes = await Promise.allSettled([
-        first.updateStatus(booking.id, "cancelled"),
-        second.updateStatus(booking.id, "cancelled"),
+        first.updateStatus(
+          booking.id,
+          {
+            expectedStatus: "confirmed",
+            status: "cancelled",
+            operationId: crypto.randomUUID(),
+          },
+          actorId,
+        ),
+        second.updateStatus(
+          booking.id,
+          {
+            expectedStatus: "confirmed",
+            status: "cancelled",
+            operationId: crypto.randomUUID(),
+          },
+          actorId,
+        ),
       ]);
       expect(
         outcomes.filter((result) => result.status === "fulfilled"),
@@ -397,7 +469,12 @@ describe.skipIf(!runDatabaseTests)(
         .returning();
       await createAdminBookingsService(connection!.db).updateStatus(
         booking.id,
-        "cancelled",
+        {
+          expectedStatus: "confirmed",
+          status: "cancelled",
+          operationId: crypto.randomUUID(),
+        },
+        await insertActor(),
       );
       expect(await bookedCount(id)).toBe(0);
     });

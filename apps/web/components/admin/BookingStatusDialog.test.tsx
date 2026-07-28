@@ -37,6 +37,7 @@ describe("BookingStatusDialog", () => {
     await act(async () => {
       root.render(
         <BookingStatusDialog
+          expectedStatus="new"
           onCancel={vi.fn()}
           onConfirm={vi.fn().mockResolvedValue(undefined)}
           open
@@ -134,8 +135,49 @@ describe("BookingStatusDialog", () => {
     });
     await act(async () => confirmButton?.click());
 
-    expect(container.textContent).toContain("网络连接失败");
+    expect(container.textContent).toContain("状态更新失败，请重试");
+    expect(container.textContent).not.toContain("网络连接失败");
     expect(textarea?.value).toBe("请改约到星期日");
     expect(container.querySelector("[role='dialog']")).not.toBeNull();
+  });
+
+  it("retains one operation ID and expected status across a network retry", async () => {
+    const onConfirm = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce(undefined);
+    await renderDialog({
+      expectedStatus: "contacted",
+      onConfirm,
+      status: "confirmed",
+    });
+    const confirmButton = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).at(-1);
+
+    await act(async () => confirmButton?.click());
+    await act(async () => confirmButton?.click());
+
+    expect(onConfirm).toHaveBeenCalledTimes(2);
+    expect(onConfirm.mock.calls[0]?.[0]).toMatchObject({
+      expectedStatus: "contacted",
+      status: "confirmed",
+    });
+    expect(onConfirm.mock.calls[1]?.[0].operationId).toBe(
+      onConfirm.mock.calls[0]?.[0].operationId,
+    );
+    expect(onConfirm.mock.calls[0]?.[0].operationId).toMatch(
+      /^[0-9a-f-]{36}$/i,
+    );
+  });
+
+  it("offers an accessible confirmation for the contacted transition", async () => {
+    await renderDialog({
+      expectedStatus: "new",
+      status: "contacted",
+    });
+
+    expect(container.querySelector("[role='dialog']")).not.toBeNull();
+    expect(container.textContent).toContain("标记为已联系");
   });
 });
