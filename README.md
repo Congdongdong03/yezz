@@ -129,7 +129,7 @@ pnpm test:e2e
 pnpm --filter @yezz/web build
 ```
 
-The test suite covers API helpers and validation as well as browser-level customer and administration flows. The repository also contains a GitHub Actions workflow for linting, type checking, unit tests, builds, and end-to-end tests.
+The test suite covers API helpers and validation as well as browser-level customer and administration flows.
 
 ## Deployment
 
