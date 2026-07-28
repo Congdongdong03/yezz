@@ -10,7 +10,8 @@ export default function PartyInquiryCTA({ wechatId }: { wechatId?: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyWeChat = async () => {
-    const id = wechatId || "yezz_studio";
+    if (!wechatId) return;
+    const id = wechatId;
     try {
       await navigator.clipboard.writeText(id);
       setCopied(true);
@@ -35,14 +36,16 @@ export default function PartyInquiryCTA({ wechatId }: { wechatId?: string }) {
       >
         {t("inquireContact")}
       </Link>
-      <button
-        type="button"
-        onClick={handleCopyWeChat}
-        className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border-2 border-caramel px-6 py-2.5 text-sm font-medium text-caramel transition-colors hover:bg-caramel hover:text-white"
-      >
-        {copied ? <Check className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
-        {copied ? t("wechatCopied") : t("inquireWechat")}
-      </button>
+      {wechatId && (
+        <button
+          type="button"
+          onClick={handleCopyWeChat}
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border-2 border-caramel px-6 py-2.5 text-sm font-medium text-caramel transition-colors hover:bg-caramel hover:text-white"
+        >
+          {copied ? <Check className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
+          {copied ? t("wechatCopied") : t("inquireWechat")}
+        </button>
+      )}
     </div>
   );
 }

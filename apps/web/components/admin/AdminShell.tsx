@@ -107,7 +107,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
         <div className="border-b border-border px-4 py-5">
           <Link href="/admin" className="font-serif text-lg font-semibold text-warm-charcoal">
-            YEZZ Admin
+            YezYY Admin
           </Link>
           <p className="mt-1 text-xs text-muted-foreground">
             {user?.role === "staff" ? "前台运营" : "内容管理"}

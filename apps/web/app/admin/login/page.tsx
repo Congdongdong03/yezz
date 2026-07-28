@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@yezz.local");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export default function AdminLoginPage() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>YEZZ Admin</CardTitle>
+          <CardTitle>YezYY Admin</CardTitle>
           <CardDescription>登录以管理项目与站点设置</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

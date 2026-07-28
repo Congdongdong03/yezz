@@ -50,7 +50,7 @@ export default async function HomePage({
       <PartyPackagesPreview packages={parties} />
       <GalleryHighlight images={galleryImages} />
       <StoreVibes storeImage={storeImage} />
-      <WeChatCTA wechatId={siteSettings?.wechatId} />
+      {siteSettings?.wechatId && <WeChatCTA wechatId={siteSettings.wechatId} />}
     </>
   );
 }

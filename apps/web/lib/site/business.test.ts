@@ -3,6 +3,7 @@ import {
   YEZYY_BUSINESS_PROFILE,
   formatBusinessHours,
   formatPhoneHref,
+  getEmptyCatalogueCopy,
 } from "./business";
 
 describe("YezYY business profile", () => {
@@ -24,5 +25,16 @@ describe("YezYY business profile", () => {
   it("formats the confirmed Thursday closing time", () => {
     expect(formatBusinessHours("en")).toContain("Thursday: 9:30 am–8:30 pm");
     expect(formatBusinessHours("zh")).toContain("星期四：上午9:30–晚上8:30");
+  });
+
+  it("explains that an empty project catalogue is being prepared", () => {
+    expect(getEmptyCatalogueCopy("en", "projects")).toEqual({
+      title: "Our project menu is being prepared",
+      body: "YezYY is open. Call or email us to ask about current DIY experiences.",
+    });
+  });
+
+  it("uses the approved Chinese gallery empty-state title", () => {
+    expect(getEmptyCatalogueCopy("zh", "gallery").title).toBe("作品照片正在整理中");
   });
 });

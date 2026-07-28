@@ -11,8 +11,8 @@ export default fp(async (app) => {
     openapi: {
       openapi: "3.1.0",
       info: {
-        title: "YEZZ API",
-        description: "REST API for YEZZ studio website and admin",
+        title: "YezYY API",
+        description: "REST API for the YezYY website and admin system",
         version: "1.0.0",
       },
       servers: [{ url: "/api/v1", description: "API v1" }],

@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import type { SiteSettingsView } from "@/lib/site/data";
-import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
+import { formatPhoneHref, YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
 
 function absoluteHttpUrl(value: string | undefined): string | null {
   if (!value || !/^https?:\/\//i.test(value)) return null;
@@ -50,6 +50,7 @@ function XiaohongshuIcon({ className }: { className?: string }) {
 export default function Footer({ settings }: { settings?: SiteSettingsView | null }) {
   const t = useTranslations("footer");
   const nav = useTranslations("nav");
+  const instagramHref = absoluteHttpUrl(settings?.instagram);
   const xiaohongshuHref = absoluteHttpUrl(settings?.xiaohongshu);
 
   return (
@@ -58,14 +59,14 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
         <div className="grid gap-8 md:grid-cols-3">
           <div>
             <h3 className="mb-4 font-serif text-xl font-bold">
-              {settings?.storeName ?? YEZYY_BUSINESS_PROFILE.storeName}
+              {YEZYY_BUSINESS_PROFILE.storeName}
             </h3>
             <p className="text-sm opacity-80">{t("tagline")}</p>
-            {(settings?.instagram || settings?.xiaohongshu) && (
+            {(instagramHref || xiaohongshuHref || YEZYY_BUSINESS_PROFILE.xiaohongshu) && (
               <div className="mt-4 flex gap-3">
-                {settings.instagram && (
+                {instagramHref && (
                   <a
-                    href={settings.instagram}
+                    href={instagramHref}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
@@ -74,26 +75,24 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
                     <InstagramIcon className="h-5 w-5" />
                   </a>
                 )}
-                {settings.xiaohongshu && (
-                  xiaohongshuHref ? (
-                    <a
-                      href={xiaohongshuHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
-                      aria-label={t("xiaohongshu")}
-                    >
-                      <XiaohongshuIcon className="h-5 w-5" />
-                    </a>
-                  ) : (
-                    <span
-                      className="flex items-center gap-2 text-sm opacity-80"
-                      aria-label={t("xiaohongshu")}
-                    >
-                      <XiaohongshuIcon className="h-5 w-5" />
-                      <span>{settings.xiaohongshu}</span>
-                    </span>
-                  )
+                {xiaohongshuHref ? (
+                  <a
+                    href={xiaohongshuHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
+                    aria-label={t("xiaohongshu")}
+                  >
+                    <XiaohongshuIcon className="h-5 w-5" />
+                  </a>
+                ) : (
+                  <span
+                    className="flex items-center gap-2 text-sm opacity-80"
+                    aria-label={t("xiaohongshu")}
+                  >
+                    <XiaohongshuIcon className="h-5 w-5" />
+                    <span>{YEZYY_BUSINESS_PROFILE.xiaohongshu}</span>
+                  </span>
                 )}
               </div>
             )}
@@ -118,9 +117,23 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
           <div>
             <h4 className="mb-4 font-medium">{t("contact")}</h4>
             <div className="space-y-1 text-sm opacity-80">
-              {settings?.email ? <p>{settings.email}</p> : <p>{t("email")}</p>}
-              {settings?.phone && <p>{settings.phone}</p>}
-              {settings?.address && <p>{settings.address}</p>}
+              <p>
+                <a
+                  className="hover:text-white"
+                  href={`mailto:${YEZYY_BUSINESS_PROFILE.email}`}
+                >
+                  {YEZYY_BUSINESS_PROFILE.email}
+                </a>
+              </p>
+              <p>
+                <a
+                  className="hover:text-white"
+                  href={`tel:${formatPhoneHref(YEZYY_BUSINESS_PROFILE.phone)}`}
+                >
+                  {YEZYY_BUSINESS_PROFILE.phone}
+                </a>
+              </p>
+              <p>{YEZYY_BUSINESS_PROFILE.address}</p>
             </div>
           </div>
         </div>

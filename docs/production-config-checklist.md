@@ -1,4 +1,4 @@
-# YEZZ 生产环境上线配置清单
+# YezYY 生产环境上线配置清单
 
 > 本文档基于代码库完整扫描生成，涵盖所有需要配置的环境变量、外部服务、安全设置和部署步骤。
 > 生成日期：2026-06-29
@@ -49,7 +49,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 | 变量 | 用途 | 是否必须 | 示例值 |
 |------|------|---------|--------|
-| `NEXT_PUBLIC_API_URL` | 前端调用 API 的基础地址 | ✅ 是 | `https://api.yezz.studio` |
+| `NEXT_PUBLIC_API_URL` | 前端调用 API 的基础地址 | ✅ 是 | `https://api.yezyy.com` |
 | `NEXT_PUBLIC_USE_API` | 开关：是否使用真实 API（而非假数据） | ✅ 是 | `true` |
 
 **⚠️ 警告：** 如果 `NEXT_PUBLIC_USE_API` 不为 `true`，生产环境将只显示假数据，用户无法看到真实内容。
@@ -67,7 +67,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | **是否必须** | ✅ 是 |
 | **代码位置** | `apps/api/src/app.ts:13` |
 | **当前默认值** | `http://localhost:3000` |
-| **示例值** | `https://yezz.studio` 或 `https://app1.com,https://app2.com` |
+| **示例值** | `https://yezyy.com` 或 `https://app1.com,https://app2.com` |
 
 **说明：**
 - 支持多个域名，用逗号分隔
@@ -105,7 +105,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | `S3_ACCESS_KEY` | 访问密钥 | `xxxx` |
 | `S3_SECRET_KEY` | 秘密密钥 | `xxxx` |
 | `S3_BUCKET` | 存储桶名称 | `yezz-media` |
-| `S3_PUBLIC_URL` | 图片公开访问地址 | `https://media.yezz.studio` 或 `https://pub-xxx.r2.dev` |
+| `S3_PUBLIC_URL` | 图片公开访问地址 | `https://media.yezyy.com` 或 `https://pub-xxx.r2.dev` |
 
 > 代码位置：`apps/api/src/lib/storage.ts`
 
@@ -131,11 +131,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 **发件人地址（当前写死）：**
 ```
-YEZZ <bookings@yezz.studio>
+YezYY <bookings@yezyy.com>
 ```
 > 如果要修改，需编辑 `apps/api/src/lib/email.ts:12`
 
-**邮件 DNS 建议：** 如果使用 `yezz.studio` 发邮件，建议在域名 DNS 中添加：
+**邮件 DNS 建议：** 如果使用 `yezyy.com` 发邮件，建议在域名 DNS 中添加：
 - SPF 记录
 - DKIM 记录
 - DMARC 记录
@@ -151,7 +151,7 @@ YEZZ <bookings@yezz.studio>
 | **用途** | 网站正式域名，用于生成 sitemap、robots.txt、SEO 元数据 |
 | **是否必须** | 建议配置 |
 | **代码位置** | `apps/web/lib/site/url.ts` |
-| **示例值** | `https://yezz.studio` |
+| **示例值** | `https://yezyy.com` |
 
 **不配置的后果：**
 - sitemap.xml 中的 URL 会是 `http://localhost:3000`
@@ -287,11 +287,11 @@ NEXT_PUBLIC_SITE_URL=https://你的域名
 
 | 值 | 位置 | 建议 |
 |---|------|------|
-| `YEZZ <bookings@yezz.studio>` | `apps/api/src/lib/email.ts:12` | 改为环境变量 `EMAIL_FROM` |
+| `YezYY <bookings@yezyy.com>` | `apps/api/src/lib/email.ts:12` | 改为环境变量 `EMAIL_FROM` |
 | `Australia/Sydney` | `apps/api/src/lib/email.ts:100` | 改为环境变量 `STORE_TIMEZONE` |
 | `admin@yezz.local` | `packages/db/src/seed.ts:234` | 种子时通过 `ADMIN_EMAIL` 覆盖 |
 | `changeme` | `packages/db/src/seed.ts:235` | 种子时通过 `ADMIN_PASSWORD` 覆盖 |
-| `YEZZ DIY Studio` | `apps/web/lib/site/data.ts:24` | 作为 fallback 名称 |
+| `YezYY` | `apps/web/lib/site/business.ts` | 作为公开 fallback 名称 |
 
 ---
 
@@ -362,21 +362,21 @@ fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
 
 ```bash
 # ============================================
-# YEZZ 生产环境配置模板
+# YezYY 生产环境配置模板
 # ============================================
 
 # -------- 核心必须 --------
 DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require
 JWT_SECRET=xxxx                            # openssl rand -base64 32
 JWT_EXPIRES_IN=24h
-CORS_ORIGIN=https://yezz.studio
+CORS_ORIGIN=https://yezyy.com
 NODE_ENV=production
 PORT=4000
 
 # -------- 前端必须（构建时） --------
-NEXT_PUBLIC_API_URL=https://api.yezz.studio
+NEXT_PUBLIC_API_URL=https://api.yezyy.com
 NEXT_PUBLIC_USE_API=true
-NEXT_PUBLIC_SITE_URL=https://yezz.studio
+NEXT_PUBLIC_SITE_URL=https://yezyy.com
 
 # -------- 文件存储（建议） --------
 S3_ENDPOINT=https://xxx.r2.cloudflarestorage.com
@@ -384,11 +384,11 @@ S3_REGION=auto
 S3_ACCESS_KEY=xxx
 S3_SECRET_KEY=xxx
 S3_BUCKET=yezz-media
-S3_PUBLIC_URL=https://media.yezz.studio
+S3_PUBLIC_URL=https://media.yezyy.com
 
 # -------- 邮件服务（建议） --------
 RESEND_API_KEY=re_xxx
-OWNER_EMAIL=owner@yezz.studio
+OWNER_EMAIL=izzybella.chen@gmail.com
 STORE_TIMEZONE=Asia/Shanghai
 
 # -------- Redis（可选） --------
@@ -398,7 +398,7 @@ REDIS_URL=redis://localhost:6379
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
 
 # -------- 种子脚本（仅首次部署） --------
-ADMIN_EMAIL=admin@yezz.studio
+ADMIN_EMAIL=admin@yezyy.com
 ADMIN_PASSWORD=your-strong-password
 ```
 

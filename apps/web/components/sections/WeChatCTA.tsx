@@ -10,8 +10,10 @@ export default function WeChatCTA({ wechatId }: { wechatId?: string }) {
   const t = useTranslations("home.wechatCta");
   const [copied, setCopied] = useState(false);
 
+  if (!wechatId) return null;
+
   const handleCopyWeChat = async () => {
-    const id = wechatId || "yezz_studio";
+    const id = wechatId;
     try {
       await navigator.clipboard.writeText(id);
       setCopied(true);

@@ -1,9 +1,11 @@
 import { loadGalleryPageData } from "@/lib/site/data";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import ServiceUnavailable from "@/components/ServiceUnavailable";
+import { EmptyCatalogueState } from "@/components/EmptyCatalogueState";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
 import type { Metadata } from "next";
+import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
 
 export async function generateMetadata({
   params,
@@ -32,6 +34,9 @@ export default async function GalleryPage({
   }
 
   const images = galleryResult.data;
+  const publishableImages = images.filter(
+    (img: { _id: string; imageUrl?: string }) => img.imageUrl,
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12">
@@ -40,10 +45,16 @@ export default async function GalleryPage({
       </h1>
       <p className="mt-4 text-warm-grey">{t("subtitle")}</p>
 
-      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {images
-          .filter((img: { _id: string; imageUrl?: string }) => img.imageUrl)
-          .map(
+      {publishableImages.length === 0 ? (
+        <EmptyCatalogueState
+          locale={locale as "en" | "zh"}
+          kind="gallery"
+          phone={YEZYY_BUSINESS_PROFILE.phone}
+          email={YEZYY_BUSINESS_PROFILE.email}
+        />
+      ) : (
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {publishableImages.map(
             (img: {
               _id: string;
               imageUrl: string;
@@ -67,7 +78,8 @@ export default async function GalleryPage({
               </div>
             ),
           )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

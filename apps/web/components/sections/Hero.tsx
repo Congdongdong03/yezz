@@ -10,7 +10,11 @@ export default function Hero({ heroImageUrl }: { heroImageUrl?: string }) {
   const t = useTranslations("hero");
 
   return (
-    <section className="relative flex min-h-[80vh] items-center justify-center overflow-hidden">
+    <section
+      className={`relative flex items-center justify-center overflow-hidden ${
+        heroImageUrl ? "min-h-[80vh]" : "min-h-[32rem]"
+      }`}
+    >
       {heroImageUrl ? (
         <Image
           src={heroImageUrl}
@@ -21,7 +25,7 @@ export default function Hero({ heroImageUrl }: { heroImageUrl?: string }) {
           priority
         />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-cream via-cream to-soft-pink/20" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(230,172,174,0.45),_transparent_40%),linear-gradient(135deg,_var(--color-cream),_#fff7f2_55%,_rgba(230,172,174,0.22))]" />
       )}
       <div className="absolute inset-0 bg-cream/40" />
       <div className="relative z-10 mx-auto max-w-4xl px-4 text-center">

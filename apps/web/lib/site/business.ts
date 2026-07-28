@@ -38,3 +38,43 @@ export function formatPhoneHref(phone: string) {
 export function formatBusinessHours(locale: "en" | "zh"): string {
   return BUSINESS_HOURS[locale].join("; ");
 }
+
+type CatalogueKind = "projects" | "parties" | "gallery";
+
+const EMPTY_CATALOGUE_COPY: Record<"en" | "zh", Record<CatalogueKind, {
+  title: string;
+  body: string;
+}>> = {
+  en: {
+    projects: {
+      title: "Our project menu is being prepared",
+      body: "YezYY is open. Call or email us to ask about current DIY experiences.",
+    },
+    parties: {
+      title: "Our party options are being prepared",
+      body: "YezYY is open. Call or email us to plan a celebration at the studio.",
+    },
+    gallery: {
+      title: "Customer creations are being curated",
+      body: "YezYY is open. Call or email us to ask about current DIY experiences.",
+    },
+  },
+  zh: {
+    projects: {
+      title: "手作项目正在整理中",
+      body: "YezYY 已经开业。欢迎致电或发送邮件咨询目前可体验的手作项目。",
+    },
+    parties: {
+      title: "派对方案正在整理中",
+      body: "YezYY 已经开业。欢迎致电或发送邮件，为您的庆祝活动咨询安排。",
+    },
+    gallery: {
+      title: "作品照片正在整理中",
+      body: "YezYY 已经开业。欢迎致电或发送邮件咨询目前可体验的手作项目。",
+    },
+  },
+};
+
+export function getEmptyCatalogueCopy(locale: "en" | "zh", kind: CatalogueKind) {
+  return EMPTY_CATALOGUE_COPY[locale][kind];
+}

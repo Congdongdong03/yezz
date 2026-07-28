@@ -1,12 +1,12 @@
-# YEZZ
+# YezYY
 
 **A bilingual booking, commerce, and operations platform for a Melbourne DIY studio.**
 
 [Live Website](https://yezyy.com) · [API Health](https://yezz-api.fly.dev/health)
 
-YEZZ combines a polished customer website with a practical administration system. Customers can explore projects, build a cart, request bookings, and discover studio events in English or Chinese. Staff can manage projects, categories, bookings, orders, gallery content, parties, availability, and users from a protected dashboard.
+YezYY combines a polished customer website with a practical administration system. Customers can explore projects, build a cart, request bookings, and discover studio events in English or Chinese. Staff can manage projects, categories, bookings, orders, gallery content, parties, availability, and users from a protected dashboard.
 
-![YEZZ homepage](yezz-homepage-final.png)
+![YezYY homepage](yezz-homepage-final.png)
 
 ## Product Highlights
 
@@ -144,6 +144,6 @@ Production credentials are configured in the relevant hosting platforms and are 
 
 ## More Screens
 
-![YEZZ projects](projects-list-v2.png)
+![YezYY projects](projects-list-v2.png)
 
-![YEZZ project detail](project-detail-full.png)
+![YezYY project detail](project-detail-full.png)
