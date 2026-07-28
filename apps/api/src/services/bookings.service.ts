@@ -22,6 +22,19 @@ export type BookingDto = {
 
 export type BookingsService = ReturnType<typeof createBookingsService>;
 
+export function normalizeBookingPeople(
+  value: number | null | undefined,
+): number {
+  return value ?? 1;
+}
+
+export function reservedPeopleForBooking(
+  value: number | null,
+  timeSlotId: string | null,
+): number | null {
+  return timeSlotId ? (value ?? 1) : value;
+}
+
 function validateBookingInput(input: BookingCreateInput) {
   if (!input.name?.trim()) {
     throw new AppError(400, "VALIDATION_ERROR", "name is required");
@@ -35,7 +48,10 @@ function validateBookingInput(input: BookingCreateInput) {
       throw new AppError(400, "VALIDATION_ERROR", "email is invalid");
     }
   }
-  if (input.numberOfPeople != null && input.numberOfPeople < 1) {
+  if (
+    input.numberOfPeople != null &&
+    (!Number.isInteger(input.numberOfPeople) || input.numberOfPeople < 1)
+  ) {
     throw new AppError(
       400,
       "VALIDATION_ERROR",
@@ -85,7 +101,7 @@ export function createBookingsService(db: Db) {
   return {
     async create(input: BookingCreateInput): Promise<BookingDto> {
       validateBookingInput(input);
-      const people = input.numberOfPeople ?? 1;
+      const people = normalizeBookingPeople(input.numberOfPeople);
 
       const row = input.timeSlotId
         ? await db.transaction(async (tx) => {
@@ -97,12 +113,13 @@ export function createBookingsService(db: Db) {
             return repo.create(
               {
                 ...input,
+                numberOfPeople: people,
                 preferredDate: input.preferredDate ?? slot.date,
               },
               tx,
             );
           })
-        : await repo.create(input);
+        : await repo.create({ ...input, numberOfPeople: people });
 
       const orderNumber = formatBookingOrderId(row.id, row.createdAt);
       const contact = await loadStoreContact(db);

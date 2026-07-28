@@ -25,12 +25,15 @@ function assertPeople(people: number): void {
 
 type SlotRow = typeof timeSlots.$inferSelect;
 
+function formatSlotDate(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
 function snapshot(row: SlotRow): SlotSnapshot {
-  const date =
-    typeof row.date === "string" ? row.date : String(row.date).slice(0, 10);
   return Object.freeze({
     id: row.id,
-    date,
+    date: formatSlotDate(row.date),
     startTime: row.startTime,
     endTime: row.endTime,
     timeZone: "Australia/Melbourne",
@@ -58,11 +61,26 @@ export function createRequestCapacityRepository(db: Db) {
           and(
             eq(timeSlots.id, slotId),
             eq(timeSlots.isAvailable, true),
+            sql`${timeSlots.date} >= ((CURRENT_TIMESTAMP AT TIME ZONE 'Australia/Melbourne')::date)`,
             sql`${timeSlots.bookedCount} + ${people} <= ${timeSlots.capacity}`,
           ),
         )
         .returning();
       if (!row) {
+        const [existing] = await tx
+          .select({
+            isPast: sql<boolean>`${timeSlots.date} < ((CURRENT_TIMESTAMP AT TIME ZONE 'Australia/Melbourne')::date)`,
+          })
+          .from(timeSlots)
+          .where(eq(timeSlots.id, slotId))
+          .limit(1);
+        if (existing?.isPast) {
+          throw new AppError(
+            409,
+            "SLOT_IN_PAST",
+            "The selected time slot is in the past in Australia/Melbourne",
+          );
+        }
         throw new AppError(
           409,
           "SLOT_FULL",

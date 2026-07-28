@@ -30,7 +30,10 @@ function validationError(message: string): AppError {
   return new AppError(400, "VALIDATION_ERROR", message);
 }
 
-function parseDate(date: string): { ordinal: number; weekday: number } {
+export function parseCalendarDate(date: string): {
+  ordinal: number;
+  weekday: number;
+} {
   const match = ISO_DATE.exec(date);
   if (!match) {
     throw validationError("date must use YYYY-MM-DD");
@@ -68,8 +71,8 @@ export function getMelbourneDate(now: Date): string {
 }
 
 export function assertSlotAllowed(input: SlotPolicyInput, now: Date): void {
-  const slotDate = parseDate(input.date);
-  const today = parseDate(getMelbourneDate(now));
+  const slotDate = parseCalendarDate(input.date);
+  const today = parseCalendarDate(getMelbourneDate(now));
 
   if (!Number.isInteger(input.capacity) || input.capacity < 1) {
     throw validationError("capacity must be a positive integer");

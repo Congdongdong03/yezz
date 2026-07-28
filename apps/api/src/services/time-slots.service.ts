@@ -1,6 +1,11 @@
 import type { Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
-import { assertSlotAllowed, getMelbourneDate } from "../lib/slot-policy.js";
+import {
+  BOOKING_HORIZON_DAYS,
+  assertSlotAllowed,
+  getMelbourneDate,
+  parseCalendarDate,
+} from "../lib/slot-policy.js";
 import {
   createTimeSlotsRepository,
   type TimeSlotCreateInput,
@@ -66,6 +71,8 @@ function overlapError(): AppError {
   );
 }
 
+const MAX_BATCH_GENERATED_SLOTS = 1_000;
+
 function isForeignKeyViolation(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -106,6 +113,7 @@ export function createTimeSlotsService(
     },
 
     async getDaySlots(date: string, categoryId?: string) {
+      parseCalendarDate(date);
       const today = getMelbourneDate(now());
       if (date < today) return { slots: [] };
       const rows = await repo.findByDate(date, categoryId, today);
@@ -141,7 +149,7 @@ export function createTimeSlotsService(
       categoryId?: string | null;
       notes?: string | null;
     }) {
-      const inputs = buildBatchInputs(options);
+      const inputs = buildBatchInputs(options, now());
       for (const input of inputs) assertSlotAllowed(input, now());
       assertNoBatchOverlap(inputs);
       const rows = await db.transaction(async (tx) => {
@@ -251,14 +259,57 @@ export function createTimeSlotsService(
   };
 }
 
-function buildBatchInputs(options: {
-  startDate: string;
-  endDate: string;
-  weekdays: number[];
-  slots: Array<{ startTime: string; endTime: string; capacity: number }>;
-  categoryId?: string | null;
-  notes?: string | null;
-}): TimeSlotCreateInput[] {
+function buildBatchInputs(
+  options: {
+    startDate: string;
+    endDate: string;
+    weekdays: number[];
+    slots: Array<{ startTime: string; endTime: string; capacity: number }>;
+    categoryId?: string | null;
+    notes?: string | null;
+  },
+  now: Date,
+): TimeSlotCreateInput[] {
+  const startDate = parseCalendarDate(options.startDate);
+  const endDate = parseCalendarDate(options.endDate);
+  if (startDate.ordinal > endDate.ordinal) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "startDate must not be after endDate",
+    );
+  }
+  if (
+    options.weekdays.length === 0 ||
+    options.weekdays.some(
+      (weekday) => !Number.isInteger(weekday) || weekday < 0 || weekday > 6,
+    )
+  ) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "weekdays must contain values from 0 to 6",
+    );
+  }
+  const today = parseCalendarDate(getMelbourneDate(now));
+  if (
+    startDate.ordinal < today.ordinal ||
+    endDate.ordinal - today.ordinal > BOOKING_HORIZON_DAYS
+  ) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "batch dates must be within the booking horizon",
+    );
+  }
+  const dayCount = endDate.ordinal - startDate.ordinal + 1;
+  if (dayCount * options.slots.length > MAX_BATCH_GENERATED_SLOTS) {
+    throw new AppError(
+      400,
+      "BATCH_TOO_LARGE",
+      "Batch would create too many time slots",
+    );
+  }
   const start = new Date(`${options.startDate}T00:00:00Z`);
   const end = new Date(`${options.endDate}T00:00:00Z`);
   if (
@@ -291,6 +342,13 @@ function buildBatchInputs(options: {
         notes: options.notes,
       });
     }
+  }
+  if (inputs.length === 0) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Batch selection generates no time slots",
+    );
   }
   return inputs;
 }

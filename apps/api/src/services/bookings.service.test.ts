@@ -1,13 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { AppError } from "../lib/errors.js";
-import { createBookingsService } from "./bookings.service.js";
+import {
+  createBookingsService,
+  normalizeBookingPeople,
+  reservedPeopleForBooking,
+} from "./bookings.service.js";
 import { mapBookingRow } from "./admin/bookings.admin.service.js";
 import { bookings } from "@yezz/db";
 
 describe("createBookingsService", () => {
+  it("normalizes omitted people to the exact persisted reservation count", () => {
+    expect(normalizeBookingPeople(undefined)).toBe(1);
+    expect(reservedPeopleForBooking(null, "slot-1")).toBe(1);
+  });
+
   it("rejects booking without name", async () => {
     const service = createBookingsService({} as never);
-    await expect(service.create({ name: "  ", phone: "13800138000" })).rejects.toSatisfy(
+    await expect(
+      service.create({ name: "  ", phone: "13800138000" }),
+    ).rejects.toSatisfy(
       (err: unknown) =>
         err instanceof AppError &&
         err.statusCode === 400 &&
@@ -18,7 +29,11 @@ describe("createBookingsService", () => {
   it("rejects invalid email", async () => {
     const service = createBookingsService({} as never);
     await expect(
-      service.create({ name: "Test", phone: "13800138000", email: "not-an-email" }),
+      service.create({
+        name: "Test",
+        phone: "13800138000",
+        email: "not-an-email",
+      }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 });

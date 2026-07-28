@@ -86,4 +86,19 @@ describe("slot policy", () => {
       ).toThrow();
     },
   );
+
+  it("rejects a crafted date just before Melbourne today at a UTC boundary", () => {
+    const boundaryNow = new Date("2026-10-03T14:30:00.000Z");
+    expect(() =>
+      assertSlotAllowed(
+        {
+          date: "2026-10-03",
+          startTime: "09:30",
+          endTime: "10:30",
+          capacity: 1,
+        },
+        boundaryNow,
+      ),
+    ).toThrowError(/past/);
+  });
 });

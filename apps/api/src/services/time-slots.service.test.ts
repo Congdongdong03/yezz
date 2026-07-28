@@ -158,4 +158,63 @@ describe("time slot service invariants", () => {
       code: "SLOT_REFERENCED",
     });
   });
+
+  it.each(["2026-02-30", "not-a-date", "2026-7-30"])(
+    "returns validation error for malformed public date %s",
+    async (date) => {
+      const { service } = harness();
+      await expect(service.getDaySlots(date)).rejects.toMatchObject({
+        statusCode: 400,
+        code: "VALIDATION_ERROR",
+      });
+    },
+  );
+
+  it.each([
+    {
+      startDate: "2026-02-30",
+      endDate: "2026-03-02",
+      weekdays: [1],
+      slots: [{ startTime: "09:30", endTime: "10:30", capacity: 1 }],
+    },
+    {
+      startDate: "2026-07-30",
+      endDate: "2026-07-29",
+      weekdays: [4],
+      slots: [{ startTime: "09:30", endTime: "10:30", capacity: 1 }],
+    },
+    {
+      startDate: "2026-07-30",
+      endDate: "2026-07-30",
+      weekdays: [7],
+      slots: [{ startTime: "09:30", endTime: "10:30", capacity: 1 }],
+    },
+    {
+      startDate: "2026-07-30",
+      endDate: "2026-07-30",
+      weekdays: [1],
+      slots: [{ startTime: "09:30", endTime: "10:30", capacity: 1 }],
+    },
+  ])("rejects invalid or empty batch generation", async (input) => {
+    const { service } = harness([]);
+    await expect(service.createBatch(input)).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+  });
+
+  it("rejects an oversized batch before generating rows", async () => {
+    const { service } = harness([]);
+    await expect(
+      service.createBatch({
+        startDate: "2026-07-28",
+        endDate: "2027-07-28",
+        weekdays: [0, 1, 2, 3, 4, 5, 6],
+        slots: Array.from({ length: 4 }, (_, index) => ({
+          startTime: `0${index + 9}:30`.slice(-5),
+          endTime: `${index + 10}:00`,
+          capacity: 1,
+        })),
+      }),
+    ).rejects.toMatchObject({ code: "BATCH_TOO_LARGE" });
+  });
 });

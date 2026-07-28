@@ -15,6 +15,7 @@ import {
 import { createSettingsRepository } from "../../repositories/settings.repository.js";
 import { createRequestCapacityRepository } from "../../repositories/request-capacity.repository.js";
 import { createTimeSlotsRepository } from "../../repositories/time-slots.repository.js";
+import { reservedPeopleForBooking } from "../bookings.service.js";
 
 export type BookingDto = {
   id: string;
@@ -184,17 +185,17 @@ export function createAdminBookingsService(db: Db) {
         }
 
         // Restore slot capacity when a booking is cancelled
+        const reservedPeople = reservedPeopleForBooking(
+          existing.numberOfPeople,
+          existing.timeSlotId,
+        );
         if (
           status === "cancelled" &&
           previous !== "cancelled" &&
           existing.timeSlotId &&
-          existing.numberOfPeople
+          reservedPeople
         ) {
-          await capacityRepo.release(
-            existing.timeSlotId,
-            existing.numberOfPeople,
-            tx,
-          );
+          await capacityRepo.release(existing.timeSlotId, reservedPeople, tx);
         }
 
         return updated;
