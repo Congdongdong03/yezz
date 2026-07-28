@@ -78,7 +78,7 @@ it("contains the approved public identity", () => {
     storeName: "YezYY",
     address: "G082/235 Springvale Rd, Glen Waverley VIC 3150",
     phone: "0430 787 712",
-    email: "izzybella.chen@gmail.com",
+    email: "congdongdong03@gmail.com",
     xiaohongshu: "95848743904",
     currency: "AUD",
   });
@@ -108,7 +108,7 @@ export const YEZYY_BUSINESS_PROFILE = {
   website: "https://yezyy.com",
   address: "G082/235 Springvale Rd, Glen Waverley VIC 3150",
   phone: "0430 787 712",
-  email: "izzybella.chen@gmail.com",
+  email: "congdongdong03@gmail.com",
   xiaohongshu: "95848743904",
   currency: "AUD",
   googleMapUrl:
@@ -304,7 +304,7 @@ Chinese:
 
 Update the initial email subject/body to `YezYY Booking Request Received` and equivalent Chinese wording. Leave the later confirmed email explicitly confirmed.
 
-Read the sender identity from `EMAIL_FROM` and reply address from `EMAIL_REPLY_TO`. In production, fail fast at startup when `EMAIL_FROM` is absent instead of silently using `yezz.studio`; keep `izzybella.chen@gmail.com` as the approved public/reply address. Do not claim that Gmail is a verified transactional sender.
+Read the sender identity from `EMAIL_FROM` and reply address from `EMAIL_REPLY_TO`. In production, fail fast at startup when `EMAIL_FROM` is absent instead of silently using `yezz.studio`; keep `congdongdong03@gmail.com` as the approved public/reply address. Do not claim that Gmail is a verified transactional sender.
 
 - [ ] **Step 4: Verify GREEN**
 

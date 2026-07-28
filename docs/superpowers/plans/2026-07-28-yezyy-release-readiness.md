@@ -192,7 +192,7 @@ Confirm the currently configured Resend sender is verified for `yezyy.com`. Set 
 
 ```text
 EMAIL_FROM=YezYY <bookings@yezyy.com>
-EMAIL_REPLY_TO=izzybella.chen@gmail.com
+EMAIL_REPLY_TO=congdongdong03@gmail.com
 ```
 
 If `bookings@yezyy.com` is not verified in Resend, pause the release and ask the owner to approve the required DNS records. Do not substitute `yezz.studio`, spoof Gmail as a Resend sender, or expose a Resend API key.
@@ -207,7 +207,7 @@ Use the Chinese admin after the owner signs in. Set exactly:
   "address": "G082/235 Springvale Rd, Glen Waverley VIC 3150",
   "businessHours": "Monday 9:30 am–5:00 pm; Tuesday 9:30 am–5:00 pm; Wednesday 9:30 am–5:00 pm; Thursday 9:30 am–8:30 pm; Friday 9:30 am–8:30 pm; Saturday 9:30 am–5:30 pm; Sunday 10:00 am–5:00 pm",
   "phone": "0430 787 712",
-  "email": "izzybella.chen@gmail.com",
+  "email": "congdongdong03@gmail.com",
   "xiaohongshu": "95848743904",
   "googleMapUrl": "https://www.google.com/maps/search/?api=1&query=G082%2F235%20Springvale%20Rd%2C%20Glen%20Waverley%20VIC%203150",
   "wechatId": null,

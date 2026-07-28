@@ -11,7 +11,7 @@ Convert the currently deployed demo-style site into a truthful first-stage produ
 - Studio address: `G082/235 Springvale Rd, Glen Waverley VIC 3150`
 - Public phone display: `0430 787 712`
 - Public phone link value: `0430787712`
-- Public email: `izzybella.chen@gmail.com`
+- Public email: `congdongdong03@gmail.com`
 - Xiaohongshu account ID: `95848743904`
 - Currency: `AUD`
 - Online payment: not offered
