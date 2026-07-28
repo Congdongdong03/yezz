@@ -9,10 +9,14 @@ import { useCart } from "@/lib/cart/context";
 import { submitCart } from "@/lib/actions/cart";
 import { trackSubmitCartOrder } from "@/lib/analytics/gtag";
 import { validateCartContact } from "@/lib/cart/validation";
+import { createRequestAttempt } from "@/lib/requests/idempotency";
+import BookingCalendar from "@/components/book/BookingCalendar";
+import type { TimeSlotOption } from "@/lib/api/time-slots";
 
 export default function CartPage() {
   const locale = useLocale();
   const t = useTranslations("cart");
+  const projectT = useTranslations("projectDetail");
   const { items, clearItems, removeItem } = useCart();
 
   const [name, setName] = useState("");
@@ -20,8 +24,12 @@ export default function CartPage() {
   const [wechat, setWechat] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [people, setPeople] = useState(1);
+  const [preferredDate, setPreferredDate] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlotOption | null>(null);
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [requestAttempt] = useState(createRequestAttempt);
   const formId = useId();
   const fieldId = (name: string) => `${formId}-${name}`;
 
@@ -40,6 +48,16 @@ export default function CartPage() {
       setFieldErrors(errors);
       return;
     }
+    if (!selectedSlot) {
+      setFieldErrors({
+        timeSlotId: [
+          locale === "zh"
+            ? "请先选择可用档期时段"
+            : "Please select an available time slot first",
+        ],
+      });
+      return;
+    }
     setStatus("submitting");
     setFieldErrors({});
 
@@ -49,9 +67,13 @@ export default function CartPage() {
     formData.append("wechat", wechat);
     formData.append("email", email);
     formData.append("message", message);
+    formData.append("timeSlotId", selectedSlot.id);
+    formData.append("preferredDate", preferredDate);
+    formData.append("numberOfPeople", String(people));
+    formData.append("locale", locale);
     formData.append("items", JSON.stringify(items));
 
-    const result = await submitCart(formData);
+    const result = await submitCart(formData, requestAttempt);
     if (result.success) {
       trackSubmitCartOrder({ item_count: items.length });
       setStatus("success");
@@ -137,6 +159,44 @@ export default function CartPage() {
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           <div>
+            <label
+              htmlFor={fieldId("numberOfPeople")}
+              className="block text-sm font-medium text-warm-charcoal"
+            >
+              {projectT("numberOfPeople")} *
+            </label>
+            <input
+              id={fieldId("numberOfPeople")}
+              type="number"
+              min={1}
+              required
+              value={people}
+              onChange={(event) => {
+                setPeople(Number.parseInt(event.target.value, 10) || 1);
+                setSelectedSlot(null);
+              }}
+              className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
+            />
+          </div>
+          <div>
+            <p className="block text-sm font-medium text-warm-charcoal">
+              {projectT("pickSchedule")} *
+            </p>
+            <div className="mt-2 rounded-xl border border-warm-grey/15 bg-white p-4">
+              <BookingCalendar
+                people={people}
+                selectedSlotId={selectedSlot?.id ?? null}
+                onSelectSlot={setSelectedSlot}
+                onDateChange={setPreferredDate}
+              />
+            </div>
+            {fieldError("timeSlotId") && (
+              <p className="mt-1 text-sm text-red-500" role="alert">
+                {fieldError("timeSlotId")}
+              </p>
+            )}
+          </div>
+          <div>
             <label htmlFor={fieldId("name")} className="block text-sm font-medium text-warm-charcoal">
               {t("name")} *
             </label>
@@ -183,11 +243,12 @@ export default function CartPage() {
           </div>
           <div>
             <label htmlFor={fieldId("email")} className="block text-sm font-medium text-warm-charcoal">
-              {t("email")}
+              {t("email")} *
             </label>
             <input
               id={fieldId("email")}
               type="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"

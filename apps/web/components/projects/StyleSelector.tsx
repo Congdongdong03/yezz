@@ -4,6 +4,7 @@ import { useLocale } from "next-intl";
 import Image from "next/image";
 
 interface Style {
+  _id: string;
   name: { en: string; zh: string };
   imageUrl?: string;
   price?: string;

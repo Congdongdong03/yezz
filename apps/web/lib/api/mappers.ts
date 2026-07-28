@@ -77,6 +77,7 @@ export function mapProjectDetailFromApi(project: ApiProjectDetail) {
     styles: [...project.styles]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((style) => ({
+        _id: style.id,
         name: style.name,
         price: optional(style.price),
         priceDisplay: optional(style.priceDisplay),

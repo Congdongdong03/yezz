@@ -247,6 +247,7 @@ export type CartSessionItem = {
   projectName: { en: string; zh: string };
   projectType: "experience" | "product";
   imageUrl?: string;
+  styleId?: string;
   styleName?: { en: string; zh: string };
   date?: string;
   people?: number;
@@ -264,12 +265,14 @@ export const cartSessions = pgTable("cart_sessions", {
 
 export type CartOrderItemSnapshot = {
   projectId?: string;
+  styleId?: string;
   projectName?: LocalizedString | string;
   projectType?: "experience" | "product";
   styleName?: LocalizedString | string;
   date?: string;
   people?: number;
   price?: string;
+  priceCurrency?: string;
 };
 
 export const cartOrderItems = pgTable("cart_order_items", {

@@ -4,6 +4,7 @@ export interface CartItem {
   projectName: { en: string; zh: string };
   projectType: "experience" | "product";
   imageUrl?: string;
+  styleId?: string;
   styleName?: { en: string; zh: string };
   date?: string;
   people?: number;

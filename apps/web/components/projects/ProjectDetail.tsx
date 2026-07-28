@@ -38,6 +38,7 @@ interface ProjectDetailProps {
     imageUrl?: string;
     images?: string[];
     styles?: Array<{
+      _id: string;
       name: { en: string; zh: string };
       price?: string;
       priceDisplay?: string;
@@ -86,6 +87,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
       projectName: project.name,
       projectType: "product" as const,
       imageUrl: project.imageUrl,
+      styleId: selectedStyle._id,
       styleName: selectedStyle.name,
       price: selectedStyle.priceDisplay ?? selectedStyle.price,
     };

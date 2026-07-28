@@ -72,6 +72,7 @@ export function validateCartOrderInputLengths(input: CartOrderCreateInput): void
 
   for (const item of input.items) {
     assertMaxLength(item.projectId, "item projectId", CART_ORDER_INPUT_LIMITS.projectId);
+    assertMaxLength(item.styleId, "item styleId", CART_ORDER_INPUT_LIMITS.projectId);
     assertLocalizedStringMaxLength(
       item.projectName,
       "item projectName",

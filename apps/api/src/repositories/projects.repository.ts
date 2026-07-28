@@ -101,6 +101,15 @@ export function createProjectsRepository(db: Db) {
       return row ?? null;
     },
 
+    async findStyleById(id: string, tx: Db = db) {
+      const [row] = await tx
+        .select()
+        .from(projectStyles)
+        .where(eq(projectStyles.id, id))
+        .limit(1);
+      return row ?? null;
+    },
+
     findStylesByProjectId(projectId: string) {
       return db
         .select()

@@ -50,7 +50,15 @@ describe("public request action transport", () => {
     const form = new FormData();
     form.set("name", "A");
     form.set("phone", "0430000000");
-    form.set("items", "[]");
+    form.set("email", "a@example.com");
+    form.set("numberOfPeople", "1");
+    form.set("timeSlotId", "00000000-0000-4000-8000-000000000002");
+    form.set(
+      "items",
+      JSON.stringify([
+        { projectId: "00000000-0000-4000-8000-000000000001" },
+      ]),
+    );
 
     await submitCart(form);
 

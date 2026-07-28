@@ -57,6 +57,9 @@ describe("same-origin backend transport", () => {
     const headers = new Headers(init?.headers);
     expect(target).toBe("https://api.example.test/api/v1/bookings?locale=en");
     expect(headers.get("x-yezyy-client-ip")).toBe("203.0.113.4");
+    expect(headers.get("idempotency-key")).toBe(
+      "00000000-0000-4000-8000-000000000002",
+    );
     expect(headers.get("x-yezyy-signature")).toMatch(/^[a-f0-9]{64}$/);
     expect(headers.has("x-forwarded-for")).toBe(false);
     expect(headers.has("x-vercel-forwarded-for")).toBe(false);

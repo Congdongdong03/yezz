@@ -227,17 +227,36 @@ function cartInput(value: unknown): void {
   const candidate = record(
     value,
     "payload.input",
-    ["name", "phone", "wechat", "email", "message", "items"],
+    [
+      "name",
+      "phone",
+      "wechat",
+      "email",
+      "message",
+      "timeSlotId",
+      "numberOfPeople",
+      "preferredDate",
+      "locale",
+      "items",
+    ],
     ["name", "phone", "items"],
   );
   stringValue(candidate.name, "payload.input.name", { max: 255 });
   stringValue(candidate.phone, "payload.input.phone", { max: 64 });
-  for (const key of ["wechat", "email", "message"]) {
+  for (const key of [
+    "wechat",
+    "email",
+    "message",
+    "timeSlotId",
+    "preferredDate",
+    "locale",
+  ]) {
     stringValue(candidate[key], `payload.input.${key}`, {
       max: key === "message" ? 5000 : 255,
       nullable: true,
     });
   }
+  optionalInteger(candidate.numberOfPeople, "payload.input.numberOfPeople");
   if (
     !Array.isArray(candidate.items) ||
     candidate.items.length === 0 ||
@@ -248,6 +267,7 @@ function cartInput(value: unknown): void {
   candidate.items.forEach((item, index) => {
     const entry = record(item, `payload.input.items[${index}]`, [
       "projectId",
+      "styleId",
       "projectName",
       "projectType",
       "imageUrl",
@@ -255,8 +275,13 @@ function cartInput(value: unknown): void {
       "date",
       "people",
       "price",
+      "priceCurrency",
     ]);
     stringValue(entry.projectId, `payload.input.items[${index}].projectId`, {
+      max: 64,
+      nullable: true,
+    });
+    stringValue(entry.styleId, `payload.input.items[${index}].styleId`, {
       max: 64,
       nullable: true,
     });
@@ -272,7 +297,7 @@ function cartInput(value: unknown): void {
       invalid(`payload.input.items[${index}].projectType is invalid`);
     }
     localizedString(entry.styleName, `payload.input.items[${index}].styleName`);
-    for (const key of ["imageUrl", "date", "price"]) {
+    for (const key of ["imageUrl", "date", "price", "priceCurrency"]) {
       stringValue(entry[key], `payload.input.items[${index}].${key}`, {
         max: key === "imageUrl" ? 2048 : 128,
         nullable: true,

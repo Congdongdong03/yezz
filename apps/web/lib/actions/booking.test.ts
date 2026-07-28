@@ -101,20 +101,20 @@ describe("submitBooking", () => {
       );
     vi.stubGlobal("fetch", request);
     const attempt = createBookingAttempt();
-    const originalKey = attempt.idempotencyKey;
+    const originalKey = attempt.current();
 
     await expect(submitBooking(validFormData(), attempt)).resolves.toMatchObject({
       success: false,
     });
-    expect(attempt.idempotencyKey).toBe(originalKey);
+    expect(attempt.current()).toBe(originalKey);
 
     await expect(submitBooking(validFormData(), attempt)).resolves.toMatchObject({
       success: true,
       bookingId: "booking-1",
     });
-    expect(attempt.idempotencyKey).not.toBe(originalKey);
+    expect(attempt.current()).not.toBe(originalKey);
 
-    const nextAttemptKey = attempt.idempotencyKey;
+    const nextAttemptKey = attempt.current();
     await submitBooking(validFormData(), attempt);
     const keys = request.mock.calls.map(
       ([, init]) => new Headers((init as RequestInit).headers).get("Idempotency-Key"),

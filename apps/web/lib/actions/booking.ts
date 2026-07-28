@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  createRequestAttempt,
+  type RequestAttempt,
+} from "../requests/idempotency";
 
 function bookingSchema(locale?: string) {
   const zh = locale?.startsWith("zh") ?? false;
@@ -47,13 +51,8 @@ function bookingSchema(locale?: string) {
 type ApiSuccess<T> = { success: true; data: T };
 type ApiError = { success: false; error: { code: string; message: string } };
 
-export type BookingAttempt = {
-  idempotencyKey: string;
-};
-
-export function createBookingAttempt(): BookingAttempt {
-  return { idempotencyKey: globalThis.crypto.randomUUID() };
-}
+export type BookingAttempt = RequestAttempt;
+export const createBookingAttempt = createRequestAttempt;
 
 export async function submitBooking(
   formData: FormData,
@@ -70,6 +69,7 @@ export async function submitBooking(
   });
 
   if (!parsed.success) {
+    attempt.failed();
     return { success: false, errors: parsed.error.flatten().fieldErrors };
   }
 
@@ -80,7 +80,7 @@ export async function submitBooking(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Idempotency-Key": attempt.idempotencyKey,
+        "Idempotency-Key": attempt.current(),
       },
       body: JSON.stringify({
         kind: "experience",
@@ -104,15 +104,17 @@ export async function submitBooking(
     const json = (await res.json()) as ApiSuccess<{ id: string }> | ApiError;
 
     if (!json.success) {
+      attempt.failed();
       return {
         success: false,
         errors: { server: [json.error?.message ?? "Failed to submit booking. Please try again."] },
       };
     }
 
-    attempt.idempotencyKey = globalThis.crypto.randomUUID();
+    attempt.succeeded();
     return { success: true, bookingId: json.data.id };
   } catch {
+    attempt.failed();
     return {
       success: false,
       errors: { server: ["Failed to submit booking. Please try again."] },

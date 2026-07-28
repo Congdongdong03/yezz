@@ -1,5 +1,6 @@
 import { bookings, type Db } from "@yezz/db";
 import { and, count, desc, eq, sql } from "drizzle-orm";
+import { lockPublicCreateAttempt } from "../lib/public-create-idempotency.js";
 
 export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
 
@@ -36,10 +37,7 @@ export type BookingInsertInput = BookingCreateInput & {
 export function createBookingsRepository(db: Db) {
   return {
     async lockCreateAttempt(idempotencyKey: string, tx: Db = db) {
-      const lockKey = `booking-create:${idempotencyKey}`;
-      await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
-      );
+      await lockPublicCreateAttempt(tx, "booking", idempotencyKey);
     },
 
     async create(input: BookingInsertInput, tx: Db = db) {

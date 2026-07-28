@@ -80,6 +80,15 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE "${schema}".project_styles (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id uuid NOT NULL REFERENCES "${schema}".diy_projects(id) ON DELETE CASCADE,
+      name jsonb NOT NULL,
+      image_url text,
+      price varchar(32),
+      sort_order integer NOT NULL DEFAULT 0,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE "${schema}".time_slots (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       date date NOT NULL,
@@ -123,7 +132,39 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE TABLE "${schema}".cart_orders (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      name varchar(255) NOT NULL,
+      phone varchar(64) NOT NULL,
+      wechat varchar(128),
+      email varchar(255),
+      message text,
+      time_slot_id uuid REFERENCES "${schema}".time_slots(id) ON DELETE RESTRICT,
+      number_of_people integer,
+      preferred_date date,
+      slot_date date,
+      slot_start_time varchar(8),
+      slot_end_time varchar(8),
+      slot_timezone varchar(64) NOT NULL DEFAULT 'Australia/Melbourne',
+      locale varchar(8),
+      idempotency_key uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+      is_read boolean NOT NULL DEFAULT false,
+      status varchar(32) NOT NULL DEFAULT 'new',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE "${schema}".cart_order_items (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      order_id uuid NOT NULL REFERENCES "${schema}".cart_orders(id) ON DELETE CASCADE,
+      project_id uuid REFERENCES "${schema}".diy_projects(id) ON DELETE SET NULL,
+      style_id uuid REFERENCES "${schema}".project_styles(id) ON DELETE SET NULL,
+      project_name jsonb,
+      project_type varchar(32),
+      style_name jsonb,
+      date varchar(32),
+      people integer,
+      price varchar(32),
+      price_currency varchar(10) NOT NULL DEFAULT 'AUD',
+      sort_order integer NOT NULL DEFAULT 0
     );
     CREATE TABLE "${schema}".site_settings (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
