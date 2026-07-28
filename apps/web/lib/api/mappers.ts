@@ -6,6 +6,7 @@ import type {
   ApiProjectListItem,
   ApiSiteSettings,
 } from "./types";
+import { sanitizePublicWeChatId } from "@/lib/site/business";
 
 function slugField(slug: string) {
   return { current: slug };
@@ -116,14 +117,16 @@ export function mapGalleryImageFromApi(image: ApiGalleryImage) {
 }
 
 export function mapSiteSettingsFromApi(settings: ApiSiteSettings) {
+  const wechatId = sanitizePublicWeChatId(settings.wechatId);
+
   return {
     storeName: settings.storeName,
     address: optional(settings.address),
     businessHours: optional(settings.businessHours),
     phone: optional(settings.phone),
     email: optional(settings.email),
-    wechatId: optional(settings.wechatId),
-    wechatQrCodeUrl: optional(settings.wechatQrUrl),
+    wechatId,
+    wechatQrCodeUrl: wechatId ? optional(settings.wechatQrUrl) : undefined,
     heroImageUrl: optional(settings.heroImageUrl),
     instagram: optional(settings.instagram),
     xiaohongshu: optional(settings.xiaohongshu),

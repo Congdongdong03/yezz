@@ -129,11 +129,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 - 但后台的"未读消息计数"仍然有效
 - 用户端也**收不到确认邮件**
 
-**发件人地址（当前写死）：**
+**目标发件人地址（Customer Task 3 完成并验证域名后）：**
 ```
 YezYY <bookings@yezyy.com>
 ```
-> 如果要修改，需编辑 `apps/api/src/lib/email.ts:12`
+> 当前代码仍使用旧的写死发件人。Customer Task 3 将改为通过 `EMAIL_FROM` 配置；在该任务完成且 Resend 域名验证通过前，不应把上面的目标地址视为已启用。
 
 **邮件 DNS 建议：** 如果使用 `yezyy.com` 发邮件，建议在域名 DNS 中添加：
 - SPF 记录
@@ -287,7 +287,7 @@ NEXT_PUBLIC_SITE_URL=https://你的域名
 
 | 值 | 位置 | 建议 |
 |---|------|------|
-| `YezYY <bookings@yezyy.com>` | `apps/api/src/lib/email.ts:12` | 改为环境变量 `EMAIL_FROM` |
+| 旧的写死发件人地址（待 Customer Task 3 清理） | `apps/api/src/lib/email.ts` | 改为环境变量 `EMAIL_FROM`，目标值为 `YezYY <bookings@yezyy.com>` |
 | `Australia/Sydney` | `apps/api/src/lib/email.ts:100` | 改为环境变量 `STORE_TIMEZONE` |
 | `admin@yezz.local` | `packages/db/src/seed.ts:234` | 种子时通过 `ADMIN_EMAIL` 覆盖 |
 | `changeme` | `packages/db/src/seed.ts:235` | 种子时通过 `ADMIN_PASSWORD` 覆盖 |

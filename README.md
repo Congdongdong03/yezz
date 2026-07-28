@@ -6,8 +6,6 @@
 
 YezYY combines a polished customer website with a practical administration system. Customers can explore projects, build a cart, request bookings, and discover studio events in English or Chinese. Staff can manage projects, categories, bookings, orders, gallery content, parties, availability, and users from a protected dashboard.
 
-![YezYY homepage](yezz-homepage-final.png)
-
 ## Product Highlights
 
 ### Customer experience
@@ -141,9 +139,3 @@ The test suite covers API helpers and validation as well as browser-level custom
 | Media storage | Cloudflare R2 |
 
 Production credentials are configured in the relevant hosting platforms and are not stored in the repository.
-
-## More Screens
-
-![YezYY projects](projects-list-v2.png)
-
-![YezYY project detail](project-detail-full.png)

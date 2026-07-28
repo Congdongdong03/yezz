@@ -78,3 +78,21 @@ const EMPTY_CATALOGUE_COPY: Record<"en" | "zh", Record<CatalogueKind, {
 export function getEmptyCatalogueCopy(locale: "en" | "zh", kind: CatalogueKind) {
   return EMPTY_CATALOGUE_COPY[locale][kind];
 }
+
+const PUBLIC_WECHAT_PLACEHOLDERS = new Set([
+  "yezz_studio",
+  "your_wechat_id",
+  "wechat_id",
+]);
+
+export function sanitizePublicWeChatId(value: string | null | undefined) {
+  const wechatId = value?.trim();
+  if (!wechatId || PUBLIC_WECHAT_PLACEHOLDERS.has(wechatId.toLowerCase())) {
+    return undefined;
+  }
+  return wechatId;
+}
+
+export function filterPublishableGalleryImages<T extends { imageUrl?: string }>(images: T[]) {
+  return images.filter((image) => Boolean(image.imageUrl?.trim()));
+}

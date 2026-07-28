@@ -9,8 +9,13 @@ import PartyPackagesPreview from "@/components/sections/PartyPackagesPreview";
 import GalleryHighlight from "@/components/sections/GalleryHighlight";
 import StoreVibes from "@/components/sections/StoreVibes";
 import WeChatCTA from "@/components/sections/WeChatCTA";
+import { EmptyCatalogueState } from "@/components/EmptyCatalogueState";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import {
+  filterPublishableGalleryImages,
+  YEZYY_BUSINESS_PROFILE,
+} from "@/lib/site/business";
 
 export async function generateMetadata({
   params,
@@ -29,8 +34,7 @@ export default async function HomePage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const _params = await params;
-  void _params;
+  const { locale } = await params;
 
   const homeResult = await loadHomePageData();
 
@@ -40,15 +44,39 @@ export default async function HomePage({
 
   const { projects, parties, galleryImages, storeImage, siteSettings } =
     homeResult.data;
+  const publishableGalleryImages = filterPublishableGalleryImages(galleryImages);
+  const emptyStateProps = {
+    locale: locale as "en" | "zh",
+    phone: YEZYY_BUSINESS_PROFILE.phone,
+    email: YEZYY_BUSINESS_PROFILE.email,
+  };
 
   return (
     <>
       <Hero heroImageUrl={siteSettings?.heroImageUrl} />
       <SceneEntry />
-      <FeaturedProjects projects={projects} />
+      {projects.length > 0 ? (
+        <FeaturedProjects projects={projects} />
+      ) : (
+        <div className="bg-cream px-4 py-8">
+          <EmptyCatalogueState {...emptyStateProps} kind="projects" />
+        </div>
+      )}
       <WhyDIY />
-      <PartyPackagesPreview packages={parties} />
-      <GalleryHighlight images={galleryImages} />
+      {parties.length > 0 ? (
+        <PartyPackagesPreview packages={parties} />
+      ) : (
+        <div className="bg-white px-4 py-8">
+          <EmptyCatalogueState {...emptyStateProps} kind="parties" />
+        </div>
+      )}
+      {publishableGalleryImages.length > 0 ? (
+        <GalleryHighlight images={publishableGalleryImages} />
+      ) : (
+        <div className="bg-cream px-4 py-8">
+          <EmptyCatalogueState {...emptyStateProps} kind="gallery" />
+        </div>
+      )}
       <StoreVibes storeImage={storeImage} />
       {siteSettings?.wechatId && <WeChatCTA wechatId={siteSettings.wechatId} />}
     </>

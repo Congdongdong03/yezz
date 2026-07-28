@@ -3,7 +3,9 @@ import {
   YEZYY_BUSINESS_PROFILE,
   formatBusinessHours,
   formatPhoneHref,
+  filterPublishableGalleryImages,
   getEmptyCatalogueCopy,
+  sanitizePublicWeChatId,
 } from "./business";
 
 describe("YezYY business profile", () => {
@@ -36,5 +38,26 @@ describe("YezYY business profile", () => {
 
   it("uses the approved Chinese gallery empty-state title", () => {
     expect(getEmptyCatalogueCopy("zh", "gallery").title).toBe("作品照片正在整理中");
+  });
+
+  it.each([undefined, null, "", "   ", "yezz_studio", "YEZZ_STUDIO", "your_wechat_id"])(
+    "hides an absent or legacy public WeChat ID (%s)",
+    (wechatId) => {
+      expect(sanitizePublicWeChatId(wechatId)).toBeUndefined();
+    },
+  );
+
+  it("preserves a configured public WeChat ID", () => {
+    expect(sanitizePublicWeChatId("  real_contact_id  ")).toBe("real_contact_id");
+  });
+
+  it("keeps only gallery records with a publishable image URL", () => {
+    const records = [
+      { _id: "missing" },
+      { _id: "blank", imageUrl: "  " },
+      { _id: "published", imageUrl: "https://example.com/work.jpg" },
+    ];
+
+    expect(filterPublishableGalleryImages(records)).toEqual([records[2]]);
   });
 });
