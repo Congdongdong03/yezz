@@ -90,11 +90,43 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 - Swagger API 文档（生产环境自动关闭）
 - 前端警告提示
 
+### 6. Web/API 内部请求签名
+
+| 变量 | 部署位置 | 用途 |
+|------|----------|------|
+| `WEB_API_SHARED_SECRET` | Fly API + Vercel Web | 当前 HMAC 密钥，至少 32 个字符 |
+| `WEB_API_SHARED_SECRET_PREVIOUS` | 仅 Fly API，可选 | 轮换期间临时接受上一把密钥 |
+| `INTERNAL_REQUEST_ENFORCEMENT` | 仅 Fly API | 首次上线用 `log`，验证完成后改为 `require` |
+| `API_URL` | 仅 Vercel Web | BFF 访问 Fly API 的服务端地址 |
+
+这些变量全部是**服务端密钥**。不得使用 `NEXT_PUBLIC_` 前缀，也不得写入
+代码、日志或客户端错误信息。当前密钥和上一把密钥必须不同；任一已配置
+密钥少于 32 个字符都会使服务拒绝启动或拒绝代理请求。
+
+**首次上线顺序：**
+
+1. Fly 设置当前密钥并使用 `INTERNAL_REQUEST_ENFORCEMENT=log`。
+2. Vercel 设置同一把当前密钥并部署 BFF。
+3. 验证后台登录、购物车、预约、上传、CSRF 拒绝和不同访客 IP。
+4. Fly 改为 `INTERNAL_REQUEST_ENFORCEMENT=require`。
+
+**无中断轮换顺序：**
+
+1. 生成新的强随机密钥。Fly 设置 `WEB_API_SHARED_SECRET=新密钥`，
+   `WEB_API_SHARED_SECRET_PREVIOUS=旧密钥`，Vercel 此时仍使用旧密钥。
+2. 部署并验证 Fly 同时接受新旧签名，但不会记录任何密钥或签名。
+3. Vercel 将 `WEB_API_SHARED_SECRET` 切换为新密钥并部署。
+4. 等待至少五分钟（旧签名的最长有效期），确认所有 Vercel 实例均已更新。
+5. 从 Fly 删除 `WEB_API_SHARED_SECRET_PREVIOUS`，只保留新密钥。
+
+不要在 Vercel 配置 `WEB_API_SHARED_SECRET_PREVIOUS`；BFF 始终只用当前密钥
+签名。不要把新旧密钥设置为相同值。
+
 ---
 
 ## 二、强烈建议配置（影响核心功能）
 
-### 6. 文件存储（图片上传）
+### 7. 文件存储（图片上传）
 
 如果网站需要上传图片（项目展示图、Gallery、微信二维码等），必须配置 S3 兼容存储。
 
@@ -115,7 +147,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 ---
 
-### 7. 邮件通知服务（Resend）
+### 8. 邮件通知服务（Resend）
 
 | 变量 | 用途 | 是否必须 |
 |------|------|---------|
@@ -154,7 +186,7 @@ EMAIL_REPLY_TO=congdongdong03@gmail.com
 
 ---
 
-### 8. 网站域名 `NEXT_PUBLIC_SITE_URL`
+### 9. 网站域名 `NEXT_PUBLIC_SITE_URL`
 
 | 属性 | 说明 |
 |------|------|
@@ -169,7 +201,7 @@ EMAIL_REPLY_TO=congdongdong03@gmail.com
 
 ---
 
-### 9. Redis `REDIS_URL`
+### 10. Redis `REDIS_URL`
 
 | 属性 | 说明 |
 |------|------|
@@ -273,6 +305,9 @@ DATABASE_URL=...
 JWT_SECRET=...
 CORS_ORIGIN=https://你的域名
 NODE_ENV=production
+INTERNAL_REQUEST_ENFORCEMENT=require
+WEB_API_SHARED_SECRET=... # 至少 32 个字符；与 Vercel 当前值一致
+# WEB_API_SHARED_SECRET_PREVIOUS=... # 仅轮换期间在 Fly 配置
 S3_ENDPOINT=...
 S3_ACCESS_KEY=...
 S3_SECRET_KEY=...
@@ -288,6 +323,8 @@ STORE_TIMEZONE=Australia/Melbourne
 NEXT_PUBLIC_API_URL=https://api.你的域名
 NEXT_PUBLIC_USE_API=true
 NEXT_PUBLIC_SITE_URL=https://你的域名
+API_URL=https://api.你的域名
+WEB_API_SHARED_SECRET=... # 服务端变量，不得添加 NEXT_PUBLIC_ 前缀
 ```
 
 ---
@@ -312,7 +349,7 @@ NEXT_PUBLIC_SITE_URL=https://你的域名
 
 | 项目 | 说明 | 代码位置 |
 |------|------|---------|
-| **配置 Trust Proxy** | API 在 Fly.io 后面运行，需要信任代理才能获取真实用户 IP，否则频率限制对所有用户共享 | `apps/api/src/app.ts` |
+| **验证 BFF 客户身份** | 浏览器写请求只使用签名后的 Vercel 客户 IP；Fly 不信任普通 `X-Forwarded-For` | `apps/web/lib/internal-api/signature.ts`、`apps/api/src/lib/internal-request.ts` |
 | **添加 CSP 安全头** | 当前未配置内容安全策略，建议添加 `Content-Security-Policy`、`X-Frame-Options` 等 | `apps/web/next.config.ts` |
 
 ### 中优先级
@@ -340,6 +377,7 @@ NEXT_PUBLIC_SITE_URL=https://你的域名
 ```bash
 # API 密钥
 fly secrets set DATABASE_URL="..." JWT_SECRET="..." CORS_ORIGIN="..."
+fly secrets set WEB_API_SHARED_SECRET="..." INTERNAL_REQUEST_ENFORCEMENT="log"
 fly secrets set S3_ENDPOINT="..." S3_ACCESS_KEY="..." S3_SECRET_KEY="..."
 fly secrets set RESEND_API_KEY="..." OWNER_EMAIL="..." EMAIL_FROM="YezYY <bookings@yezyy.com>" EMAIL_REPLY_TO="congdongdong03@gmail.com" STORE_TIMEZONE="Australia/Melbourne"
 
@@ -357,6 +395,10 @@ fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
 - [ ] `NEXT_PUBLIC_USE_API=true`
 - [ ] `CORS_ORIGIN` 设置为前端生产域名
 - [ ] `NODE_ENV=production`
+- [ ] Fly 与 Vercel 的 `WEB_API_SHARED_SECRET` 当前值一致且至少 32 个字符
+- [ ] `WEB_API_SHARED_SECRET` 未使用 `NEXT_PUBLIC_` 前缀
+- [ ] 首次签名流量验证后，Fly 已设置 `INTERNAL_REQUEST_ENFORCEMENT=require`
+- [ ] 非轮换期间，Fly 未保留 `WEB_API_SHARED_SECRET_PREVIOUS`
 - [ ] S3 存储已配置（如需图片上传功能）
 - [ ] `RESEND_API_KEY`、`OWNER_EMAIL`、`EMAIL_FROM` 和 `EMAIL_REPLY_TO` 已配置
 - [ ] 运行了 `pnpm db:migrate`
@@ -384,11 +426,16 @@ JWT_EXPIRES_IN=24h
 CORS_ORIGIN=https://yezyy.com
 NODE_ENV=production
 PORT=4000
+INTERNAL_REQUEST_ENFORCEMENT=require
+WEB_API_SHARED_SECRET=xxxx                # openssl rand -base64 32
+# WEB_API_SHARED_SECRET_PREVIOUS=xxxx     # 仅 Fly 轮换窗口使用
 
 # -------- 前端必须（构建时） --------
 NEXT_PUBLIC_API_URL=https://api.yezyy.com
 NEXT_PUBLIC_USE_API=true
 NEXT_PUBLIC_SITE_URL=https://yezyy.com
+API_URL=https://api.yezyy.com
+WEB_API_SHARED_SECRET=xxxx                # Vercel 服务端变量
 
 # -------- 文件存储（建议） --------
 S3_ENDPOINT=https://xxx.r2.cloudflarestorage.com

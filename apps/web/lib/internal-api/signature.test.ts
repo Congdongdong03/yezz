@@ -5,6 +5,8 @@ import {
   signInternalRequest,
 } from "./signature";
 
+const STRONG_SECRET = "0123456789abcdef0123456789abcdef";
+
 describe("internal request signing", () => {
   it("signs the canonical method, target, identity, idempotency key, and body bytes", () => {
     const signed = signInternalRequest(
@@ -17,7 +19,7 @@ describe("internal request signing", () => {
         idempotencyKey: "00000000-0000-4000-8000-000000000002",
         body: new TextEncoder().encode('{"name":"A"}'),
       },
-      "test-secret",
+      STRONG_SECRET,
     );
 
     expect(signed).toMatchObject({
@@ -27,8 +29,29 @@ describe("internal request signing", () => {
       "x-yezyy-body-sha256":
         "b2c9ee672db13673e38e84d0da1a6e765c88b3d0f1dc65244d3f736045aa5c84",
       "x-yezyy-signature":
-        "a4e7631b870e48cca985a03e67c24c84c08b020fa98e24af473a305eb4da6273",
+        "2862b9cc148d2914978b8a8eeb47fe68ab35fab0762dd403a38f5019d3c3f3fb",
     });
+  });
+
+  it("rejects a weak signing secret without exposing it", () => {
+    expect(() =>
+      signInternalRequest(
+        {
+          method: "GET",
+          pathAndQuery: "/api/v1/cart",
+          requestId: "00000000-0000-4000-8000-000000000001",
+          timestamp: 1_785_200_000,
+          clientIp: "203.0.113.4",
+          body: new Uint8Array(),
+        },
+        "short-secret",
+      ),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "WEAK_INTERNAL_SHARED_SECRET",
+        message: expect.not.stringContaining("short-secret"),
+      }),
+    );
   });
 
   it("fails closed when Vercel does not provide one valid client address", () => {

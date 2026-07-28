@@ -1,11 +1,10 @@
-import { getApiBaseUrl } from "@/lib/api/config";
 import type { CartItem } from "./types";
 
 type ApiSuccess<T> = { success: true; data: T };
 
 export async function loadCartFromServer(): Promise<CartItem[]> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/v1/cart`, {
+    const res = await fetch("/api/backend/v1/cart", {
       credentials: "include",
     });
     if (!res.ok) return [];
@@ -19,7 +18,7 @@ export async function loadCartFromServer(): Promise<CartItem[]> {
 
 export async function saveCartToServer(items: CartItem[]): Promise<void> {
   try {
-    await fetch(`${getApiBaseUrl()}/api/v1/cart`, {
+    await fetch("/api/backend/v1/cart", {
       method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { AppError } from "./errors.js";
 
 const SIGNATURE_MAX_AGE_SECONDS = 300;
+const MINIMUM_SHARED_SECRET_LENGTH = 32;
 const HEX_SHA256 = /^[a-f0-9]{64}$/;
 const UUID_V4 =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -64,8 +65,47 @@ function protectedPath(method: string, url: string): boolean {
       ["/api/v1/auth/login", "/api/v1/auth/logout"].includes(path)) ||
     path === "/api/v1/admin" ||
     path.startsWith("/api/v1/admin/") ||
+    (path === "/api/v1/cart" &&
+      ["GET", "PUT"].includes(normalizedMethod)) ||
     (normalizedMethod === "POST" &&
       ["/api/v1/bookings", "/api/v1/cart-orders"].includes(path))
+  );
+}
+
+function assertStrongSecret(secret: string): void {
+  if (
+    secret.length < MINIMUM_SHARED_SECRET_LENGTH ||
+    Buffer.byteLength(secret, "utf8") < MINIMUM_SHARED_SECRET_LENGTH
+  ) {
+    throw new Error(
+      "Every internal shared secret must be at least 32 characters",
+    );
+  }
+}
+
+function validateSecretList(secrets: readonly string[]): string[] {
+  for (const secret of secrets) assertStrongSecret(secret);
+  if (new Set(secrets).size !== secrets.length) {
+    throw new Error("Current and previous internal shared secrets must be different");
+  }
+  return [...secrets];
+}
+
+export function resolveInternalRequestSecrets(
+  current: string | undefined,
+  previous: string | undefined,
+): string[] {
+  const currentSecret = current?.trim() || undefined;
+  const previousSecret = previous?.trim() || undefined;
+  if (previousSecret && !currentSecret) {
+    throw new Error(
+      "A current internal shared secret is required when a previous secret is configured",
+    );
+  }
+  return validateSecretList(
+    [currentSecret, previousSecret].filter(
+      (secret): secret is string => secret !== undefined,
+    ),
   );
 }
 
@@ -108,6 +148,7 @@ export function registerInternalRequestProtection(
     typeof options.secrets === "string"
       ? [options.secrets]
       : [...(options.secrets ?? [])];
+  validateSecretList(configuredSecrets);
   if (
     options.enforcement === "require" &&
     (configuredSecrets.length === 0 ||
@@ -233,6 +274,7 @@ export function verifyInternalRequest(
   ].join("\n");
   const secrets =
     typeof options.secrets === "string" ? [options.secrets] : [...options.secrets];
+  validateSecretList(secrets);
   if (secrets.length === 0 || secrets.some((secret) => secret.length === 0)) {
     invalidSignature();
   }

@@ -85,6 +85,8 @@ function assertAllowedTarget(method: string, apiPath: string): void {
       ["/api/v1/auth/login", "/api/v1/auth/logout"].includes(apiPath)) ||
     (normalizedMethod === "POST" &&
       ["/api/v1/bookings", "/api/v1/cart-orders"].includes(apiPath)) ||
+    (apiPath === "/api/v1/cart" &&
+      ["GET", "PUT"].includes(normalizedMethod)) ||
     (adminRoute &&
       ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].includes(
         normalizedMethod,

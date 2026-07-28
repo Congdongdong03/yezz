@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "./route";
+import { GET, POST, PUT } from "./route";
+
+const STRONG_SECRET = "0123456789abcdef0123456789abcdef";
 
 const context = (path: string[]) => ({
   params: Promise.resolve({ path }),
@@ -10,7 +12,7 @@ describe("same-origin backend transport", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL", "1");
     vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.example.test");
-    vi.stubEnv("WEB_API_SHARED_SECRET", "test-secret");
+    vi.stubEnv("WEB_API_SHARED_SECRET", STRONG_SECRET);
   });
 
   afterEach(() => {
@@ -186,5 +188,94 @@ describe("same-origin backend transport", () => {
 
     expect(response.status).toBe(200);
     expect(forwardedBody).toEqual(uploadBytes);
+  });
+
+  it("signs cart-session GET and PUT requests and returns a first-party cookie", async () => {
+    const calls: Array<[string | URL | Request, RequestInit | undefined]> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (target: string | URL | Request, init?: RequestInit) => {
+        calls.push([target, init]);
+        const headers = new Headers({ "content-type": "application/json" });
+        headers.append(
+          "set-cookie",
+          "yezz_cart_session=session-1; Domain=api.example.test; Path=/; HttpOnly; SameSite=Lax",
+        );
+        return new Response('{"success":true,"data":{"items":[]}}', { headers });
+      }),
+    );
+
+    const getResponse = await GET(
+      new Request("https://yezyy.com/api/backend/v1/cart", {
+        headers: {
+          cookie: "yezz_cart_session=session-1",
+          "x-vercel-forwarded-for": "203.0.113.4",
+        },
+      }),
+      context(["v1", "cart"]),
+    );
+    const putResponse = await PUT(
+      new Request("https://yezyy.com/api/backend/v1/cart", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          cookie: "yezz_cart_session=session-1",
+          origin: "https://yezyy.com",
+          "x-vercel-forwarded-for": "203.0.113.4",
+        },
+        body: '{"items":[]}',
+      }),
+      context(["v1", "cart"]),
+    );
+
+    expect(getResponse.status).toBe(200);
+    expect(putResponse.status).toBe(200);
+    expect(calls.map(([target]) => target)).toEqual([
+      "https://api.example.test/api/v1/cart",
+      "https://api.example.test/api/v1/cart",
+    ]);
+    for (const [, init] of calls) {
+      expect(new Headers(init?.headers).get("x-yezyy-signature")).toMatch(
+        /^[a-f0-9]{64}$/,
+      );
+    }
+    expect(getResponse.headers.get("set-cookie")).not.toMatch(/domain=/i);
+  });
+
+  it("rejects a cross-origin cart-session update", async () => {
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await PUT(
+      new Request("https://yezyy.com/api/backend/v1/cart", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://attacker.example",
+          "x-vercel-forwarded-for": "203.0.113.4",
+        },
+        body: '{"items":[]}',
+      }),
+      context(["v1", "cart"]),
+    );
+
+    expect(response.status).toBe(403);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("rejects a weak current signing secret before contacting the API", async () => {
+    vi.stubEnv("WEB_API_SHARED_SECRET", "short-secret");
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await GET(
+      new Request("https://yezyy.com/api/backend/v1/cart", {
+        headers: { "x-vercel-forwarded-for": "203.0.113.4" },
+      }),
+      context(["v1", "cart"]),
+    );
+
+    expect(response.status).toBe(503);
+    expect(upstream).not.toHaveBeenCalled();
   });
 });

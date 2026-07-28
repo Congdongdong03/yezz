@@ -2,6 +2,7 @@ import { createHash, createHmac } from "node:crypto";
 import { isIP } from "node:net";
 
 const TRUSTED_PLATFORM_IP_HEADER = "x-vercel-forwarded-for";
+const MINIMUM_SHARED_SECRET_LENGTH = 32;
 
 export type InternalRequestSigningInput = {
   method: string;
@@ -49,10 +50,24 @@ function canonicalRequest(input: InternalRequestSigningInput, bodyDigest: string
   ].join("\n");
 }
 
+function assertStrongSharedSecret(secret: string): void {
+  if (
+    secret.length < MINIMUM_SHARED_SECRET_LENGTH ||
+    Buffer.byteLength(secret, "utf8") < MINIMUM_SHARED_SECRET_LENGTH
+  ) {
+    throw new InternalTransportError(
+      503,
+      "WEAK_INTERNAL_SHARED_SECRET",
+      "The internal shared secret must be at least 32 characters",
+    );
+  }
+}
+
 export function signInternalRequest(
   input: InternalRequestSigningInput,
   secret: string,
 ): SignedInternalHeaders {
+  assertStrongSharedSecret(secret);
   const bodyDigest = createHash("sha256").update(input.body).digest("hex");
   const signature = createHmac("sha256", secret)
     .update(canonicalRequest(input, bodyDigest))

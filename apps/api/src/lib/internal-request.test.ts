@@ -3,13 +3,15 @@ import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import {
   registerInternalRequestProtection,
+  resolveInternalRequestSecrets,
   verifyInternalRequest,
 } from "./internal-request.js";
 
 const REQUEST_ID = "00000000-0000-4000-8000-000000000001";
 const IDEMPOTENCY_KEY = "00000000-0000-4000-8000-000000000002";
 const TIMESTAMP = 1_785_200_000;
-const SECRET = "test-secret";
+const SECRET = "0123456789abcdef0123456789abcdef";
+const PREVIOUS_SECRET = "fedcba9876543210fedcba9876543210";
 
 function signedFixture({
   body,
@@ -17,12 +19,14 @@ function signedFixture({
   pathAndQuery = "/api/v1/bookings",
   timestamp = TIMESTAMP,
   idempotencyKey = IDEMPOTENCY_KEY,
+  secret = SECRET,
 }: {
   body: Uint8Array;
   method?: string;
   pathAndQuery?: string;
   timestamp?: number;
   idempotencyKey?: string;
+  secret?: string;
 }) {
   const bodyDigest = createHash("sha256").update(body).digest("hex");
   const canonical = [
@@ -34,7 +38,7 @@ function signedFixture({
     idempotencyKey,
     bodyDigest,
   ].join("\n");
-  const signature = createHmac("sha256", SECRET).update(canonical).digest("hex");
+  const signature = createHmac("sha256", secret).update(canonical).digest("hex");
   const headers = new Headers({
     "x-yezyy-body-sha256": bodyDigest,
     "x-yezyy-client-ip": "203.0.113.4",
@@ -134,9 +138,59 @@ describe("internal request verification", () => {
       ),
     ).toThrowError(expect.objectContaining({ code: "INVALID_INTERNAL_SIGNATURE" }));
   });
+
+  it("accepts the previous secret only while it is explicitly configured", () => {
+    const fixture = signedFixture({
+      body: new TextEncoder().encode("{}"),
+      secret: PREVIOUS_SECRET,
+    });
+
+    expect(
+      verifyInternalRequest(fixture.request, fixture.body, {
+        secrets: [SECRET, PREVIOUS_SECRET],
+        now: TIMESTAMP,
+      }),
+    ).toMatchObject({ requestId: REQUEST_ID });
+    expect(() =>
+      verifyInternalRequest(fixture.request, fixture.body, {
+        secrets: [SECRET],
+        now: TIMESTAMP,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "INVALID_INTERNAL_SIGNATURE" }));
+  });
+
+  it("rejects missing, weak, or equal current/previous secret configuration", () => {
+    expect(resolveInternalRequestSecrets(undefined, undefined)).toEqual([]);
+    expect(() =>
+      resolveInternalRequestSecrets("short-secret", undefined),
+    ).toThrowError(expect.not.objectContaining({ message: "short-secret" }));
+    expect(() =>
+      resolveInternalRequestSecrets(undefined, PREVIOUS_SECRET),
+    ).toThrowError(/current/i);
+    expect(() =>
+      resolveInternalRequestSecrets(SECRET, SECRET),
+    ).toThrowError(/different/i);
+    expect(() =>
+      resolveInternalRequestSecrets(SECRET, "weak-previous"),
+    ).toThrowError(/32/);
+    expect(resolveInternalRequestSecrets(SECRET, PREVIOUS_SECRET)).toEqual([
+      SECRET,
+      PREVIOUS_SECRET,
+    ]);
+  });
 });
 
 describe("internal request enforcement", () => {
+  it("requires a current secret when enforcement is require", () => {
+    const app = Fastify({ logger: false });
+    expect(() =>
+      registerInternalRequestProtection(app, {
+        enforcement: "require",
+        secrets: [],
+      }),
+    ).toThrowError(/WEB_API_SHARED_SECRET is required/);
+  });
+
   it("requires signed transport on auth, admin, and public create routes only", async () => {
     const app = Fastify({ logger: false });
     registerInternalRequestProtection(app, {
@@ -232,6 +286,73 @@ describe("internal request enforcement", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ hex: Buffer.from(rawBody).toString("hex") });
+
+    await app.close();
+  });
+
+  it("requires and verifies signed GET and PUT cart-session requests", async () => {
+    const app = Fastify({ logger: false });
+    registerInternalRequestProtection(app, {
+      enforcement: "require",
+      secrets: SECRET,
+      now: () => TIMESTAMP,
+    });
+    app.get("/api/v1/cart", async (request) => ({
+      clientIp: request.verifiedClientIdentity?.clientIp,
+    }));
+    app.put("/api/v1/cart", async (request) => ({
+      body: request.body,
+      clientIp: request.verifiedClientIdentity?.clientIp,
+    }));
+
+    expect(
+      (await app.inject({ method: "GET", url: "/api/v1/cart" })).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await app.inject({
+          method: "PUT",
+          url: "/api/v1/cart",
+          payload: { items: [] },
+        })
+      ).statusCode,
+    ).toBe(401);
+
+    const getFixture = signedFixture({
+      body: new Uint8Array(),
+      method: "GET",
+      pathAndQuery: "/api/v1/cart",
+      idempotencyKey: "",
+    });
+    const getResponse = await app.inject({
+      method: "GET",
+      url: "/api/v1/cart",
+      headers: Object.fromEntries(getFixture.request.headers),
+    });
+    expect(getResponse.statusCode).toBe(200);
+    expect(getResponse.json()).toEqual({ clientIp: "203.0.113.4" });
+
+    const putBody = new TextEncoder().encode('{"items":[]}');
+    const putFixture = signedFixture({
+      body: putBody,
+      method: "PUT",
+      pathAndQuery: "/api/v1/cart",
+      idempotencyKey: "",
+    });
+    const putResponse = await app.inject({
+      method: "PUT",
+      url: "/api/v1/cart",
+      headers: {
+        "content-type": "application/json",
+        ...Object.fromEntries(putFixture.request.headers),
+      },
+      payload: Buffer.from(putBody),
+    });
+    expect(putResponse.statusCode).toBe(200);
+    expect(putResponse.json()).toEqual({
+      body: { items: [] },
+      clientIp: "203.0.113.4",
+    });
 
     await app.close();
   });

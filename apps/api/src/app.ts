@@ -2,6 +2,7 @@ import cors from "@fastify/cors";
 import Fastify from "fastify";
 import {
   registerInternalRequestProtection,
+  resolveInternalRequestSecrets,
   type InternalRequestEnforcement,
 } from "./lib/internal-request.js";
 import { registerErrorHandler } from "./plugins/error-handler.js";
@@ -40,7 +41,10 @@ export async function buildApp() {
   }
   registerInternalRequestProtection(app, {
     enforcement: internalRequestEnforcement as InternalRequestEnforcement,
-    secrets: process.env.WEB_API_SHARED_SECRET?.trim(),
+    secrets: resolveInternalRequestSecrets(
+      process.env.WEB_API_SHARED_SECRET,
+      process.env.WEB_API_SHARED_SECRET_PREVIOUS,
+    ),
   });
 
   await app.register(cors, {

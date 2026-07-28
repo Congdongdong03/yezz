@@ -41,7 +41,10 @@ export default async function cartRoutes(app: FastifyInstance) {
   app.put<{ Body: { items?: CartSessionItem[] } }>("/", async (request, reply) => {
     const sessionId = getOrCreateSessionId(request, reply);
     const items = request.body?.items ?? [];
-    const ipHash = hashIp(request.ip);
+    // request.ip is retained only for local development and the temporary
+    // log-mode rollout; require mode guarantees a verified BFF identity.
+    const clientIp = request.verifiedClientIdentity?.clientIp ?? request.ip;
+    const ipHash = hashIp(clientIp);
 
     // Verify ownership for existing sessions
     const existing = await app.services.cartSessions.get(sessionId);
