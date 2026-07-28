@@ -8,6 +8,7 @@ import { Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart/context";
 import { submitCart } from "@/lib/actions/cart";
 import { trackSubmitCartOrder } from "@/lib/analytics/gtag";
+import { validateCartContact } from "@/lib/cart/validation";
 
 export default function CartPage() {
   const locale = useLocale();
@@ -34,13 +35,7 @@ export default function CartPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errors: Record<string, string[]> = {};
-    if (!name.trim()) {
-      errors.name = ["请输入姓名"];
-    }
-    if (!phone.trim()) {
-      errors.phone = ["请输入电话"];
-    }
+    const errors = validateCartContact({ name, phone }, locale as "en" | "zh");
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;

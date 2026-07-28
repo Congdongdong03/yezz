@@ -11,6 +11,7 @@ import {
 import { CartItem } from "./types";
 import { getCart, setCart } from "./storage";
 import { loadCartFromServer, saveCartToServer } from "./session";
+import { insertCartItem } from "./items";
 
 export type CartNotice = "duplicate" | null;
 
@@ -36,6 +37,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [notice, setNotice] = useState<CartNotice>(null);
   const [highlightCart, setHighlightCart] = useState(false);
+  const itemsRef = useRef<CartItem[]>([]);
   const skipNextSync = useRef(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -62,9 +64,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const local = getCart();
       const remote = await loadCartFromServer();
       if (remote.length > 0) {
+        itemsRef.current = remote;
         setItems(remote);
         setCart(remote);
       } else {
+        itemsRef.current = local;
         setItems(local);
       }
       setHydrated(true);
@@ -83,27 +87,30 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = useCallback(
     (item: CartItem) => {
-      let added = false;
-      setItems((prev) => {
-        const exists = prev.some((i) => i.projectId === item.projectId);
-        if (exists) return prev;
-        added = true;
-        return [...prev, item];
-      });
-      if (!added) {
+      const result = insertCartItem(itemsRef.current, item);
+      if (!result.added) {
         showNotice("duplicate");
+        return false;
       }
-      return added;
+
+      itemsRef.current = result.items;
+      setItems(result.items);
+      return true;
     },
     [showNotice],
   );
 
   const removeItem = useCallback((projectId: string) => {
-    setItems((prev) => prev.filter((i) => i.projectId !== projectId));
+    setItems((previousItems) => {
+      const nextItems = previousItems.filter((item) => item.projectId !== projectId);
+      itemsRef.current = nextItems;
+      return nextItems;
+    });
   }, []);
 
   const clearItems = useCallback(() => {
     skipNextSync.current = true;
+    itemsRef.current = [];
     setItems([]);
     void saveCartToServer([]);
   }, []);
