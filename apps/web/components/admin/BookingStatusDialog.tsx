@@ -44,6 +44,12 @@ export default function BookingStatusDialog({
     return () => previouslyFocusedElement?.focus();
   }, [open, requiresNote]);
 
+  useEffect(() => {
+    if (open && requiresNote && isSubmitting) {
+      noteRef.current?.focus();
+    }
+  }, [isSubmitting, open, requiresNote]);
+
   if (!open || !requiresNote) return null;
 
   const handleConfirm = async () => {
@@ -99,6 +105,7 @@ export default function BookingStatusDialog({
       role="presentation"
     >
       <div
+        aria-busy={isSubmitting}
         aria-describedby={noteId}
         aria-labelledby={titleId}
         aria-modal="true"
@@ -119,11 +126,12 @@ export default function BookingStatusDialog({
           {isCancellation ? "取消说明（建议填写）" : "确认备注（可选）"}
         </label>
         <textarea
-          className="mt-2 min-h-28 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={isSubmitting}
+          aria-disabled={isSubmitting}
+          className="mt-2 min-h-28 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 read-only:cursor-wait read-only:opacity-60"
           id={noteInputId}
           onChange={(event) => setNote(event.target.value)}
           placeholder={isCancellation ? "例如：该时段已满，欢迎选择其他日期" : "例如：已为您保留星期六下午 2 点的时段"}
+          readOnly={isSubmitting}
           value={note}
           ref={noteRef}
         />

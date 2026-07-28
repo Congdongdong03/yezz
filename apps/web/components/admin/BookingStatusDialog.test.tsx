@@ -90,6 +90,31 @@ describe("BookingStatusDialog", () => {
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
+  it("keeps a focus target inside the dialog when submission starts", async () => {
+    await renderDialog();
+    const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+    const confirmButton = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).at(-1);
+
+    expect(document.activeElement).toBe(textarea);
+    confirmButton?.focus();
+    expect(document.activeElement).toBe(confirmButton);
+
+    await renderDialog({ isSubmitting: true });
+    const dialog = container.querySelector<HTMLElement>("[role='dialog']");
+    const tabEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Tab",
+    });
+    dialog?.dispatchEvent(tabEvent);
+
+    expect(textarea?.disabled).toBe(false);
+    expect(textarea?.readOnly).toBe(true);
+    expect(document.activeElement).toBe(textarea);
+    expect(dialog?.contains(document.activeElement)).toBe(true);
+    expect(tabEvent.defaultPrevented).toBe(true);
+  });
+
   it("keeps the note and reports the error when submission fails", async () => {
     await renderDialog({ onConfirm: vi.fn().mockRejectedValue(new Error("网络连接失败")) });
     const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
