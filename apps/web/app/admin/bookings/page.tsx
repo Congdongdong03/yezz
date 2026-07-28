@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
 import BookingStatusDialog, {
   type BookingStatusDialogResult,
@@ -17,6 +17,7 @@ import {
   isStaleBookingStatus,
 } from "@/lib/admin/booking-status";
 import { EMAIL_DELIVERY_LABELS } from "@/lib/admin/email-delivery";
+import { parseAdminQueueSearchParams } from "@/lib/admin/queue-query";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   new: "新预约",
@@ -48,20 +49,22 @@ function formatDate(value: string | null) {
 
 export default function AdminBookingsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const initialQuery = parseAdminQueueSearchParams(searchParams);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusBookingAfterRefreshRef = useRef<string | null>(null);
   const [items, setItems] = useState<Booking[]>([]);
-  const [page, setPage] = useState(() => Number(searchParams.get("page")) || 1);
+  const [page, setPage] = useState(() => initialQuery.page ?? 1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [status, setStatus] = useState<OrderStatus | "">(
-    () => (searchParams.get("status") as OrderStatus | null) ?? "",
+    () => initialQuery.status ?? "",
   );
-  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
-  const [unread, setUnread] = useState(() => searchParams.get("unread") === "true");
-  const [overdue, setOverdue] = useState(() => searchParams.get("overdue") === "true");
+  const [search, setSearch] = useState(() => initialQuery.search ?? "");
+  const [unread, setUnread] = useState(() => initialQuery.unread ?? false);
+  const [overdue, setOverdue] = useState(() => initialQuery.overdue ?? false);
   const [confirmedToday, setConfirmedToday] = useState(
-    () => searchParams.get("confirmedToday") === "true",
+    () => initialQuery.confirmedToday ?? false,
   );
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -74,7 +77,7 @@ export default function AdminBookingsPage() {
     null,
   );
 
-  const load = async ({ showLoading = true, nextPage = page } = {}) => {
+  const load = useCallback(async ({ showLoading = true, nextPage = page } = {}) => {
     if (showLoading) setLoading(true);
     try {
       const result = await getAdminBookings({
@@ -101,20 +104,39 @@ export default function AdminBookingsPage() {
     } finally {
       if (showLoading) setLoading(false);
     }
-  };
+  }, [confirmedToday, overdue, page, search, status, unread]);
 
   useEffect(() => {
     void Promise.resolve().then(() => load());
-  }, []);
+  }, [load]);
 
   const applyFilters = () => {
     setPage(1);
+    updateUrl(1);
     void load({ nextPage: 1 });
   };
 
   const goToPage = (nextPage: number) => {
     setPage(nextPage);
+    updateUrl(nextPage);
     void load({ nextPage });
+  };
+
+  const updateUrl = (nextPage: number) => {
+    const next = new URLSearchParams(searchParams?.toString() ?? "");
+    const values: Record<string, string | undefined> = {
+      page: nextPage > 1 ? String(nextPage) : undefined,
+      status: status || undefined,
+      search: search.trim() || undefined,
+      unread: unread ? "true" : undefined,
+      overdue: overdue ? "true" : undefined,
+      confirmedToday: confirmedToday ? "true" : undefined,
+    };
+    for (const [key, value] of Object.entries(values)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    router.replace(`/admin/bookings${next.size ? `?${next}` : ""}`);
   };
 
   useEffect(() => {

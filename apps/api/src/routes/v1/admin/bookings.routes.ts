@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { OrderStatus } from "../../../services/admin/bookings.admin.service.js";
 import { success } from "../../../lib/response.js";
-import { parsePositiveInt } from "../../../lib/validation.js";
+import { parseAdminQueueQuery } from "../../../lib/admin-queue-query.js";
 
 export default async function adminBookingsRoutes(app: FastifyInstance) {
   app.get<{
@@ -16,12 +16,7 @@ export default async function adminBookingsRoutes(app: FastifyInstance) {
   }>("/", async (request) => {
     const data = await app.services.adminBookings.list({
       actorUserId: request.user.sub,
-      page: request.query.page ? parsePositiveInt(request.query.page, 1) : undefined,
-      status: request.query.status,
-      search: request.query.search,
-      unreadOnly: request.query.unread === "true",
-      overdue: request.query.overdue === "true",
-      confirmedToday: request.query.confirmedToday === "true",
+      ...parseAdminQueueQuery(request.query),
     });
     return success(data);
   });

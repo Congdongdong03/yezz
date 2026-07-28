@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   markNotificationsRead: vi.fn(),
   updateOrderStatus: vi.fn(),
 }));
+const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
 
 vi.mock("next/link", () => ({
   default: ({
@@ -21,6 +22,11 @@ vi.mock("next/link", () => ({
     children: React.ReactNode;
     href: string;
   }) => <a href={href}>{children}</a>,
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => navigation,
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 vi.mock("@/lib/admin/api", () => api);

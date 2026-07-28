@@ -95,8 +95,12 @@ export function validateCartOrderInputLengths(input: CartOrderCreateInput): void
  * Returns fallback if value is not a number, NaN, or <= 0.
  */
 export function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
-  const num = Number(value);
-  if (Number.isNaN(num) || num <= 0) {
+  const num = typeof value === "number"
+    ? value
+    : typeof value === "string" && /^\d+$/.test(value)
+      ? Number(value)
+      : Number.NaN;
+  if (!Number.isFinite(num) || !Number.isInteger(num) || num <= 0) {
     return fallback;
   }
   if (max !== undefined && num > max) {
