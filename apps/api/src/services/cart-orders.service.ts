@@ -1,5 +1,6 @@
 import type { CartOrderItemSnapshot, Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
+import { validateCartOrderInputLengths } from "../lib/validation.js";
 import {
   displayLocalized,
   escapeHtml,
@@ -39,6 +40,8 @@ function validateCartOrderInput(input: CartOrderCreateInput) {
   if (!Array.isArray(input.items) || input.items.length === 0) {
     throw new AppError(400, "VALIDATION_ERROR", "items must be a non-empty array");
   }
+
+  validateCartOrderInputLengths(input);
 
   for (const item of input.items) {
     if (item.projectType && !["experience", "product"].includes(item.projectType)) {

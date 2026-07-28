@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePositiveInt } from "./validation.js";
+import { parsePositiveInt, validateCartOrderInputLengths } from "./validation.js";
 
 describe("parsePositiveInt", () => {
   it("returns the number when valid positive integer", () => {
@@ -26,5 +26,27 @@ describe("parsePositiveInt", () => {
   it("returns fallback for floats if <= 0 check catches them", () => {
     // 1.5 is > 0 so it passes; but Number("1.5") is 1.5
     expect(parsePositiveInt("1.5", 1)).toBe(1.5);
+  });
+});
+
+describe("validateCartOrderInputLengths", () => {
+  it("rejects a customer field longer than its API bound", () => {
+    expect(() =>
+      validateCartOrderInputLengths({
+        name: "a".repeat(256),
+        phone: "123",
+        items: [{ projectName: "Pottery" }],
+      }),
+    ).toThrow("name must be at most 255 characters");
+  });
+
+  it("rejects an item snapshot field longer than its API bound", () => {
+    expect(() =>
+      validateCartOrderInputLengths({
+        name: "Alice",
+        phone: "123",
+        items: [{ price: "1".repeat(33) }],
+      }),
+    ).toThrow("item price must be at most 32 characters");
   });
 });
