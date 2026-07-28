@@ -18,7 +18,7 @@ if (process.env.NODE_ENV === "production" && !configuredFrom) {
 // Development has no transactional mail configuration by default. Production
 // always uses the configured, verified Resend sender instead of a legacy domain.
 const FROM = configuredFrom || "YezYY <onboarding@resend.dev>";
-const REPLY_TO = process.env.EMAIL_REPLY_TO?.trim() || "izzybella.chen@gmail.com";
+const REPLY_TO = process.env.EMAIL_REPLY_TO?.trim() || "congdongdong03@gmail.com";
 
 export type StoreContact = {
   phone?: string | null;

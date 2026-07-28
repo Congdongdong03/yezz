@@ -1,8 +1,6 @@
-import { loadEnv } from "./env.js";
+import { loadConfiguredApp } from "./startup.js";
 
-loadEnv();
-
-import { buildApp } from "./app.js";
+const { buildApp } = await loadConfiguredApp();
 
 const port = Number(process.env.PORT) || 4000;
 

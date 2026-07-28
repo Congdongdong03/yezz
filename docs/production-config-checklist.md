@@ -119,10 +119,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 | 变量 | 用途 | 是否必须 |
 |------|------|---------|
-| `RESEND_API_KEY` | Resend API 密钥 | 建议配置 |
-| `OWNER_EMAIL` | 接收订单/预约通知的商家邮箱 | 建议配置 |
+| `RESEND_API_KEY` | Resend API 密钥 | ✅ 生产环境必须 |
+| `OWNER_EMAIL` | 接收订单/预约通知的商家邮箱 | ✅ 生产环境必须 |
 | `EMAIL_FROM` | Resend 已验证的交易邮件发件人 | ✅ 生产环境必须 |
-| `EMAIL_REPLY_TO` | 顾客回复邮件的地址 | 建议配置，当前使用 `izzybella.chen@gmail.com` |
+| `EMAIL_REPLY_TO` | 顾客回复邮件的地址 | ✅ 生产环境必须，使用 `congdongdong03@gmail.com` |
 
 > 代码位置：`apps/api/src/lib/email.ts`
 
@@ -135,14 +135,14 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 YezYY <bookings@yezyy.com>
 ```
-> API 在生产环境启动时会检查 `EMAIL_FROM`：缺少时将拒绝启动，避免从旧域名或未配置的地址发送邮件。`EMAIL_REPLY_TO` 可以配置为 `izzybella.chen@gmail.com`，它是顾客回复地址，不代表 Gmail 已被验证为 Resend 的交易邮件发件人。
+> API 在生产环境启动时会检查 `EMAIL_FROM`：缺少时将拒绝启动，避免从旧域名或未配置的地址发送邮件。`EMAIL_REPLY_TO` 可以配置为 `congdongdong03@gmail.com`，它是顾客回复地址，不代表 Gmail 已被验证为 Resend 的交易邮件发件人。
 
 **上线前填写：**
 ```bash
 RESEND_API_KEY=re_...
-OWNER_EMAIL=izzybella.chen@gmail.com
+OWNER_EMAIL=congdongdong03@gmail.com
 EMAIL_FROM="YezYY <bookings@yezyy.com>"
-EMAIL_REPLY_TO=izzybella.chen@gmail.com
+EMAIL_REPLY_TO=congdongdong03@gmail.com
 ```
 
 **邮件 DNS 建议：** 如果使用 `yezyy.com` 发邮件，建议在域名 DNS 中添加：
@@ -197,7 +197,7 @@ EMAIL_REPLY_TO=izzybella.chen@gmail.com
 
 **默认值参考：**
 ```bash
-STORE_TIMEZONE=Australia/Sydney    # 建议国内改为 Asia/Shanghai
+STORE_TIMEZONE=Australia/Melbourne
 JWT_EXPIRES_IN=24h
 PORT=4000
 ```
@@ -282,6 +282,9 @@ S3_BUCKET=...
 S3_PUBLIC_URL=...
 RESEND_API_KEY=...
 OWNER_EMAIL=...
+EMAIL_FROM="YezYY <bookings@yezyy.com>"
+EMAIL_REPLY_TO=congdongdong03@gmail.com
+STORE_TIMEZONE=Australia/Melbourne
 
 # Web 侧（构建时注入）
 NEXT_PUBLIC_API_URL=https://api.你的域名
@@ -297,8 +300,8 @@ NEXT_PUBLIC_SITE_URL=https://你的域名
 
 | 值 | 位置 | 建议 |
 |---|------|------|
-| 旧的写死发件人地址（待 Customer Task 3 清理） | `apps/api/src/lib/email.ts` | 改为环境变量 `EMAIL_FROM`，目标值为 `YezYY <bookings@yezyy.com>` |
-| `Australia/Sydney` | `apps/api/src/lib/email.ts:100` | 改为环境变量 `STORE_TIMEZONE` |
+| 开发环境邮件发件人 fallback | `apps/api/src/lib/email.ts` | 生产环境必须配置已验证的 `EMAIL_FROM` |
+| `Australia/Sydney` | `apps/api/src/lib/email.ts` | 可通过 `STORE_TIMEZONE` 覆盖；生产建议 `Australia/Melbourne` |
 | `admin@yezz.local` | `packages/db/src/seed.ts:234` | 种子时通过 `ADMIN_EMAIL` 覆盖 |
 | `changeme` | `packages/db/src/seed.ts:235` | 种子时通过 `ADMIN_PASSWORD` 覆盖 |
 | `YezYY` | `apps/web/lib/site/business.ts` | 作为公开 fallback 名称 |
@@ -340,7 +343,7 @@ NEXT_PUBLIC_SITE_URL=https://你的域名
 # API 密钥
 fly secrets set DATABASE_URL="..." JWT_SECRET="..." CORS_ORIGIN="..."
 fly secrets set S3_ENDPOINT="..." S3_ACCESS_KEY="..." S3_SECRET_KEY="..."
-fly secrets set RESEND_API_KEY="..." OWNER_EMAIL="..."
+fly secrets set RESEND_API_KEY="..." OWNER_EMAIL="..." EMAIL_FROM="YezYY <bookings@yezyy.com>" EMAIL_REPLY_TO="congdongdong03@gmail.com" STORE_TIMEZONE="Australia/Melbourne"
 
 # Web 构建参数（如用 Docker 部署）
 fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
@@ -357,7 +360,7 @@ fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
 - [ ] `CORS_ORIGIN` 设置为前端生产域名
 - [ ] `NODE_ENV=production`
 - [ ] S3 存储已配置（如需图片上传功能）
-- [ ] `RESEND_API_KEY` 和 `OWNER_EMAIL` 已配置（如需邮件通知）
+- [ ] `RESEND_API_KEY`、`OWNER_EMAIL`、`EMAIL_FROM` 和 `EMAIL_REPLY_TO` 已配置
 - [ ] 运行了 `pnpm db:migrate`
 - [ ] 运行了 `pnpm db:seed`（并设置了 `ADMIN_EMAIL` 和 `ADMIN_PASSWORD`）
 - [ ] 登录后台 `/admin` 更新了所有"网站设置"
@@ -396,10 +399,12 @@ S3_SECRET_KEY=xxx
 S3_BUCKET=yezz-media
 S3_PUBLIC_URL=https://media.yezyy.com
 
-# -------- 邮件服务（建议） --------
+# -------- 邮件服务（生产必须） --------
 RESEND_API_KEY=re_xxx
-OWNER_EMAIL=izzybella.chen@gmail.com
-STORE_TIMEZONE=Asia/Shanghai
+OWNER_EMAIL=congdongdong03@gmail.com
+EMAIL_FROM="YezYY <bookings@yezyy.com>"
+EMAIL_REPLY_TO=congdongdong03@gmail.com
+STORE_TIMEZONE=Australia/Melbourne
 
 # -------- Redis（可选） --------
 REDIS_URL=redis://localhost:6379

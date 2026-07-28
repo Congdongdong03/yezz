@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { displayLocalized, escapeHtml } from "./email-helpers.js";
 
 const sentEmails = vi.hoisted(() => [] as Array<Record<string, unknown>>);
-const originalNodeEnv = process.env.NODE_ENV;
+const originalEnvironment = {
+  NODE_ENV: process.env.NODE_ENV,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  EMAIL_FROM: process.env.EMAIL_FROM,
+  EMAIL_REPLY_TO: process.env.EMAIL_REPLY_TO,
+  OWNER_EMAIL: process.env.OWNER_EMAIL,
+};
 
 vi.mock("resend", () => ({
   Resend: class {
@@ -37,14 +43,16 @@ describe("booking request acknowledgement email", () => {
     process.env.NODE_ENV = "test";
     process.env.RESEND_API_KEY = "test-resend-key";
     process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
-    process.env.EMAIL_REPLY_TO = "izzybella.chen@gmail.com";
+    process.env.EMAIL_REPLY_TO = "congdongdong03@gmail.com";
   });
 
   afterEach(() => {
-    if (originalNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = originalNodeEnv;
+    for (const [key, value] of Object.entries(originalEnvironment)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
     }
   });
 
@@ -58,7 +66,7 @@ describe("booking request acknowledgement email", () => {
       phone: "0430787712",
       locale: "en",
     },
-    contact: { email: "izzybella.chen@gmail.com" },
+    contact: { email: "congdongdong03@gmail.com" },
   };
 
   it("describes a new submission as awaiting manual confirmation", async () => {
@@ -78,10 +86,72 @@ describe("booking request acknowledgement email", () => {
 
     await sendBookingConfirmationToCustomer(baseOptions);
 
-    const sentEmail = sentEmails[0] as { subject: string; html: string; replyTo: string };
+    const sentEmail = sentEmails[0] as {
+      from: string;
+      subject: string;
+      html: string;
+      replyTo: string;
+    };
     expect(sentEmail.subject).toContain("YezYY");
-    expect(sentEmail.replyTo).toBe("izzybella.chen@gmail.com");
+    expect(sentEmail.from).toBe("YezYY <bookings@yezyy.com>");
+    expect(sentEmail.replyTo).toBe("congdongdong03@gmail.com");
     expect(sentEmail.html).not.toContain(">YEZZ<");
+  });
+
+  it("keeps cart acknowledgements pending and pay-in-store", async () => {
+    const { sendOrderConfirmationToCustomer } = await import("./email.js");
+
+    await sendOrderConfirmationToCustomer({
+      to: "customer@example.com",
+      orderNumber: "order-20260728-1234",
+      submittedAt: new Date("2026-07-28T02:00:00.000Z"),
+      input: {
+        name: "Wesley",
+        phone: "0430787712",
+        items: [{ projectName: { en: "Melty Bead Craft", zh: "拼豆" } }],
+      },
+      contact: { email: "congdongdong03@gmail.com" },
+    });
+
+    const sentEmail = sentEmails[0] as { subject: string; html: string };
+    expect(sentEmail.subject).toContain("YezYY Booking Request Received");
+    expect(sentEmail.html).toContain("awaiting confirmation");
+    expect(sentEmail.html).toContain("Pay in Store");
+    expect(sentEmail.html).not.toContain("Your booking is confirmed");
+  });
+
+  it("uses the configured reply address for owner and later status emails", async () => {
+    process.env.OWNER_EMAIL = "owner@example.com";
+    const {
+      sendBookingStatusCancelledEmail,
+      sendBookingStatusConfirmedEmail,
+      sendOwnerEmail,
+    } = await import("./email.js");
+    const statusContext = {
+      to: "customer@example.com",
+      locale: "en",
+      customerName: "Wesley",
+      orderNumber: "booking-20260728-1234",
+      storeName: "YezYY",
+      contact: { email: "congdongdong03@gmail.com" },
+    };
+
+    await sendOwnerEmail("New request", "<p>Request</p>");
+    await sendBookingStatusConfirmedEmail(statusContext);
+    await sendBookingStatusCancelledEmail(statusContext);
+
+    const [owner, confirmed, cancelled] = sentEmails as Array<{
+      replyTo: string;
+      subject: string;
+      html: string;
+    }>;
+    expect(owner.replyTo).toBe("congdongdong03@gmail.com");
+    expect(confirmed.replyTo).toBe("congdongdong03@gmail.com");
+    expect(cancelled.replyTo).toBe("congdongdong03@gmail.com");
+    expect(confirmed.subject).toContain("booking confirmed");
+    expect(confirmed.html).toContain("your booking is confirmed");
+    expect(cancelled.subject).toContain("booking cancelled");
+    expect(cancelled.html).toContain("unable to accommodate your booking");
   });
 
   it("requires EMAIL_FROM when starting in production", async () => {
