@@ -174,10 +174,15 @@ export function createAdminUsersService(db: Db) {
 
     async changePassword(
       userId: string,
-      currentPassword: string,
-      newPassword: string,
+      currentPassword: unknown,
+      newPassword: unknown,
     ): Promise<{ ok: true }> {
-      if (!currentPassword || !newPassword || newPassword.length < 12) {
+      if (
+        typeof currentPassword !== "string" ||
+        typeof newPassword !== "string" ||
+        !currentPassword ||
+        newPassword.length < 12
+      ) {
         throw new AppError(400, "VALIDATION_ERROR", "New password must be at least 12 characters");
       }
 

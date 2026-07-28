@@ -114,4 +114,28 @@ describe("admin users service password lifecycle", () => {
     ).rejects.toMatchObject({ statusCode: 400, code: "VALIDATION_ERROR" });
     expect(repo.findByIdWithPasswordHash).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [{ value: "not-a-password" }, "NewPassword42!"],
+    [["not-a-password"], "NewPassword42!"],
+    [123456789012, "NewPassword42!"],
+    ["CurrentPassword42!", { value: "not-a-password" }],
+    ["CurrentPassword42!", ["not-a-password"]],
+    ["CurrentPassword42!", 123456789012],
+  ])("rejects non-string password fields without changing the stored hash", async (currentPassword, newPassword) => {
+    const service = createAdminUsersService({} as never);
+    const originalHash = await bcrypt.hash("CurrentPassword42!", 10);
+    let storedPasswordHash = originalHash;
+    repo.findByIdWithPasswordHash.mockResolvedValue({ ...user, passwordHash: originalHash });
+    repo.update.mockImplementation(async (_id, input) => {
+      storedPasswordHash = input.passwordHash;
+      return user;
+    });
+
+    await expect(
+      service.changePassword(user.id, currentPassword, newPassword),
+    ).rejects.toMatchObject({ statusCode: 400, code: "VALIDATION_ERROR" });
+    expect(repo.update).not.toHaveBeenCalled();
+    expect(storedPasswordHash).toBe(originalHash);
+  });
 });

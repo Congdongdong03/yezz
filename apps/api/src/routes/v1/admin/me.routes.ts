@@ -8,13 +8,13 @@ export default async function adminMeRoutes(app: FastifyInstance) {
   });
 
   app.post<{
-    Body: { currentPassword?: string; newPassword?: string };
+    Body: { currentPassword?: unknown; newPassword?: unknown };
   }>("/me/password", async (request) => {
     const body = request.body ?? {};
     const data = await app.services.adminUsers.changePassword(
       request.user.sub,
-      String(body.currentPassword ?? ""),
-      String(body.newPassword ?? ""),
+      body.currentPassword,
+      body.newPassword,
     );
     return success(data);
   });
