@@ -13,6 +13,7 @@ import {
   type OrderReceivedOutboxPayload,
   type OwnerRequestOutboxPayload,
 } from "./email-outbox-payload.js";
+import { sendSmtpMessage } from "./smtp.js";
 import { displayLocalized, escapeHtml } from "./email-helpers.js";
 
 export { displayLocalized, escapeHtml } from "./email-helpers.js";
@@ -443,6 +444,60 @@ function parseOutboxDate(value: string): Date {
   return parsed;
 }
 
+function renderOutboxMessage(message: OutboxProviderMessage) {
+  const validated = validateEmailOutboxEnvelope(message);
+  const template = validated.payload.template;
+  let rendered: { subject: string; html: string };
+  if (template === "booking_status") {
+    const payload = validated.payload as BookingStatusOutboxPayload;
+    const statusEmail = renderBookingStatusEmail(payload.status, {
+      ...payload,
+      to: validated.recipient,
+      locale: validated.locale,
+    });
+    rendered = {
+      subject: statusEmail.subject,
+      html: brandedEmail(statusEmail.subject, statusEmail.body),
+    };
+  } else if (template === "booking_received") {
+    const payload = validated.payload as BookingReceivedOutboxPayload;
+    rendered = renderBookingConfirmation({
+      to: validated.recipient,
+      orderId: payload.orderId,
+      orderNumber: payload.orderNumber,
+      submittedAt: parseOutboxDate(payload.submittedAt),
+      input: payload.input,
+      contact: payload.contact,
+    });
+  } else if (template === "cart_order_received") {
+    const payload = validated.payload as OrderReceivedOutboxPayload;
+    rendered = renderOrderConfirmation({
+      to: validated.recipient,
+      orderNumber: payload.orderNumber,
+      submittedAt: parseOutboxDate(payload.submittedAt),
+      input: payload.input,
+      contact: payload.contact,
+    });
+  } else if (template === "owner_request") {
+    const payload = validated.payload as OwnerRequestOutboxPayload;
+    const body = `<h2>${escapeHtml(payload.heading)}</h2><table width="100%" cellpadding="0" cellspacing="0">${payload.fields
+      .map((field) =>
+        infoRow(escapeHtml(field.label), escapeHtml(field.value)),
+      )
+      .join("")}</table>`;
+    rendered = {
+      subject: payload.subject,
+      html: brandedEmail(payload.subject, body),
+    };
+  } else {
+    throw Object.assign(new Error("Unsupported email template"), {
+      code: "invalid_template_payload",
+      statusCode: 422,
+    });
+  }
+  return { validated, rendered };
+}
+
 export function createResendOutboxProvider(): EmailOutboxProvider {
   return {
     async send(message: OutboxProviderMessage): Promise<ProviderSendResult> {
@@ -452,56 +507,7 @@ export function createResendOutboxProvider(): EmailOutboxProvider {
           statusCode: 503,
         });
       }
-      const validated = validateEmailOutboxEnvelope(message);
-      const template = validated.payload.template;
-      let rendered: { subject: string; html: string };
-      if (template === "booking_status") {
-        const payload = validated.payload as BookingStatusOutboxPayload;
-        const statusEmail = renderBookingStatusEmail(payload.status, {
-          ...payload,
-          to: validated.recipient,
-          locale: validated.locale,
-        });
-        rendered = {
-          subject: statusEmail.subject,
-          html: brandedEmail(statusEmail.subject, statusEmail.body),
-        };
-      } else if (template === "booking_received") {
-        const payload = validated.payload as BookingReceivedOutboxPayload;
-        rendered = renderBookingConfirmation({
-          to: validated.recipient,
-          orderId: payload.orderId,
-          orderNumber: payload.orderNumber,
-          submittedAt: parseOutboxDate(payload.submittedAt),
-          input: payload.input,
-          contact: payload.contact,
-        });
-      } else if (template === "cart_order_received") {
-        const payload = validated.payload as OrderReceivedOutboxPayload;
-        rendered = renderOrderConfirmation({
-          to: validated.recipient,
-          orderNumber: payload.orderNumber,
-          submittedAt: parseOutboxDate(payload.submittedAt),
-          input: payload.input,
-          contact: payload.contact,
-        });
-      } else if (template === "owner_request") {
-        const payload = validated.payload as OwnerRequestOutboxPayload;
-        const body = `<h2>${escapeHtml(payload.heading)}</h2><table width="100%" cellpadding="0" cellspacing="0">${payload.fields
-          .map((field) =>
-            infoRow(escapeHtml(field.label), escapeHtml(field.value)),
-          )
-          .join("")}</table>`;
-        rendered = {
-          subject: payload.subject,
-          html: brandedEmail(payload.subject, body),
-        };
-      } else {
-        throw Object.assign(new Error("Unsupported email template"), {
-          code: "invalid_template_payload",
-          statusCode: 422,
-        });
-      }
+      const { validated, rendered } = renderOutboxMessage(message);
       const result = await sendRawEmail(
         {
           to: validated.recipient,
@@ -517,6 +523,61 @@ export function createResendOutboxProvider(): EmailOutboxProvider {
         });
       }
       return result;
+    },
+  };
+}
+
+type EmailProviderEnvironment = Partial<
+  Record<
+    | "NODE_ENV"
+    | "EMAIL_PROVIDER"
+    | "SMTP_HOST"
+    | "SMTP_PORT"
+    | "EMAIL_FROM"
+    | "EMAIL_REPLY_TO",
+    string | undefined
+  >
+>;
+
+export function createConfiguredOutboxProvider(
+  env: EmailProviderEnvironment = process.env,
+): EmailOutboxProvider {
+  const provider = env.EMAIL_PROVIDER?.trim() || "resend";
+  if (provider === "resend") return createResendOutboxProvider();
+  if (provider !== "smtp") {
+    throw new Error("EMAIL_PROVIDER must be resend or smtp");
+  }
+  if (env.NODE_ENV !== "test") {
+    throw new Error("The SMTP email provider is limited to the test environment");
+  }
+  const host = env.SMTP_HOST?.trim();
+  if (!host || !["127.0.0.1", "localhost", "::1"].includes(host)) {
+    throw new Error("Test SMTP_HOST must be a loopback address");
+  }
+  const port = Number(env.SMTP_PORT);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error("Test SMTP_PORT must be a valid TCP port");
+  }
+  const from = env.EMAIL_FROM?.trim();
+  const replyTo = env.EMAIL_REPLY_TO?.trim();
+  if (!from || !replyTo) {
+    throw new Error("Test SMTP requires EMAIL_FROM and EMAIL_REPLY_TO");
+  }
+
+  return {
+    async send(message: OutboxProviderMessage): Promise<ProviderSendResult> {
+      const { validated, rendered } = renderOutboxMessage(message);
+      await sendSmtpMessage({
+        host,
+        port,
+        from,
+        replyTo,
+        to: validated.recipient,
+        subject: rendered.subject,
+        html: rendered.html,
+        messageId: message.id,
+      });
+      return { providerMessageId: `smtp:${message.dedupeKey}` };
     },
   };
 }

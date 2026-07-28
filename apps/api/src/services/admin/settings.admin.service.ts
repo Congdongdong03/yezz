@@ -6,7 +6,10 @@ import {
   createSettingsRepository,
   type SiteSettingsUpdateInput,
 } from "../../repositories/settings.repository.js";
-import type { SiteSettingsDto } from "../settings.service.js";
+import {
+  readRequestCapabilities,
+  type SiteSettingsDto,
+} from "../settings.service.js";
 
 function toSettingsDto(row: NonNullable<Awaited<ReturnType<ReturnType<typeof createSettingsRepository>["findSingleton"]>>>): SiteSettingsDto {
   return {
@@ -24,6 +27,7 @@ function toSettingsDto(row: NonNullable<Awaited<ReturnType<ReturnType<typeof cre
     googleMapUrl: row.googleMapUrl ?? null,
     seoTitle: row.seoTitle ?? null,
     seoDescription: row.seoDescription ?? null,
+    requestCapabilities: readRequestCapabilities(),
   };
 }
 

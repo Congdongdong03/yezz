@@ -16,6 +16,46 @@ import {
 import { createCartOrdersService } from "./cart-orders.service.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
+const enabledCapabilities = {
+  experience: true,
+  product: true,
+  party: true,
+} as const;
+
+function createEnabledCartOrdersService(
+  db: Parameters<typeof createCartOrdersService>[0],
+) {
+  return createCartOrdersService(db, enabledCapabilities);
+}
+
+describe("cart-order capability", () => {
+  it("rejects a disabled product request before database work", async () => {
+    const service = createCartOrdersService({} as never, {
+      experience: true,
+      product: false,
+      party: true,
+    });
+
+    await expect(
+      service.create(
+        {
+          name: "Capability test",
+          phone: "0430000000",
+          email: "capability@closure.test",
+          timeSlotId: "10000000-0000-4000-8000-000000000001",
+          numberOfPeople: 1,
+          items: [
+            { projectId: "10000000-0000-4000-8000-000000000002" },
+          ],
+        },
+        "10000000-0000-4000-8000-000000000003",
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 503,
+      code: "REQUEST_FLOW_DISABLED",
+    });
+  });
+});
 
 describe.skipIf(!runDatabaseTests)(
   "cart-order PostgreSQL create idempotency",
@@ -102,7 +142,7 @@ describe.skipIf(!runDatabaseTests)(
     }
 
     it("returns one resource and queues no extra effects for an identical replay", async () => {
-      const service = createCartOrdersService(database.connection.db);
+      const service = createEnabledCartOrdersService(database.connection.db);
       const idempotencyKey = crypto.randomUUID();
 
       const created = await service.create(validCart(), idempotencyKey);
@@ -145,7 +185,7 @@ describe.skipIf(!runDatabaseTests)(
     });
 
     it("rejects a style that belongs to another authoritative product", async () => {
-      const service = createCartOrdersService(database.connection.db);
+      const service = createEnabledCartOrdersService(database.connection.db);
 
       await expect(
         service.create(
@@ -175,8 +215,8 @@ describe.skipIf(!runDatabaseTests)(
 
     it("serializes concurrent retries at exact capacity into one create and one replay", async () => {
       const idempotencyKey = crypto.randomUUID();
-      const first = createCartOrdersService(database.connection.db);
-      const second = createCartOrdersService(database.connection.db);
+      const first = createEnabledCartOrdersService(database.connection.db);
+      const second = createEnabledCartOrdersService(database.connection.db);
 
       const results = await Promise.all([
         first.create(validCart(), idempotencyKey),
@@ -199,7 +239,7 @@ describe.skipIf(!runDatabaseTests)(
     });
 
     it("returns safe 409 for a different canonical payload without extra effects", async () => {
-      const service = createCartOrdersService(database.connection.db);
+      const service = createEnabledCartOrdersService(database.connection.db);
       const idempotencyKey = crypto.randomUUID();
       const created = await service.create(validCart(), idempotencyKey);
 
@@ -226,8 +266,8 @@ describe.skipIf(!runDatabaseTests)(
 
     it("lets one concurrent payload own the key and rejects the other without extra effects", async () => {
       const idempotencyKey = crypto.randomUUID();
-      const first = createCartOrdersService(database.connection.db);
-      const second = createCartOrdersService(database.connection.db);
+      const first = createEnabledCartOrdersService(database.connection.db);
+      const second = createEnabledCartOrdersService(database.connection.db);
 
       const results = await Promise.allSettled([
         first.create(validCart(), idempotencyKey),

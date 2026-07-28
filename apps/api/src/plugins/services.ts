@@ -29,9 +29,13 @@ import {
   scheduleRateLimitMaintenance,
   type RateLimitsService,
 } from "../services/rate-limits.service.js";
-import { createSettingsService, type SettingsService } from "../services/settings.service.js";
+import {
+  createSettingsService,
+  readRequestCapabilities,
+  type SettingsService,
+} from "../services/settings.service.js";
 import { createTimeSlotsService, type TimeSlotsService } from "../services/time-slots.service.js";
-import { createResendOutboxProvider } from "../lib/email.js";
+import { createConfiguredOutboxProvider } from "../lib/email.js";
 
 export type AppServices = {
   auth: AuthService;
@@ -65,6 +69,7 @@ declare module "fastify" {
 }
 
 export default fp(async (app: FastifyInstance) => {
+  const requestCapabilities = readRequestCapabilities();
   const rateLimits = createRateLimitsService(
     createRateLimitsRepository(app.db),
     {
@@ -73,8 +78,8 @@ export default fp(async (app: FastifyInstance) => {
   );
   app.decorate("services", {
     auth: createAuthService(app.db),
-    bookings: createBookingsService(app.db),
-    cartOrders: createCartOrdersService(app.db),
+    bookings: createBookingsService(app.db, requestCapabilities),
+    cartOrders: createCartOrdersService(app.db, requestCapabilities),
     cartSessions: createCartSessionsService(app.db),
     categories: createCategoriesService(app.db),
     projects: createProjectsService(app.db, app.redis),
@@ -94,7 +99,7 @@ export default fp(async (app: FastifyInstance) => {
     adminUsers: createAdminUsersService(app.db),
     emailOutbox: createEmailOutboxService(
       createEmailOutboxRepository(app.db),
-      createResendOutboxProvider(),
+      createConfiguredOutboxProvider(),
     ),
     rateLimits,
   });

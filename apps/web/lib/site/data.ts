@@ -30,6 +30,11 @@ const minimalSiteSettings: SiteSettingsView = {
   googleMapUrl: YEZYY_BUSINESS_PROFILE.googleMapUrl,
   seoTitle: YEZYY_BUSINESS_PROFILE.storeName,
   seoDescription: `${YEZYY_BUSINESS_PROFILE.storeName} — ${YEZYY_BUSINESS_PROFILE.address}`,
+  requestCapabilities: {
+    experience: false,
+    product: false,
+    party: false,
+  },
 };
 
 export type SiteSettingsView = ReturnType<typeof mapSiteSettingsFromApi>;

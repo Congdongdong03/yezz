@@ -15,6 +15,10 @@ import { createEmailOutboxRepository } from "../repositories/email-outbox.reposi
 import { createProjectsRepository } from "../repositories/projects.repository.js";
 import { createRequestCapacityRepository } from "../repositories/request-capacity.repository.js";
 import { createSettingsRepository } from "../repositories/settings.repository.js";
+import {
+  readRequestCapabilities,
+  type RequestCapabilities,
+} from "./settings.service.js";
 
 export type CartOrderDto = {
   id: string;
@@ -198,7 +202,10 @@ async function loadStoreContact(db: Db): Promise<StoreContact> {
   };
 }
 
-export function createCartOrdersService(db: Db) {
+export function createCartOrdersService(
+  db: Db,
+  requestCapabilities: RequestCapabilities = readRequestCapabilities(),
+) {
   const repo = createCartOrdersRepository(db);
   const projectsRepo = createProjectsRepository(db);
   const capacityRepo = createRequestCapacityRepository(db);
@@ -221,6 +228,13 @@ export function createCartOrdersService(db: Db) {
       requestInput: CartOrderCreateInput,
       idempotencyKey?: string,
     ): Promise<CartOrderDto> {
+      if (!requestCapabilities.product) {
+        throw new AppError(
+          503,
+          "REQUEST_FLOW_DISABLED",
+          "product requests are not currently available",
+        );
+      }
       const input = canonicalCartInput(requestInput);
       const normalizedKey = requireIdempotencyKey(idempotencyKey);
       const committedReplay = await replayFor(normalizedKey, input);

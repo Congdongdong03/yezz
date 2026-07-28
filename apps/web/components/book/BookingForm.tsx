@@ -4,12 +4,13 @@ import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   createBookingAttempt,
   submitBooking,
 } from "@/lib/actions/booking";
 import { trackSubmitBooking } from "@/lib/analytics/gtag";
+import RequestContactFallback from "@/components/RequestContactFallback";
 
 export type BookingFormDefaults = {
   projectId?: string;
@@ -25,13 +26,16 @@ type BookingFormProps = {
   /** Hide project/activity fields when embedded on a project detail page */
   embedded?: boolean;
   requireTimeSlot?: boolean;
+  requestEnabled?: boolean;
 };
 
 export default function BookingForm({
   defaults,
   embedded = false,
   requireTimeSlot = false,
+  requestEnabled = false,
 }: BookingFormProps) {
+  const locale = useLocale();
   const t = useTranslations("bookingForm");
   const b = useTranslations("book");
   const id = useId();
@@ -148,6 +152,10 @@ export default function BookingForm({
     }
     setIsSubmitting(false);
   };
+
+  if (!requestEnabled) {
+    return <RequestContactFallback locale={locale} />;
+  }
 
   if (result?.success) {
     return (

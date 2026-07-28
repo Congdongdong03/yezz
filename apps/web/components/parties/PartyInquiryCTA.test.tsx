@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PartyInquiryCTA from "./PartyInquiryCTA";
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "en",
   useTranslations: () => (key: string) =>
     ({
       requestPackage: "Request this package",
@@ -58,6 +59,7 @@ describe("PartyInquiryCTA", () => {
     await act(async () => {
       root.render(
         <PartyInquiryCTA
+          requestEnabled
           party={{
             id: "party-1",
             name: { en: "Studio Party", zh: "工作室派对" },
@@ -80,5 +82,30 @@ describe("PartyInquiryCTA", () => {
     expect(button?.getAttribute("aria-expanded")).toBe("true");
     expect(container.querySelector("[data-testid='party-form']")?.textContent)
       .toBe("party-1");
+  });
+
+  it("shows approved phone and email contact when party requests are disabled", async () => {
+    await act(async () => {
+      root.render(
+        <PartyInquiryCTA
+          requestEnabled={false}
+          party={{
+            id: "party-disabled",
+            name: { en: "Studio Party", zh: "工作室派对" },
+            minPeople: 4,
+            maxPeople: 12,
+          }}
+        />,
+      );
+    });
+
+    expect(container.querySelector('a[href="tel:0430787712"]')).not.toBeNull();
+    expect(
+      container.querySelector(
+        'a[href="mailto:congdongdong03@gmail.com"]',
+      ),
+    ).not.toBeNull();
+    expect(container.querySelector("button[aria-expanded]")).toBeNull();
+    expect(container.querySelector("[data-testid='party-form']")).toBeNull();
   });
 });

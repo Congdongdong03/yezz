@@ -4,6 +4,7 @@ import ServiceUnavailable from "@/components/ServiceUnavailable";
 import { loadProjectBySlug } from "@/lib/projects/data";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import type { Metadata } from "next";
+import { loadSiteSettings } from "@/lib/site/data";
 
 export async function generateMetadata({
   params,
@@ -33,7 +34,10 @@ export default async function ProjectDetailPage({
 }) {
   const { locale, slug } = await params;
 
-  const result = await loadProjectBySlug(slug);
+  const [result, settings] = await Promise.all([
+    loadProjectBySlug(slug),
+    loadSiteSettings(),
+  ]);
 
   if (!result.ok) {
     return <ServiceUnavailable />;
@@ -43,5 +47,16 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  return <ProjectDetail project={result.data} locale={locale} />;
+  const requestEnabled =
+    result.data.projectType === "product"
+      ? settings.requestCapabilities.product
+      : settings.requestCapabilities.experience;
+
+  return (
+    <ProjectDetail
+      project={result.data}
+      locale={locale}
+      requestEnabled={requestEnabled}
+    />
+  );
 }

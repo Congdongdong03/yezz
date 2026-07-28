@@ -28,8 +28,12 @@ setup("admin login", async ({ page }) => {
   await page.goto("/admin/login");
 
   // Fill credentials
-  await page.getByLabel(/邮箱|Email/).fill("admin@yezz.local");
-  await page.getByLabel(/密码|Password/).fill("changeme");
+  await page
+    .getByLabel(/邮箱|Email/)
+    .fill(process.env.E2E_ADMIN_EMAIL ?? "admin@yezz.local");
+  await page
+    .getByLabel(/密码|Password/)
+    .fill(process.env.E2E_ADMIN_PASSWORD ?? "changeme");
 
   // Submit
   await page.getByRole("button", { name: /登录|Login|Sign in/i }).click();

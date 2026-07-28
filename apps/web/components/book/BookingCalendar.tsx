@@ -192,6 +192,7 @@ export default function BookingCalendar({
           return (
             <button
               key={cell.date}
+              data-date={cell.date}
               aria-disabled={dayStatus !== "available"}
               aria-label={dateLabel}
               aria-pressed={isSelected}
@@ -244,6 +245,7 @@ export default function BookingCalendar({
                 return (
                   <button
                     key={slot.id}
+                    data-slot-id={slot.id}
                     type="button"
                     disabled={!fits}
                     onClick={() => onSelectSlot(slot)}

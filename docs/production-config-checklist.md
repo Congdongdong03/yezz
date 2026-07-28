@@ -322,6 +322,10 @@ OWNER_EMAIL=...
 EMAIL_FROM="YezYY <bookings@yezyy.com>"
 EMAIL_REPLY_TO=congdongdong03@gmail.com
 STORE_TIMEZONE=Australia/Melbourne
+EMAIL_OUTBOX_WORKER_ENABLED=false
+REQUEST_FLOW_EXPERIENCE_ENABLED=false
+REQUEST_FLOW_PRODUCT_ENABLED=false
+REQUEST_FLOW_PARTY_ENABLED=false
 
 # Web 侧（构建时注入）
 NEXT_PUBLIC_API_URL=https://api.你的域名
@@ -391,7 +395,178 @@ fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
 
 ---
 
-## 八、上线前最终检查清单
+## 八、请求闭环分阶段上线（Fly + Vercel）
+
+所有公开请求能力在已提交的生产默认配置中均为关闭状态。以下步骤是人工
+发布记录模板，不授权实际生产变更。没有业务负责人明确授权时，不得启用
+能力开关，也不得提交真实生产预约。
+
+### 1. 固定发布基线和恢复点
+
+- [ ] 记录当前应用提交：`<CURRENT_APP_COMMIT>`
+- [ ] 记录待发布 API 提交：`<FLY_RELEASE_COMMIT>`
+- [ ] 记录待发布 Web 提交：`<VERCEL_RELEASE_COMMIT>`
+- [ ] 在 Neon 创建并记录恢复点：`<NEON_RESTORE_POINT_ID>`
+- [ ] 记录操作者和 UTC 时间：`<OPERATOR> / <UTC_TIMESTAMP>`
+
+### 2. 运行迁移前不变量查询
+
+在只读会话中执行，三项结果都必须为 `0`：
+
+```sql
+select count(*) as invalid_slots
+from time_slots
+where capacity < 1
+   or booked_count < 0
+   or booked_count > capacity
+   or start_time !~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+   or end_time !~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'
+   or start_time >= end_time;
+
+select count(*) as duplicate_effective_slots
+from (
+  select date, start_time, end_time,
+         coalesce(category_id, '00000000-0000-0000-0000-000000000000'::uuid)
+  from time_slots
+  group by date, start_time, end_time,
+           coalesce(category_id, '00000000-0000-0000-0000-000000000000'::uuid)
+  having count(*) > 1
+) duplicates;
+
+select count(*) as invalid_request_capacity_links
+from (
+  select b.id
+  from bookings b
+  join time_slots t on t.id = b.time_slot_id
+  where b.status <> 'cancelled'
+    and coalesce(b.number_of_people, 1) > t.capacity
+  union all
+  select o.id
+  from cart_orders o
+  join time_slots t on t.id = o.time_slot_id
+  where o.status <> 'cancelled'
+    and coalesce(o.number_of_people, 1) > t.capacity
+) invalid;
+```
+
+保存查询输出到发布工单；任何非零结果都暂停发布。
+
+### 3. 部署 Fly 迁移和 API，能力保持关闭
+
+先由获授权人员配置 Fly 服务端变量，再发布 API：
+
+```bash
+fly secrets set \
+  INTERNAL_REQUEST_ENFORCEMENT=log \
+  EMAIL_OUTBOX_WORKER_ENABLED=false \
+  REQUEST_FLOW_EXPERIENCE_ENABLED=false \
+  REQUEST_FLOW_PRODUCT_ENABLED=false \
+  REQUEST_FLOW_PARTY_ENABLED=false
+
+fly deploy --image <FLY_RELEASE_IMAGE>
+```
+
+确认 release command 完成迁移、健康检查通过，并记录部署 ID。此阶段 API
+即使被直接调用也必须返回 `REQUEST_FLOW_DISABLED`。
+
+### 4. 部署带签名 BFF 的 Vercel Web
+
+由获授权人员在 Fly 和 Vercel 配置同一个
+`WEB_API_SHARED_SECRET`，Vercel 同时配置 `API_URL`。部署并记录 Vercel
+Deployment ID。密钥不得出现在命令输出、工单正文或客户端变量中。
+
+### 5. 验证 Cookie、CSRF 和访客身份
+
+- [ ] 后台登录仅设置第一方、Host-only、HttpOnly、Secure、SameSite=Lax Cookie
+- [ ] 跨站 POST/PATCH 返回拒绝，且 Fly 未收到业务写入
+- [ ] 伪造 `X-Forwarded-For` 不改变限流主体
+- [ ] 两个经 Vercel 验证的访客 IP 产生独立限流桶
+- [ ] BFF 转发的请求 ID、时间戳、正文摘要和签名通过 Fly 日志验证
+
+只使用无业务写入的验证请求；此阶段不得创建生产预约。
+
+### 6. 将 Fly 签名模式切换为强制
+
+日志验证无误后：
+
+```bash
+fly secrets set INTERNAL_REQUEST_ENFORCEMENT=require
+```
+
+确认无签名、过期签名、正文被修改或客户 IP 缺失的请求均失败。
+
+### 7. 验证邮件 Outbox 后再启动 Worker
+
+先确认 Resend 域名、`EMAIL_FROM`、`EMAIL_REPLY_TO`、`OWNER_EMAIL` 和失败告警，
+再由获授权人员执行：
+
+```bash
+fly secrets set EMAIL_OUTBOX_WORKER_ENABLED=true
+```
+
+观察一条获授权测试邮件的 `pending → processing → sent` 记录；失败必须在中文
+后台可见且可人工重试。若 Resend 域名或发件人尚未验证，保持 Worker 关闭并
+暂停发布。
+
+### 8. 单独启用体验请求
+
+```bash
+fly secrets set REQUEST_FLOW_EXPERIENCE_ENABLED=true
+```
+
+重新部署/刷新 Web 设置后，仅在负责人明确授权下创建一条受控体验请求，
+核对同一 ID 的项目、档期、名额、状态事件和邮件，再决定是否保留开启。
+
+### 9. 单独启用产品请求
+
+```bash
+fly secrets set REQUEST_FLOW_PRODUCT_ENABLED=true
+```
+
+执行获授权的产品请求烟测，核对服务端商品/款式快照、取消幂等性、名额只释放
+一次以及客户邮件。体验开关的状态不得因本步骤意外改变。
+
+### 10. 单独启用派对请求
+
+```bash
+fly secrets set REQUEST_FLOW_PARTY_ENABLED=true
+```
+
+执行获授权的派对请求烟测，核对服务端套餐、人数范围、档期、状态事件和邮件。
+三个能力必须逐个审批，禁止一次性全开。
+
+### 11. 记录结果和可恢复回滚命令
+
+- [ ] Fly 部署 ID / 提交：`<FLY_DEPLOYMENT_ID> / <FLY_RELEASE_COMMIT>`
+- [ ] Vercel 部署 ID / 提交：`<VERCEL_DEPLOYMENT_ID> / <VERCEL_RELEASE_COMMIT>`
+- [ ] 三个烟测请求 ID（如获授权）：`<EXPERIENCE_ID> / <PRODUCT_ID> / <PARTY_ID>`
+- [ ] 完成时间和审批人：`<UTC_TIMESTAMP> / <APPROVER>`
+
+应用回滚不执行破坏性 down migration：
+
+```bash
+fly secrets set \
+  REQUEST_FLOW_EXPERIENCE_ENABLED=false \
+  REQUEST_FLOW_PRODUCT_ENABLED=false \
+  REQUEST_FLOW_PARTY_ENABLED=false \
+  EMAIL_OUTBOX_WORKER_ENABLED=false
+
+fly deploy --image <PREVIOUS_FLY_IMAGE>
+vercel rollback <PREVIOUS_VERCEL_DEPLOYMENT_URL>
+```
+
+保留新增表、请求、状态事件和邮件记录供审计。只有在明确的事故恢复授权下，
+才可使用记录的 Neon 恢复点。
+
+### 外部授权暂停点
+
+执行以下任一动作前必须停止并取得负责人明确授权：添加或轮换 Fly/Vercel
+签名密钥、使用 Neon 恢复点或生产迁移、添加 Resend DNS 或更换已验证发件人、
+部署 Fly/Vercel、启动邮件 Worker、启用任一请求能力、创建受控生产请求。
+
+---
+
+## 九、上线前最终检查清单
 
 - [ ] `DATABASE_URL` 已设置为生产数据库
 - [ ] `JWT_SECRET` 已更换为强随机字符串（不是 `dev-secret-key-change-in-production`）
@@ -406,6 +581,8 @@ fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
 - [ ] 非轮换期间，Fly 未保留 `WEB_API_SHARED_SECRET_PREVIOUS`
 - [ ] S3 存储已配置（如需图片上传功能）
 - [ ] `RESEND_API_KEY`、`OWNER_EMAIL`、`EMAIL_FROM` 和 `EMAIL_REPLY_TO` 已配置
+- [ ] 三个 `REQUEST_FLOW_*_ENABLED` 在初始生产部署中均为 `false`
+- [ ] `EMAIL_OUTBOX_WORKER_ENABLED` 在邮件服务验证前保持 `false`
 - [ ] 运行了 `pnpm db:migrate`
 - [ ] 运行了 `pnpm --filter @yezz/db bootstrap:production`
 - [ ] 生产环境没有运行 `seed:dev-demo` 或设置 `FORCE_SEED`

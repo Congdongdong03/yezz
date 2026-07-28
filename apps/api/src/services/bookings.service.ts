@@ -14,6 +14,10 @@ import {
 import { createPartiesRepository } from "../repositories/parties.repository.js";
 import { createProjectsRepository } from "../repositories/projects.repository.js";
 import { createRequestCapacityRepository } from "../repositories/request-capacity.repository.js";
+import {
+  readRequestCapabilities,
+  type RequestCapabilities,
+} from "./settings.service.js";
 
 export type BookingDto = {
   id: string;
@@ -215,7 +219,10 @@ async function loadStoreContact(db: Db): Promise<StoreContact> {
   };
 }
 
-export function createBookingsService(db: Db) {
+export function createBookingsService(
+  db: Db,
+  requestCapabilities: RequestCapabilities = readRequestCapabilities(),
+) {
   const repo = createBookingsRepository(db);
   const projectsRepo = createProjectsRepository(db);
   const partiesRepo = createPartiesRepository(db);
@@ -227,6 +234,14 @@ export function createBookingsService(db: Db) {
       input: BookingCreateInput,
       idempotencyKey?: string,
     ): Promise<BookingDto> {
+      const requestedKind = input.kind ?? "experience";
+      if (!requestCapabilities[requestedKind]) {
+        throw new AppError(
+          503,
+          "REQUEST_FLOW_DISABLED",
+          `${requestedKind} requests are not currently available`,
+        );
+      }
       validateBookingInput(input);
       const normalizedInput = normalizeBookingInput(input);
       const people = normalizedInput.numberOfPeople;

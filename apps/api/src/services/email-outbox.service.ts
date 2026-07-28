@@ -88,7 +88,16 @@ export function safeDeliveryError(error: unknown): string {
 }
 
 function isTransientProviderError(error: unknown): boolean {
-  const { statusCode } = errorMetadata(error);
+  const { statusCode, code } = errorMetadata(error);
+  if (
+    code?.startsWith("smtp_") &&
+    code.endsWith("_rejected") &&
+    statusCode !== undefined &&
+    statusCode >= 400 &&
+    statusCode <= 599
+  ) {
+    return statusCode < 500;
+  }
   return (
     statusCode === undefined ||
     statusCode === 408 ||
@@ -263,7 +272,13 @@ const WORKER_POLL_MILLISECONDS = 30_000;
 export function startEmailOutboxWorker(
   service: Pick<EmailOutboxService, "drain">,
   onError: (error: unknown) => void = () => {},
+  options: { pollMilliseconds?: number } = {},
 ): () => Promise<void> {
+  const pollMilliseconds =
+    Number.isInteger(options.pollMilliseconds) &&
+    Number(options.pollMilliseconds) > 0
+      ? Number(options.pollMilliseconds)
+      : WORKER_POLL_MILLISECONDS;
   let stopped = false;
   let activePoll: Promise<unknown> = Promise.resolve();
   const drain = () => {
@@ -271,7 +286,7 @@ export function startEmailOutboxWorker(
     activePoll = service.drain().catch(onError);
   };
   drain();
-  const timer = setInterval(drain, WORKER_POLL_MILLISECONDS);
+  const timer = setInterval(drain, pollMilliseconds);
   return async () => {
     stopped = true;
     clearInterval(timer);

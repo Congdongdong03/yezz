@@ -11,6 +11,7 @@ import BookingForm from "@/components/book/BookingForm";
 import type { TimeSlotOption } from "@/lib/api/time-slots";
 import StyleSelector from "./StyleSelector";
 import { trackViewProject } from "@/lib/analytics/gtag";
+import RequestContactFallback from "@/components/RequestContactFallback";
 
 function localizeTag(tag: string, locale: string): string {
   const parts = tag.split("|");
@@ -51,9 +52,14 @@ interface ProjectDetailProps {
     category?: { _id: string };
   };
   locale: string;
+  requestEnabled: boolean;
 }
 
-export default function ProjectDetail({ project, locale: _locale }: ProjectDetailProps) {
+export default function ProjectDetail({
+  project,
+  locale: _locale,
+  requestEnabled,
+}: ProjectDetailProps) {
   void _locale;
   const pageLocale = useLocale();
   const t = useTranslations("projectDetail");
@@ -155,7 +161,13 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
             )}
           </div>
 
-          {isProduct && project.styles && (
+          {!requestEnabled && (
+            <div className="mt-8">
+              <RequestContactFallback locale={pageLocale} />
+            </div>
+          )}
+
+          {requestEnabled && isProduct && project.styles && (
             <>
               <StyleSelector
                 styles={project.styles}
@@ -181,7 +193,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
             </>
           )}
 
-          {!isProduct && (
+          {requestEnabled && !isProduct && (
             <>
               <div className="mt-6">
                 <label htmlFor="project-people" className="block text-sm font-medium text-warm-charcoal">
@@ -223,6 +235,7 @@ export default function ProjectDetail({ project, locale: _locale }: ProjectDetai
                     key={`${date}-${people}`}
                     embedded
                     requireTimeSlot
+                    requestEnabled={requestEnabled}
                     defaults={{
                       projectId: project._id,
                       interestedProject: projectLabel,

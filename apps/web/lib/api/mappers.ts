@@ -119,6 +119,10 @@ export function mapGalleryImageFromApi(image: ApiGalleryImage) {
 
 export function mapSiteSettingsFromApi(settings: ApiSiteSettings) {
   const wechatId = sanitizePublicWeChatId(settings.wechatId);
+  const capabilities = settings.requestCapabilities as
+    | Partial<ApiSiteSettings["requestCapabilities"]>
+    | null
+    | undefined;
 
   return {
     storeName: settings.storeName,
@@ -134,5 +138,10 @@ export function mapSiteSettingsFromApi(settings: ApiSiteSettings) {
     googleMapUrl: optional(settings.googleMapUrl),
     seoTitle: optional(settings.seoTitle),
     seoDescription: optional(settings.seoDescription),
+    requestCapabilities: {
+      experience: capabilities?.experience === true,
+      product: capabilities?.product === true,
+      party: capabilities?.party === true,
+    },
   };
 }

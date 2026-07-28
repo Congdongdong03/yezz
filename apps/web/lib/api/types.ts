@@ -90,4 +90,9 @@ export type ApiSiteSettings = {
   googleMapUrl: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
+  requestCapabilities: {
+    experience: boolean;
+    product: boolean;
+    party: boolean;
+  };
 };

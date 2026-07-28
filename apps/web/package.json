@@ -44,6 +44,7 @@
     "eslint-config-next": "16.1.7",
     "jsdom": "^26.1.0",
     "postcss": "^8",
+    "postgres": "^3.4.9",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4.2.1",

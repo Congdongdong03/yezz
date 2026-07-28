@@ -89,6 +89,12 @@ export async function buildApp() {
           { diagnostic: safeWorkerDiagnostic(error) },
           "Email outbox worker poll failed",
         ),
+      {
+        pollMilliseconds:
+          process.env.NODE_ENV === "test"
+            ? Number(process.env.EMAIL_OUTBOX_POLL_MILLISECONDS)
+            : undefined,
+      },
     );
     app.addHook("onClose", async () => {
       await stopEmailWorker();

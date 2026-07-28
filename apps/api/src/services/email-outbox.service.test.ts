@@ -183,6 +183,30 @@ describe("email outbox delivery state machine", () => {
     });
   });
 
+  it("treats a permanent SMTP 550 recipient rejection as failed", async () => {
+    const repo = createMemoryRepository();
+    const provider = {
+      send: vi.fn(async () => {
+        throw Object.assign(new Error("SMTP recipient rejected with 550"), {
+          statusCode: 550,
+          code: "smtp_recipient_rejected",
+        });
+      }),
+    };
+    const service = createEmailOutboxService(repo, provider, {
+      now: () => NOW,
+    });
+
+    await service.deliverOne(repo.current);
+
+    expect(repo.current).toMatchObject({
+      deliveryStatus: "failed",
+      attemptCount: 1,
+      lastError:
+        "550 smtp_recipient_rejected: SMTP recipient rejected with 550",
+    });
+  });
+
   it("fails malformed persisted template data once without calling the provider", async () => {
     const repo = createMemoryRepository(
       pendingRow({
@@ -318,6 +342,26 @@ describe("email outbox delivery state machine", () => {
     await stop();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(drain).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("allows the isolated closure harness to use a short poll interval", async () => {
+    vi.useFakeTimers();
+    const drain = vi.fn(async () => 0);
+    const stop = startEmailOutboxWorker(
+      { drain },
+      () => {},
+      { pollMilliseconds: 50 },
+    );
+
+    await vi.runAllTicks();
+    expect(drain).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(49);
+    expect(drain).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(drain).toHaveBeenCalledTimes(2);
+
+    await stop();
     vi.useRealTimers();
   });
 

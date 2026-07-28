@@ -119,6 +119,7 @@ export default async function PartiesPage({
                         priceIndicator: party.priceIndicator,
                       }}
                       wechatId={settings.wechatId}
+                      requestEnabled={settings.requestCapabilities.party}
                     />
                   </div>
                 </div>
@@ -135,7 +136,10 @@ export default async function PartiesPage({
                 ? "联系我们，我们可以根据您的需求定制完美的派对体验。"
                 : "Contact us and we can tailor the perfect party experience for your needs."}
             </p>
-            <PartyInquiryCTA wechatId={settings.wechatId} />
+            <PartyInquiryCTA
+              wechatId={settings.wechatId}
+              requestEnabled={settings.requestCapabilities.party}
+            />
           </div>
         </>
       )}

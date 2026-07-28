@@ -35,8 +35,21 @@ function isUnsafeMethod(method: string): boolean {
 }
 
 function getCanonicalSiteOrigin(): string {
-  if (process.env.NODE_ENV === "production") return "https://yezyy.com";
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.YEZYY_CLOSURE_E2E === "1" &&
+    configured
+  ) {
+    const closureSite = new URL(configured);
+    if (
+      closureSite.protocol === "http:" &&
+      ["127.0.0.1", "localhost"].includes(closureSite.hostname)
+    ) {
+      return closureSite.origin;
+    }
+  }
+  if (process.env.NODE_ENV === "production") return "https://yezyy.com";
   return configured ? new URL(configured).origin : "http://localhost:3000";
 }
 

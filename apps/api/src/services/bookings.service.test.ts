@@ -23,7 +23,56 @@ import {
   type RequestFlowTestDatabase,
 } from "../test-utils/request-flow-postgres.js";
 
+const enabledCapabilities = {
+  experience: true,
+  product: true,
+  party: true,
+} as const;
+
+function createEnabledBookingsService(
+  db: Parameters<typeof createBookingsService>[0],
+) {
+  return createBookingsService(db, enabledCapabilities);
+}
+
 describe("createBookingsService", () => {
+  it.each([
+    ["experience", { experience: false, product: true, party: true }],
+    ["party", { experience: true, product: true, party: false }],
+  ] as const)("rejects a disabled %s request before database work", async (kind, capabilities) => {
+    const service = createBookingsService({} as never, capabilities);
+    const input =
+      kind === "experience"
+        ? {
+            kind: "experience" as const,
+            name: "Capability test",
+            phone: "0430000000",
+            email: "capability@closure.test",
+            numberOfPeople: 2,
+            projectId: "10000000-0000-4000-8000-000000000001",
+            timeSlotId: "10000000-0000-4000-8000-000000000003",
+          }
+        : {
+            kind: "party" as const,
+            name: "Capability test",
+            phone: "0430000000",
+            email: "capability@closure.test",
+            numberOfPeople: 2,
+            partyPackageId: "10000000-0000-4000-8000-000000000002",
+            timeSlotId: "10000000-0000-4000-8000-000000000003",
+          };
+
+    await expect(
+      service.create(
+        input,
+        "10000000-0000-4000-8000-000000000004",
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 503,
+      code: "REQUEST_FLOW_DISABLED",
+    });
+  });
+
   it("normalizes omitted people to the exact persisted reservation count", () => {
     expect(normalizeBookingPeople(undefined)).toBe(1);
     expect(reservedPeopleForBooking(null, "slot-1")).toBe(1);
@@ -42,7 +91,7 @@ describe("createBookingsService", () => {
   });
 
   it("rejects booking without name", async () => {
-    const service = createBookingsService({} as never);
+    const service = createEnabledBookingsService({} as never);
     await expect(
       service.create({ name: "  ", phone: "13800138000" }),
     ).rejects.toSatisfy(
@@ -54,7 +103,7 @@ describe("createBookingsService", () => {
   });
 
   it("rejects invalid email", async () => {
-    const service = createBookingsService({} as never);
+    const service = createEnabledBookingsService({} as never);
     await expect(
       service.create({
         name: "Test",
@@ -172,7 +221,7 @@ describe.skipIf(!runDatabaseTests)(
     }
 
     it("derives immutable project/slot snapshots and queues both acknowledgements once", async () => {
-      const service = createBookingsService(database.connection.db);
+      const service = createEnabledBookingsService(database.connection.db);
       const idempotencyKey = crypto.randomUUID();
 
       const created = await service.create(
@@ -232,7 +281,7 @@ describe.skipIf(!runDatabaseTests)(
     });
 
     it("replays a committed booking even when owner email configuration later disappears", async () => {
-      const service = createBookingsService(database.connection.db);
+      const service = createEnabledBookingsService(database.connection.db);
       const idempotencyKey = crypto.randomUUID();
       const created = await service.create(validExperience(), idempotencyKey);
       delete process.env.OWNER_EMAIL;
@@ -246,7 +295,7 @@ describe.skipIf(!runDatabaseTests)(
     });
 
     it("rejects a preferred date that disagrees with the authoritative slot and rolls back", async () => {
-      const service = createBookingsService(database.connection.db);
+      const service = createEnabledBookingsService(database.connection.db);
       await expect(
         service.create(validExperience("2030-08-13"), crypto.randomUUID()),
       ).rejects.toMatchObject({ code: "DATE_SLOT_MISMATCH" });
@@ -266,8 +315,8 @@ describe.skipIf(!runDatabaseTests)(
 
     it("reserves and enqueues once for concurrent creates with one idempotency key", async () => {
       const idempotencyKey = crypto.randomUUID();
-      const first = createBookingsService(database.connection.db);
-      const second = createBookingsService(database.connection.db);
+      const first = createEnabledBookingsService(database.connection.db);
+      const second = createEnabledBookingsService(database.connection.db);
       await database.connection.db
         .update(timeSlots)
         .set({ capacity: 2 })
@@ -297,7 +346,7 @@ describe.skipIf(!runDatabaseTests)(
 
     it("rejects a different payload that reuses a committed idempotency key", async () => {
       const idempotencyKey = crypto.randomUUID();
-      const service = createBookingsService(database.connection.db);
+      const service = createEnabledBookingsService(database.connection.db);
       const created = await service.create(validExperience(), idempotencyKey);
 
       await expect(
@@ -333,8 +382,8 @@ describe.skipIf(!runDatabaseTests)(
 
     it("lets one concurrent payload own an idempotency key and rejects the other", async () => {
       const idempotencyKey = crypto.randomUUID();
-      const first = createBookingsService(database.connection.db);
-      const second = createBookingsService(database.connection.db);
+      const first = createEnabledBookingsService(database.connection.db);
+      const second = createEnabledBookingsService(database.connection.db);
 
       const results = await Promise.allSettled([
         first.create(validExperience(), idempotencyKey),
@@ -377,7 +426,7 @@ describe.skipIf(!runDatabaseTests)(
     it.each([3, 13])(
       "rejects party people outside the authoritative package range: %s",
       async (numberOfPeople) => {
-        const service = createBookingsService(database.connection.db);
+        const service = createEnabledBookingsService(database.connection.db);
 
         await expect(
           service.create(
@@ -404,7 +453,7 @@ describe.skipIf(!runDatabaseTests)(
     );
 
     it("derives immutable party/slot snapshots and queues both acknowledgements once", async () => {
-      const service = createBookingsService(database.connection.db);
+      const service = createEnabledBookingsService(database.connection.db);
       const idempotencyKey = crypto.randomUUID();
 
       const created = await service.create(validParty(), idempotencyKey);
@@ -461,7 +510,7 @@ describe.skipIf(!runDatabaseTests)(
     });
 
     it("rejects a category-specific experience slot for a party and rolls back", async () => {
-      const service = createBookingsService(database.connection.db);
+      const service = createEnabledBookingsService(database.connection.db);
 
       await expect(
         service.create(
@@ -488,8 +537,8 @@ describe.skipIf(!runDatabaseTests)(
 
     it("serializes concurrent party replay and reserves capacity once", async () => {
       const idempotencyKey = crypto.randomUUID();
-      const first = createBookingsService(database.connection.db);
-      const second = createBookingsService(database.connection.db);
+      const first = createEnabledBookingsService(database.connection.db);
+      const second = createEnabledBookingsService(database.connection.db);
 
       const results = await Promise.all([
         first.create(validParty(), idempotencyKey),
@@ -515,7 +564,7 @@ describe.skipIf(!runDatabaseTests)(
     });
 
     it("rejects a missing party package without reserving capacity", async () => {
-      const service = createBookingsService(database.connection.db);
+      const service = createEnabledBookingsService(database.connection.db);
 
       await expect(
         service.create(

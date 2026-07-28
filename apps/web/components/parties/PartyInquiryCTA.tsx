@@ -7,14 +7,19 @@ import { MessageCircle, Check } from "lucide-react";
 import PartyBookingForm, {
   type PartyBookingFormParty,
 } from "./PartyBookingForm";
+import RequestContactFallback from "@/components/RequestContactFallback";
+import { useLocale } from "next-intl";
 
 export default function PartyInquiryCTA({
   party,
   wechatId,
+  requestEnabled = false,
 }: {
   party?: PartyBookingFormParty;
   wechatId?: string;
+  requestEnabled?: boolean;
 }) {
+  const locale = useLocale();
   const t = useTranslations("parties");
   const [copied, setCopied] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
@@ -38,6 +43,14 @@ export default function PartyInquiryCTA({
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  if (!requestEnabled) {
+    return (
+      <div className="mt-6">
+        <RequestContactFallback locale={locale} />
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6">

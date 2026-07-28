@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -12,6 +12,8 @@ import { validateCartContact } from "@/lib/cart/validation";
 import { createRequestAttempt } from "@/lib/requests/idempotency";
 import BookingCalendar from "@/components/book/BookingCalendar";
 import type { TimeSlotOption } from "@/lib/api/time-slots";
+import { fetchSiteSettings } from "@/lib/api/client";
+import RequestContactFallback from "@/components/RequestContactFallback";
 
 export default function CartPage() {
   const locale = useLocale();
@@ -30,13 +32,40 @@ export default function CartPage() {
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [requestAttempt] = useState(createRequestAttempt);
+  const [requestEnabled, setRequestEnabled] = useState(false);
   const formId = useId();
   const fieldId = (name: string) => `${formId}-${name}`;
+
+  useEffect(() => {
+    let active = true;
+    fetchSiteSettings()
+      .then((settings) => {
+        if (active) {
+          setRequestEnabled(
+            settings.requestCapabilities?.product === true,
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setRequestEnabled(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (items.length === 0 && status !== "success") {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
         <p className="text-warm-grey">{t("empty")}</p>
+      </div>
+    );
+  }
+
+  if (!requestEnabled && status !== "success") {
+    return (
+      <div className="mx-auto min-h-[60vh] max-w-2xl px-4 py-12">
+        <RequestContactFallback locale={locale} />
       </div>
     );
   }

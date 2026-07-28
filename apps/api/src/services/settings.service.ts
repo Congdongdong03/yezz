@@ -19,17 +19,56 @@ export type SiteSettingsDto = {
   googleMapUrl: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
+  requestCapabilities: RequestCapabilities;
+};
+
+export type RequestCapabilities = {
+  experience: boolean;
+  product: boolean;
+  party: boolean;
 };
 
 export type SettingsService = ReturnType<typeof createSettingsService>;
 
-export function createSettingsService(db: Db, redis: Redis | null = null) {
+type RequestCapabilityEnvironment = Partial<
+  Record<
+    | "REQUEST_FLOW_EXPERIENCE_ENABLED"
+    | "REQUEST_FLOW_PRODUCT_ENABLED"
+    | "REQUEST_FLOW_PARTY_ENABLED",
+    string | undefined
+  >
+>;
+
+/**
+ * Request flows fail closed. Only the exact value `true` enables a flow so
+ * copied placeholders, casing mistakes, and numeric truthy values stay safe.
+ */
+export function readRequestCapabilities(
+  env: RequestCapabilityEnvironment = process.env,
+): RequestCapabilities {
+  return {
+    experience: env.REQUEST_FLOW_EXPERIENCE_ENABLED === "true",
+    product: env.REQUEST_FLOW_PRODUCT_ENABLED === "true",
+    party: env.REQUEST_FLOW_PARTY_ENABLED === "true",
+  };
+}
+
+export function createSettingsService(
+  db: Db,
+  redis: Redis | null = null,
+  env: RequestCapabilityEnvironment = process.env,
+) {
   const repo = createSettingsRepository(db);
 
   return {
     async get(): Promise<SiteSettingsDto> {
       const cached = await cacheGet<SiteSettingsDto>(redis, CACHE_KEYS.settings);
-      if (cached) return cached;
+      if (cached) {
+        return {
+          ...cached,
+          requestCapabilities: readRequestCapabilities(env),
+        };
+      }
 
       const row = await repo.findSingleton();
       if (!row) {
@@ -51,6 +90,7 @@ export function createSettingsService(db: Db, redis: Redis | null = null) {
         googleMapUrl: row.googleMapUrl ?? null,
         seoTitle: row.seoTitle ?? null,
         seoDescription: row.seoDescription ?? null,
+        requestCapabilities: readRequestCapabilities(env),
       };
       await cacheSet(redis, CACHE_KEYS.settings, result);
       return result;
