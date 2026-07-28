@@ -65,3 +65,9 @@ apps/*/e2e/.auth/
 
 # isolated development worktrees
 /.worktrees/
+
+# generated dependencies and browser-test artifacts
+**/node_modules/
+.playwright-mcp/
+**/playwright-report/
+**/test-results/
