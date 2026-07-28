@@ -23,14 +23,17 @@ fi
 # 检查 .env 文件
 if [ ! -f .env ]; then
     echo "❌ 未找到 .env 文件"
-    echo "请复制 .env.production 为 .env 并修改配置："
-    echo "  cp .env.production .env"
+    echo "请复制 .env.example 为 .env 并修改配置："
+    echo "  cp .env.example .env"
     echo "  nano .env"
     exit 1
 fi
 
-# 加载环境变量
-export $(grep -v '^#' .env | xargs)
+# 加载环境变量（保留 EMAIL_FROM 等带空格的引号值）
+set -a
+# shellcheck disable=SC1091
+. ./.env
+set +a
 
 # 检查必要变量
 if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "your-domain.com" ]; then
@@ -53,8 +56,14 @@ echo "🔨 构建并启动服务..."
 
 # 第一次部署：只执行迁移和安全的生产初始化
 if [ "$1" = "--init" ]; then
+    if [ "$ALLOW_PRODUCTION_BOOTSTRAP" != "YezYY" ]; then
+        echo "❌ 首次初始化要求 ALLOW_PRODUCTION_BOOTSTRAP=YezYY"
+        exit 1
+    fi
     echo "📦 首次部署：执行数据库迁移和生产初始化..."
-    docker compose -f docker-compose.prod.yml --profile setup up --build migrate bootstrap
+    docker compose -f docker-compose.prod.yml --profile setup build migrate bootstrap
+    docker compose -f docker-compose.prod.yml run --rm migrate
+    docker compose -f docker-compose.prod.yml --profile setup run --rm --no-deps bootstrap
 fi
 
 # 启动所有服务

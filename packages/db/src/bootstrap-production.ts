@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { pathToFileURL } from "node:url";
 import { createDb, type Db } from "./client.js";
 import { loadEnv } from "./env.js";
@@ -14,6 +14,7 @@ export type ProductionBootstrapStore = {
   transaction<T>(
     operation: (store: ProductionBootstrapStore) => Promise<T>,
   ): Promise<T>;
+  acquireBootstrapLock(): Promise<void>;
   hasSiteSettings(): Promise<boolean>;
   createSiteSettings(settings: SiteSettingsInsert): Promise<void>;
   hasAdmin(): Promise<boolean>;
@@ -69,6 +70,11 @@ export function createBootstrapStore(db: Db): ProductionBootstrapStore {
     transaction(operation) {
       return db.transaction((transaction) =>
         operation(createBootstrapStore(transaction as unknown as Db)),
+      );
+    },
+    async acquireBootstrapLock() {
+      await db.execute(
+        sql`select pg_advisory_xact_lock(149978, 1125)`,
       );
     },
     async hasSiteSettings() {
@@ -130,6 +136,7 @@ async function bootstrapWithStore(
   hashPassword: (password: string, rounds: number) => Promise<string>,
 ): Promise<ProductionBootstrapResult> {
   return store.transaction(async (transaction) => {
+    await transaction.acquireBootstrapLock();
     let settingsCreated = false;
     let adminCreated = false;
 

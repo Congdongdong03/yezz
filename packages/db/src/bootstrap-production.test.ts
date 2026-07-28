@@ -1,5 +1,8 @@
 import { drizzle } from "drizzle-orm/postgres-js";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import postgres, { type Sql } from "postgres";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -35,6 +38,7 @@ function createState(): BootstrapState {
 function createStore(state: BootstrapState): ProductionBootstrapStore {
   const store: ProductionBootstrapStore = {
     transaction: async (operation) => operation(store),
+    acquireBootstrapLock: async () => undefined,
     hasSiteSettings: async () => state.settings.length > 0,
     createSiteSettings: async (settings) => {
       state.settings.push(settings);
@@ -60,6 +64,7 @@ const migrationsDirectory = fileURLToPath(
 );
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 let integrationClient: Sql | undefined;
+let applicationClient: Sql | undefined;
 let integrationSchema: string | undefined;
 
 function requireSafeTestDatabaseUrl() {
@@ -84,6 +89,12 @@ function requireSafeTestDatabaseUrl() {
   return testDatabaseUrl;
 }
 
+function withSearchPath(url: string, schemaName: string) {
+  const parsed = new URL(url);
+  parsed.searchParams.set("options", `-csearch_path=${schemaName}`);
+  return parsed.toString();
+}
+
 async function applyMigration(
   client: Sql,
   schemaName: string,
@@ -105,6 +116,8 @@ async function applyMigration(
 }
 
 afterEach(async () => {
+  await applicationClient?.end();
+  applicationClient = undefined;
   if (!integrationClient) return;
   if (integrationSchema) {
     await integrationClient.unsafe(
@@ -130,9 +143,15 @@ describe("production bootstrap", () => {
       readFile(`${repositoryRoot}docker-compose.prod.yml`, "utf8"),
     ]);
 
+    expect(deployScript).toContain("--profile setup build migrate bootstrap");
+    expect(deployScript).toContain("run --rm migrate");
     expect(deployScript).toContain(
+      "--profile setup run --rm --no-deps bootstrap",
+    );
+    expect(deployScript).not.toContain(
       "--profile setup up --build migrate bootstrap",
     );
+    expect(deployScript).not.toContain("grep -v '^#' .env | xargs");
     expect(productionCompose).toContain(
       'command: ["sh", "-c", "pnpm --filter @yezz/db bootstrap:production"]',
     );
@@ -141,6 +160,62 @@ describe("production bootstrap", () => {
     );
     expect(`${deployScript}\n${productionCompose}`).not.toMatch(
       /db:seed|seed:dev-demo|FORCE_SEED/,
+    );
+  });
+
+  it("loads documented quoted environment values without splitting them", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "yezyy-env-test-"));
+    const envPath = join(directory, ".env");
+    try {
+      await writeFile(
+        envPath,
+        [
+          'EMAIL_FROM="YezYY <bookings@yezyy.com>"',
+          'ADMIN_PASSWORD="strong password with spaces"',
+        ].join("\n"),
+      );
+      const result = spawnSync(
+        "bash",
+        [
+          "-c",
+          'set -a; . "$1"; set +a; printf "%s\\n%s" "$EMAIL_FROM" "$ADMIN_PASSWORD"',
+          "bash",
+          envPath,
+        ],
+        { encoding: "utf8" },
+      );
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe(
+        "YezYY <bookings@yezyy.com>\nstrong password with spaces",
+      );
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("the real demo-seed command refuses production before database access", () => {
+    const result = spawnSync(
+      "corepack",
+      ["pnpm", "--filter", "@yezz/db", "seed:dev-demo"],
+      {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          DATABASE_URL:
+            "postgres://invalid:invalid@127.0.0.1:1/must_not_connect",
+          NODE_ENV: "production",
+        },
+      },
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toContain(
+      "demo seed is disabled in production",
+    );
+    expect(`${result.stdout}\n${result.stderr}`).not.toContain(
+      "ECONNREFUSED",
     );
   });
 
@@ -261,7 +336,11 @@ describe.skipIf(!runDatabaseTests)(
         "0002_yezyy_flow_closure.sql",
       );
 
-      const db = drizzle(integrationClient, {
+      applicationClient = postgres(
+        withSearchPath(requireSafeTestDatabaseUrl(), integrationSchema),
+        { max: 2 },
+      );
+      const db = drizzle(applicationClient, {
         schema: databaseSchema,
       }) as unknown as Db;
       const store = createBootstrapStore(db);
@@ -303,6 +382,126 @@ describe.skipIf(!runDatabaseTests)(
         parties: 0,
         gallery: 0,
       });
+    });
+
+    it("serializes concurrent first-admin bootstraps", async () => {
+      integrationClient = postgres(requireSafeTestDatabaseUrl(), { max: 1 });
+      integrationSchema = `yezyy_bootstrap_test_${crypto.randomUUID().replaceAll("-", "")}`;
+      await integrationClient.unsafe(`CREATE SCHEMA "${integrationSchema}"`);
+      await applyMigration(
+        integrationClient,
+        integrationSchema,
+        "0000_ordinary_captain_britain.sql",
+      );
+      await applyMigration(
+        integrationClient,
+        integrationSchema,
+        "0001_nice_ezekiel.sql",
+      );
+      await applyMigration(
+        integrationClient,
+        integrationSchema,
+        "0002_yezyy_flow_closure.sql",
+      );
+
+      applicationClient = postgres(
+        withSearchPath(requireSafeTestDatabaseUrl(), integrationSchema),
+        { max: 2 },
+      );
+      const db = drizzle(applicationClient, {
+        schema: databaseSchema,
+      }) as unknown as Db;
+      const store = createBootstrapStore(db);
+      const options = {
+        store,
+        hashPassword: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          return "integration-safe-hash";
+        },
+      };
+
+      const results = await Promise.all([
+        bootstrapProduction(guardedEnv, options),
+        bootstrapProduction(
+          { ...guardedEnv, ADMIN_EMAIL: "second-owner@yezyy.com" },
+          options,
+        ),
+      ]);
+      expect(
+        results.filter(
+          ({ adminCreated, settingsCreated }) =>
+            adminCreated && settingsCreated,
+        ),
+      ).toHaveLength(1);
+
+      const [counts] = await integrationClient<{
+        settings: number;
+        admins: number;
+      }[]>`
+        SELECT
+          (SELECT count(*)::int FROM site_settings) AS settings,
+          (SELECT count(*)::int FROM users WHERE role = 'admin') AS admins
+      `;
+      expect(counts).toEqual({ settings: 1, admins: 1 });
+    });
+
+    it("runs the real development demo seed against an isolated schema", async () => {
+      integrationClient = postgres(requireSafeTestDatabaseUrl(), { max: 1 });
+      integrationSchema = `yezyy_demo_seed_test_${crypto.randomUUID().replaceAll("-", "")}`;
+      await integrationClient.unsafe(`CREATE SCHEMA "${integrationSchema}"`);
+      await applyMigration(
+        integrationClient,
+        integrationSchema,
+        "0000_ordinary_captain_britain.sql",
+      );
+      await applyMigration(
+        integrationClient,
+        integrationSchema,
+        "0001_nice_ezekiel.sql",
+      );
+      await applyMigration(
+        integrationClient,
+        integrationSchema,
+        "0002_yezyy_flow_closure.sql",
+      );
+
+      const result = spawnSync(
+        "corepack",
+        ["pnpm", "--filter", "@yezz/db", "seed:dev-demo"],
+        {
+          cwd: repositoryRoot,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            ADMIN_EMAIL: "demo-admin@yezyy.test",
+            ADMIN_PASSWORD: "development-only-password",
+            DATABASE_URL: withSearchPath(
+              requireSafeTestDatabaseUrl(),
+              integrationSchema,
+            ),
+            FORCE_SEED: "1",
+            NODE_ENV: "development",
+          },
+        },
+      );
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+
+      await integrationClient.unsafe(
+        `SET search_path TO "${integrationSchema}"`,
+      );
+      const [counts] = await integrationClient<{
+        categories: number;
+        projects: number;
+        parties: number;
+      }[]>`
+        SELECT
+          (SELECT count(*)::int FROM project_categories) AS categories,
+          (SELECT count(*)::int FROM diy_projects) AS projects,
+          (SELECT count(*)::int FROM party_packages) AS parties
+      `;
+      expect(counts.categories).toBeGreaterThan(0);
+      expect(counts.projects).toBeGreaterThan(0);
+      expect(counts.parties).toBeGreaterThan(0);
     });
   },
 );

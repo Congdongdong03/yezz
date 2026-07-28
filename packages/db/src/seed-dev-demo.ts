@@ -11,7 +11,7 @@ import {
   mockGalleryImages,
   mockParties,
   mockProjects,
-} from "../../../apps/web/lib/mock-data.ts";
+} from "./dev-demo-data.js";
 import { createDb } from "./client.js";
 import {
   diyProjects,

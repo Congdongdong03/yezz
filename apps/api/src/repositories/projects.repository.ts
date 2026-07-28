@@ -27,6 +27,7 @@ export type ProjectCreateInput = {
   projectType: "experience" | "product";
   description?: LocalizedString | null;
   priceRange?: string | null;
+  priceCurrency?: string | null;
   duration?: string | null;
   tags?: string[] | null;
   sortOrder?: number;
@@ -43,6 +44,9 @@ export type ProjectUpdateInput = Partial<
 };
 
 export function createProjectsRepository(db: Db) {
+  const selectedCurrency = (value: string | null | undefined) =>
+    value?.trim().toUpperCase() || "AUD";
+
   return {
     findAllWithCategory() {
       return db
@@ -123,7 +127,7 @@ export function createProjectsRepository(db: Db) {
           projectType: data.projectType,
           description: data.description ?? null,
           priceRange: data.priceRange ?? null,
-          priceCurrency: "AUD",
+          priceCurrency: selectedCurrency(data.priceCurrency),
           duration: data.duration ?? null,
           tags: data.tags ?? null,
           sortOrder: data.sortOrder ?? 0,
@@ -160,12 +164,12 @@ export function createProjectsRepository(db: Db) {
 
     async update(id: string, data: ProjectUpdateInput) {
       const { styles, images, ...fields } = data;
-      const patch = {
-        ...Object.fromEntries(
-          Object.entries(fields).filter(([, v]) => v !== undefined),
-        ),
-        priceCurrency: "AUD",
-      };
+      const patch: Record<string, unknown> = Object.fromEntries(
+        Object.entries(fields).filter(([, value]) => value !== undefined),
+      );
+      if (fields.priceCurrency !== undefined) {
+        patch.priceCurrency = selectedCurrency(fields.priceCurrency);
+      }
 
       let project;
       if (Object.keys(patch).length > 0) {

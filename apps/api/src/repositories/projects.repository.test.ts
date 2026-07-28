@@ -2,12 +2,12 @@ import type { Db } from "@yezz/db";
 import { describe, expect, it, vi } from "vitest";
 import { createProjectsRepository } from "./projects.repository.js";
 
-function createRepositoryHarness() {
+function createRepositoryHarness(priceCurrency = "AUD") {
   let inserted: Record<string, unknown> | undefined;
   let updated: Record<string, unknown> | undefined;
   const project = {
     id: "00000000-0000-4000-8000-000000000001",
-    priceCurrency: "AUD",
+    priceCurrency,
   };
 
   const db = {
@@ -60,10 +60,25 @@ describe("projects repository AUD persistence", () => {
 
     const project = await harness.repository.update(
       "00000000-0000-4000-8000-000000000001",
-      { name: { en: "Updated", zh: "已更新" } },
+      {
+        name: { en: "Updated", zh: "已更新" },
+        priceCurrency: "AUD",
+      },
     );
 
     expect(project?.priceCurrency).toBe("AUD");
     expect(harness.getUpdated()).toMatchObject({ priceCurrency: "AUD" });
+  });
+
+  it("does not rewrite an explicit historical currency when none is selected", async () => {
+    const harness = createRepositoryHarness("CNY");
+
+    const project = await harness.repository.update(
+      "00000000-0000-4000-8000-000000000001",
+      { name: { en: "Updated", zh: "已更新" } },
+    );
+
+    expect(project?.priceCurrency).toBe("CNY");
+    expect(harness.getUpdated()).not.toHaveProperty("priceCurrency");
   });
 });
