@@ -367,6 +367,10 @@
         "bookings_request_kind_valid": {
           "name": "bookings_request_kind_valid",
           "value": "\"bookings\".\"request_kind\" IN ('experience', 'party')"
+        },
+        "bookings_kind_parent_consistent": {
+          "name": "bookings_kind_parent_consistent",
+          "value": "(\"bookings\".\"project_id\" IS NULL AND \"bookings\".\"party_package_id\" IS NULL) OR (\"bookings\".\"request_kind\" = 'experience' AND \"bookings\".\"project_id\" IS NOT NULL AND \"bookings\".\"party_package_id\" IS NULL) OR (\"bookings\".\"request_kind\" = 'party' AND \"bookings\".\"project_id\" IS NULL AND \"bookings\".\"party_package_id\" IS NOT NULL)"
         }
       },
       "isRLSEnabled": false
@@ -989,6 +993,51 @@
           "method": "btree",
           "with": {}
         },
+        "email_outbox_booking_id_idx": {
+          "name": "email_outbox_booking_id_idx",
+          "columns": [
+            {
+              "expression": "booking_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "email_outbox_cart_order_id_idx": {
+          "name": "email_outbox_cart_order_id_idx",
+          "columns": [
+            {
+              "expression": "cart_order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "email_outbox_status_event_id_idx": {
+          "name": "email_outbox_status_event_id_idx",
+          "columns": [
+            {
+              "expression": "status_event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "email_outbox_delivery_due_idx": {
           "name": "email_outbox_delivery_due_idx",
           "columns": [
@@ -1056,6 +1105,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "email_outbox_exactly_one_request": {
+          "name": "email_outbox_exactly_one_request",
+          "value": "num_nonnulls(\"email_outbox\".\"booking_id\", \"email_outbox\".\"cart_order_id\") = 1"
+        },
         "email_outbox_delivery_status_valid": {
           "name": "email_outbox_delivery_status_valid",
           "value": "\"email_outbox\".\"delivery_status\" IN ('pending', 'processing', 'sent', 'failed')"
@@ -1659,6 +1712,36 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "request_status_events_booking_id_idx": {
+          "name": "request_status_events_booking_id_idx",
+          "columns": [
+            {
+              "expression": "booking_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "request_status_events_cart_order_id_idx": {
+          "name": "request_status_events_cart_order_id_idx",
+          "columns": [
+            {
+              "expression": "cart_order_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1709,6 +1792,14 @@
         "request_status_events_exactly_one_request": {
           "name": "request_status_events_exactly_one_request",
           "value": "num_nonnulls(\"request_status_events\".\"booking_id\", \"request_status_events\".\"cart_order_id\") = 1"
+        },
+        "request_status_events_from_status_valid": {
+          "name": "request_status_events_from_status_valid",
+          "value": "\"request_status_events\".\"from_status\" IN ('new', 'contacted', 'confirmed', 'cancelled')"
+        },
+        "request_status_events_to_status_valid": {
+          "name": "request_status_events_to_status_valid",
+          "value": "\"request_status_events\".\"to_status\" IN ('new', 'contacted', 'confirmed', 'cancelled')"
         }
       },
       "isRLSEnabled": false

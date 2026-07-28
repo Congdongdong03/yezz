@@ -140,9 +140,14 @@ ALTER TABLE "request_status_events" ADD CONSTRAINT "request_status_events_actor_
 CREATE UNIQUE INDEX "admin_request_reads_booking_unique" ON "admin_request_reads" USING btree ("user_id","booking_id") WHERE "admin_request_reads"."booking_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "admin_request_reads_cart_order_unique" ON "admin_request_reads" USING btree ("user_id","cart_order_id") WHERE "admin_request_reads"."cart_order_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "email_outbox_dedupe_key_unique" ON "email_outbox" USING btree ("dedupe_key");--> statement-breakpoint
+CREATE INDEX "email_outbox_booking_id_idx" ON "email_outbox" USING btree ("booking_id");--> statement-breakpoint
+CREATE INDEX "email_outbox_cart_order_id_idx" ON "email_outbox" USING btree ("cart_order_id");--> statement-breakpoint
+CREATE INDEX "email_outbox_status_event_id_idx" ON "email_outbox" USING btree ("status_event_id");--> statement-breakpoint
 CREATE INDEX "email_outbox_delivery_due_idx" ON "email_outbox" USING btree ("delivery_status","next_attempt_at");--> statement-breakpoint
 CREATE INDEX "request_rate_limits_expires_at_idx" ON "request_rate_limits" USING btree ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "request_status_events_operation_id_unique" ON "request_status_events" USING btree ("operation_id");--> statement-breakpoint
+CREATE INDEX "request_status_events_booking_id_idx" ON "request_status_events" USING btree ("booking_id");--> statement-breakpoint
+CREATE INDEX "request_status_events_cart_order_id_idx" ON "request_status_events" USING btree ("cart_order_id");--> statement-breakpoint
 ALTER TABLE "bookings" ADD CONSTRAINT "bookings_project_id_diy_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."diy_projects"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bookings" ADD CONSTRAINT "bookings_party_package_id_party_packages_id_fk" FOREIGN KEY ("party_package_id") REFERENCES "public"."party_packages"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bookings" ADD CONSTRAINT "bookings_time_slot_id_time_slots_id_fk" FOREIGN KEY ("time_slot_id") REFERENCES "public"."time_slots"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -152,6 +157,10 @@ CREATE UNIQUE INDEX "bookings_idempotency_key_unique" ON "bookings" USING btree 
 CREATE UNIQUE INDEX "cart_orders_idempotency_key_unique" ON "cart_orders" USING btree ("idempotency_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "time_slots_effective_slot_unique" ON "time_slots" USING btree ("date","start_time","end_time",COALESCE("category_id", '00000000-0000-0000-0000-000000000000'::uuid));--> statement-breakpoint
 ALTER TABLE "bookings" ADD CONSTRAINT "bookings_request_kind_valid" CHECK ("bookings"."request_kind" IN ('experience', 'party'));--> statement-breakpoint
+ALTER TABLE "bookings" ADD CONSTRAINT "bookings_kind_parent_consistent" CHECK (("bookings"."project_id" IS NULL AND "bookings"."party_package_id" IS NULL) OR ("bookings"."request_kind" = 'experience' AND "bookings"."project_id" IS NOT NULL AND "bookings"."party_package_id" IS NULL) OR ("bookings"."request_kind" = 'party' AND "bookings"."project_id" IS NULL AND "bookings"."party_package_id" IS NOT NULL));--> statement-breakpoint
+ALTER TABLE "email_outbox" ADD CONSTRAINT "email_outbox_exactly_one_request" CHECK (num_nonnulls("email_outbox"."booking_id", "email_outbox"."cart_order_id") = 1);--> statement-breakpoint
+ALTER TABLE "request_status_events" ADD CONSTRAINT "request_status_events_from_status_valid" CHECK ("request_status_events"."from_status" IN ('new', 'contacted', 'confirmed', 'cancelled'));--> statement-breakpoint
+ALTER TABLE "request_status_events" ADD CONSTRAINT "request_status_events_to_status_valid" CHECK ("request_status_events"."to_status" IN ('new', 'contacted', 'confirmed', 'cancelled'));--> statement-breakpoint
 ALTER TABLE "time_slots" ADD CONSTRAINT "time_slots_capacity_positive" CHECK ("time_slots"."capacity" >= 1);--> statement-breakpoint
 ALTER TABLE "time_slots" ADD CONSTRAINT "time_slots_booked_nonnegative" CHECK ("time_slots"."booked_count" >= 0);--> statement-breakpoint
 ALTER TABLE "time_slots" ADD CONSTRAINT "time_slots_booked_within_capacity" CHECK ("time_slots"."booked_count" <= "time_slots"."capacity");--> statement-breakpoint

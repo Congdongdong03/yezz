@@ -207,6 +207,10 @@ export const bookings = pgTable("bookings", {
     "bookings_request_kind_valid",
     sql`${table.requestKind} IN ('experience', 'party')`,
   ),
+  check(
+    "bookings_kind_parent_consistent",
+    sql`(${table.projectId} IS NULL AND ${table.partyPackageId} IS NULL) OR (${table.requestKind} = 'experience' AND ${table.projectId} IS NOT NULL AND ${table.partyPackageId} IS NULL) OR (${table.requestKind} = 'party' AND ${table.projectId} IS NULL AND ${table.partyPackageId} IS NOT NULL)`,
+  ),
 ]);
 
 export const cartOrders = pgTable("cart_orders", {
@@ -329,9 +333,19 @@ export const requestStatusEvents = pgTable(
   },
   (table) => [
     uniqueIndex("request_status_events_operation_id_unique").on(table.operationId),
+    index("request_status_events_booking_id_idx").on(table.bookingId),
+    index("request_status_events_cart_order_id_idx").on(table.cartOrderId),
     check(
       "request_status_events_exactly_one_request",
       sql`num_nonnulls(${table.bookingId}, ${table.cartOrderId}) = 1`,
+    ),
+    check(
+      "request_status_events_from_status_valid",
+      sql`${table.fromStatus} IN ('new', 'contacted', 'confirmed', 'cancelled')`,
+    ),
+    check(
+      "request_status_events_to_status_valid",
+      sql`${table.toStatus} IN ('new', 'contacted', 'confirmed', 'cancelled')`,
     ),
   ],
 );
@@ -370,6 +384,13 @@ export const emailOutbox = pgTable(
   },
   (table) => [
     uniqueIndex("email_outbox_dedupe_key_unique").on(table.dedupeKey),
+    index("email_outbox_booking_id_idx").on(table.bookingId),
+    index("email_outbox_cart_order_id_idx").on(table.cartOrderId),
+    index("email_outbox_status_event_id_idx").on(table.statusEventId),
+    check(
+      "email_outbox_exactly_one_request",
+      sql`num_nonnulls(${table.bookingId}, ${table.cartOrderId}) = 1`,
+    ),
     check(
       "email_outbox_delivery_status_valid",
       sql`${table.deliveryStatus} IN ('pending', 'processing', 'sent', 'failed')`,

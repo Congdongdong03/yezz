@@ -107,6 +107,78 @@ describe.skipIf(!runDatabaseTests)(
       ]);
 
       await client.unsafe(`SET search_path TO "${schema}"`);
+      const requestIndexes = await client<{ indexname: string }[]>`
+        SELECT indexname
+        FROM pg_indexes
+        WHERE schemaname = ${schema}
+          AND indexname IN (
+            'bookings_idempotency_key_unique',
+            'cart_orders_idempotency_key_unique',
+            'email_outbox_dedupe_key_unique',
+            'request_status_events_booking_id_idx',
+            'request_status_events_cart_order_id_idx',
+            'request_status_events_operation_id_unique',
+            'email_outbox_booking_id_idx',
+            'email_outbox_cart_order_id_idx',
+            'email_outbox_status_event_id_idx',
+            'time_slots_effective_slot_unique'
+          )
+        ORDER BY indexname
+      `;
+      expect(requestIndexes.map(({ indexname }) => indexname)).toEqual([
+        "bookings_idempotency_key_unique",
+        "cart_orders_idempotency_key_unique",
+        "email_outbox_booking_id_idx",
+        "email_outbox_cart_order_id_idx",
+        "email_outbox_dedupe_key_unique",
+        "email_outbox_status_event_id_idx",
+        "request_status_events_booking_id_idx",
+        "request_status_events_cart_order_id_idx",
+        "request_status_events_operation_id_unique",
+        "time_slots_effective_slot_unique",
+      ]);
+
+      const requestChecks = await client<{ conname: string }[]>`
+        SELECT conname
+        FROM pg_constraint
+        WHERE connamespace = ${schema}::regnamespace
+          AND conname IN (
+            'admin_request_reads_exactly_one_request',
+            'bookings_kind_parent_consistent',
+            'bookings_request_kind_valid',
+            'email_outbox_attempt_count_nonnegative',
+            'email_outbox_delivery_status_valid',
+            'request_status_events_from_status_valid',
+            'request_status_events_to_status_valid',
+            'email_outbox_exactly_one_request',
+            'request_rate_limits_count_positive',
+            'request_status_events_exactly_one_request',
+            'time_slots_booked_nonnegative',
+            'time_slots_booked_within_capacity',
+            'time_slots_capacity_positive',
+            'time_slots_time_format',
+            'time_slots_time_order'
+          )
+        ORDER BY conname
+      `;
+      expect(requestChecks.map(({ conname }) => conname)).toEqual([
+        "admin_request_reads_exactly_one_request",
+        "bookings_kind_parent_consistent",
+        "bookings_request_kind_valid",
+        "email_outbox_attempt_count_nonnegative",
+        "email_outbox_delivery_status_valid",
+        "email_outbox_exactly_one_request",
+        "request_rate_limits_count_positive",
+        "request_status_events_exactly_one_request",
+        "request_status_events_from_status_valid",
+        "request_status_events_to_status_valid",
+        "time_slots_booked_nonnegative",
+        "time_slots_booked_within_capacity",
+        "time_slots_capacity_positive",
+        "time_slots_time_format",
+        "time_slots_time_order",
+      ]);
+
       await expect(
         client`
           INSERT INTO bookings (name, phone, request_kind)
@@ -131,9 +203,10 @@ describe.skipIf(!runDatabaseTests)(
         VALUES ('2030-01-02', '09:00', '10:00', 2)
         RETURNING id
       `;
-      await client`
+      const [legacyBooking] = await client<{ id: string }[]>`
         INSERT INTO bookings (name, phone, time_slot_id)
         VALUES ('Customer', '0430000000', ${slot.id})
+        RETURNING id
       `;
       await expect(
         client`DELETE FROM time_slots WHERE id = ${slot.id}`,
@@ -144,9 +217,10 @@ describe.skipIf(!runDatabaseTests)(
         VALUES ('2030-01-02', '10:00', '11:00', 2)
         RETURNING id
       `;
-      await client`
+      const [cartOrder] = await client<{ id: string }[]>`
         INSERT INTO cart_orders (name, phone, time_slot_id)
         VALUES ('Customer', '0430000000', ${cartSlot.id})
+        RETURNING id
       `;
       await expect(
         client`DELETE FROM time_slots WHERE id = ${cartSlot.id}`,
@@ -157,6 +231,206 @@ describe.skipIf(!runDatabaseTests)(
         VALUES ('staff@example.test', 'not-a-real-password-hash', 'Staff')
         RETURNING id
       `;
+
+      const [category] = await client<{ id: string }[]>`
+        INSERT INTO project_categories (name, slug)
+        VALUES ('{"en":"Project","zh":"项目"}'::jsonb, 'request-project')
+        RETURNING id
+      `;
+      const [project] = await client<{ id: string }[]>`
+        INSERT INTO diy_projects (
+          category_id, name, slug, project_type, price_currency
+        )
+        VALUES (
+          ${category.id},
+          '{"en":"Project","zh":"项目"}'::jsonb,
+          'request-project',
+          'experience',
+          'AUD'
+        )
+        RETURNING id
+      `;
+      const [partyPackage] = await client<{ id: string }[]>`
+        INSERT INTO party_packages (name, slug)
+        VALUES ('{"en":"Party","zh":"派对"}'::jsonb, 'request-party')
+        RETURNING id
+      `;
+
+      await expect(
+        client`
+          INSERT INTO bookings (name, phone, request_kind, project_id)
+          VALUES ('Experience', '0430000001', 'experience', ${project.id})
+        `,
+      ).resolves.toHaveLength(0);
+      await expect(
+        client`
+          INSERT INTO bookings (name, phone, request_kind, party_package_id)
+          VALUES ('Party', '0430000002', 'party', ${partyPackage.id})
+        `,
+      ).resolves.toHaveLength(0);
+      await expect(
+        client`
+          INSERT INTO bookings (name, phone, request_kind, party_package_id)
+          VALUES ('Mismatch', '0430000003', 'experience', ${partyPackage.id})
+        `,
+      ).rejects.toMatchObject({ code: "23514" });
+      await expect(
+        client`
+          INSERT INTO bookings (name, phone, request_kind, project_id)
+          VALUES ('Mismatch', '0430000004', 'party', ${project.id})
+        `,
+      ).rejects.toMatchObject({ code: "23514" });
+      await expect(
+        client`
+          INSERT INTO bookings (
+            name, phone, request_kind, project_id, party_package_id
+          )
+          VALUES (
+            'Double parent',
+            '0430000005',
+            'experience',
+            ${project.id},
+            ${partyPackage.id}
+          )
+        `,
+      ).rejects.toMatchObject({ code: "23514" });
+
+      await expect(
+        client`
+          INSERT INTO request_status_events (
+            booking_id,
+            operation_id,
+            from_status,
+            to_status,
+            actor_user_id
+          )
+          VALUES (
+            ${legacyBooking.id},
+            '00000000-0000-4000-8000-000000000010',
+            'new',
+            'contacted',
+            ${user.id}
+          )
+        `,
+      ).resolves.toHaveLength(0);
+      await expect(
+        client`
+          INSERT INTO request_status_events (
+            booking_id,
+            operation_id,
+            from_status,
+            to_status,
+            actor_user_id
+          )
+          VALUES (
+            ${legacyBooking.id},
+            '00000000-0000-4000-8000-000000000011',
+            'invalid',
+            'contacted',
+            ${user.id}
+          )
+        `,
+      ).rejects.toMatchObject({ code: "23514" });
+      await expect(
+        client`
+          INSERT INTO request_status_events (
+            booking_id,
+            operation_id,
+            from_status,
+            to_status,
+            actor_user_id
+          )
+          VALUES (
+            ${legacyBooking.id},
+            '00000000-0000-4000-8000-000000000012',
+            'new',
+            'invalid',
+            ${user.id}
+          )
+        `,
+      ).rejects.toMatchObject({ code: "23514" });
+
+      await expect(
+        client`
+          INSERT INTO email_outbox (
+            dedupe_key,
+            booking_id,
+            message_type,
+            recipient,
+            locale,
+            payload
+          )
+          VALUES (
+            'booking-parent',
+            ${legacyBooking.id},
+            'request_received',
+            'customer@example.test',
+            'en',
+            '{}'::jsonb
+          )
+        `,
+      ).resolves.toHaveLength(0);
+      await expect(
+        client`
+          INSERT INTO email_outbox (
+            dedupe_key,
+            cart_order_id,
+            message_type,
+            recipient,
+            locale,
+            payload
+          )
+          VALUES (
+            'cart-parent',
+            ${cartOrder.id},
+            'request_received',
+            'customer@example.test',
+            'en',
+            '{}'::jsonb
+          )
+        `,
+      ).resolves.toHaveLength(0);
+      await expect(
+        client`
+          INSERT INTO email_outbox (
+            dedupe_key,
+            message_type,
+            recipient,
+            locale,
+            payload
+          )
+          VALUES (
+            'missing-parent',
+            'request_received',
+            'customer@example.test',
+            'en',
+            '{}'::jsonb
+          )
+        `,
+      ).rejects.toMatchObject({ code: "23514" });
+      await expect(
+        client`
+          INSERT INTO email_outbox (
+            dedupe_key,
+            booking_id,
+            cart_order_id,
+            message_type,
+            recipient,
+            locale,
+            payload
+          )
+          VALUES (
+            'double-parent',
+            ${legacyBooking.id},
+            ${cartOrder.id},
+            'request_received',
+            'customer@example.test',
+            'en',
+            '{}'::jsonb
+          )
+        `,
+      ).rejects.toMatchObject({ code: "23514" });
+
       await expect(
         client`
           INSERT INTO request_status_events (
