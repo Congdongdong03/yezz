@@ -90,9 +90,19 @@ export default function AdminBookingsPage() {
         "select[data-booking-id]",
       ),
     ).find((control) => control.dataset.bookingId === bookingId);
-    if (statusControl?.disabled) return;
-    (statusControl ?? headingRef.current)?.focus();
-    focusBookingAfterRefreshRef.current = null;
+    const target =
+      statusControl?.isConnected && !statusControl.disabled
+        ? statusControl
+        : headingRef.current?.isConnected
+          ? headingRef.current
+          : null;
+    if (!target || (statusControl?.isConnected && statusControl.disabled)) {
+      return;
+    }
+    target.focus();
+    if (document.activeElement === target) {
+      focusBookingAfterRefreshRef.current = null;
+    }
   }, [items, updatingId]);
 
   const handleStatusChange = async (
@@ -114,16 +124,7 @@ export default function AdminBookingsPage() {
       if (stale) {
         focusBookingAfterRefreshRef.current = id;
         setPendingStatusChange(null);
-        const refreshed = await load({ showLoading: false });
-        if (!refreshed) {
-          const statusControl = Array.from(
-            document.querySelectorAll<HTMLSelectElement>(
-              "select[data-booking-id]",
-            ),
-          ).find((control) => control.dataset.bookingId === id);
-          (statusControl ?? headingRef.current)?.focus();
-          focusBookingAfterRefreshRef.current = null;
-        }
+        await load({ showLoading: false });
       }
       return localized;
     } finally {

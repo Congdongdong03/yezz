@@ -109,7 +109,7 @@ describe("AdminBookingsPage stale status focus", () => {
     document.body.replaceChildren();
   });
 
-  it("restores focus to the surviving status control after a stale refresh", async () => {
+  async function submitStaleStatusChange() {
     await act(async () => root.render(<AdminBookingsPage />));
     await act(async () => {});
 
@@ -135,6 +135,10 @@ describe("AdminBookingsPage stale status focus", () => {
     expect(confirmButton).toBeDefined();
     await act(async () => confirmButton?.click());
     await act(async () => {});
+  }
+
+  it("restores focus to the surviving status control after a stale refresh", async () => {
+    await submitStaleStatusChange();
 
     const refreshedStatus = container.querySelector<HTMLSelectElement>(
       "select[aria-label='更新 Alice 的预约状态']",
@@ -144,5 +148,59 @@ describe("AdminBookingsPage stale status focus", () => {
     expect(refreshedStatus?.value).toBe("cancelled");
     expect(document.activeElement?.isConnected).toBe(true);
     expect(document.activeElement).toBe(refreshedStatus);
+  });
+
+  it("waits until the existing control is re-enabled when stale refresh fails", async () => {
+    api.getAdminBookings
+      .mockReset()
+      .mockResolvedValueOnce({
+        data: [booking("new")],
+        total: 1,
+        page: 1,
+        limit: 100,
+      })
+      .mockRejectedValueOnce(new Error("raw transport failure"));
+
+    await submitStaleStatusChange();
+
+    const statusControl = container.querySelector<HTMLSelectElement>(
+      "select[aria-label='更新 Alice 的预约状态']",
+    );
+    expect(statusControl?.disabled).toBe(false);
+    expect(document.activeElement?.isConnected).toBe(true);
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(statusControl);
+    expect(container.querySelector("[role='alert']")?.textContent).toContain(
+      "预约记录加载失败，请稍后重试",
+    );
+    expect(container.textContent).not.toContain("raw transport failure");
+  });
+
+  it("focuses the page heading when a stale refresh removes the row", async () => {
+    api.getAdminBookings
+      .mockReset()
+      .mockResolvedValueOnce({
+        data: [booking("new")],
+        total: 1,
+        page: 1,
+        limit: 100,
+      })
+      .mockResolvedValueOnce({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 100,
+      });
+
+    await submitStaleStatusChange();
+
+    const heading = container.querySelector<HTMLHeadingElement>("h1");
+    expect(container.textContent).toContain(
+      "预约状态已变化，列表已刷新，请重新选择操作",
+    );
+    expect(heading?.tabIndex).toBe(-1);
+    expect(document.activeElement?.isConnected).toBe(true);
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(heading);
   });
 });
