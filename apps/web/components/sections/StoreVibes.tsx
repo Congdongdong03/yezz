@@ -4,6 +4,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
 
 interface StoreVibesProps {
   storeImage?: {
@@ -31,14 +32,19 @@ export default function StoreVibes({ storeImage }: StoreVibesProps) {
             {storeImage?.imageUrl ? (
               <Image
                 src={storeImage.imageUrl}
-                alt={storeImage.caption?.[locale as "en" | "zh"] || "YEZZ Studio"}
+                alt={
+                  storeImage.caption?.[locale as "en" | "zh"] ||
+                  `${YEZYY_BUSINESS_PROFILE.storeName} Studio`
+                }
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover"
               />
             ) : (
               <div className="flex h-full items-center justify-center bg-cream">
-                <span className="text-warm-grey">YEZZ Studio</span>
+                <span className="text-warm-grey">
+                  {YEZYY_BUSINESS_PROFILE.storeName} Studio
+                </span>
               </div>
             )}
           </motion.div>

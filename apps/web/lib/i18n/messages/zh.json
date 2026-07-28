@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "YEZZ - 手作体验馆",
-    "description": "在 YEZZ 手作体验馆，亲手制作独一无二的作品"
+    "title": "YezYY - 手作体验馆",
+    "description": "在 YezYY 手作体验馆，亲手制作独一无二的作品"
   },
   "errors": {
     "unavailableTitle": "服务暂时不可用",
@@ -79,7 +79,7 @@
     },
     "storeVibes": {
       "title": "来店里看看",
-      "desc": "一个温暖、舒适的空间，专为创意和连接而设计。来体验 YEZZ 的氛围吧。",
+      "desc": "一个温暖、舒适的空间，专为创意和连接而设计。来体验 YezYY 的氛围吧。",
       "cta": "找到我们"
     },
     "wechatCta": {
@@ -118,7 +118,7 @@
     "scanWechat": "扫码添加微信",
     "map": "地图",
     "openInMaps": "在 Google 地图中查看",
-    "metaDescription": "联系 YEZZ 手作体验馆——到店体验、添加微信或预约活动。"
+    "metaDescription": "联系 YezYY 手作体验馆——到店体验、添加微信或预约活动。"
   },
   "book": {
     "title": "预约您的体验",
@@ -201,7 +201,7 @@
     "rights": "版权所有。",
     "links": "链接",
     "contact": "联系方式",
-    "email": "邮箱：hello@yezz.studio",
+    "email": "邮箱：izzybella.chen@gmail.com",
     "tagline": "创造属于你的杰作",
     "xiaohongshu": "小红书"
   }

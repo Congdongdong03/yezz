@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
 
 export default function Hero({ heroImageUrl }: { heroImageUrl?: string }) {
   const t = useTranslations("hero");
@@ -13,7 +14,7 @@ export default function Hero({ heroImageUrl }: { heroImageUrl?: string }) {
       {heroImageUrl ? (
         <Image
           src={heroImageUrl}
-          alt="YEZZ Studio"
+          alt={`${YEZYY_BUSINESS_PROFILE.storeName} Studio`}
           fill
           sizes="100vw"
           className="object-cover"

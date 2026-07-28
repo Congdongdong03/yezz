@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "YEZZ - DIY Studio",
-    "description": "Create your own masterpiece at YEZZ DIY Studio"
+    "title": "YezYY - DIY Studio",
+    "description": "Create your own masterpiece at YezYY DIY Studio"
   },
   "errors": {
     "unavailableTitle": "Service temporarily unavailable",
@@ -79,7 +79,7 @@
     },
     "storeVibes": {
       "title": "Visit Our Studio",
-      "desc": "A warm, inviting space designed for creativity and connection. Come experience the YEZZ atmosphere.",
+      "desc": "A warm, inviting space designed for creativity and connection. Come experience the YezYY atmosphere.",
       "cta": "Find Us"
     },
     "wechatCta": {
@@ -118,7 +118,7 @@
     "scanWechat": "Scan to add us on WeChat",
     "map": "Map",
     "openInMaps": "Open in Google Maps",
-    "metaDescription": "Get in touch with YEZZ DIY Studio — visit us, add us on WeChat, or book your experience."
+    "metaDescription": "Get in touch with YezYY DIY Studio — visit us, add us on WeChat, or book your experience."
   },
   "book": {
     "title": "Book Your Experience",
@@ -201,7 +201,7 @@
     "rights": "All rights reserved.",
     "links": "Links",
     "contact": "Contact",
-    "email": "Email: hello@yezz.studio",
+    "email": "Email: izzybella.chen@gmail.com",
     "tagline": "Create your own masterpiece",
     "xiaohongshu": "Xiaohongshu"
   }
