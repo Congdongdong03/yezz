@@ -12,7 +12,7 @@ const api = vi.hoisted(() => ({
   markNotificationsRead: vi.fn(),
   updateBookingStatus: vi.fn(),
 }));
-const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
+const navigation = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 
 vi.mock("next/link", () => ({
   default: ({

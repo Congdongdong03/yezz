@@ -51,6 +51,7 @@ export default function AdminBookingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialQuery = parseAdminQueueSearchParams(searchParams);
+  const queryKey = searchParams?.toString() ?? "";
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusBookingAfterRefreshRef = useRef<string | null>(null);
   const [items, setItems] = useState<Booking[]>([]);
@@ -110,6 +111,18 @@ export default function AdminBookingsPage() {
     void Promise.resolve().then(() => load());
   }, [load]);
 
+  useEffect(() => {
+    const next = parseAdminQueueSearchParams(searchParams);
+    void Promise.resolve().then(() => {
+      setPage(next.page ?? 1);
+      setStatus(next.status ?? "");
+      setSearch(next.search ?? "");
+      setUnread(next.unread ?? false);
+      setOverdue(next.overdue ?? false);
+      setConfirmedToday(next.confirmedToday ?? false);
+    });
+  }, [queryKey, searchParams]);
+
   const applyFilters = () => {
     setPage(1);
     updateUrl(1);
@@ -136,7 +149,7 @@ export default function AdminBookingsPage() {
       if (value) next.set(key, value);
       else next.delete(key);
     }
-    router.replace(`/admin/bookings${next.size ? `?${next}` : ""}`);
+    router.push(`/admin/bookings${next.size ? `?${next}` : ""}`);
   };
 
   useEffect(() => {
