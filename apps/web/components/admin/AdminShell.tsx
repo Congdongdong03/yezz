@@ -22,6 +22,7 @@ const navItems: NavItem[] = [
   { href: "/admin/bookings", label: "预约", badgeKey: "bookings" },
   { href: "/admin/orders", label: "订单", badgeKey: "orders" },
   { href: "/admin/time-slots", label: "档期" },
+  { href: "/admin/email-deliveries", label: "邮件发送" },
   { href: "/admin/projects", label: "项目", adminOnly: true },
   { href: "/admin/parties", label: "派对套餐", adminOnly: true },
   { href: "/admin/gallery", label: "画廊", adminOnly: true },

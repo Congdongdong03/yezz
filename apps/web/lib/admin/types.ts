@@ -187,6 +187,41 @@ export type UnreadCounts = {
   total: number;
 };
 
+export type EmailDeliveryStatus = "pending" | "processing" | "sent" | "failed";
+
+export type EmailDelivery = {
+  id: string;
+  dedupeKey: string;
+  bookingId: string | null;
+  cartOrderId: string | null;
+  statusEventId: string | null;
+  messageType: string;
+  recipient: string;
+  locale: string;
+  deliveryStatus: EmailDeliveryStatus;
+  attemptCount: number;
+  nextAttemptAt: string;
+  leaseExpiresAt: string | null;
+  providerMessageId: string | null;
+  lastError: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EmailDeliveryListOptions = {
+  page?: number;
+  limit?: number;
+  status?: EmailDeliveryStatus;
+};
+
+export type EmailDeliveryList = {
+  data: EmailDelivery[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 export type CartOrderItem = {
   id: string;
   projectId: string | null;

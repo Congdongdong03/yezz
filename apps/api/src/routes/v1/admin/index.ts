@@ -13,6 +13,7 @@ import adminSettingsRoutes from "./settings.routes.js";
 import adminTimeSlotsRoutes from "./time-slots.routes.js";
 import adminUploadRoutes from "./upload.routes.js";
 import adminUsersRoutes from "./users.routes.js";
+import adminEmailDeliveriesRoutes from "./email-deliveries.routes.js";
 
 export default async function adminRoutes(app: FastifyInstance) {
   app.addHook("onRequest", app.authenticate);
@@ -51,6 +52,7 @@ export default async function adminRoutes(app: FastifyInstance) {
   await app.register(adminBookingsRoutes, { prefix: "/bookings" });
   await app.register(adminOrdersRoutes, { prefix: "/orders" });
   await app.register(adminTimeSlotsRoutes, { prefix: "/time-slots" });
+  await app.register(adminEmailDeliveriesRoutes, { prefix: "/email-deliveries" });
   await app.register(adminUploadRoutes, { prefix: "/upload" });
 
   await app.register(async (adminOnly) => {

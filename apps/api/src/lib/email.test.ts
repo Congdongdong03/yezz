@@ -15,7 +15,7 @@ vi.mock("resend", () => ({
     emails = {
       send: vi.fn(async (email: Record<string, unknown>) => {
         sentEmails.push(email);
-        return { data: null, error: null };
+        return { data: { id: "resend-message-123" }, error: null };
       }),
     };
   },
@@ -33,6 +33,18 @@ describe("email helpers", () => {
     expect(displayLocalized({ zh: "手机壳" })).toBe("手机壳");
     expect(displayLocalized("plain")).toBe("plain");
     expect(displayLocalized(null)).toBe("N/A");
+  });
+
+  it("uses Melbourne as the default store timezone", async () => {
+    const originalStoreTimezone = process.env.STORE_TIMEZONE;
+    delete process.env.STORE_TIMEZONE;
+    vi.resetModules();
+    const { getStoreTimezone } = await import("./email.js");
+
+    expect(getStoreTimezone()).toBe("Australia/Melbourne");
+
+    if (originalStoreTimezone === undefined) delete process.env.STORE_TIMEZONE;
+    else process.env.STORE_TIMEZONE = originalStoreTimezone;
   });
 });
 
@@ -189,6 +201,69 @@ describe("booking request acknowledgement email", () => {
     expect(confirmed.html).toContain("your booking is confirmed");
     expect(cancelled.subject).toContain("booking cancelled");
     expect(cancelled.html).toContain("unable to accommodate your booking");
+  });
+
+  it("returns the provider message ID for a typed outbox template", async () => {
+    const { createResendOutboxProvider } = await import("./email.js");
+    const provider = createResendOutboxProvider();
+
+    await expect(
+      provider.send({
+        id: "00000000-0000-4000-8000-000000000001",
+        dedupeKey: "booking:1:status:confirmed:customer",
+        messageType: "booking_status_customer",
+        recipient: "customer@example.com",
+        locale: "en",
+        payload: {
+          template: "booking_status",
+          status: "confirmed",
+          customerName: "Wesley",
+          orderNumber: "booking-20260728-1234",
+          storeName: "YezYY",
+          contact: { email: "congdongdong03@gmail.com" },
+        },
+      }),
+    ).resolves.toEqual({ providerMessageId: "resend-message-123" });
+
+    const sentEmail = sentEmails.at(-1) as {
+      html: string;
+      replyTo: string;
+      subject: string;
+    };
+    expect(sentEmail.subject).toContain("booking confirmed");
+    expect(sentEmail.html).toContain("your booking is confirmed");
+    expect(sentEmail.replyTo).toBe("congdongdong03@gmail.com");
+  });
+
+  it("renders a queued booking acknowledgement with manual confirmation and pay-in-store copy", async () => {
+    const { createResendOutboxProvider } = await import("./email.js");
+    const provider = createResendOutboxProvider();
+
+    await provider.send({
+      id: "00000000-0000-4000-8000-000000000001",
+      dedupeKey: "booking:1:received:customer",
+      messageType: "booking_received_customer",
+      recipient: "customer@example.com",
+      locale: "en",
+      payload: {
+        template: "booking_received",
+        orderId: "00000000-0000-4000-8000-000000000002",
+        orderNumber: "booking-20260728-1234",
+        submittedAt: "2026-07-28T02:00:00.000Z",
+        input: {
+          name: "Wesley",
+          phone: "0430787712",
+          locale: "en",
+        },
+        contact: { email: "congdongdong03@gmail.com" },
+      },
+    });
+
+    const sentEmail = sentEmails.at(-1) as { html: string; subject: string };
+    expect(sentEmail.subject).toContain("Booking Request Received");
+    expect(sentEmail.html).toContain("awaiting confirmation");
+    expect(sentEmail.html).toContain("Pay in Store");
+    expect(sentEmail.html).not.toContain("Your booking is confirmed");
   });
 
   it("requires EMAIL_FROM when starting in production", async () => {

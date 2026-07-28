@@ -1,6 +1,10 @@
 import { Resend } from "resend";
 import type { CartOrderCreateInput } from "../repositories/cart-orders.repository.js";
 import type { BookingCreateInput } from "../repositories/bookings.repository.js";
+import type {
+  EmailOutboxProvider,
+  OutboxProviderMessage,
+} from "../services/email-outbox.service.js";
 import { displayLocalized, escapeHtml } from "./email-helpers.js";
 
 export { displayLocalized, escapeHtml } from "./email-helpers.js";
@@ -18,7 +22,8 @@ if (process.env.NODE_ENV === "production" && !configuredFrom) {
 // Development has no transactional mail configuration by default. Production
 // always uses the configured, verified Resend sender instead of a legacy domain.
 const FROM = configuredFrom || "YezYY <onboarding@resend.dev>";
-const REPLY_TO = process.env.EMAIL_REPLY_TO?.trim() || "congdongdong03@gmail.com";
+const REPLY_TO =
+  process.env.EMAIL_REPLY_TO?.trim() || "congdongdong03@gmail.com";
 
 export type StoreContact = {
   phone?: string | null;
@@ -26,19 +31,63 @@ export type StoreContact = {
   email?: string | null;
 };
 
-export async function sendOwnerEmail(subject: string, html: string): Promise<void> {
+type ProviderSendResult = { providerMessageId: string };
+
+function providerError(error: unknown): Error {
+  const candidate =
+    typeof error === "object" && error !== null
+      ? (error as { message?: unknown; name?: unknown; statusCode?: unknown })
+      : {};
+  return Object.assign(
+    new Error(
+      typeof candidate.message === "string"
+        ? candidate.message
+        : "Email provider rejected the message",
+    ),
+    {
+      code: typeof candidate.name === "string" ? candidate.name : undefined,
+      statusCode:
+        typeof candidate.statusCode === "number"
+          ? candidate.statusCode
+          : undefined,
+    },
+  );
+}
+
+async function sendRawEmail(
+  input: { to: string; subject: string; html: string },
+  idempotencyKey?: string,
+): Promise<ProviderSendResult | null> {
+  if (!resend) return null;
+  const response = await resend.emails.send(
+    {
+      from: FROM,
+      to: input.to,
+      replyTo: REPLY_TO,
+      subject: input.subject,
+      html: input.html,
+    },
+    idempotencyKey ? { idempotencyKey } : undefined,
+  );
+  if (response.error) throw providerError(response.error);
+  if (!response.data?.id) {
+    throw Object.assign(new Error("Email provider returned no message ID"), {
+      code: "missing_provider_message_id",
+    });
+  }
+  return { providerMessageId: response.data.id };
+}
+
+export async function sendOwnerEmail(
+  subject: string,
+  html: string,
+): Promise<void> {
   const ownerEmail = process.env.OWNER_EMAIL;
-  if (!resend || !ownerEmail) {
+  if (!ownerEmail) {
     return;
   }
 
-  await resend.emails.send({
-    from: FROM,
-    to: ownerEmail,
-    replyTo: REPLY_TO,
-    subject,
-    html,
-  });
+  await sendRawEmail({ to: ownerEmail, subject, html });
 }
 
 async function sendCustomerEmail(
@@ -46,8 +95,7 @@ async function sendCustomerEmail(
   subject: string,
   html: string,
 ): Promise<void> {
-  if (!resend) return;
-  await resend.emails.send({ from: FROM, to, replyTo: REPLY_TO, subject, html });
+  await sendRawEmail({ to, subject, html });
 }
 
 function formatOrderId(prefix: string, id: string, createdAt: Date): string {
@@ -107,10 +155,12 @@ function brandedEmail(title: string, body: string): string {
 </html>`;
 }
 
-const STORE_TIMEZONE = process.env.STORE_TIMEZONE || "Australia/Sydney";
+export function getStoreTimezone(): string {
+  return process.env.STORE_TIMEZONE || "Australia/Melbourne";
+}
 
 function formatDate(date: Date, locale?: string | null): string {
-  const tz = STORE_TIMEZONE;
+  const tz = getStoreTimezone();
   const lang = locale?.toLowerCase().startsWith("zh") ? "zh-CN" : "en-AU";
   return date.toLocaleString(lang, {
     timeZone: tz,
@@ -122,13 +172,19 @@ function formatDate(date: Date, locale?: string | null): string {
 function contactFooter(contact: StoreContact): string {
   const lines: string[] = [];
   if (contact.phone) {
-    lines.push(`<p style="margin:4px 0;"><strong>电话 / Phone:</strong> ${escapeHtml(contact.phone)}</p>`);
+    lines.push(
+      `<p style="margin:4px 0;"><strong>电话 / Phone:</strong> ${escapeHtml(contact.phone)}</p>`,
+    );
   }
   if (contact.wechatId) {
-    lines.push(`<p style="margin:4px 0;"><strong>微信 / WeChat:</strong> ${escapeHtml(contact.wechatId)}</p>`);
+    lines.push(
+      `<p style="margin:4px 0;"><strong>微信 / WeChat:</strong> ${escapeHtml(contact.wechatId)}</p>`,
+    );
   }
   if (contact.email) {
-    lines.push(`<p style="margin:4px 0;"><strong>邮箱 / Email:</strong> ${escapeHtml(contact.email)}</p>`);
+    lines.push(
+      `<p style="margin:4px 0;"><strong>邮箱 / Email:</strong> ${escapeHtml(contact.email)}</p>`,
+    );
   }
   return lines.length
     ? `<div style="background:#F4EFE9;border-radius:8px;padding:16px;margin-top:24px;">${lines.join("")}</div>`
@@ -150,14 +206,19 @@ async function sendCustomerTemplatedEmail(
   return sendCustomerEmail(to, subject, brandedEmail(subject, bodyHtml));
 }
 
-export async function sendBookingConfirmationToCustomer(options: {
+type BookingConfirmationOptions = {
   to: string;
   orderId: string;
   orderNumber: string;
   submittedAt: Date;
   input: BookingCreateInput;
   contact: StoreContact;
-}): Promise<void> {
+};
+
+function renderBookingConfirmation(options: BookingConfirmationOptions): {
+  subject: string;
+  html: string;
+} {
   const { to, orderNumber, submittedAt, input, contact } = options;
   const submitted = formatDate(submittedAt, input.locale);
 
@@ -177,29 +238,44 @@ export async function sendBookingConfirmationToCustomer(options: {
     ${contactFooter(contact)}
   `;
 
-  await sendCustomerTemplatedEmail(
-    to,
-    `YezYY Booking Request Received ${orderNumber} / 预约申请已收到`,
-    body,
-  );
+  const subject = `YezYY Booking Request Received ${orderNumber} / 预约申请已收到`;
+  return { subject, html: brandedEmail(subject, body) };
 }
 
-export async function sendOrderConfirmationToCustomer(options: {
+export async function sendBookingConfirmationToCustomer(
+  options: BookingConfirmationOptions,
+): Promise<void> {
+  const rendered = renderBookingConfirmation(options);
+  await sendCustomerEmail(options.to, rendered.subject, rendered.html);
+}
+
+type OrderConfirmationOptions = {
   to: string;
   orderNumber: string;
   submittedAt: Date;
   input: CartOrderCreateInput;
   contact: StoreContact;
-}): Promise<void> {
+};
+
+function renderOrderConfirmation(options: OrderConfirmationOptions): {
+  subject: string;
+  html: string;
+} {
   const { orderNumber, submittedAt, input, contact } = options;
   const submitted = formatDate(submittedAt);
 
   const itemsHtml = input.items
     .map((item, index) => {
       const name = escapeHtml(displayLocalized(item.projectName));
-      const style = item.styleName ? escapeHtml(displayLocalized(item.styleName)) : null;
-      const detail = style ? style : escapeHtml(`${item.date || ""} · ${item.people ?? 0} 人`);
-      const price = item.price ? `<span style="color:#B07D5C;">${escapeHtml(item.price)}</span>` : "";
+      const style = item.styleName
+        ? escapeHtml(displayLocalized(item.styleName))
+        : null;
+      const detail = style
+        ? style
+        : escapeHtml(`${item.date || ""} · ${item.people ?? 0} 人`);
+      const price = item.price
+        ? `<span style="color:#B07D5C;">${escapeHtml(item.price)}</span>`
+        : "";
       return `<tr>
         <td style="padding:8px 0;border-bottom:1px solid #F0E8E0;font-size:13px;color:#2C2C2C;">${index + 1}. ${name}</td>
         <td style="padding:8px 0;border-bottom:1px solid #F0E8E0;font-size:12px;color:#8A7968;text-align:right;">${detail}${price ? `<br/>${price}` : ""}</td>
@@ -220,11 +296,15 @@ export async function sendOrderConfirmationToCustomer(options: {
     ${contactFooter(contact)}
   `;
 
-  await sendCustomerTemplatedEmail(
-    options.to,
-    `YezYY Booking Request Received ${orderNumber} / 预约申请已收到`,
-    body,
-  );
+  const subject = `YezYY Booking Request Received ${orderNumber} / 预约申请已收到`;
+  return { subject, html: brandedEmail(subject, body) };
+}
+
+export async function sendOrderConfirmationToCustomer(
+  options: OrderConfirmationOptions,
+): Promise<void> {
+  const rendered = renderOrderConfirmation(options);
+  await sendCustomerEmail(options.to, rendered.subject, rendered.html);
 }
 
 export type BookingStatusEmailContext = {
@@ -241,6 +321,8 @@ export type BookingStatusEmailContext = {
   adminNote?: string | null;
 };
 
+type BookingStatusTemplate = "contacted" | "confirmed" | "cancelled";
+
 function isZh(locale?: string | null) {
   return locale?.toLowerCase().startsWith("zh") ?? true;
 }
@@ -248,30 +330,42 @@ function isZh(locale?: string | null) {
 export async function sendBookingStatusContactedEmail(
   ctx: BookingStatusEmailContext,
 ): Promise<void> {
-  const zh = isZh(ctx.locale);
-  const subject = zh ? `YezYY 预约跟进 ${ctx.orderNumber}` : `YezYY booking update ${ctx.orderNumber}`;
-  const body = zh
-    ? `<h2 style="margin:0 0 16px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约进度更新</h2>
-       <p style="color:#5C5C5C;">${escapeHtml(ctx.customerName)} 您好，我们已查看您的预约（<strong>${escapeHtml(ctx.orderNumber)}</strong>），稍后将联系您确认细节。</p>
-       ${contactFooter(ctx.contact)}`
-    : `<h2 style="margin:0 0 16px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Booking Update</h2>
-       <p style="color:#5C5C5C;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, we have reviewed your booking (<strong>${escapeHtml(ctx.orderNumber)}</strong>) and will contact you shortly.</p>
-       ${contactFooter(ctx.contact)}`;
-  await sendCustomerTemplatedEmail(ctx.to, subject, body);
+  const rendered = renderBookingStatusEmail("contacted", ctx);
+  await sendCustomerTemplatedEmail(ctx.to, rendered.subject, rendered.body);
 }
 
-export async function sendBookingStatusConfirmedEmail(
+function renderBookingStatusEmail(
+  status: BookingStatusTemplate,
   ctx: BookingStatusEmailContext,
-): Promise<void> {
+): { subject: string; body: string } {
   const zh = isZh(ctx.locale);
-  const when = ctx.slotLabel ?? ctx.preferredDate ?? (zh ? "待确认" : "TBD");
-  const subject = zh ? `YezYY 预约已确认 ${ctx.orderNumber}` : `YezYY booking confirmed ${ctx.orderNumber}`;
+  if (status === "contacted") {
+    return {
+      subject: zh
+        ? `YezYY 预约跟进 ${ctx.orderNumber}`
+        : `YezYY booking update ${ctx.orderNumber}`,
+      body: zh
+        ? `<h2 style="margin:0 0 16px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约进度更新</h2>
+       <p style="color:#5C5C5C;">${escapeHtml(ctx.customerName)} 您好，我们已查看您的预约（<strong>${escapeHtml(ctx.orderNumber)}</strong>），稍后将联系您确认细节。</p>
+       ${contactFooter(ctx.contact)}`
+        : `<h2 style="margin:0 0 16px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Booking Update</h2>
+       <p style="color:#5C5C5C;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, we have reviewed your booking (<strong>${escapeHtml(ctx.orderNumber)}</strong>) and will contact you shortly.</p>
+       ${contactFooter(ctx.contact)}`,
+    };
+  }
+
   const note = ctx.adminNote?.trim()
     ? `<p style="background:#FFF8F3;border-left:3px solid #B07D5C;padding:8px 12px;margin-top:16px;font-size:13px;"><strong>${zh ? "备注" : "Note"}:</strong> ${escapeHtml(ctx.adminNote)}</p>`
     : "";
 
-  const body = zh
-    ? `<h2 style="margin:0 0 8px;font-size:20px;color:#B07D5C;font-family:Georgia,serif;">✓ 预约已确认</h2>
+  if (status === "confirmed") {
+    const when = ctx.slotLabel ?? ctx.preferredDate ?? (zh ? "待确认" : "TBD");
+    return {
+      subject: zh
+        ? `YezYY 预约已确认 ${ctx.orderNumber}`
+        : `YezYY booking confirmed ${ctx.orderNumber}`,
+      body: zh
+        ? `<h2 style="margin:0 0 8px;font-size:20px;color:#B07D5C;font-family:Georgia,serif;">✓ 预约已确认</h2>
        <p style="color:#5C5C5C;margin:0 0 24px;">${escapeHtml(ctx.customerName)} 您好，您的预约已成功确认！</p>
        <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
          ${infoRow("订单号", escapeHtml(ctx.orderNumber))}
@@ -281,7 +375,7 @@ export async function sendBookingStatusConfirmedEmail(
        </table>
        ${note}
        ${contactFooter(ctx.contact)}`
-    : `<h2 style="margin:0 0 8px;font-size:20px;color:#B07D5C;font-family:Georgia,serif;">✓ Booking Confirmed</h2>
+        : `<h2 style="margin:0 0 8px;font-size:20px;color:#B07D5C;font-family:Georgia,serif;">✓ Booking Confirmed</h2>
        <p style="color:#5C5C5C;margin:0 0 24px;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, your booking is confirmed!</p>
        <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
          ${infoRow("Order No.", escapeHtml(ctx.orderNumber))}
@@ -290,31 +384,242 @@ export async function sendBookingStatusConfirmedEmail(
          ${ctx.businessHours ? infoRow("Hours", escapeHtml(ctx.businessHours)) : ""}
        </table>
        ${note}
-       ${contactFooter(ctx.contact)}`;
-  await sendCustomerTemplatedEmail(ctx.to, subject, body);
+       ${contactFooter(ctx.contact)}`,
+    };
+  }
+
+  const reason = ctx.adminNote?.trim()
+    ? escapeHtml(ctx.adminNote)
+    : zh
+      ? "档期已满或时间冲突"
+      : "schedule conflict or capacity limit";
+  return {
+    subject: zh
+      ? `YezYY 预约取消 ${ctx.orderNumber}`
+      : `YezYY booking cancelled ${ctx.orderNumber}`,
+    body: zh
+      ? `<h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约未能安排</h2>
+       <p style="color:#5C5C5C;margin:0 0 16px;">${escapeHtml(ctx.customerName)} 您好，很遗憾您的预约（<strong>${escapeHtml(ctx.orderNumber)}</strong>）目前无法安排。</p>
+       <p style="background:#FFF5F5;border-left:3px solid #E07070;padding:8px 12px;font-size:13px;"><strong>原因：</strong> ${reason}</p>
+       <p style="margin-top:16px;color:#5C5C5C;">欢迎联系我们重新预约。</p>
+       ${contactFooter(ctx.contact)}`
+      : `<h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Booking Unavailable</h2>
+       <p style="color:#5C5C5C;margin:0 0 16px;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, we are unable to accommodate your booking (<strong>${escapeHtml(ctx.orderNumber)}</strong>) at this time.</p>
+       <p style="background:#FFF5F5;border-left:3px solid #E07070;padding:8px 12px;font-size:13px;"><strong>Reason:</strong> ${reason}</p>
+       <p style="margin-top:16px;color:#5C5C5C;">Please contact us to reschedule.</p>
+       ${contactFooter(ctx.contact)}`,
+  };
+}
+
+export async function sendBookingStatusConfirmedEmail(
+  ctx: BookingStatusEmailContext,
+): Promise<void> {
+  const rendered = renderBookingStatusEmail("confirmed", ctx);
+  await sendCustomerTemplatedEmail(ctx.to, rendered.subject, rendered.body);
 }
 
 export async function sendBookingStatusCancelledEmail(
   ctx: BookingStatusEmailContext,
 ): Promise<void> {
-  const zh = isZh(ctx.locale);
-  const subject = zh ? `YezYY 预约取消 ${ctx.orderNumber}` : `YezYY booking cancelled ${ctx.orderNumber}`;
-  const reason = ctx.adminNote?.trim()
-    ? escapeHtml(ctx.adminNote)
-    : zh ? "档期已满或时间冲突" : "schedule conflict or capacity limit";
+  const rendered = renderBookingStatusEmail("cancelled", ctx);
+  await sendCustomerTemplatedEmail(ctx.to, rendered.subject, rendered.body);
+}
 
-  const body = zh
-    ? `<h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约未能安排</h2>
-       <p style="color:#5C5C5C;margin:0 0 16px;">${escapeHtml(ctx.customerName)} 您好，很遗憾您的预约（<strong>${escapeHtml(ctx.orderNumber)}</strong>）目前无法安排。</p>
-       <p style="background:#FFF5F5;border-left:3px solid #E07070;padding:8px 12px;font-size:13px;"><strong>原因：</strong> ${reason}</p>
-       <p style="margin-top:16px;color:#5C5C5C;">欢迎联系我们重新预约。</p>
-       ${contactFooter(ctx.contact)}`
-    : `<h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Booking Unavailable</h2>
-       <p style="color:#5C5C5C;margin:0 0 16px;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, we are unable to accommodate your booking (<strong>${escapeHtml(ctx.orderNumber)}</strong>) at this time.</p>
-       <p style="background:#FFF5F5;border-left:3px solid #E07070;padding:8px 12px;font-size:13px;"><strong>Reason:</strong> ${reason}</p>
-       <p style="margin-top:16px;color:#5C5C5C;">Please contact us to reschedule.</p>
-       ${contactFooter(ctx.contact)}`;
-  await sendCustomerTemplatedEmail(ctx.to, subject, body);
+type BookingStatusOutboxPayload = Omit<BookingStatusEmailContext, "to"> & {
+  template: "booking_status";
+  status: BookingStatusTemplate;
+};
+
+type BookingReceivedOutboxPayload = {
+  template: "booking_received";
+  orderId: string;
+  orderNumber: string;
+  submittedAt: string;
+  input: BookingCreateInput;
+  contact: StoreContact;
+};
+
+type OrderReceivedOutboxPayload = {
+  template: "cart_order_received";
+  orderNumber: string;
+  submittedAt: string;
+  input: CartOrderCreateInput;
+  contact: StoreContact;
+};
+
+type OwnerRequestOutboxPayload = {
+  template: "owner_request";
+  subject: string;
+  heading: string;
+  fields: Array<{ label: string; value: string }>;
+};
+
+export type EmailTemplatePayload =
+  | BookingStatusOutboxPayload
+  | BookingReceivedOutboxPayload
+  | OrderReceivedOutboxPayload
+  | OwnerRequestOutboxPayload;
+
+function parseOutboxDate(value: string): Date {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw Object.assign(new Error("Invalid email template date"), {
+      code: "invalid_template_payload",
+      statusCode: 422,
+    });
+  }
+  return parsed;
+}
+
+function parseBookingStatusPayload(
+  payload: Record<string, unknown>,
+): BookingStatusOutboxPayload {
+  const candidate = payload as Partial<BookingStatusOutboxPayload>;
+  if (
+    candidate.template !== "booking_status" ||
+    !["contacted", "confirmed", "cancelled"].includes(
+      String(candidate.status),
+    ) ||
+    typeof candidate.customerName !== "string" ||
+    typeof candidate.orderNumber !== "string" ||
+    typeof candidate.storeName !== "string" ||
+    typeof candidate.contact !== "object" ||
+    candidate.contact === null
+  ) {
+    throw Object.assign(
+      new Error("Unsupported or invalid email template input"),
+      {
+        code: "invalid_template_payload",
+        statusCode: 422,
+      },
+    );
+  }
+  return candidate as BookingStatusOutboxPayload;
+}
+
+export function createResendOutboxProvider(): EmailOutboxProvider {
+  return {
+    async send(message: OutboxProviderMessage): Promise<ProviderSendResult> {
+      if (!resend) {
+        throw Object.assign(new Error("RESEND_API_KEY is not configured"), {
+          code: "provider_not_configured",
+          statusCode: 503,
+        });
+      }
+      const template = message.payload.template;
+      let rendered: { subject: string; html: string };
+      if (template === "booking_status") {
+        const payload = parseBookingStatusPayload(message.payload);
+        const statusEmail = renderBookingStatusEmail(payload.status, {
+          ...payload,
+          to: message.recipient,
+          locale: message.locale,
+        });
+        rendered = {
+          subject: statusEmail.subject,
+          html: brandedEmail(statusEmail.subject, statusEmail.body),
+        };
+      } else if (template === "booking_received") {
+        const payload =
+          message.payload as Partial<BookingReceivedOutboxPayload>;
+        if (
+          typeof payload.orderId !== "string" ||
+          typeof payload.orderNumber !== "string" ||
+          typeof payload.submittedAt !== "string" ||
+          typeof payload.input !== "object" ||
+          payload.input === null ||
+          typeof payload.contact !== "object" ||
+          payload.contact === null
+        ) {
+          throw Object.assign(
+            new Error("Invalid booking email template input"),
+            {
+              code: "invalid_template_payload",
+              statusCode: 422,
+            },
+          );
+        }
+        rendered = renderBookingConfirmation({
+          to: message.recipient,
+          orderId: payload.orderId,
+          orderNumber: payload.orderNumber,
+          submittedAt: parseOutboxDate(payload.submittedAt),
+          input: payload.input as BookingCreateInput,
+          contact: payload.contact as StoreContact,
+        });
+      } else if (template === "cart_order_received") {
+        const payload = message.payload as Partial<OrderReceivedOutboxPayload>;
+        if (
+          typeof payload.orderNumber !== "string" ||
+          typeof payload.submittedAt !== "string" ||
+          typeof payload.input !== "object" ||
+          payload.input === null ||
+          typeof payload.contact !== "object" ||
+          payload.contact === null
+        ) {
+          throw Object.assign(new Error("Invalid order email template input"), {
+            code: "invalid_template_payload",
+            statusCode: 422,
+          });
+        }
+        rendered = renderOrderConfirmation({
+          to: message.recipient,
+          orderNumber: payload.orderNumber,
+          submittedAt: parseOutboxDate(payload.submittedAt),
+          input: payload.input as CartOrderCreateInput,
+          contact: payload.contact as StoreContact,
+        });
+      } else if (template === "owner_request") {
+        const payload = message.payload as Partial<OwnerRequestOutboxPayload>;
+        if (
+          typeof payload.subject !== "string" ||
+          typeof payload.heading !== "string" ||
+          !Array.isArray(payload.fields) ||
+          !payload.fields.every(
+            (field) =>
+              typeof field === "object" &&
+              field !== null &&
+              typeof field.label === "string" &&
+              typeof field.value === "string",
+          )
+        ) {
+          throw Object.assign(new Error("Invalid owner email template input"), {
+            code: "invalid_template_payload",
+            statusCode: 422,
+          });
+        }
+        const body = `<h2>${escapeHtml(payload.heading)}</h2><table width="100%" cellpadding="0" cellspacing="0">${payload.fields
+          .map((field) =>
+            infoRow(escapeHtml(field.label), escapeHtml(field.value)),
+          )
+          .join("")}</table>`;
+        rendered = {
+          subject: payload.subject,
+          html: brandedEmail(payload.subject, body),
+        };
+      } else {
+        throw Object.assign(new Error("Unsupported email template"), {
+          code: "invalid_template_payload",
+          statusCode: 422,
+        });
+      }
+      const result = await sendRawEmail(
+        {
+          to: message.recipient,
+          subject: rendered.subject,
+          html: rendered.html,
+        },
+        message.dedupeKey,
+      );
+      if (!result) {
+        throw Object.assign(new Error("Email provider is not configured"), {
+          code: "provider_not_configured",
+          statusCode: 503,
+        });
+      }
+      return result;
+    },
+  };
 }
 
 export async function sendStaffWelcomeEmail(options: {

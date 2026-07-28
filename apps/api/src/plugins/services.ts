@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
+import { createEmailOutboxRepository } from "../repositories/email-outbox.repository.js";
 import { createAdminBookingsService, type AdminBookingsService } from "../services/admin/bookings.admin.service.js";
 import { createAdminCartOrdersService, type AdminCartOrdersService } from "../services/admin/cart-orders.admin.service.js";
 import { createAdminCategoriesService, type AdminCategoriesService } from "../services/admin/categories.admin.service.js";
@@ -15,11 +16,16 @@ import { createBookingsService, type BookingsService } from "../services/booking
 import { createCartOrdersService, type CartOrdersService } from "../services/cart-orders.service.js";
 import { createCartSessionsService, type CartSessionsService } from "../services/cart-sessions.service.js";
 import { createCategoriesService, type CategoriesService } from "../services/categories.service.js";
+import {
+  createEmailOutboxService,
+  type EmailOutboxService,
+} from "../services/email-outbox.service.js";
 import { createGalleryService, type GalleryService } from "../services/gallery.service.js";
 import { createPartiesService, type PartiesService } from "../services/parties.service.js";
 import { createProjectsService, type ProjectsService } from "../services/projects.service.js";
 import { createSettingsService, type SettingsService } from "../services/settings.service.js";
 import { createTimeSlotsService, type TimeSlotsService } from "../services/time-slots.service.js";
+import { createResendOutboxProvider } from "../lib/email.js";
 
 export type AppServices = {
   auth: AuthService;
@@ -42,6 +48,7 @@ export type AppServices = {
   adminUpload: AdminUploadService;
   adminNotifications: NotificationsAdminService;
   adminUsers: AdminUsersService;
+  emailOutbox: EmailOutboxService;
 };
 
 declare module "fastify" {
@@ -72,5 +79,9 @@ export default fp(async (app: FastifyInstance) => {
     adminUpload: createAdminUploadService(app.db),
     adminNotifications: createNotificationsAdminService(app.db),
     adminUsers: createAdminUsersService(app.db),
+    emailOutbox: createEmailOutboxService(
+      createEmailOutboxRepository(app.db),
+      createResendOutboxProvider(),
+    ),
   });
 });

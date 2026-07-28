@@ -19,7 +19,11 @@ import type {
   ProjectFormInput,
   SiteSettings,
   UploadResult,
+  EmailDelivery,
+  EmailDeliveryList,
+  EmailDeliveryListOptions,
 } from "./types";
+import { buildEmailDeliveryQuery } from "./email-delivery";
 
 function backendPath(path: string): string {
   if (!path.startsWith("/api/v1/")) {
@@ -268,6 +272,22 @@ export async function deleteAdminTimeSlot(id: string) {
   return adminFetch<{ id: string }>(`/api/v1/admin/time-slots/${id}`, {
     method: "DELETE",
   });
+}
+
+export async function getEmailDeliveries(
+  options: EmailDeliveryListOptions = {},
+) {
+  const query = buildEmailDeliveryQuery(options);
+  return adminFetch<EmailDeliveryList>(
+    `/api/v1/admin/email-deliveries?${query}`,
+  );
+}
+
+export async function retryEmailDelivery(id: string) {
+  return adminFetch<EmailDelivery>(
+    `/api/v1/admin/email-deliveries/${id}/retry`,
+    { method: "POST" },
+  );
 }
 
 export async function getAdminUsers() {
