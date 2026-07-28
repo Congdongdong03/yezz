@@ -4,6 +4,7 @@ import {
   submitBooking,
   submitPartyBooking,
 } from "./booking";
+import type { RequestAttempt } from "../requests/idempotency";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -122,12 +123,16 @@ describe("submitBooking", () => {
     const attempt = createBookingAttempt();
     const originalKey = attempt.current();
 
-    await expect(submitBooking(validFormData(), attempt)).resolves.toMatchObject({
+    await expect(
+      submitBooking(validFormData(), attempt),
+    ).resolves.toMatchObject({
       success: false,
     });
     expect(attempt.current()).toBe(originalKey);
 
-    await expect(submitBooking(validFormData(), attempt)).resolves.toMatchObject({
+    await expect(
+      submitBooking(validFormData(), attempt),
+    ).resolves.toMatchObject({
       success: true,
       bookingId: "booking-1",
     });
@@ -135,8 +140,8 @@ describe("submitBooking", () => {
 
     const nextAttemptKey = attempt.current();
     await submitBooking(validFormData(), attempt);
-    const keys = request.mock.calls.map(
-      ([, init]) => new Headers((init as RequestInit).headers).get("Idempotency-Key"),
+    const keys = request.mock.calls.map(([, init]) =>
+      new Headers((init as RequestInit).headers).get("Idempotency-Key"),
     );
     expect(keys[0]).toBe(originalKey);
     expect(keys[1]).toBe(originalKey);
@@ -196,9 +201,54 @@ describe("submitPartyBooking", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("retains the party attempt key across transport retry and rotates after success", async () => {
+  it("uses the shared attempt lifecycle for validation, API, network, and success outcomes", async () => {
+    const attempt: RequestAttempt = {
+      current: vi.fn(() => "00000000-0000-4000-8000-000000000099"),
+      failed: vi.fn(),
+      succeeded: vi.fn(),
+    };
+    const invalidForm = validPartyFormData();
+    invalidForm.set("numberOfPeople", "13");
+    await submitPartyBooking(invalidForm, attempt);
+    expect(attempt.failed).toHaveBeenCalledTimes(1);
+    expect(attempt.current).not.toHaveBeenCalled();
+
     const request = vi
       .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          success: false,
+          error: { code: "SLOT_FULL", message: "Slot full" },
+        }),
+      )
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce(
+        Response.json({
+          success: true,
+          data: { id: "party-booking-1", status: "new" },
+        }),
+      );
+    vi.stubGlobal("fetch", request);
+
+    await submitPartyBooking(validPartyFormData(), attempt);
+    await submitPartyBooking(validPartyFormData(), attempt);
+    expect(attempt.failed).toHaveBeenCalledTimes(3);
+    expect(attempt.succeeded).not.toHaveBeenCalled();
+
+    await submitPartyBooking(validPartyFormData(), attempt);
+    expect(attempt.current).toHaveBeenCalledTimes(3);
+    expect(attempt.succeeded).toHaveBeenCalledOnce();
+  });
+
+  it("retains the party key across all failures and rotates only after confirmed success", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          success: false,
+          error: { code: "SLOT_FULL", message: "Slot full" },
+        }),
+      )
       .mockRejectedValueOnce(new Error("response lost"))
       .mockResolvedValueOnce(
         Response.json({
@@ -208,12 +258,22 @@ describe("submitPartyBooking", () => {
       );
     vi.stubGlobal("fetch", request);
     const attempt = createBookingAttempt();
-    const originalKey = attempt.idempotencyKey;
+    const originalKey = attempt.current();
+
+    const invalidForm = validPartyFormData();
+    invalidForm.set("numberOfPeople", "13");
+    await submitPartyBooking(invalidForm, attempt);
+    expect(attempt.current()).toBe(originalKey);
 
     await expect(
       submitPartyBooking(validPartyFormData(), attempt),
     ).resolves.toMatchObject({ success: false });
-    expect(attempt.idempotencyKey).toBe(originalKey);
+    expect(attempt.current()).toBe(originalKey);
+
+    await expect(
+      submitPartyBooking(validPartyFormData(), attempt),
+    ).resolves.toMatchObject({ success: false });
+    expect(attempt.current()).toBe(originalKey);
 
     await expect(
       submitPartyBooking(validPartyFormData(), attempt),
@@ -221,11 +281,11 @@ describe("submitPartyBooking", () => {
       success: true,
       bookingId: "party-booking-1",
     });
-    expect(attempt.idempotencyKey).not.toBe(originalKey);
+    expect(attempt.current()).not.toBe(originalKey);
     expect(
       request.mock.calls.map(([, init]) =>
         new Headers((init as RequestInit).headers).get("Idempotency-Key"),
       ),
-    ).toEqual([originalKey, originalKey]);
+    ).toEqual([originalKey, originalKey, originalKey]);
   });
 });

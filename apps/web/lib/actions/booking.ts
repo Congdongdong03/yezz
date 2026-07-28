@@ -170,8 +170,14 @@ export async function submitPartyBooking(
   const minPeople = Number(rawData.minPeople);
   const maxPeople = Number(rawData.maxPeople);
   const partySchema = z.object({
-    name: z.string().trim().min(1, zh ? "请填写姓名" : "Name is required"),
-    phone: z.string().trim().min(1, zh ? "请填写电话" : "Phone is required"),
+    name: z
+      .string()
+      .trim()
+      .min(1, zh ? "请填写姓名" : "Name is required"),
+    phone: z
+      .string()
+      .trim()
+      .min(1, zh ? "请填写电话" : "Phone is required"),
     email: z
       .string()
       .trim()
@@ -179,20 +185,27 @@ export async function submitPartyBooking(
       .pipe(z.string().email(zh ? "邮箱格式不正确" : "Invalid email")),
     wechat: z.string().optional(),
     message: z.string().optional(),
-    preferredDate: z.string().min(1, zh ? "请重新选择日期" : "Please choose a date again"),
+    preferredDate: z
+      .string()
+      .min(1, zh ? "请重新选择日期" : "Please choose a date again"),
     numberOfPeople: z
       .string()
       .min(1, zh ? "请填写人数" : "People is required")
-      .refine((value) => {
-        const people = Number(value);
-        return (
-          Number.isInteger(people) &&
-          Number.isInteger(minPeople) &&
-          Number.isInteger(maxPeople) &&
-          people >= minPeople &&
-          people <= maxPeople
-        );
-      }, zh ? `派对人数须为 ${minPeople} 至 ${maxPeople} 人` : `Party size must be ${minPeople}–${maxPeople} people`),
+      .refine(
+        (value) => {
+          const people = Number(value);
+          return (
+            Number.isInteger(people) &&
+            Number.isInteger(minPeople) &&
+            Number.isInteger(maxPeople) &&
+            people >= minPeople &&
+            people <= maxPeople
+          );
+        },
+        zh
+          ? `派对人数须为 ${minPeople} 至 ${maxPeople} 人`
+          : `Party size must be ${minPeople}–${maxPeople} people`,
+      ),
     partyPackageId: z
       .string()
       .uuid(zh ? "请重新选择派对套餐" : "Please choose a party package again"),
@@ -212,6 +225,7 @@ export async function submitPartyBooking(
   });
 
   if (!parsed.success) {
+    attempt.failed();
     return { success: false, errors: parsed.error.flatten().fieldErrors };
   }
 
@@ -221,7 +235,7 @@ export async function submitPartyBooking(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Idempotency-Key": attempt.idempotencyKey,
+        "Idempotency-Key": attempt.current(),
       },
       body: JSON.stringify({
         kind: "party",
@@ -239,14 +253,16 @@ export async function submitPartyBooking(
     });
     const json = (await res.json()) as ApiSuccess<{ id: string }> | ApiError;
     if (!json.success) {
+      attempt.failed();
       return {
         success: false,
         errors: { server: [partyErrorMessage(json.error.code, locale)] },
       };
     }
-    attempt.idempotencyKey = globalThis.crypto.randomUUID();
+    attempt.succeeded();
     return { success: true, bookingId: json.data.id };
   } catch {
+    attempt.failed();
     return {
       success: false,
       errors: { server: [partyErrorMessage("NETWORK_ERROR", locale)] },

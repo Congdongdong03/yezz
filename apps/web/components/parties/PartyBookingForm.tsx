@@ -35,6 +35,8 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
     {},
   );
   const fieldId = (name: string) => `${id}-${name}`;
+  const errorId = (name: string) => `${id}-${name}-error`;
+  const serverErrorId = `${id}-server-error`;
   const localizedName = party.name[locale === "zh" ? "zh" : "en"];
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -82,6 +84,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
 
   return (
     <form
+      aria-describedby={errors.server?.[0] ? serverErrorId : undefined}
       aria-label={`${t("title")}: ${localizedName}`}
       className="space-y-5 rounded-2xl border border-caramel/20 bg-cream/60 p-5 sm:p-6"
       onSubmit={onSubmit}
@@ -113,6 +116,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
             {t("name")} *
           </label>
           <input
+            aria-describedby={errors.name?.[0] ? errorId("name") : undefined}
             aria-invalid={Boolean(errors.name)}
             className={inputClass}
             id={fieldId("name")}
@@ -120,7 +124,9 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
             required
           />
           {errors.name?.[0] && (
-            <p className="mt-1 text-sm text-red-700">{errors.name[0]}</p>
+            <p className="mt-1 text-sm text-red-700" id={errorId("name")}>
+              {errors.name[0]}
+            </p>
           )}
         </div>
         <div>
@@ -131,6 +137,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
             {t("phone")} *
           </label>
           <input
+            aria-describedby={errors.phone?.[0] ? errorId("phone") : undefined}
             aria-invalid={Boolean(errors.phone)}
             className={inputClass}
             id={fieldId("phone")}
@@ -139,7 +146,9 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
             type="tel"
           />
           {errors.phone?.[0] && (
-            <p className="mt-1 text-sm text-red-700">{errors.phone[0]}</p>
+            <p className="mt-1 text-sm text-red-700" id={errorId("phone")}>
+              {errors.phone[0]}
+            </p>
           )}
         </div>
       </div>
@@ -153,6 +162,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
             {t("email")} *
           </label>
           <input
+            aria-describedby={errors.email?.[0] ? errorId("email") : undefined}
             aria-invalid={Boolean(errors.email)}
             className={inputClass}
             id={fieldId("email")}
@@ -161,7 +171,9 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
             type="email"
           />
           {errors.email?.[0] && (
-            <p className="mt-1 text-sm text-red-700">{errors.email[0]}</p>
+            <p className="mt-1 text-sm text-red-700" id={errorId("email")}>
+              {errors.email[0]}
+            </p>
           )}
         </div>
         <div>
@@ -172,6 +184,9 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
             {t("people")} *
           </label>
           <input
+            aria-describedby={
+              errors.numberOfPeople?.[0] ? errorId("numberOfPeople") : undefined
+            }
             aria-invalid={Boolean(errors.numberOfPeople)}
             className={inputClass}
             id={fieldId("numberOfPeople")}
@@ -187,7 +202,10 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
             value={people}
           />
           {errors.numberOfPeople?.[0] && (
-            <p className="mt-1 text-sm text-red-700">
+            <p
+              className="mt-1 text-sm text-red-700"
+              id={errorId("numberOfPeople")}
+            >
               {errors.numberOfPeople[0]}
             </p>
           )}
@@ -227,6 +245,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
       {errors.server?.[0] && (
         <p
           className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800"
+          id={serverErrorId}
           role="alert"
         >
           {errors.server[0]}

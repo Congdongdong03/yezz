@@ -4,7 +4,9 @@ Plan: `docs/superpowers/plans/2026-07-28-yezyy-flow-closure-remediation.md`
 
 Branch: `codex/yezyy-flow-task9-party`
 
-Base: `831fb00`
+Integration base: `d5587d4`
+
+Rebased implementation: `6c9108b`
 
 ## Scope delivered
 
@@ -34,6 +36,26 @@ Base: `831fb00`
 - Task 3 durable booking limits remain on the shared booking route and were
   regression-tested against PostgreSQL.
 
+## Task 4 integration remediation
+
+- Rebased the party lifecycle onto Task 4's shared public-request idempotency
+  foundation at `d5587d4`.
+- Resolved the shared PostgreSQL fixture so it retains both `project_styles`
+  for cart items and `party_packages` for party bookings, in foreign-key-safe
+  creation order. Each test still drops only its random schema during cleanup.
+- Migrated `submitPartyBooking` to the shared `RequestAttempt` contract. It
+  calls `failed()` for client validation, API, and network failures, uses
+  `current()` for every request header, and calls `succeeded()` only after the
+  API confirms success.
+- Added party-specific regression coverage proving the key remains unchanged
+  across validation/API/network failures and rotates only after confirmed
+  success.
+- Added stable error IDs and `aria-describedby` relationships from name, phone,
+  email, and people controls to their inline errors, and from the form to its
+  announced server-error summary.
+- The foundation gaps for active/published package state and structured AUD
+  snapshots were deliberately not expanded.
+
 ## Catalogue decision
 
 No party packages were inserted, seeded, imported, or published.
@@ -59,6 +81,11 @@ test fixtures only and are removed with their random test schemas.
 - The party CTA test initially failed because no package-bound disclosure
   existed.
 - The Chinese admin test initially showed exact booking data but no party label.
+- After rebasing, the party action lifecycle regression failed because the
+  auto-merge still read and assigned Task 4's removed mutable
+  `idempotencyKey` property.
+- The accessibility regression initially found no `aria-describedby`
+  relationship from invalid controls to their rendered reasons.
 
 ### GREEN
 
@@ -76,6 +103,10 @@ Party/admin focused web:
 Party booking + time-slot PostgreSQL:
   Test Files  2 passed
   Tests       34 passed
+
+Rebase remediation focused web:
+  Test Files  2 passed
+  Tests       11 passed
 ```
 
 ## Final verification
@@ -83,19 +114,21 @@ Party booking + time-slot PostgreSQL:
 ```text
 pnpm verify:
   workspace typechecks passed
-  normal API: 22 passed files | 6 skipped
-  normal API: 144 passed tests | 45 skipped
+  normal API: 22 passed files | 8 skipped
+  normal API: 150 passed tests | 51 skipped
   full web ESLint passed
   database/API builds passed
   Next.js production build passed (22 static pages)
 
 @yezz/web full suite:
-  Test Files  23 passed
-  Tests       93 passed
+  Test Files  25 passed
+  Tests       99 passed
 
-pnpm test:api:booking-db:
-  Test Files  3 passed
-  Tests       22 passed
+combined booking + cart PostgreSQL:
+  Test Files  5 passed
+  Tests       28 passed
+  Includes booking, cart service/repository, transition, and admin suites
+  Disposable schemas remaining after the run: 0
 
 pnpm test:rate-limits:db:
   Test Files  1 passed
@@ -105,9 +138,10 @@ git diff --check:
   passed
 ```
 
-The guarded PostgreSQL commands used only random `yezyy_booking_test_*` and
-rate-limit test schemas in the local `yezyy_test` database. The test helper
-refuses production/equal database URLs and drops only its generated schemas.
+The fresh guarded PostgreSQL commands used only random `yezyy_booking_test_*`
+and rate-limit test schemas in the isolated local `yezyy_task9_test` database.
+The test helper refuses production/equal database URLs and drops only its
+generated schemas.
 
 No production access, deployment, external email, catalogue publication, push,
 merge, or other external mutation occurred.
