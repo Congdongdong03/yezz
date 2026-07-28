@@ -1,177 +1,149 @@
 # YEZZ
 
-Bilingual DIY studio website and admin — **Next.js** (`apps/web`) + **Fastify API** (`apps/api`) + **PostgreSQL** (`packages/db`).
+**A bilingual booking, commerce, and operations platform for a Melbourne DIY studio.**
 
-> **Important:** The public site reads live data from the API (`NEXT_PUBLIC_USE_API=true`). Before starting the web app, run **Postgres + migrations + seed** and keep **`pnpm dev:api`** running on port 4000. Otherwise project pages will fail or show empty data.
+[Live Website](https://yezyy.com) · [API Health](https://yezz-api.fly.dev/health)
 
-## Prerequisites
+YEZZ combines a polished customer website with a practical administration system. Customers can explore projects, build a cart, request bookings, and discover studio events in English or Chinese. Staff can manage projects, categories, bookings, orders, gallery content, parties, availability, and users from a protected dashboard.
+
+![YEZZ homepage](yezz-homepage-final.png)
+
+## Product Highlights
+
+### Customer experience
+
+- Localised English and Chinese routes with `next-intl`
+- Searchable project catalogue with categories and project detail pages
+- Multi-item cart and booking/order submission flows
+- Party, gallery, contact, and studio information pages
+- Responsive layouts, loading states, validation, and error boundaries
+
+### Administration
+
+- JWT-protected admin dashboard
+- CRUD workflows for projects, categories, gallery items, parties, and settings
+- Booking, order, time-slot, notification, and user management
+- S3-compatible media uploads for local MinIO and production Cloudflare R2
+- OpenAPI documentation for the REST API
+
+## Architecture
+
+```text
+Customer / Admin Browser
+          |
+          v
+Next.js 16 Web App (Vercel)
+          |
+          v
+Fastify REST API (Fly.io)
+      |          |          |
+      v          v          v
+PostgreSQL     Redis     Cloudflare R2
+  (Neon)      cache       media storage
+```
+
+The monorepo keeps the public site, admin UI, API, and database package independently buildable while sharing one package manager and consistent TypeScript tooling.
+
+## Technology
+
+| Layer | Technologies |
+| --- | --- |
+| Web | Next.js 16, React 19, TypeScript, Tailwind CSS, next-intl, React Hook Form, Zod |
+| API | Node.js, Fastify, JWT, Swagger/OpenAPI, multipart uploads |
+| Data | PostgreSQL, Drizzle ORM, Redis |
+| Testing | Vitest, Playwright, ESLint, TypeScript |
+| Infrastructure | Docker Compose, Vercel, Fly.io, Neon, Cloudflare R2 |
+
+## Engineering Decisions
+
+- **Relational data with PostgreSQL:** bookings, orders, projects, categories, users, and availability benefit from explicit relationships and constraints.
+- **Separate web and API applications:** the customer UI and admin UI share a Next.js application while business operations remain behind a versioned REST API.
+- **Shared S3 interface:** local development uses MinIO and production uses Cloudflare R2 without changing the upload workflow.
+- **Layered validation:** browser forms, API schemas, and database constraints each protect the system at a different boundary.
+- **Production-like local setup:** Docker Compose starts the supporting services needed to exercise the full application locally.
+
+## Repository Layout
+
+```text
+yezz/
+├── apps/
+│   ├── web/          # Next.js customer site and admin dashboard
+│   └── api/          # Fastify REST API
+├── packages/
+│   └── db/           # Drizzle schema, migrations, and seed data
+├── docs/             # Architecture, product, and deployment notes
+├── docker-compose.yml
+├── docker-compose.dev.yml
+└── fly.toml
+```
+
+## Run Locally
+
+### Prerequisites
 
 - Node.js 22+
 - pnpm 10 (`corepack enable`)
-- Docker (optional, for full stack)
+- Docker
 
-## Quick start (local dev)
+### Setup
 
 ```bash
-# 1. Clone and install
 pnpm install
-
-# 2. Environment
 cp .env.example .env
-# Ensure NEXT_PUBLIC_USE_API=true (default in .env.example)
-
-# 3. Start Postgres + Redis (+ MinIO for uploads)
 docker compose -f docker-compose.dev.yml up -d
-
-# 4. Database
 pnpm db:migrate
 pnpm db:seed
-
-# 5. Run API and web (two terminals)
-pnpm dev:api    # http://localhost:4000
-pnpm dev:web    # http://localhost:3000
 ```
 
-**Default admin** (from seed): `admin@yezz.local` / `changeme` → http://localhost:3000/admin/login
+Run the API and web application in separate terminals:
 
-**API docs**: http://localhost:4000/docs
+```bash
+pnpm dev:api
+pnpm dev:web
+```
 
-**Health**: http://localhost:4000/health
+- Website: `http://localhost:3000`
+- API: `http://localhost:4000`
+- OpenAPI documentation: `http://localhost:4000/docs`
+- Health check: `http://localhost:4000/health`
 
-## Full stack with Docker (one command)
+To start the complete Docker environment instead:
 
 ```bash
 cp .env.example .env
 pnpm docker:up
 ```
 
-Starts: Postgres, Redis, MinIO, **migrate + seed**, API (`:4000`), Web (`:3000`).
-
-- Site: http://localhost:3000  
-- Admin: http://localhost:3000/admin/login  
-- API: http://localhost:4000  
-- MinIO console: http://localhost:9001  
-
-Stop: `pnpm docker:down`
-
-## Monorepo scripts
-
-| Script | Description |
-|--------|-------------|
-| `pnpm dev:web` | Next.js dev server |
-| `pnpm dev:api` | Fastify API (watch) |
-| `pnpm db:migrate` | Run Drizzle migrations |
-| `pnpm db:seed` | Seed categories, projects, admin, etc. |
-| `pnpm db:generate` | Generate migration from schema |
-| `pnpm typecheck` | Typecheck all packages |
-| `pnpm test:api` | API unit tests (Vitest) |
-| `pnpm docker:up` | `docker compose up -d --build` |
-
-## Project layout
-
-```
-yezz/
-├── apps/
-│   ├── api/          # Fastify REST API
-│   └── web/          # Next.js site + /admin
-├── packages/
-│   └── db/           # Drizzle schema, migrations, seed
-├── docker-compose.yml
-├── docker-compose.dev.yml
-└── docs/backend-migration/REQUIREMENTS.md
-```
-
-## Production deployment
-
-### Database (Neon)
-
-Use [Neon](https://neon.tech) PostgreSQL in production:
-
-1. Create a Neon project and copy the **pooled** connection string.
-2. Set on the API host (and for one-off migrate):
-
-```env
-DATABASE_URL=postgresql://USER:PASSWORD@ep-xxxx-pooler.region.aws.neon.tech/neondb?sslmode=require
-```
-
-3. Run migrations against production (from CI or locally with env):
+Stop it with:
 
 ```bash
-DATABASE_URL="postgresql://..." pnpm db:migrate
+pnpm docker:down
 ```
 
-Neon notes:
-
-- Prefer the **pooler** URL for the API runtime.
-- Use a direct (non-pooler) URL only if you need long-running migration sessions.
-- Enable SSL (`sslmode=require` is included in Neon URLs).
-
-### Media storage (Cloudflare R2)
-
-Development uses **MinIO** (S3-compatible). Production uses **R2** — same env names, different endpoints:
-
-```env
-S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-S3_REGION=auto
-S3_ACCESS_KEY=<R2_ACCESS_KEY_ID>
-S3_SECRET_KEY=<R2_SECRET_ACCESS_KEY>
-S3_BUCKET=yezz-media
-S3_PUBLIC_URL=https://media.yourdomain.com
-```
-
-Steps:
-
-1. Create an R2 bucket and API token in Cloudflare dashboard.
-2. Map a custom domain (or R2 public URL) to `S3_PUBLIC_URL`.
-3. Add that hostname to `apps/web/next.config.ts` → `images.remotePatterns` if using Next Image.
-4. Remove or disable MinIO in production compose; API only needs the env vars above.
-
-`forcePathStyle` is enabled in the API S3 client (works for MinIO and R2).
-
-### API environment (production)
-
-```env
-DATABASE_URL=...
-REDIS_URL=rediss://...          # e.g. Upstash / managed Redis
-PORT=4000
-CORS_ORIGIN=https://yourdomain.com
-JWT_SECRET=<long-random-secret>
-JWT_EXPIRES_IN=24h
-NODE_ENV=production
-S3_*=...                        # R2 — see above
-RESEND_API_KEY=...
-OWNER_EMAIL=...
-```
-
-### Web environment (production)
-
-Build-time (Docker `ARG` or CI):
-
-```env
-NEXT_PUBLIC_API_URL=https://api.yourdomain.com
-NEXT_PUBLIC_USE_API=true
-```
-
-## API overview
-
-Base path: `/api/v1`
-
-| Area | Examples |
-|------|----------|
-| Public | `GET /categories`, `/projects`, `/settings`, `POST /bookings`, `/cart-orders` |
-| Auth | `POST /auth/login` |
-| Admin (JWT) | `/admin/projects`, `/admin/bookings`, `/admin/orders`, … |
-
-OpenAPI UI: **GET /docs**
-
-## Testing
+## Quality Checks
 
 ```bash
+pnpm typecheck
 pnpm test:api
+pnpm test:e2e
+pnpm --filter @yezz/web build
 ```
 
-Covers cache/rate-limit helpers, email sanitization, and booking validation.
+The test suite covers API helpers and validation as well as browser-level customer and administration flows. The repository also contains a GitHub Actions workflow for linting, type checking, unit tests, builds, and end-to-end tests.
 
-## Further reading
+## Deployment
 
-Migration requirements and progress: `docs/backend-migration/REQUIREMENTS.md`
+| Component | Platform |
+| --- | --- |
+| Web application | Vercel |
+| REST API | Fly.io |
+| PostgreSQL | Neon |
+| Media storage | Cloudflare R2 |
+
+Production credentials are configured in the relevant hosting platforms and are not stored in the repository.
+
+## More Screens
+
+![YEZZ projects](projects-list-v2.png)
+
+![YEZZ project detail](project-detail-full.png)
