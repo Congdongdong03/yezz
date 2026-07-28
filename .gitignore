@@ -62,3 +62,6 @@ apps/*/playwright-report/
 apps/*/blob-report/
 apps/*/playwright/.cache/
 apps/*/e2e/.auth/
+
+# isolated development worktrees
+/.worktrees/
