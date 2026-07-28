@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { insertCartItem } from "./items";
+import { insertCartItem, mergeCartAfterHydration } from "./items";
 import type { CartItem } from "./types";
 
 const phoneCase: CartItem = {
@@ -28,5 +28,33 @@ describe("insertCartItem", () => {
 
     expect(result).toEqual({ items: existingItems, added: false });
     expect(result.items).toBe(existingItems);
+  });
+});
+
+describe("mergeCartAfterHydration", () => {
+  it("preserves projects added while a remote cart is loading", () => {
+    const remoteItem: CartItem = {
+      ...phoneCase,
+      projectId: "remote-project",
+      projectSlug: "remote-project",
+    };
+
+    expect(
+      mergeCartAfterHydration({
+        localItems: [{ ...phoneCase, projectId: "local-only" }],
+        remoteItems: [remoteItem],
+        pendingItems: [phoneCase],
+      }),
+    ).toEqual([remoteItem, phoneCase]);
+  });
+
+  it("keeps local precedence when the remote cart is empty and de-duplicates pending additions", () => {
+    expect(
+      mergeCartAfterHydration({
+        localItems: [phoneCase],
+        remoteItems: [],
+        pendingItems: [{ ...phoneCase, price: "$66" }],
+      }),
+    ).toEqual([phoneCase]);
   });
 });

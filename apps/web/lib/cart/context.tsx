@@ -11,7 +11,7 @@ import {
 import { CartItem } from "./types";
 import { getCart, setCart } from "./storage";
 import { loadCartFromServer, saveCartToServer } from "./session";
-import { insertCartItem } from "./items";
+import { insertCartItem, mergeCartAfterHydration } from "./items";
 
 export type CartNotice = "duplicate" | null;
 
@@ -63,13 +63,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const local = getCart();
       const remote = await loadCartFromServer();
+      const hydratedItems = mergeCartAfterHydration({
+        localItems: local,
+        remoteItems: remote,
+        pendingItems: itemsRef.current,
+      });
+      itemsRef.current = hydratedItems;
+      setItems(hydratedItems);
       if (remote.length > 0) {
-        itemsRef.current = remote;
-        setItems(remote);
-        setCart(remote);
-      } else {
-        itemsRef.current = local;
-        setItems(local);
+        setCart(hydratedItems);
       }
       setHydrated(true);
     })();
