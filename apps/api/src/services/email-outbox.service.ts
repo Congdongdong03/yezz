@@ -1,5 +1,8 @@
 import { AppError } from "../lib/errors.js";
-import type { EmailTemplatePayload } from "../lib/email.js";
+import {
+  validateEmailOutboxEnvelope,
+  type EmailTemplatePayload,
+} from "../lib/email-outbox-payload.js";
 import type {
   EmailOutboxRepository as DatabaseEmailOutboxRepository,
   EmailOutboxRow,
@@ -10,7 +13,15 @@ export type { EmailOutboxRow };
 
 export type OutboxProviderMessage = Pick<
   EmailOutboxRow,
-  "id" | "dedupeKey" | "messageType" | "recipient" | "locale" | "payload"
+  | "id"
+  | "dedupeKey"
+  | "bookingId"
+  | "cartOrderId"
+  | "statusEventId"
+  | "messageType"
+  | "recipient"
+  | "locale"
+  | "payload"
 >;
 
 export type EmailOutboxProvider = {
@@ -109,13 +120,17 @@ export function createEmailOutboxService(
 
     const attemptedAt = now();
     try {
+      const validated = validateEmailOutboxEnvelope(row);
       const result = await provider.send({
         id: row.id,
         dedupeKey: row.dedupeKey,
-        messageType: row.messageType,
-        recipient: row.recipient,
-        locale: row.locale,
-        payload: row.payload,
+        bookingId: validated.bookingId,
+        cartOrderId: validated.cartOrderId,
+        statusEventId: validated.statusEventId,
+        messageType: validated.messageType,
+        recipient: validated.recipient,
+        locale: validated.locale,
+        payload: validated.payload,
       });
       return repo.markSent({
         id: row.id,
@@ -209,6 +224,39 @@ export function createEmailOutboxService(
 }
 
 export type EmailOutboxService = ReturnType<typeof createEmailOutboxService>;
+
+export function safeWorkerDiagnostic(error: unknown): {
+  name: string;
+  code?: string;
+  statusCode?: number;
+} {
+  const candidate =
+    typeof error === "object" && error !== null
+      ? (error as {
+          name?: unknown;
+          code?: unknown;
+          statusCode?: unknown;
+          status?: unknown;
+        })
+      : {};
+  const code =
+    typeof candidate.code === "string"
+      ? candidate.code.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64)
+      : undefined;
+  const rawStatus = candidate.statusCode ?? candidate.status;
+  const statusCode =
+    typeof rawStatus === "number" && Number.isFinite(rawStatus)
+      ? rawStatus
+      : undefined;
+  return {
+    name:
+      typeof candidate.name === "string"
+        ? candidate.name.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64)
+        : "UnknownError",
+    ...(code ? { code } : {}),
+    ...(statusCode !== undefined ? { statusCode } : {}),
+  };
+}
 
 const WORKER_POLL_MILLISECONDS = 30_000;
 

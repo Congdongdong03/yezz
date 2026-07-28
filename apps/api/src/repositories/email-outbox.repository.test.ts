@@ -80,6 +80,36 @@ async function setupRepository() {
   };
 }
 
+function bookingReceivedPayload(
+  bookingId: string,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    template: "booking_received",
+    orderId: bookingId,
+    orderNumber: "booking-20260728-1234",
+    submittedAt: "2026-07-28T02:00:00.000Z",
+    input: {
+      name: "Queue Customer",
+      phone: "0430000000",
+      locale: "en",
+    },
+    contact: { email: "congdongdong03@gmail.com" },
+    ...overrides,
+  };
+}
+
+function bookingStatusPayload() {
+  return {
+    template: "booking_status",
+    status: "contacted",
+    customerName: "Queue Customer",
+    orderNumber: "booking-20260728-1234",
+    storeName: "YezYY",
+    contact: { email: "congdongdong03@gmail.com" },
+  };
+}
+
 afterEach(async () => {
   if (!adminClient) return;
   for (const schema of generatedSchemas.splice(0)) {
@@ -100,13 +130,189 @@ describe.skipIf(!runDatabaseTests)(
         messageType: "booking_received_customer",
         recipient: "customer@example.test",
         locale: "en",
-        payload: { template: "booking_received", customerName: "Customer" },
+        payload: bookingReceivedPayload(bookingId),
       };
 
       const first = await repo.enqueue(message);
       const second = await repo.enqueue(message);
 
       expect(second.id).toBe(first.id);
+      await client.end();
+    });
+
+    it("returns the existing dedupe row only when its immutable content matches canonically", async () => {
+      const { bookingId, client, repo } = await setupRepository();
+      const message = {
+        dedupeKey: "booking:1:canonical:customer",
+        bookingId,
+        messageType: "booking_received_customer",
+        recipient: "customer@example.test",
+        locale: "en",
+        payload: bookingReceivedPayload(bookingId),
+      };
+      const first = await repo.enqueue(message);
+
+      const sameContentDifferentKeyOrder = await repo.enqueue({
+        ...message,
+        payload: {
+          contact: { email: "congdongdong03@gmail.com" },
+          input: {
+            locale: "en",
+            phone: "0430000000",
+            name: "Queue Customer",
+          },
+          submittedAt: "2026-07-28T02:00:00.000Z",
+          orderNumber: "booking-20260728-1234",
+          orderId: bookingId,
+          template: "booking_received",
+        },
+      });
+      expect(sameContentDifferentKeyOrder.id).toBe(first.id);
+
+      await expect(
+        repo.enqueue({
+          ...message,
+          recipient: "different@example.test",
+        }),
+      ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+      await expect(
+        repo.enqueue({
+          ...message,
+          payload: bookingReceivedPayload(bookingId, {
+            orderNumber: "booking-20260728-DIFFERENT",
+          }),
+        }),
+      ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+
+      const [otherBooking] = await client<{ id: string }[]>`
+        INSERT INTO bookings (name, phone)
+        VALUES ('Other Customer', '0430000001')
+        RETURNING id
+      `;
+      await expect(
+        repo.enqueue({
+          ...message,
+          bookingId: otherBooking.id,
+          payload: bookingReceivedPayload(otherBooking.id),
+        }),
+      ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+
+      await expect(
+        repo.enqueue({
+          ...message,
+          locale: "zh",
+          payload: bookingReceivedPayload(bookingId, {
+            input: {
+              name: "Queue Customer",
+              phone: "0430000000",
+              locale: "zh",
+            },
+          }),
+        }),
+      ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+
+      await expect(
+        repo.enqueue({
+          ...message,
+          messageType: "booking_received_owner",
+          payload: {
+            template: "owner_request",
+            subject: "New booking",
+            heading: "Booking details",
+            fields: [{ label: "Name", value: "Queue Customer" }],
+          },
+        }),
+      ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+
+      const [cartOrder] = await client<{ id: string }[]>`
+        INSERT INTO cart_orders (name, phone)
+        VALUES ('Cart Customer', '0430000002')
+        RETURNING id
+      `;
+      await expect(
+        repo.enqueue({
+          ...message,
+          bookingId: null,
+          cartOrderId: cartOrder.id,
+          messageType: "cart_order_received_customer",
+          payload: {
+            template: "cart_order_received",
+            orderNumber: "cart-20260728-1234",
+            submittedAt: "2026-07-28T02:00:00.000Z",
+            input: {
+              name: "Cart Customer",
+              phone: "0430000002",
+              items: [
+                {
+                  projectName: { en: "Paint Clay Figurine", zh: "彩绘公仔" },
+                  projectType: "experience",
+                  people: 1,
+                  price: "$43",
+                },
+              ],
+            },
+            contact: { email: "congdongdong03@gmail.com" },
+          },
+        }),
+      ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+
+      const [actor] = await client<{ id: string }[]>`
+        INSERT INTO users (email, password_hash, name)
+        VALUES ('admin@example.test', 'not-a-real-hash', 'Test Admin')
+        RETURNING id
+      `;
+      const events = await client<{ id: string }[]>`
+        INSERT INTO request_status_events (
+          booking_id,
+          operation_id,
+          from_status,
+          to_status,
+          actor_user_id
+        )
+        VALUES
+          (${bookingId}, ${crypto.randomUUID()}, 'new', 'contacted', ${actor.id}),
+          (${bookingId}, ${crypto.randomUUID()}, 'new', 'contacted', ${actor.id})
+        RETURNING id
+      `;
+      const statusMessage = {
+        dedupeKey: "booking:1:status:customer",
+        bookingId,
+        statusEventId: events[0].id,
+        messageType: "booking_status_customer",
+        recipient: "customer@example.test",
+        locale: "en",
+        payload: bookingStatusPayload(),
+      };
+      await repo.enqueue(statusMessage);
+      await expect(
+        repo.enqueue({
+          ...statusMessage,
+          statusEventId: events[1].id,
+        }),
+      ).rejects.toMatchObject({ code: "EMAIL_DEDUPE_CONFLICT" });
+      await client.end();
+    });
+
+    it("rejects a template that does not match its parent and message type before insert", async () => {
+      const { bookingId, client, repo } = await setupRepository();
+
+      await expect(
+        repo.enqueue({
+          dedupeKey: "booking:1:wrong-template:customer",
+          bookingId,
+          messageType: "cart_order_received_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: bookingReceivedPayload(bookingId),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+
+      const [count] = await client<{ count: number }[]>`
+        SELECT count(*)::int AS count
+        FROM email_outbox
+        WHERE dedupe_key = 'booking:1:wrong-template:customer'
+      `;
+      expect(count.count).toBe(0);
       await client.end();
     });
 
@@ -119,7 +325,9 @@ describe.skipIf(!runDatabaseTests)(
           messageType: "booking_received_customer",
           recipient: `${suffix}@example.test`,
           locale: "en",
-          payload: { template: "booking_received", customerName: suffix },
+          payload: bookingReceivedPayload(bookingId, {
+            orderNumber: `booking-20260728-${suffix}`,
+          }),
         });
       }
 
@@ -143,7 +351,9 @@ describe.skipIf(!runDatabaseTests)(
         messageType: "booking_received_customer",
         recipient: "lease@example.test",
         locale: "en",
-        payload: { template: "booking_received", customerName: "Lease" },
+        payload: bookingReceivedPayload(bookingId, {
+          orderNumber: "booking-20260728-LEASE",
+        }),
       });
       const first = await repo.claimDue(
         1,

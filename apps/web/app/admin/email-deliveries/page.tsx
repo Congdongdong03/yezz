@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { getEmailDeliveries, retryEmailDelivery } from "@/lib/admin/api";
 import {
   EMAIL_DELIVERY_LABELS,
-  formatSafeDeliveryError,
+  EMAIL_MESSAGE_TYPE_LABELS,
+  formatDeliveryErrorForAdmin,
 } from "@/lib/admin/email-delivery";
 import type { EmailDelivery, EmailDeliveryStatus } from "@/lib/admin/types";
 
@@ -159,7 +160,8 @@ export default function EmailDeliveriesPage() {
                     </td>
                     <td className="px-4 py-3">{delivery.recipient}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {delivery.messageType}
+                      {EMAIL_MESSAGE_TYPE_LABELS[delivery.messageType] ??
+                        "其他邮件"}
                     </td>
                     <td className="px-4 py-3">{delivery.attemptCount}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
@@ -167,10 +169,10 @@ export default function EmailDeliveriesPage() {
                     </td>
                     <td
                       className="max-w-[260px] px-4 py-3 text-muted-foreground"
-                      title={formatSafeDeliveryError(delivery.lastError)}
+                      title={formatDeliveryErrorForAdmin(delivery.lastError)}
                     >
                       <span className="line-clamp-3">
-                        {formatSafeDeliveryError(delivery.lastError)}
+                        {formatDeliveryErrorForAdmin(delivery.lastError)}
                       </span>
                     </td>
                     <td className="px-4 py-3">

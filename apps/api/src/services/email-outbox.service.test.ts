@@ -1,12 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createEmailOutboxService,
+  safeWorkerDiagnostic,
   startEmailOutboxWorker,
   type EmailOutboxRepository,
   type EmailOutboxRow,
 } from "./email-outbox.service.js";
 
 const NOW = new Date("2026-07-28T02:00:00.000Z");
+
+const VALID_BOOKING_RECEIVED_PAYLOAD = {
+  template: "booking_received",
+  orderId: "00000000-0000-4000-8000-000000000002",
+  orderNumber: "booking-20260728-1234",
+  submittedAt: "2026-07-28T02:00:00.000Z",
+  input: {
+    name: "Customer",
+    phone: "0430000000",
+    locale: "en",
+  },
+  contact: { email: "congdongdong03@gmail.com" },
+};
 
 function pendingRow(overrides: Partial<EmailOutboxRow> = {}): EmailOutboxRow {
   return {
@@ -18,7 +32,7 @@ function pendingRow(overrides: Partial<EmailOutboxRow> = {}): EmailOutboxRow {
     messageType: "booking_received_customer",
     recipient: "customer@example.test",
     locale: "en",
-    payload: { template: "booking_received", customerName: "Customer" },
+    payload: VALID_BOOKING_RECEIVED_PAYLOAD,
     deliveryStatus: "processing",
     attemptCount: 0,
     nextAttemptAt: NOW,
@@ -169,6 +183,33 @@ describe("email outbox delivery state machine", () => {
     });
   });
 
+  it("fails malformed persisted template data once without calling the provider", async () => {
+    const repo = createMemoryRepository(
+      pendingRow({
+        payload: {
+          template: "booking_received",
+          orderNumber: "missing required fields",
+        },
+      }),
+    );
+    const provider = {
+      send: vi.fn(async () => ({ providerMessageId: "must-not-send" })),
+    };
+    const service = createEmailOutboxService(repo, provider, {
+      now: () => NOW,
+    });
+
+    await service.deliverOne(repo.current);
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(repo.current).toMatchObject({
+      deliveryStatus: "failed",
+      attemptCount: 1,
+    });
+    expect(repo.current.lastError).toContain("INVALID_EMAIL_PAYLOAD");
+    expect(repo.current.lastError).not.toContain("TypeError");
+  });
+
   it("stores only a safe 300-character error without payload or recipient", async () => {
     const repo = createMemoryRepository();
     const secret = "sensitive-customer-message";
@@ -278,5 +319,21 @@ describe("email outbox delivery state machine", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     expect(drain).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
+  });
+
+  it("retains only safe status and code context for worker diagnostics", () => {
+    const diagnostic = safeWorkerDiagnostic(
+      Object.assign(new Error("customer@example.test secret payload"), {
+        code: "connection_failed",
+        statusCode: 503,
+      }),
+    );
+
+    expect(diagnostic).toEqual({
+      name: "Error",
+      code: "connection_failed",
+      statusCode: 503,
+    });
+    expect(JSON.stringify(diagnostic)).not.toContain("customer@example.test");
   });
 });

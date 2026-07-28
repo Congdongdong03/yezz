@@ -13,7 +13,10 @@ import servicesPlugin from "./plugins/services.js";
 import swaggerPlugin from "./plugins/swagger.js";
 import healthRoutes from "./routes/health.routes.js";
 import v1Routes from "./routes/v1/index.js";
-import { startEmailOutboxWorker } from "./services/email-outbox.service.js";
+import {
+  safeWorkerDiagnostic,
+  startEmailOutboxWorker,
+} from "./services/email-outbox.service.js";
 
 function parseAllowedOrigins(): string[] {
   const raw = process.env.CORS_ORIGIN ?? "http://localhost:3000";
@@ -81,7 +84,11 @@ export async function buildApp() {
   if (process.env.EMAIL_OUTBOX_WORKER_ENABLED === "true") {
     const stopEmailWorker = startEmailOutboxWorker(
       app.services.emailOutbox,
-      () => app.log.error("Email outbox worker poll failed"),
+      (error) =>
+        app.log.error(
+          { diagnostic: safeWorkerDiagnostic(error) },
+          "Email outbox worker poll failed",
+        ),
     );
     app.addHook("onClose", async () => {
       await stopEmailWorker();

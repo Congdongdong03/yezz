@@ -211,6 +211,9 @@ describe("booking request acknowledgement email", () => {
       provider.send({
         id: "00000000-0000-4000-8000-000000000001",
         dedupeKey: "booking:1:status:confirmed:customer",
+        bookingId: "00000000-0000-4000-8000-000000000002",
+        cartOrderId: null,
+        statusEventId: "00000000-0000-4000-8000-000000000003",
         messageType: "booking_status_customer",
         recipient: "customer@example.com",
         locale: "en",
@@ -242,6 +245,9 @@ describe("booking request acknowledgement email", () => {
     await provider.send({
       id: "00000000-0000-4000-8000-000000000001",
       dedupeKey: "booking:1:received:customer",
+      bookingId: "00000000-0000-4000-8000-000000000002",
+      cartOrderId: null,
+      statusEventId: null,
       messageType: "booking_received_customer",
       recipient: "customer@example.com",
       locale: "en",

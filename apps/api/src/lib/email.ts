@@ -5,9 +5,18 @@ import type {
   EmailOutboxProvider,
   OutboxProviderMessage,
 } from "../services/email-outbox.service.js";
+import {
+  validateEmailOutboxEnvelope,
+  type BookingReceivedOutboxPayload,
+  type BookingStatusOutboxPayload,
+  type BookingStatusTemplate,
+  type OrderReceivedOutboxPayload,
+  type OwnerRequestOutboxPayload,
+} from "./email-outbox-payload.js";
 import { displayLocalized, escapeHtml } from "./email-helpers.js";
 
 export { displayLocalized, escapeHtml } from "./email-helpers.js";
+export type { EmailTemplatePayload } from "./email-outbox-payload.js";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -321,8 +330,6 @@ export type BookingStatusEmailContext = {
   adminNote?: string | null;
 };
 
-type BookingStatusTemplate = "contacted" | "confirmed" | "cancelled";
-
 function isZh(locale?: string | null) {
   return locale?.toLowerCase().startsWith("zh") ?? true;
 }
@@ -425,41 +432,6 @@ export async function sendBookingStatusCancelledEmail(
   await sendCustomerTemplatedEmail(ctx.to, rendered.subject, rendered.body);
 }
 
-type BookingStatusOutboxPayload = Omit<BookingStatusEmailContext, "to"> & {
-  template: "booking_status";
-  status: BookingStatusTemplate;
-};
-
-type BookingReceivedOutboxPayload = {
-  template: "booking_received";
-  orderId: string;
-  orderNumber: string;
-  submittedAt: string;
-  input: BookingCreateInput;
-  contact: StoreContact;
-};
-
-type OrderReceivedOutboxPayload = {
-  template: "cart_order_received";
-  orderNumber: string;
-  submittedAt: string;
-  input: CartOrderCreateInput;
-  contact: StoreContact;
-};
-
-type OwnerRequestOutboxPayload = {
-  template: "owner_request";
-  subject: string;
-  heading: string;
-  fields: Array<{ label: string; value: string }>;
-};
-
-export type EmailTemplatePayload =
-  | BookingStatusOutboxPayload
-  | BookingReceivedOutboxPayload
-  | OrderReceivedOutboxPayload
-  | OwnerRequestOutboxPayload;
-
 function parseOutboxDate(value: string): Date {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -471,32 +443,6 @@ function parseOutboxDate(value: string): Date {
   return parsed;
 }
 
-function parseBookingStatusPayload(
-  payload: Record<string, unknown>,
-): BookingStatusOutboxPayload {
-  const candidate = payload as Partial<BookingStatusOutboxPayload>;
-  if (
-    candidate.template !== "booking_status" ||
-    !["contacted", "confirmed", "cancelled"].includes(
-      String(candidate.status),
-    ) ||
-    typeof candidate.customerName !== "string" ||
-    typeof candidate.orderNumber !== "string" ||
-    typeof candidate.storeName !== "string" ||
-    typeof candidate.contact !== "object" ||
-    candidate.contact === null
-  ) {
-    throw Object.assign(
-      new Error("Unsupported or invalid email template input"),
-      {
-        code: "invalid_template_payload",
-        statusCode: 422,
-      },
-    );
-  }
-  return candidate as BookingStatusOutboxPayload;
-}
-
 export function createResendOutboxProvider(): EmailOutboxProvider {
   return {
     async send(message: OutboxProviderMessage): Promise<ProviderSendResult> {
@@ -506,88 +452,41 @@ export function createResendOutboxProvider(): EmailOutboxProvider {
           statusCode: 503,
         });
       }
-      const template = message.payload.template;
+      const validated = validateEmailOutboxEnvelope(message);
+      const template = validated.payload.template;
       let rendered: { subject: string; html: string };
       if (template === "booking_status") {
-        const payload = parseBookingStatusPayload(message.payload);
+        const payload = validated.payload as BookingStatusOutboxPayload;
         const statusEmail = renderBookingStatusEmail(payload.status, {
           ...payload,
-          to: message.recipient,
-          locale: message.locale,
+          to: validated.recipient,
+          locale: validated.locale,
         });
         rendered = {
           subject: statusEmail.subject,
           html: brandedEmail(statusEmail.subject, statusEmail.body),
         };
       } else if (template === "booking_received") {
-        const payload =
-          message.payload as Partial<BookingReceivedOutboxPayload>;
-        if (
-          typeof payload.orderId !== "string" ||
-          typeof payload.orderNumber !== "string" ||
-          typeof payload.submittedAt !== "string" ||
-          typeof payload.input !== "object" ||
-          payload.input === null ||
-          typeof payload.contact !== "object" ||
-          payload.contact === null
-        ) {
-          throw Object.assign(
-            new Error("Invalid booking email template input"),
-            {
-              code: "invalid_template_payload",
-              statusCode: 422,
-            },
-          );
-        }
+        const payload = validated.payload as BookingReceivedOutboxPayload;
         rendered = renderBookingConfirmation({
-          to: message.recipient,
+          to: validated.recipient,
           orderId: payload.orderId,
           orderNumber: payload.orderNumber,
           submittedAt: parseOutboxDate(payload.submittedAt),
-          input: payload.input as BookingCreateInput,
-          contact: payload.contact as StoreContact,
+          input: payload.input,
+          contact: payload.contact,
         });
       } else if (template === "cart_order_received") {
-        const payload = message.payload as Partial<OrderReceivedOutboxPayload>;
-        if (
-          typeof payload.orderNumber !== "string" ||
-          typeof payload.submittedAt !== "string" ||
-          typeof payload.input !== "object" ||
-          payload.input === null ||
-          typeof payload.contact !== "object" ||
-          payload.contact === null
-        ) {
-          throw Object.assign(new Error("Invalid order email template input"), {
-            code: "invalid_template_payload",
-            statusCode: 422,
-          });
-        }
+        const payload = validated.payload as OrderReceivedOutboxPayload;
         rendered = renderOrderConfirmation({
-          to: message.recipient,
+          to: validated.recipient,
           orderNumber: payload.orderNumber,
           submittedAt: parseOutboxDate(payload.submittedAt),
-          input: payload.input as CartOrderCreateInput,
-          contact: payload.contact as StoreContact,
+          input: payload.input,
+          contact: payload.contact,
         });
       } else if (template === "owner_request") {
-        const payload = message.payload as Partial<OwnerRequestOutboxPayload>;
-        if (
-          typeof payload.subject !== "string" ||
-          typeof payload.heading !== "string" ||
-          !Array.isArray(payload.fields) ||
-          !payload.fields.every(
-            (field) =>
-              typeof field === "object" &&
-              field !== null &&
-              typeof field.label === "string" &&
-              typeof field.value === "string",
-          )
-        ) {
-          throw Object.assign(new Error("Invalid owner email template input"), {
-            code: "invalid_template_payload",
-            statusCode: 422,
-          });
-        }
+        const payload = validated.payload as OwnerRequestOutboxPayload;
         const body = `<h2>${escapeHtml(payload.heading)}</h2><table width="100%" cellpadding="0" cellspacing="0">${payload.fields
           .map((field) =>
             infoRow(escapeHtml(field.label), escapeHtml(field.value)),
@@ -605,7 +504,7 @@ export function createResendOutboxProvider(): EmailOutboxProvider {
       }
       const result = await sendRawEmail(
         {
-          to: message.recipient,
+          to: validated.recipient,
           subject: rendered.subject,
           html: rendered.html,
         },

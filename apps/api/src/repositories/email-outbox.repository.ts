@@ -1,6 +1,10 @@
 import { emailOutbox, type Db } from "@yezz/db";
 import { and, asc, count, eq, inArray, lt, lte, or, sql } from "drizzle-orm";
 import { AppError } from "../lib/errors.js";
+import {
+  canonicalEmailPayload,
+  validateEmailOutboxEnvelope,
+} from "../lib/email-outbox-payload.js";
 
 export type EmailDeliveryStatus = "pending" | "processing" | "sent" | "failed";
 
@@ -42,27 +46,19 @@ export function createEmailOutboxRepository(db: Db) {
       input: EnqueueEmailInput,
       tx: Db = db,
     ): Promise<EmailOutboxRow> {
-      const hasBooking = Boolean(input.bookingId);
-      const hasOrder = Boolean(input.cartOrderId);
-      if (hasBooking === hasOrder) {
-        throw new AppError(
-          400,
-          "INVALID_EMAIL_PARENT",
-          "Email delivery must belong to exactly one request",
-        );
-      }
+      const validated = validateEmailOutboxEnvelope(input);
 
       const [inserted] = await tx
         .insert(emailOutbox)
         .values({
           dedupeKey: input.dedupeKey,
-          bookingId: input.bookingId ?? null,
-          cartOrderId: input.cartOrderId ?? null,
-          statusEventId: input.statusEventId ?? null,
-          messageType: input.messageType,
-          recipient: input.recipient.trim(),
-          locale: input.locale.trim() || "en",
-          payload: input.payload,
+          bookingId: validated.bookingId,
+          cartOrderId: validated.cartOrderId,
+          statusEventId: validated.statusEventId,
+          messageType: validated.messageType,
+          recipient: validated.recipient,
+          locale: validated.locale,
+          payload: validated.payload,
           nextAttemptAt: new Date(),
           updatedAt: new Date(),
         })
@@ -81,6 +77,23 @@ export function createEmailOutboxRepository(db: Db) {
           409,
           "EMAIL_DEDUPE_CONFLICT",
           "The email delivery could not be resolved",
+        );
+      }
+      const sameImmutableContent =
+        existing.bookingId === validated.bookingId &&
+        existing.cartOrderId === validated.cartOrderId &&
+        existing.statusEventId === validated.statusEventId &&
+        existing.messageType === validated.messageType &&
+        existing.recipient === validated.recipient &&
+        existing.locale === validated.locale &&
+        canonicalEmailPayload(
+          existing.payload as typeof validated.payload,
+        ) === canonicalEmailPayload(validated.payload);
+      if (!sameImmutableContent) {
+        throw new AppError(
+          409,
+          "EMAIL_DEDUPE_CONFLICT",
+          "The email dedupe key belongs to different immutable content",
         );
       }
       return existing as EmailOutboxRow;

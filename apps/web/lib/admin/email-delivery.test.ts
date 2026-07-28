@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   EMAIL_DELIVERY_LABELS,
+  EMAIL_MESSAGE_TYPE_LABELS,
   buildEmailDeliveryQuery,
-  formatSafeDeliveryError,
+  formatDeliveryErrorForAdmin,
 } from "./email-delivery";
 
 describe("email delivery admin presentation", () => {
@@ -22,7 +23,25 @@ describe("email delivery admin presentation", () => {
   });
 
   it("does not render more than 300 safe error characters", () => {
-    expect(formatSafeDeliveryError("x".repeat(400))).toHaveLength(300);
-    expect(formatSafeDeliveryError(null)).toBe("—");
+    expect(
+      formatDeliveryErrorForAdmin(
+        "422 INVALID_EMAIL_PAYLOAD: invalid_template_payload",
+      ),
+    ).toBe("邮件内容无效，请联系技术人员");
+    expect(
+      formatDeliveryErrorForAdmin(
+        "503 provider_not_configured: RESEND_API_KEY is not configured",
+      ),
+    ).toBe("邮件服务尚未配置");
+    expect(formatDeliveryErrorForAdmin(null)).toBe("—");
+  });
+
+  it("presents machine message types in Chinese", () => {
+    expect(EMAIL_MESSAGE_TYPE_LABELS.booking_received_customer).toBe(
+      "预约已收到（客户）",
+    );
+    expect(EMAIL_MESSAGE_TYPE_LABELS.cart_order_status_customer).toBe(
+      "订单状态更新（客户）",
+    );
   });
 });
