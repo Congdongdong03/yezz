@@ -76,10 +76,12 @@ export default function AdminBookingsPage() {
       setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
       setMessage({ type: "success", text: "状态已更新" });
     } catch (err) {
+      const error = err instanceof Error ? err : new Error("更新失败");
       setMessage({
         type: "error",
-        text: err instanceof Error ? err.message : "更新失败",
+        text: error.message,
       });
+      throw error;
     } finally {
       setUpdatingId(null);
     }
@@ -90,7 +92,7 @@ export default function AdminBookingsPage() {
       setPendingStatusChange({ id, status });
       return;
     }
-    void handleStatusChange(id, status);
+    void handleStatusChange(id, status).catch(() => {});
   };
 
   const handleDialogConfirm = async ({ status, note }: BookingStatusDialogResult) => {

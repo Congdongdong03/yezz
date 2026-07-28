@@ -62,7 +62,9 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
       setBooking(updated);
       setMessage({ type: "success", text: "状态已更新" });
     } catch (err) {
-      setMessage({ type: "error", text: err instanceof Error ? err.message : "更新失败" });
+      const error = err instanceof Error ? err : new Error("更新失败");
+      setMessage({ type: "error", text: error.message });
+      throw error;
     } finally {
       setUpdating(false);
     }
@@ -73,7 +75,7 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
       setPendingStatusChange(status);
       return;
     }
-    void handleStatusChange(status);
+    void handleStatusChange(status).catch(() => {});
   };
 
   const handleDialogConfirm = async ({ status, note }: BookingStatusDialogResult) => {

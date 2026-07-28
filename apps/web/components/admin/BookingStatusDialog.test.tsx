@@ -1,0 +1,116 @@
+/** @vitest-environment jsdom */
+
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import BookingStatusDialog from "./BookingStatusDialog";
+
+const testEnvironment = globalThis as typeof globalThis & {
+  IS_REACT_ACT_ENVIRONMENT: boolean;
+};
+testEnvironment.IS_REACT_ACT_ENVIRONMENT = true;
+
+describe("BookingStatusDialog", () => {
+  let container: HTMLDivElement;
+  let opener: HTMLButtonElement;
+  let root: Root;
+
+  beforeEach(() => {
+    opener = document.createElement("button");
+    opener.textContent = "更改状态";
+    document.body.append(opener);
+    opener.focus();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    document.body.replaceChildren();
+  });
+
+  async function renderDialog(
+    props: Partial<React.ComponentProps<typeof BookingStatusDialog>> = {},
+  ) {
+    await act(async () => {
+      root.render(
+        <BookingStatusDialog
+          onCancel={vi.fn()}
+          onConfirm={vi.fn().mockResolvedValue(undefined)}
+          open
+          status="confirmed"
+          {...props}
+        />,
+      );
+    });
+  }
+
+  it("moves focus into the dialog and restores the opener when it closes", async () => {
+    await renderDialog();
+
+    expect(document.activeElement).toBe(container.querySelector("textarea"));
+
+    await act(async () => root.unmount());
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it("keeps Tab navigation inside the dialog", async () => {
+    await renderDialog();
+    const dialog = container.querySelector<HTMLElement>("[role='dialog']");
+    const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+    const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>("button"));
+    const confirmButton = buttons.at(-1);
+
+    expect(dialog).not.toBeNull();
+    expect(textarea).not.toBeNull();
+    expect(confirmButton).toBeDefined();
+
+    confirmButton?.focus();
+    dialog?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Tab" }));
+    expect(document.activeElement).toBe(textarea);
+
+    dialog?.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "Tab", shiftKey: true }),
+    );
+    expect(document.activeElement).toBe(confirmButton);
+  });
+
+  it("closes on Escape unless a submission is in progress", async () => {
+    const onCancel = vi.fn();
+    await renderDialog({ onCancel });
+    const dialog = container.querySelector<HTMLElement>("[role='dialog']");
+
+    dialog?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    expect(onCancel).toHaveBeenCalledOnce();
+
+    await renderDialog({ isSubmitting: true, onCancel });
+    dialog?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the note and reports the error when submission fails", async () => {
+    await renderDialog({ onConfirm: vi.fn().mockRejectedValue(new Error("网络连接失败")) });
+    const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+    const confirmButton = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).at(-1);
+
+    expect(textarea).not.toBeNull();
+    expect(confirmButton).toBeDefined();
+
+    await act(async () => {
+      if (!textarea) return;
+      const setValue = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      setValue?.call(textarea, "请改约到星期日");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => confirmButton?.click());
+
+    expect(container.textContent).toContain("网络连接失败");
+    expect(textarea?.value).toBe("请改约到星期日");
+    expect(container.querySelector("[role='dialog']")).not.toBeNull();
+  });
+});
