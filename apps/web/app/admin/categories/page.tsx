@@ -38,7 +38,7 @@ export default function AdminCategoriesPage() {
   };
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(load);
   }, []);
 
   const updateField = (id: string, patch: Partial<Category>) => {

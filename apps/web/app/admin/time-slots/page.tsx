@@ -56,7 +56,7 @@ export default function AdminTimeSlotsPage() {
   };
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(load);
   }, []);
 
   const daySlots = useMemo(

@@ -25,7 +25,7 @@ export default function AdminGalleryPage() {
   };
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(load);
   }, []);
 
   const handleDelete = async (id: string) => {

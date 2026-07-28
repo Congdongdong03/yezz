@@ -57,7 +57,7 @@ export default function AdminBookingsPage() {
   };
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(load);
     markNotificationsRead("bookings").catch(() => {});
   }, []);
 

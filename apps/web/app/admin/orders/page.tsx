@@ -65,7 +65,7 @@ export default function AdminOrdersPage() {
   };
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(load);
     markNotificationsRead("orders").catch(() => {});
   }, []);
 

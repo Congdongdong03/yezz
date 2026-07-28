@@ -55,7 +55,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     clearLegacyAdminToken();
     if (isLogin) {
-      setReady(true);
+      void Promise.resolve().then(() => setReady(true));
       return;
     }
 

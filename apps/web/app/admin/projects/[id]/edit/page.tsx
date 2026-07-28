@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import ProjectForm from "@/components/admin/ProjectForm";
 import { getAdminCategories, getAdminProject } from "@/lib/admin/api";
@@ -37,7 +38,12 @@ export default function EditProjectPage({ params }: { params: Promise<{ id: stri
       {project && categories.length === 0 && (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">暂无分类，请先创建分类后再编辑项目。</p>
-          <a href="/admin/categories" className="text-sm text-primary underline-offset-2 hover:underline">→ 去创建分类</a>
+          <Link
+            href="/admin/categories"
+            className="text-sm text-primary underline-offset-2 hover:underline"
+          >
+            → 去创建分类
+          </Link>
         </div>
       )}
       {project && categories.length > 0 && (

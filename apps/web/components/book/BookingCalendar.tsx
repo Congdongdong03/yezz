@@ -60,7 +60,7 @@ export default function BookingCalendar({
   }, [year, month, categoryId, t]);
 
   useEffect(() => {
-    loadMonth();
+    void Promise.resolve().then(loadMonth);
   }, [loadMonth]);
 
   const selectDate = async (date: string, status: "none" | "available" | "full") => {

@@ -46,7 +46,7 @@ export default function AdminUsersPage() {
   };
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(load);
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
