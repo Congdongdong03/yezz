@@ -19,6 +19,7 @@ export default async function bookingsRoutes(app: FastifyInstance) {
     );
 
     if (!allowed) {
+      reply.header("Retry-After", String(retryAfter ?? BOOKING_RATE_WINDOW_SECONDS));
       throw new AppError(
         429,
         "RATE_LIMITED",
