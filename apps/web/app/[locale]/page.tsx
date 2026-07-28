@@ -1,10 +1,5 @@
 import { loadHomePageData } from "@/lib/site/data";
 import { buildPageMetadata } from "@/lib/site/metadata";
-import type {
-  mapGalleryImageFromApi,
-  mapPartyFromApi,
-  mapProjectListItemFromApi,
-} from "@/lib/api/mappers";
 import ServiceUnavailable from "@/components/ServiceUnavailable";
 import Hero from "@/components/sections/Hero";
 import SceneEntry from "@/components/sections/SceneEntry";
@@ -16,10 +11,6 @@ import StoreVibes from "@/components/sections/StoreVibes";
 import WeChatCTA from "@/components/sections/WeChatCTA";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-
-type ProjectView = ReturnType<typeof mapProjectListItemFromApi>;
-type PartyView = ReturnType<typeof mapPartyFromApi>;
-type GalleryImageView = ReturnType<typeof mapGalleryImageFromApi>;
 
 export async function generateMetadata({
   params,
@@ -54,11 +45,11 @@ export default async function HomePage({
     <>
       <Hero heroImageUrl={siteSettings?.heroImageUrl} />
       <SceneEntry />
-      <FeaturedProjects projects={(projects as ProjectView[]) || []} />
+      <FeaturedProjects projects={projects} />
       <WhyDIY />
-      <PartyPackagesPreview packages={(parties as PartyView[]) || []} />
-      <GalleryHighlight images={(galleryImages as GalleryImageView[]) || []} />
-      <StoreVibes storeImage={(storeImage as GalleryImageView) || null} />
+      <PartyPackagesPreview packages={parties} />
+      <GalleryHighlight images={galleryImages} />
+      <StoreVibes storeImage={storeImage} />
       <WeChatCTA wechatId={siteSettings?.wechatId} />
     </>
   );

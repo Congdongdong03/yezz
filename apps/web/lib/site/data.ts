@@ -33,8 +33,14 @@ const minimalSiteSettings: SiteSettingsView = {
 
 export type SiteSettingsView = ReturnType<typeof mapSiteSettingsFromApi>;
 
+type ProjectListItemView = ReturnType<typeof mapProjectListItemFromApi>;
+
+export type HomePageProjectView = Omit<ProjectListItemView, "category"> & {
+  category: ProjectListItemView["name"];
+};
+
 export type HomePageData = {
-  projects: unknown[];
+  projects: HomePageProjectView[];
   parties: ReturnType<typeof mapPartyFromApi>[];
   galleryImages: ReturnType<typeof mapGalleryImageFromApi>[];
   storeImage: ReturnType<typeof mapGalleryImageFromApi> | null;
@@ -105,7 +111,7 @@ export async function loadHomePageData(): Promise<LoadResult<HomePageData>> {
       fetchSiteSettings(),
     ]);
 
-    const projects = apiProjects
+    const projects: HomePageProjectView[] = apiProjects
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .slice(0, 4)
       .map((p) => {
