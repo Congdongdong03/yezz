@@ -73,7 +73,10 @@ try {
   const databaseUrl =
     `postgres://closure_test:closure_test_only@127.0.0.1:${postgresPort}/yezyy_closure_test`;
   run("corepack", ["pnpm", "db:migrate"], {
-    env: { DATABASE_URL: databaseUrl },
+    env: {
+      DATABASE_URL: databaseUrl,
+      YEZYY_CLOSURE_E2E: "1",
+    },
   });
   run(
     "corepack",
@@ -85,6 +88,7 @@ try {
         ADMIN_PASSWORD: adminPassword,
         DATABASE_URL: databaseUrl,
         NODE_ENV: "production",
+        YEZYY_CLOSURE_E2E: "1",
       },
     },
   );

@@ -53,6 +53,28 @@ export function readRequestCapabilities(
   };
 }
 
+/**
+ * Public create routes call this before durable rate limiting. Unknown request
+ * kinds and missing or malformed flags all fail closed without touching a
+ * database-backed service.
+ */
+export function requireRequestCapability(
+  capability: string,
+  env: RequestCapabilityEnvironment = process.env,
+): void {
+  const capabilities = readRequestCapabilities(env);
+  if (
+    !["experience", "product", "party"].includes(capability) ||
+    !capabilities[capability as keyof RequestCapabilities]
+  ) {
+    throw new AppError(
+      503,
+      "REQUEST_FLOW_DISABLED",
+      `${capability} requests are not currently available`,
+    );
+  }
+}
+
 export function createSettingsService(
   db: Db,
   redis: Redis | null = null,

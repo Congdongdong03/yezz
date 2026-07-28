@@ -1,9 +1,76 @@
 import Fastify from "fastify";
-import { describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { registerErrorHandler } from "../../plugins/error-handler.js";
 import cartOrdersRoutes from "./cart-orders.routes.js";
 
 describe("cartOrdersRoutes durable rate limits", () => {
+  beforeEach(() => {
+    vi.stubEnv("REQUEST_FLOW_PRODUCT_ENABLED", "true");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    ["absent", undefined],
+    ["malformed", "TRUE"],
+  ])(
+    "rejects an %s product flag before durable rate limiting",
+    async (_label, productFlag) => {
+      if (productFlag === undefined) {
+        delete process.env.REQUEST_FLOW_PRODUCT_ENABLED;
+      } else {
+        vi.stubEnv("REQUEST_FLOW_PRODUCT_ENABLED", productFlag);
+      }
+      const consume = vi.fn();
+      const create = vi.fn();
+      const app = Fastify();
+      registerErrorHandler(app);
+      app.decorateRequest("verifiedClientIdentity", null);
+      app.decorate("services", {
+        rateLimits: { consume },
+        cartOrders: { create },
+      } as never);
+      await app.register(cartOrdersRoutes, {
+        prefix: "/cart-orders",
+      });
+
+      try {
+        const response = await app.inject({
+          method: "POST",
+          url: "/cart-orders",
+          headers: {
+            "idempotency-key":
+              "00000000-0000-4000-8000-000000000019",
+          },
+          payload: {
+            name: "Alice",
+            phone: "123",
+            items: [],
+          },
+        });
+
+        expect(response.statusCode).toBe(503);
+        expect(response.json()).toMatchObject({
+          success: false,
+          error: { code: "REQUEST_FLOW_DISABLED" },
+        });
+        expect(consume).not.toHaveBeenCalled();
+        expect(create).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
   it("keys cart-order creation by the verified signed client IP", async () => {
     const consume = vi.fn(async () => ({
       allowed: true,

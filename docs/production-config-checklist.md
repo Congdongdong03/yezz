@@ -411,7 +411,7 @@ fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
 
 ### 2. 运行迁移前不变量查询
 
-在只读会话中执行，三项结果都必须为 `0`：
+在只读会话中执行，四项结果都必须为 `0`：
 
 ```sql
 select count(*) as invalid_slots
@@ -447,6 +447,29 @@ from (
   where o.status <> 'cancelled'
     and coalesce(o.number_of_people, 1) > t.capacity
 ) invalid;
+
+with active_capacity as (
+  select b.time_slot_id,
+         coalesce(b.number_of_people, 1)::bigint as people
+  from bookings b
+  where b.status <> 'cancelled'
+    and b.time_slot_id is not null
+  union all
+  select o.time_slot_id,
+         coalesce(o.number_of_people, 1)::bigint as people
+  from cart_orders o
+  where o.status <> 'cancelled'
+    and o.time_slot_id is not null
+),
+expected_capacity as (
+  select time_slot_id, sum(people)::bigint as booked_count
+  from active_capacity
+  group by time_slot_id
+)
+select count(*) as capacity_counter_mismatches
+from time_slots t
+left join expected_capacity e on e.time_slot_id = t.id
+where t.booked_count::bigint <> coalesce(e.booked_count, 0);
 ```
 
 保存查询输出到发布工单；任何非零结果都暂停发布。
@@ -480,7 +503,9 @@ Deployment ID。密钥不得出现在命令输出、工单正文或客户端变�
 - [ ] 后台登录仅设置第一方、Host-only、HttpOnly、Secure、SameSite=Lax Cookie
 - [ ] 跨站 POST/PATCH 返回拒绝，且 Fly 未收到业务写入
 - [ ] 伪造 `X-Forwarded-For` 不改变限流主体
-- [ ] 两个经 Vercel 验证的访客 IP 产生独立限流桶
+- [ ] 能力关闭时，两个经 Vercel 验证的访客 IP 都收到
+      `REQUEST_FLOW_DISABLED`，且能力关闭时不得产生 `request_rate_limits`
+      记录；独立限流桶只在获授权的能力烟测中验证
 - [ ] BFF 转发的请求 ID、时间戳、正文摘要和签名通过 Fly 日志验证
 
 只使用无业务写入的验证请求；此阶段不得创建生产预约。
@@ -542,7 +567,10 @@ fly secrets set REQUEST_FLOW_PARTY_ENABLED=true
 - [ ] 三个烟测请求 ID（如获授权）：`<EXPERIENCE_ID> / <PRODUCT_ID> / <PARTY_ID>`
 - [ ] 完成时间和审批人：`<UTC_TIMESTAMP> / <APPROVER>`
 
-应用回滚不执行破坏性 down migration：
+应用回滚不执行破坏性 down migration。先用当前具备能力开关的版本立即关闭
+三个请求能力和邮件 Worker。回滚目标必须仍包含能力开关、服务端创建拒绝和
+Web 联系方式回退；禁止回滚到任何开关上线前的 API 镜像或 Web 部署，因为
+旧 API 会忽略关闭变量，旧 Web 会重新显示提交入口。
 
 ```bash
 fly secrets set \
@@ -551,12 +579,13 @@ fly secrets set \
   REQUEST_FLOW_PARTY_ENABLED=false \
   EMAIL_OUTBOX_WORKER_ENABLED=false
 
-fly deploy --image <PREVIOUS_FLY_IMAGE>
-vercel rollback <PREVIOUS_VERCEL_DEPLOYMENT_URL>
+fly deploy --image <LAST_KNOWN_GOOD_GATE_AWARE_FLY_IMAGE>
+vercel rollback <LAST_KNOWN_GOOD_GATE_AWARE_VERCEL_DEPLOYMENT_URL>
 ```
 
-保留新增表、请求、状态事件和邮件记录供审计。只有在明确的事故恢复授权下，
-才可使用记录的 Neon 恢复点。
+如果不存在更早的 gate-aware 版本，则保持当前版本，仅关闭变量并修复前滚；
+不得选择 pre-gate 版本。保留新增表、请求、状态事件和邮件记录供审计。只有
+在明确的事故恢复授权下，才可使用记录的 Neon 恢复点。
 
 ### 外部授权暂停点
 

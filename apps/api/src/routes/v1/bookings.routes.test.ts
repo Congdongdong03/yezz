@@ -1,5 +1,12 @@
 import Fastify from "fastify";
-import { describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { AppError } from "../../lib/errors.js";
 import { registerErrorHandler } from "../../plugins/error-handler.js";
 import bookingsRoutes from "./bookings.routes.js";
@@ -22,6 +29,99 @@ function allowedResult() {
 }
 
 describe("bookingsRoutes durable rate limits", () => {
+  beforeEach(() => {
+    vi.stubEnv("REQUEST_FLOW_EXPERIENCE_ENABLED", "true");
+    vi.stubEnv("REQUEST_FLOW_PARTY_ENABLED", "true");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    [
+      "an absent experience flag",
+      undefined,
+      "true",
+      {},
+    ],
+    [
+      "a malformed experience flag",
+      "TRUE",
+      "true",
+      { kind: "experience" },
+    ],
+    [
+      "a disabled party flag",
+      "true",
+      "false",
+      { kind: "party" },
+    ],
+    [
+      "an unknown request kind",
+      "true",
+      "true",
+      { kind: "product" },
+    ],
+  ])(
+    "rejects %s before durable rate limiting",
+    async (
+      _label,
+      experienceFlag,
+      partyFlag,
+      requestKind,
+    ) => {
+      if (experienceFlag === undefined) {
+        delete process.env.REQUEST_FLOW_EXPERIENCE_ENABLED;
+      } else {
+        vi.stubEnv(
+          "REQUEST_FLOW_EXPERIENCE_ENABLED",
+          experienceFlag,
+        );
+      }
+      vi.stubEnv("REQUEST_FLOW_PARTY_ENABLED", partyFlag);
+      const consume = vi.fn();
+      const create = vi.fn();
+      const app = Fastify();
+      registerErrorHandler(app);
+      app.decorateRequest("verifiedClientIdentity", null);
+      app.addHook("onRequest", async (request) => {
+        request.verifiedClientIdentity = VERIFIED_IDENTITY;
+      });
+      app.decorate("services", {
+        rateLimits: { consume },
+        bookings: { create },
+      } as never);
+      await app.register(bookingsRoutes, { prefix: "/bookings" });
+
+      try {
+        const response = await app.inject({
+          method: "POST",
+          url: "/bookings",
+          headers: {
+            "idempotency-key":
+              "00000000-0000-4000-8000-000000000009",
+          },
+          payload: {
+            ...requestKind,
+            name: "Alice",
+            phone: "123",
+          },
+        });
+
+        expect(response.statusCode).toBe(503);
+        expect(response.json()).toMatchObject({
+          success: false,
+          error: { code: "REQUEST_FLOW_DISABLED" },
+        });
+        expect(consume).not.toHaveBeenCalled();
+        expect(create).not.toHaveBeenCalled();
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
   it("keys booking creation by the verified signed client IP", async () => {
     const consume = vi.fn(async () => allowedResult());
     const app = Fastify();

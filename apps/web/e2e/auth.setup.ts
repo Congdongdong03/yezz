@@ -8,21 +8,12 @@
 import { test as setup, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { execSync } from "node:child_process";
 
 const authFile = "e2e/.auth/admin.json";
 
 setup("admin login", async ({ page }) => {
   // Ensure the auth directory exists
   mkdirSync(dirname(authFile), { recursive: true });
-
-  // Clear Redis rate limits to avoid login being blocked
-  try {
-    execSync("redis-cli KEYS 'ratelimit:*' | xargs -r redis-cli DEL", { stdio: "ignore" });
-    execSync("redis-cli KEYS 'login:*' | xargs -r redis-cli DEL", { stdio: "ignore" });
-  } catch {
-    // ignore if redis-cli is not available
-  }
 
   // Navigate to admin login
   await page.goto("/admin/login");

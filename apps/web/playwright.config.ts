@@ -111,6 +111,7 @@ export default defineConfig({
               WEB_API_SHARED_SECRET: requiredEnvironment(
                 "WEB_API_SHARED_SECRET",
               ),
+              YEZYY_CLOSURE_E2E: "1",
             }
           : {}),
       },
