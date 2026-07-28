@@ -3,6 +3,7 @@ import { AUTH_COOKIE_NAME } from "../../plugins/auth.js";
 import { success } from "../../lib/response.js";
 import { AppError } from "../../lib/errors.js";
 import { checkRateLimit } from "../../lib/cache.js";
+import { buildAuthCookieOptions } from "../../lib/auth-cookie.js";
 
 type LoginBody = {
   email?: string;
@@ -12,21 +13,11 @@ type LoginBody = {
 const isProduction = process.env.NODE_ENV === "production";
 
 function setAuthCookie(reply: FastifyReply, token: string) {
-  reply.setCookie(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 1000,
-  });
+  reply.setCookie(AUTH_COOKIE_NAME, token, buildAuthCookieOptions(isProduction));
 }
 
 function clearAuthCookie(reply: FastifyReply) {
-  reply.clearCookie(AUTH_COOKIE_NAME, {
-    path: "/",
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-  });
+  reply.clearCookie(AUTH_COOKIE_NAME, buildAuthCookieOptions(isProduction));
 }
 
 export default async function authRoutes(app: FastifyInstance) {
