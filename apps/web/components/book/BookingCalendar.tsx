@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable jsx-a11y/role-supports-aria-props -- date buttons expose their selected calendar state to assistive technology. */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -29,7 +31,9 @@ export default function BookingCalendar({
   const t = useTranslations("bookingCalendar");
   const locale = useLocale();
   const [viewDate, setViewDate] = useState(() => new Date());
-  const [monthMap, setMonthMap] = useState<Record<string, "none" | "available" | "full">>({});
+  const [monthMap, setMonthMap] = useState<
+    Record<string, "none" | "available" | "full">
+  >({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [daySlots, setDaySlots] = useState<TimeSlotOption[]>([]);
   const [loadingMonth, setLoadingMonth] = useState(false);
@@ -40,6 +44,16 @@ export default function BookingCalendar({
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth() + 1;
   const weekdays = locale === "zh" ? WEEKDAYS_ZH : WEEKDAYS_EN;
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-AU", {
+        day: "numeric",
+        month: "long",
+        weekday: "long",
+        year: "numeric",
+      }),
+    [locale],
+  );
 
   const loadMonth = useCallback(async () => {
     setLoadingMonth(true);
@@ -63,7 +77,10 @@ export default function BookingCalendar({
     void Promise.resolve().then(loadMonth);
   }, [loadMonth]);
 
-  const selectDate = async (date: string, status: "none" | "available" | "full") => {
+  const selectDate = async (
+    date: string,
+    status: "none" | "available" | "full",
+  ) => {
     if (status !== "available") return;
     setSelectedDate(date);
     onDateChange(date);
@@ -85,8 +102,11 @@ export default function BookingCalendar({
     const first = new Date(year, month - 1, 1);
     const startPad = first.getDay();
     const daysInMonth = new Date(year, month, 0).getDate();
-    const cells: Array<{ date: string; day: number; status: "none" | "available" | "full" | "pad" }> =
-      [];
+    const cells: Array<{
+      date: string;
+      day: number;
+      status: "none" | "available" | "full" | "pad";
+    }> = [];
 
     for (let i = 0; i < startPad; i++) {
       cells.push({ date: "", day: 0, status: "pad" });
@@ -99,7 +119,9 @@ export default function BookingCalendar({
   }, [year, month, monthMap]);
 
   const shiftMonth = (delta: number) => {
-    setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+    setViewDate(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1),
+    );
     setSelectedDate(null);
     setDaySlots([]);
     onSelectSlot(null);
@@ -108,7 +130,10 @@ export default function BookingCalendar({
   return (
     <div className="space-y-4">
       {monthError && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+        <p
+          className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+          role="alert"
+        >
           {monthError}
         </p>
       )}
@@ -123,7 +148,9 @@ export default function BookingCalendar({
         </button>
         <p className="font-medium text-warm-charcoal">
           {year}-{String(month).padStart(2, "0")}
-          {loadingMonth && <span className="ml-2 text-xs text-warm-grey">{t("loading")}</span>}
+          {loadingMonth && (
+            <span className="ml-2 text-xs text-warm-grey">{t("loading")}</span>
+          )}
         </p>
         <button
           type="button"
@@ -148,6 +175,13 @@ export default function BookingCalendar({
           }
           const dayStatus = cell.status;
           const isSelected = selectedDate === cell.date;
+          const availabilityLabel =
+            dayStatus === "available"
+              ? t("legendAvailable")
+              : dayStatus === "full"
+                ? t("legendFull")
+                : t("legendNone");
+          const dateLabel = `${dateFormatter.format(new Date(`${cell.date}T00:00:00`))} — ${availabilityLabel}`;
           const color =
             dayStatus === "available"
               ? isSelected
@@ -160,6 +194,9 @@ export default function BookingCalendar({
           return (
             <button
               key={cell.date}
+              aria-disabled={dayStatus !== "available"}
+              aria-label={dateLabel}
+              aria-selected={isSelected}
               type="button"
               disabled={dayStatus !== "available"}
               onClick={() => selectDate(cell.date, dayStatus)}
@@ -173,13 +210,16 @@ export default function BookingCalendar({
 
       <div className="flex flex-wrap gap-3 text-xs text-warm-grey">
         <span className="flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-sage/30" /> {t("legendAvailable")}
+          <span className="inline-block h-3 w-3 rounded bg-sage/30" />{" "}
+          {t("legendAvailable")}
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-red-100" /> {t("legendFull")}
+          <span className="inline-block h-3 w-3 rounded bg-red-100" />{" "}
+          {t("legendFull")}
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-warm-grey/10" /> {t("legendNone")}
+          <span className="inline-block h-3 w-3 rounded bg-warm-grey/10" />{" "}
+          {t("legendNone")}
         </span>
       </div>
 
@@ -187,7 +227,9 @@ export default function BookingCalendar({
 
       {selectedDate && (
         <div>
-          <p className="text-sm font-medium text-warm-charcoal">{t("pickSlot")}</p>
+          <p className="text-sm font-medium text-warm-charcoal">
+            {t("pickSlot")}
+          </p>
           {dayError ? (
             <p className="mt-2 text-sm text-red-600" role="alert">
               {dayError}

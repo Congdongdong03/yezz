@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useId, useRef, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { X, Trash2 } from "lucide-react";
@@ -7,15 +9,109 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useCart } from "@/lib/cart/context";
 
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      "button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])",
+    ),
+  );
+}
+
 export default function CartDrawer() {
   const { items, removeItem, isOpen, setIsOpen } = useCart();
   const locale = useLocale();
   const t = useTranslations("cart");
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const modalRootRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
 
-  return (
+  useEffect(() => {
+    if (!isOpen) return;
+
+    openerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const dialog = dialogRef.current;
+    const focusableElements = dialog ? getFocusableElements(dialog) : [];
+    (focusableElements[0] ?? dialog)?.focus();
+
+    const modalRoot = modalRootRef.current;
+    const hiddenSiblings = Array.from(document.body.children).filter(
+      (element) => element !== modalRoot,
+    );
+    const previousStates = hiddenSiblings.map((element) => ({
+      element,
+      ariaHidden: element.getAttribute("aria-hidden"),
+      inert: element.hasAttribute("inert"),
+    }));
+    for (const { element } of previousStates) {
+      element.setAttribute("aria-hidden", "true");
+      element.setAttribute("inert", "");
+    }
+
+    const keepFocusInDialog = (event: FocusEvent) => {
+      if (
+        dialog &&
+        event.target instanceof Node &&
+        !dialog.contains(event.target)
+      ) {
+        (getFocusableElements(dialog)[0] ?? dialog).focus();
+      }
+    };
+    document.addEventListener("focusin", keepFocusInDialog);
+
+    return () => {
+      document.removeEventListener("focusin", keepFocusInDialog);
+      for (const { element, ariaHidden, inert } of previousStates) {
+        if (ariaHidden === null) element.removeAttribute("aria-hidden");
+        else element.setAttribute("aria-hidden", ariaHidden);
+        if (inert) element.setAttribute("inert", "");
+        else element.removeAttribute("inert");
+      }
+      openerRef.current?.focus();
+    };
+  }, [isOpen]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsOpen(false);
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+    const focusableElements = getFocusableElements(event.currentTarget);
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      return;
+    }
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements.at(-1);
+    if (
+      event.shiftKey &&
+      (document.activeElement === firstElement ||
+        !event.currentTarget.contains(document.activeElement))
+    ) {
+      event.preventDefault();
+      lastElement?.focus();
+    } else if (
+      !event.shiftKey &&
+      (document.activeElement === lastElement ||
+        !event.currentTarget.contains(document.activeElement))
+    ) {
+      event.preventDefault();
+      firstElement?.focus();
+    }
+  };
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
+        <div ref={modalRootRef} className="fixed inset-0 z-50 overflow-hidden">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -28,10 +124,19 @@ export default function CartDrawer() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "tween", duration: 0.3 }}
+            aria-labelledby={titleId}
+            aria-modal="true"
             className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-cream shadow-xl"
+            onKeyDown={handleKeyDown}
+            ref={dialogRef}
+            role="dialog"
+            tabIndex={-1}
           >
             <div className="flex items-center justify-between border-b border-warm-grey/10 px-6 py-4">
-              <h2 className="font-serif text-lg font-bold text-warm-charcoal">
+              <h2
+                id={titleId}
+                className="font-serif text-lg font-bold text-warm-charcoal"
+              >
                 {t("title")}
               </h2>
               <button
@@ -80,10 +185,14 @@ export default function CartDrawer() {
                           </p>
                         )}
                         {item.price && (
-                          <p className="mt-1 text-xs text-caramel">{item.price}</p>
+                          <p className="mt-1 text-xs text-caramel">
+                            {item.price}
+                          </p>
                         )}
                       </div>
                       <button
+                        aria-label={`${t("removeItem")} ${item.projectName[locale as "en" | "zh"]}`}
+                        type="button"
                         onClick={() => removeItem(item.projectId)}
                         className="self-start text-warm-grey hover:text-red-500"
                       >
@@ -95,9 +204,14 @@ export default function CartDrawer() {
               )}
             </div>
 
-
             {items.length > 0 && (
-              <div className="border-t border-warm-grey/10 px-6 py-4" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}>
+              <div
+                className="border-t border-warm-grey/10 px-6 py-4"
+                style={{
+                  paddingBottom:
+                    "calc(1rem + env(safe-area-inset-bottom, 0px))",
+                }}
+              >
                 <Link
                   href="/cart"
                   onClick={() => setIsOpen(false)}
@@ -110,6 +224,7 @@ export default function CartDrawer() {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
