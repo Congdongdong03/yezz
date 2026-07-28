@@ -28,8 +28,8 @@ const minimalSiteSettings: SiteSettingsView = {
   instagram: undefined,
   xiaohongshu: YEZYY_BUSINESS_PROFILE.xiaohongshu,
   googleMapUrl: YEZYY_BUSINESS_PROFILE.googleMapUrl,
-  seoTitle: undefined,
-  seoDescription: undefined,
+  seoTitle: YEZYY_BUSINESS_PROFILE.storeName,
+  seoDescription: `${YEZYY_BUSINESS_PROFILE.storeName} — ${YEZYY_BUSINESS_PROFILE.address}`,
 };
 
 export type SiteSettingsView = ReturnType<typeof mapSiteSettingsFromApi>;

@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 import MobileMenu from "./MobileMenu";
 import CartIcon from "@/components/cart/CartIcon";
 import BookNavButton from "./BookNavButton";
+import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
 
 const navLinks = [
   { href: "/", key: "home" },
@@ -29,7 +30,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 bg-cream/80 backdrop-blur-md">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
         <Link href="/" className="text-2xl font-bold text-warm-charcoal">
-          YEZZ
+          {YEZYY_BUSINESS_PROFILE.storeName}
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">

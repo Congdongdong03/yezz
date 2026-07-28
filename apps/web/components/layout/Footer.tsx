@@ -3,6 +3,17 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import type { SiteSettingsView } from "@/lib/site/data";
+import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
+
+function absoluteHttpUrl(value: string | undefined): string | null {
+  if (!value || !/^https?:\/\//i.test(value)) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? value : null;
+  } catch {
+    return null;
+  }
+}
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -39,6 +50,7 @@ function XiaohongshuIcon({ className }: { className?: string }) {
 export default function Footer({ settings }: { settings?: SiteSettingsView | null }) {
   const t = useTranslations("footer");
   const nav = useTranslations("nav");
+  const xiaohongshuHref = absoluteHttpUrl(settings?.xiaohongshu);
 
   return (
     <footer className="bg-warm-charcoal py-12 text-cream">
@@ -46,7 +58,7 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
         <div className="grid gap-8 md:grid-cols-3">
           <div>
             <h3 className="mb-4 font-serif text-xl font-bold">
-              {settings?.storeName ?? "YEZZ"}
+              {settings?.storeName ?? YEZYY_BUSINESS_PROFILE.storeName}
             </h3>
             <p className="text-sm opacity-80">{t("tagline")}</p>
             {(settings?.instagram || settings?.xiaohongshu) && (
@@ -63,15 +75,25 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
                   </a>
                 )}
                 {settings.xiaohongshu && (
-                  <a
-                    href={settings.xiaohongshu}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
-                    aria-label={t("xiaohongshu")}
-                  >
-                    <XiaohongshuIcon className="h-5 w-5" />
-                  </a>
+                  xiaohongshuHref ? (
+                    <a
+                      href={xiaohongshuHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
+                      aria-label={t("xiaohongshu")}
+                    >
+                      <XiaohongshuIcon className="h-5 w-5" />
+                    </a>
+                  ) : (
+                    <span
+                      className="flex items-center gap-2 text-sm opacity-80"
+                      aria-label={t("xiaohongshu")}
+                    >
+                      <XiaohongshuIcon className="h-5 w-5" />
+                      <span>{settings.xiaohongshu}</span>
+                    </span>
+                  )
                 )}
               </div>
             )}
@@ -104,7 +126,7 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
         </div>
         <div className="mt-12 border-t border-white/10 pt-8 text-center text-sm opacity-60">
           <p>
-            © {new Date().getFullYear()} YEZZ. {t("rights")}
+            © {new Date().getFullYear()} {YEZYY_BUSINESS_PROFILE.storeName}. {t("rights")}
           </p>
         </div>
       </div>
