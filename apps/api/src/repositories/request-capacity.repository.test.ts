@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRequestCapacityRepository } from "./request-capacity.repository.js";
 import { createTimeSlotsService } from "../services/time-slots.service.js";
 import { createAdminBookingsService } from "../services/admin/bookings.admin.service.js";
+import { getMelbourneDate } from "../lib/slot-policy.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_SLOT_TESTS === "1";
 const configuredTestUrl = process.env.TEST_DATABASE_URL;
@@ -36,12 +37,27 @@ function withSearchPath(url: string, schema: string): string {
   return parsed.toString();
 }
 
+function melbourneDateOffset(days: number): string {
+  const today = new Date(`${getMelbourneDate(new Date())}T00:00:00Z`);
+  today.setUTCDate(today.getUTCDate() + days);
+  return today.toISOString().slice(0, 10);
+}
+
+function futureMonday(): string {
+  const candidate = new Date(`${melbourneDateOffset(1)}T00:00:00Z`);
+  while (candidate.getUTCDay() !== 1) {
+    candidate.setUTCDate(candidate.getUTCDate() + 1);
+  }
+  return candidate.toISOString().slice(0, 10);
+}
+
 describe.skipIf(!runDatabaseTests)(
   "request capacity PostgreSQL integration",
   () => {
     let schema = "";
     let bootstrap: ReturnType<typeof createDb> | undefined;
     let connection: ReturnType<typeof createDb> | undefined;
+    const safeFutureDate = futureMonday();
 
     beforeEach(async () => {
       const url = requireSafeTestDatabaseUrl();
@@ -107,7 +123,7 @@ describe.skipIf(!runDatabaseTests)(
       const id = crypto.randomUUID();
       await connection!.db.insert(timeSlots).values({
         id,
-        date: "2026-08-03",
+        date: safeFutureDate,
         startTime: "10:00",
         endTime: "11:00",
         capacity,
@@ -182,7 +198,7 @@ describe.skipIf(!runDatabaseTests)(
       const id = crypto.randomUUID();
       await connection!.db.insert(timeSlots).values({
         id,
-        date: "2020-01-06",
+        date: melbourneDateOffset(-1),
         startTime: "10:00",
         endTime: "11:00",
         capacity: 2,
@@ -196,17 +212,17 @@ describe.skipIf(!runDatabaseTests)(
 
     it("serializes concurrent overlapping creates with an advisory lock", async () => {
       const service = createTimeSlotsService(connection!.db, {
-        now: () => new Date("2026-07-28T00:00:00+10:00"),
+        now: () => new Date(),
       });
       const outcomes = await Promise.allSettled([
         service.create({
-          date: "2026-08-03",
+          date: safeFutureDate,
           startTime: "10:00",
           endTime: "11:00",
           capacity: 2,
         }),
         service.create({
-          date: "2026-08-03",
+          date: safeFutureDate,
           startTime: "10:30",
           endTime: "11:30",
           capacity: 2,
@@ -218,6 +234,12 @@ describe.skipIf(!runDatabaseTests)(
       expect(
         outcomes.filter((result) => result.status === "rejected"),
       ).toHaveLength(1);
+      const rows = await connection!.db.select().from(timeSlots);
+      expect(rows).toHaveLength(1);
+      expect([
+        ["10:00", "11:00"],
+        ["10:30", "11:30"],
+      ]).toContainEqual([rows[0].startTime, rows[0].endTime]);
     });
 
     it("rejects an overlapping update and deletion of a referenced slot", async () => {
@@ -225,13 +247,13 @@ describe.skipIf(!runDatabaseTests)(
       const second = crypto.randomUUID();
       await connection!.db.insert(timeSlots).values({
         id: second,
-        date: "2026-08-03",
+        date: safeFutureDate,
         startTime: "11:00",
         endTime: "12:00",
         capacity: 2,
       });
       const service = createTimeSlotsService(connection!.db, {
-        now: () => new Date("2026-07-28T00:00:00+10:00"),
+        now: () => new Date(),
       });
       await expect(
         service.update(second, { startTime: "10:30" }),
@@ -245,6 +267,96 @@ describe.skipIf(!runDatabaseTests)(
       await expect(service.remove(first)).rejects.toMatchObject({
         code: "SLOT_REFERENCED",
       });
+    });
+
+    it("serializes concurrent batch and single create without a surviving overlap", async () => {
+      const service = createTimeSlotsService(connection!.db);
+      const outcomes = await Promise.allSettled([
+        service.createBatch({
+          startDate: safeFutureDate,
+          endDate: safeFutureDate,
+          weekdays: [1],
+          slots: [
+            { startTime: "09:30", endTime: "10:30", capacity: 2 },
+            { startTime: "10:30", endTime: "11:30", capacity: 2 },
+          ],
+        }),
+        service.create({
+          date: safeFutureDate,
+          startTime: "10:00",
+          endTime: "11:00",
+          capacity: 2,
+        }),
+      ]);
+      expect(
+        outcomes.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      const rows = (await connection!.db.select().from(timeSlots)).sort(
+        (a, b) => a.startTime.localeCompare(b.startTime),
+      );
+      const batchSurvived = outcomes[0].status === "fulfilled";
+      expect(rows).toHaveLength(batchSurvived ? 2 : 1);
+      for (let index = 1; index < rows.length; index += 1) {
+        expect(rows[index - 1].endTime <= rows[index].startTime).toBe(true);
+      }
+    });
+
+    it("serializes category-changing update against create on both lock keys", async () => {
+      const sourceCategory = crypto.randomUUID();
+      const targetCategory = crypto.randomUUID();
+      const id = crypto.randomUUID();
+      await connection!.db.insert(timeSlots).values({
+        id,
+        date: safeFutureDate,
+        startTime: "09:30",
+        endTime: "10:30",
+        capacity: 2,
+        categoryId: sourceCategory,
+      });
+      const service = createTimeSlotsService(connection!.db);
+      const outcomes = await Promise.allSettled([
+        service.update(id, {
+          startTime: "10:00",
+          endTime: "11:00",
+          categoryId: targetCategory,
+        }),
+        service.create({
+          date: safeFutureDate,
+          startTime: "10:30",
+          endTime: "11:30",
+          capacity: 2,
+          categoryId: targetCategory,
+        }),
+      ]);
+      expect(
+        outcomes.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      const targetRows = (await connection!.db.select().from(timeSlots)).filter(
+        ({ categoryId }) => categoryId === targetCategory,
+      );
+      expect(targetRows).toHaveLength(1);
+    });
+
+    it("preserves reservation and immutable identity under update/reserve concurrency", async () => {
+      const id = await insertSlot(2);
+      const service = createTimeSlotsService(connection!.db);
+      const capacity = createRequestCapacityRepository(connection!.db);
+      const outcomes = await Promise.allSettled([
+        service.update(id, { startTime: "11:00", endTime: "12:00" }),
+        capacity.reserve(id, 1),
+      ]);
+      expect(outcomes[1].status).toBe("fulfilled");
+      const [stored] = await connection!.db
+        .select()
+        .from(timeSlots)
+        .where(eq(timeSlots.id, id));
+      expect(stored.bookedCount).toBe(1);
+      if (outcomes[0].status === "rejected") {
+        expect(outcomes[0].reason).toMatchObject({ code: "SLOT_IMMUTABLE" });
+        expect([stored.startTime, stored.endTime]).toEqual(["10:00", "11:00"]);
+      } else {
+        expect([stored.startTime, stored.endTime]).toEqual(["11:00", "12:00"]);
+      }
     });
 
     it("concurrent cancellation releases one booking reservation once", async () => {

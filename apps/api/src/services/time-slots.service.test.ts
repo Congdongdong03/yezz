@@ -132,6 +132,19 @@ describe("time slot service invariants", () => {
     });
   });
 
+  it("does not query unsupported month years beyond the booking horizon", async () => {
+    const { service, repo } = harness();
+    let queried = false;
+    repo.findInMonth = async () => {
+      queried = true;
+      return [];
+    };
+    await expect(service.getMonthAvailability(9999, 1)).resolves.toEqual({
+      dates: [],
+    });
+    expect(queried).toBe(false);
+  });
+
   it("prevents schedule identity changes after capacity is reserved", async () => {
     const { service } = harness([row({ bookedCount: 2 })]);
     await expect(

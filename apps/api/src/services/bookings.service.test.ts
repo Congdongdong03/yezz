@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { AppError } from "../lib/errors.js";
 import {
   createBookingsService,
+  buildBookingEmailHtml,
+  normalizeBookingInput,
   normalizeBookingPeople,
   reservedPeopleForBooking,
 } from "./bookings.service.js";
@@ -12,6 +14,18 @@ describe("createBookingsService", () => {
   it("normalizes omitted people to the exact persisted reservation count", () => {
     expect(normalizeBookingPeople(undefined)).toBe(1);
     expect(reservedPeopleForBooking(null, "slot-1")).toBe(1);
+  });
+
+  it("renders the normalized reservation count in immediate owner email", () => {
+    const normalized = normalizeBookingInput({
+      name: "Customer",
+      phone: "0430000000",
+      timeSlotId: "slot-1",
+    });
+    expect(normalized.numberOfPeople).toBe(1);
+    expect(buildBookingEmailHtml(normalized)).toContain(
+      "<strong>People:</strong> 1",
+    );
   });
 
   it("rejects booking without name", async () => {

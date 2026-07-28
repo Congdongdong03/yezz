@@ -98,6 +98,30 @@ export function createTimeSlotsService(
       categoryId?: string,
     ) {
       const today = getMelbourneDate(now());
+      if (
+        !Number.isInteger(year) ||
+        year < 1 ||
+        year > 9999 ||
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12
+      ) {
+        return { dates: [] } satisfies MonthAvailabilityDto;
+      }
+      const monthStart = parseCalendarDate(
+        `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`,
+      );
+      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      const monthEnd = parseCalendarDate(
+        `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+      );
+      const todayOrdinal = parseCalendarDate(today).ordinal;
+      if (
+        monthEnd.ordinal < todayOrdinal ||
+        monthStart.ordinal > todayOrdinal + BOOKING_HORIZON_DAYS
+      ) {
+        return { dates: [] } satisfies MonthAvailabilityDto;
+      }
       const rows = await repo.findInMonth(year, month, categoryId, today);
       const byDate = new Map<string, TimeSlotDto[]>();
       for (const row of rows) {

@@ -35,6 +35,15 @@ export function reservedPeopleForBooking(
   return timeSlotId ? (value ?? 1) : value;
 }
 
+export function normalizeBookingInput(
+  input: BookingCreateInput,
+): BookingCreateInput & { numberOfPeople: number } {
+  return {
+    ...input,
+    numberOfPeople: normalizeBookingPeople(input.numberOfPeople),
+  };
+}
+
 function validateBookingInput(input: BookingCreateInput) {
   if (!input.name?.trim()) {
     throw new AppError(400, "VALIDATION_ERROR", "name is required");
@@ -67,7 +76,7 @@ function validateBookingInput(input: BookingCreateInput) {
   }
 }
 
-function buildBookingEmailHtml(input: BookingCreateInput): string {
+export function buildBookingEmailHtml(input: BookingCreateInput): string {
   return `
     <h2>New Booking Received</h2>
     <p><strong>Name:</strong> ${escapeHtml(input.name.trim())}</p>
@@ -101,39 +110,39 @@ export function createBookingsService(db: Db) {
   return {
     async create(input: BookingCreateInput): Promise<BookingDto> {
       validateBookingInput(input);
-      const people = normalizeBookingPeople(input.numberOfPeople);
+      const normalizedInput = normalizeBookingInput(input);
+      const people = normalizedInput.numberOfPeople;
 
-      const row = input.timeSlotId
+      const row = normalizedInput.timeSlotId
         ? await db.transaction(async (tx) => {
             const slot = await capacityRepo.reserve(
-              input.timeSlotId!,
+              normalizedInput.timeSlotId!,
               people,
               tx,
             );
             return repo.create(
               {
-                ...input,
-                numberOfPeople: people,
-                preferredDate: input.preferredDate ?? slot.date,
+                ...normalizedInput,
+                preferredDate: normalizedInput.preferredDate ?? slot.date,
               },
               tx,
             );
           })
-        : await repo.create({ ...input, numberOfPeople: people });
+        : await repo.create(normalizedInput);
 
       const orderNumber = formatBookingOrderId(row.id, row.createdAt);
       const contact = await loadStoreContact(db);
 
       try {
         await sendOwnerEmail(
-          `New Booking from ${input.name.trim()} (${orderNumber})`,
-          buildBookingEmailHtml(input),
+          `New Booking from ${normalizedInput.name.trim()} (${orderNumber})`,
+          buildBookingEmailHtml(normalizedInput),
         );
       } catch (error) {
         console.error("Booking owner email failed:", error);
       }
 
-      const customerEmail = input.email?.trim();
+      const customerEmail = normalizedInput.email?.trim();
       if (customerEmail) {
         try {
           await sendBookingConfirmationToCustomer({
@@ -141,7 +150,7 @@ export function createBookingsService(db: Db) {
             orderId: row.id,
             orderNumber,
             submittedAt: row.createdAt,
-            input,
+            input: normalizedInput,
             contact,
           });
         } catch (error) {
