@@ -222,6 +222,10 @@ describe.skipIf(!runDatabaseTests)(
       const idempotencyKey = crypto.randomUUID();
       const first = createBookingsService(database.connection.db);
       const second = createBookingsService(database.connection.db);
+      await database.connection.db
+        .update(timeSlots)
+        .set({ capacity: 2 })
+        .where(eq(timeSlots.id, slotId));
 
       const results = await Promise.all([
         first.create(validExperience(), idempotencyKey),
@@ -232,6 +236,85 @@ describe.skipIf(!runDatabaseTests)(
         false,
         true,
       ]);
+      const [slot] = await database.connection.db
+        .select()
+        .from(timeSlots)
+        .where(eq(timeSlots.id, slotId));
+      expect(slot.bookedCount).toBe(2);
+      expect(await database.connection.db.select().from(bookings)).toHaveLength(
+        1,
+      );
+      expect(
+        await database.connection.db.select().from(emailOutbox),
+      ).toHaveLength(2);
+    });
+
+    it("rejects a different payload that reuses a committed idempotency key", async () => {
+      const idempotencyKey = crypto.randomUUID();
+      const service = createBookingsService(database.connection.db);
+      const created = await service.create(validExperience(), idempotencyKey);
+
+      await expect(
+        service.create(
+          {
+            ...validExperience(),
+            email: "other@example.com",
+          },
+          idempotencyKey,
+        ),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: "IDEMPOTENCY_KEY_CONFLICT",
+      });
+
+      const [stored] = await database.connection.db
+        .select()
+        .from(bookings)
+        .where(eq(bookings.id, created.id));
+      const [slot] = await database.connection.db
+        .select()
+        .from(timeSlots)
+        .where(eq(timeSlots.id, slotId));
+      expect(stored.email).toBe("alice@example.com");
+      expect(slot.bookedCount).toBe(2);
+      expect(await database.connection.db.select().from(bookings)).toHaveLength(
+        1,
+      );
+      expect(
+        await database.connection.db.select().from(emailOutbox),
+      ).toHaveLength(2);
+    });
+
+    it("lets one concurrent payload own an idempotency key and rejects the other", async () => {
+      const idempotencyKey = crypto.randomUUID();
+      const first = createBookingsService(database.connection.db);
+      const second = createBookingsService(database.connection.db);
+
+      const results = await Promise.allSettled([
+        first.create(validExperience(), idempotencyKey),
+        second.create(
+          {
+            ...validExperience(),
+            email: "other@example.com",
+          },
+          idempotencyKey,
+        ),
+      ]);
+      const fulfilled = results.filter(
+        (result) => result.status === "fulfilled",
+      );
+      const rejected = results.filter(
+        (result) => result.status === "rejected",
+      );
+
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0]).toMatchObject({
+        reason: {
+          statusCode: 409,
+          code: "IDEMPOTENCY_KEY_CONFLICT",
+        },
+      });
       const [slot] = await database.connection.db
         .select()
         .from(timeSlots)

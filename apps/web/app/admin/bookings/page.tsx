@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AlertBanner from "@/components/admin/AlertBanner";
 import BookingStatusDialog, {
@@ -47,6 +47,8 @@ function formatDate(value: string | null) {
 }
 
 export default function AdminBookingsPage() {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const focusBookingAfterRefreshRef = useRef<string | null>(null);
   const [items, setItems] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -59,24 +61,39 @@ export default function AdminBookingsPage() {
     null,
   );
 
-  const load = async () => {
-    setLoading(true);
+  const load = async ({ showLoading = true } = {}) => {
+    if (showLoading) setLoading(true);
     try {
       const result = await getAdminBookings();
       setItems(
         "data" in result ? result.data : (result as unknown as Booking[]),
       );
+      return true;
     } catch {
       setMessage({ type: "error", text: "预约记录加载失败，请稍后重试" });
+      return false;
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
-    void Promise.resolve().then(load);
+    void Promise.resolve().then(() => load());
     markNotificationsRead("bookings").catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const bookingId = focusBookingAfterRefreshRef.current;
+    if (!bookingId) return;
+    const statusControl = Array.from(
+      document.querySelectorAll<HTMLSelectElement>(
+        "select[data-booking-id]",
+      ),
+    ).find((control) => control.dataset.bookingId === bookingId);
+    if (statusControl?.disabled) return;
+    (statusControl ?? headingRef.current)?.focus();
+    focusBookingAfterRefreshRef.current = null;
+  }, [items, updatingId]);
 
   const handleStatusChange = async (
     id: string,
@@ -95,8 +112,18 @@ export default function AdminBookingsPage() {
         text: localized,
       });
       if (stale) {
+        focusBookingAfterRefreshRef.current = id;
         setPendingStatusChange(null);
-        await load();
+        const refreshed = await load({ showLoading: false });
+        if (!refreshed) {
+          const statusControl = Array.from(
+            document.querySelectorAll<HTMLSelectElement>(
+              "select[data-booking-id]",
+            ),
+          ).find((control) => control.dataset.bookingId === id);
+          (statusControl ?? headingRef.current)?.focus();
+          focusBookingAfterRefreshRef.current = null;
+        }
       }
       return localized;
     } finally {
@@ -124,7 +151,13 @@ export default function AdminBookingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-serif text-2xl font-semibold text-warm-charcoal">预约管理</h1>
+        <h1
+          className="font-serif text-2xl font-semibold text-warm-charcoal"
+          ref={headingRef}
+          tabIndex={-1}
+        >
+          预约管理
+        </h1>
         <p className="text-sm text-muted-foreground">查看官网预约表单提交记录</p>
       </div>
 
@@ -210,6 +243,7 @@ export default function AdminBookingsPage() {
                   <td className="px-4 py-3">
                     <select
                       aria-label={`更新 ${booking.name} 的预约状态`}
+                      data-booking-id={booking.id}
                       value={booking.status}
                       disabled={updatingId === booking.id}
                       onChange={(e) =>

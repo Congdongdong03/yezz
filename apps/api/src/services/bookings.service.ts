@@ -117,6 +117,64 @@ function databaseErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
+type PersistedBookingReplayIdentity = {
+  requestKind: string;
+  projectId: string | null;
+  timeSlotId: string | null;
+  name: string;
+  phone: string;
+  wechat: string | null;
+  email: string | null;
+  preferredDate: string | null;
+  numberOfPeople: number | null;
+  activityType: string | null;
+  interestedProject: string | null;
+  message: string | null;
+  locale: string | null;
+};
+
+function normalizedOptionalText(
+  value: string | null | undefined,
+): string | null {
+  return value?.trim() || null;
+}
+
+function assertReplayMatches(
+  existing: PersistedBookingReplayIdentity,
+  input: BookingCreateInput & { numberOfPeople: number },
+  identity: {
+    projectId: string;
+    timeSlotId: string;
+    customerEmail: string;
+    locale: "en" | "zh";
+  },
+): void {
+  const mismatched =
+    existing.requestKind !== "experience" ||
+    existing.projectId !== identity.projectId ||
+    existing.timeSlotId !== identity.timeSlotId ||
+    existing.name !== input.name.trim() ||
+    existing.phone !== input.phone.trim() ||
+    existing.wechat !== normalizedOptionalText(input.wechat) ||
+    existing.email !== identity.customerEmail ||
+    existing.numberOfPeople !== input.numberOfPeople ||
+    existing.activityType !== normalizedOptionalText(input.activityType) ||
+    existing.interestedProject !==
+      normalizedOptionalText(input.interestedProject) ||
+    existing.message !== normalizedOptionalText(input.message) ||
+    existing.locale !== identity.locale ||
+    (normalizedOptionalText(input.preferredDate) !== null &&
+      existing.preferredDate !== normalizedOptionalText(input.preferredDate));
+
+  if (mismatched) {
+    throw new AppError(
+      409,
+      "IDEMPOTENCY_KEY_CONFLICT",
+      "The idempotency key belongs to a different booking request",
+    );
+  }
+}
+
 export function buildBookingEmailHtml(input: BookingCreateInput): string {
   return `
     <h2>New Booking Received</h2>
@@ -168,9 +226,16 @@ export function createBookingsService(db: Db) {
       const locale = normalizedInput.locale?.toLowerCase().startsWith("zh")
         ? "zh"
         : "en";
+      const replayIdentity = {
+        projectId,
+        timeSlotId,
+        customerEmail,
+        locale,
+      } as const;
 
       const replay = await repo.findByIdempotencyKey(normalizedKey);
       if (replay) {
+        assertReplayMatches(replay, normalizedInput, replayIdentity);
         return {
           id: replay.id,
           status: replay.status,
@@ -181,18 +246,26 @@ export function createBookingsService(db: Db) {
       }
 
       const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
-      if (!ownerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)) {
-        throw new AppError(
-          503,
-          "EMAIL_NOT_CONFIGURED",
-          "Owner email is not configured",
-        );
-      }
 
       try {
-        const row = await db.transaction(async (tx) => {
+        const result = await db.transaction(async (tx) => {
+          await repo.lockCreateAttempt(normalizedKey, tx);
           const existing = await repo.findByIdempotencyKey(normalizedKey, tx);
-          if (existing) return existing;
+          if (existing) {
+            assertReplayMatches(existing, normalizedInput, replayIdentity);
+            return { row: existing, replayed: true };
+          }
+
+          if (
+            !ownerEmail ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)
+          ) {
+            throw new AppError(
+              503,
+              "EMAIL_NOT_CONFIGURED",
+              "Owner email is not configured",
+            );
+          }
 
           const project = await projectsRepo.findById(projectId, tx);
           if (!project) {
@@ -316,14 +389,14 @@ export function createBookingsService(db: Db) {
             },
             tx,
           );
-          return created;
+          return { row: created, replayed: false };
         });
 
         return {
-          id: row.id,
-          status: row.status,
-          createdAt: row.createdAt,
-          replayed: false,
+          id: result.row.id,
+          status: result.row.status,
+          createdAt: result.row.createdAt,
+          replayed: result.replayed,
           notification: "queued",
         };
       } catch (error) {
@@ -332,6 +405,11 @@ export function createBookingsService(db: Db) {
             ? await repo.findByIdempotencyKey(normalizedKey)
             : null;
         if (concurrentReplay) {
+          assertReplayMatches(
+            concurrentReplay,
+            normalizedInput,
+            replayIdentity,
+          );
           return {
             id: concurrentReplay.id,
             status: concurrentReplay.status,

@@ -58,7 +58,11 @@ export default function BookingStatusDialog({
         : null;
     (requiresNote ? noteRef.current : cancelRef.current)?.focus();
 
-    return () => previouslyFocusedElement?.focus();
+    return () => {
+      if (previouslyFocusedElement?.isConnected) {
+        previouslyFocusedElement.focus();
+      }
+    };
   }, [open, requiresNote]);
 
   useEffect(() => {
