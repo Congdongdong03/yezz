@@ -121,6 +121,42 @@ describe("application startup", () => {
     ).rejects.toThrow("CUSTOMER_ACTION_TOKEN_SECRET");
   });
 
+  it("requires the outbox worker customer token secret to differ from the mail provider credential", async () => {
+    loadEnv.mockImplementation(() => {
+      const reusedSecret = "reused-customer-token-secret-at-least-32-bytes";
+      process.env.EMAIL_OUTBOX_WORKER_ENABLED = "true";
+      process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
+      process.env.EMAIL_REPLY_TO = "congdongdong03@gmail.com";
+      process.env.OWNER_EMAIL = "congdongdong03@gmail.com";
+      process.env.RESEND_API_KEY = reusedSecret;
+      process.env.CUSTOMER_ACTION_TOKEN_SECRET = reusedSecret;
+      process.env.NEXT_PUBLIC_SITE_URL = "https://yezyy.com";
+    });
+    const { loadConfiguredApp } = await import("./startup.js");
+
+    await expect(
+      loadConfiguredApp(async () => ({ buildApp: vi.fn() })),
+    ).rejects.toThrow("must differ from RESEND_API_KEY");
+  });
+
+  it("requires the outbox worker management URL to be a canonical production origin", async () => {
+    loadEnv.mockImplementation(() => {
+      process.env.EMAIL_OUTBOX_WORKER_ENABLED = "true";
+      process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
+      process.env.EMAIL_REPLY_TO = "congdongdong03@gmail.com";
+      process.env.OWNER_EMAIL = "congdongdong03@gmail.com";
+      process.env.RESEND_API_KEY = "resend-key";
+      process.env.CUSTOMER_ACTION_TOKEN_SECRET =
+        "production-customer-action-secret-32-bytes";
+      process.env.NEXT_PUBLIC_SITE_URL = "https://yezyy.com/preview";
+    });
+    const { loadConfiguredApp } = await import("./startup.js");
+
+    await expect(
+      loadConfiguredApp(async () => ({ buildApp: vi.fn() })),
+    ).rejects.toThrow("NEXT_PUBLIC_SITE_URL");
+  });
+
   it.each([
     "REQUEST_FLOW_EXPERIENCE_ENABLED",
     "REQUEST_FLOW_PARTY_ENABLED",

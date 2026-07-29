@@ -99,4 +99,23 @@ describe("production closure checklist", () => {
       "`REQUEST_FLOW_PRODUCT_ENABLED=false` 始终保持关闭",
     );
   });
+
+  it("documents the independent customer token and canonical site URL before any worker or request gate can open", () => {
+    expect(checklist).toContain("CUSTOMER_ACTION_TOKEN_SECRET");
+    expect(checklist).toContain("独立生成，至少 32 字节");
+    expect(checklist).toContain("规范根域名，例如 `https://yezyy.com`");
+    expect(checklist).toContain("不得写入命令输出、工单或日志");
+  });
+
+  it("documents the audited two-key launch and rollback order while product remains closed", () => {
+    const approvedOffering = checklist.indexOf("仅将已批准的项目设置为 `bookable=true`");
+    const databaseSwitch = checklist.indexOf("通过已审计的后台/API 路径更新对应数据库开关");
+    const environmentGate = checklist.indexOf("最后才开启对应 `REQUEST_FLOW_*_ENABLED`");
+    const rollback = checklist.indexOf("回滚先关闭并核对环境门控和对应数据库开关");
+    expect(approvedOffering).toBeGreaterThan(-1);
+    expect(databaseSwitch).toBeGreaterThan(approvedOffering);
+    expect(environmentGate).toBeGreaterThan(databaseSwitch);
+    expect(rollback).toBeGreaterThan(environmentGate);
+    expect(checklist).toContain("产品始终保持 `false`，没有启用步骤");
+  });
 });

@@ -38,6 +38,11 @@ function validateBookingManagementConfiguration(): void {
       "Live booking paths require CUSTOMER_ACTION_TOKEN_SECRET of at least 32 bytes",
     );
   }
+  if (tokenSecret === process.env.RESEND_API_KEY) {
+    throw new Error(
+      "CUSTOMER_ACTION_TOKEN_SECRET must differ from RESEND_API_KEY",
+    );
+  }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (!parseBookingManagementBaseUrl(siteUrl, true)) {
     throw new Error(

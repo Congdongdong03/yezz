@@ -344,6 +344,8 @@ OWNER_EMAIL=...
 EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>"
 EMAIL_REPLY_TO=congdongdong03@gmail.com
 STORE_TIMEZONE=Australia/Melbourne
+CUSTOMER_ACTION_TOKEN_SECRET=... # 独立生成，至少 32 字节；不得与 RESEND_API_KEY 共用
+NEXT_PUBLIC_SITE_URL=https://yezyy.com # 规范根域名，例如 `https://yezyy.com`
 EMAIL_OUTBOX_WORKER_ENABLED=false
 BOOKING_MAINTENANCE_WORKER_ENABLED=false
 REQUEST_FLOW_EXPERIENCE_ENABLED=false
@@ -546,9 +548,13 @@ fly secrets set INTERNAL_REQUEST_ENFORCEMENT=require
 
 ### 7. 验证邮件 Outbox 后再启动 Worker
 
-先确认 Resend 域名、`EMAIL_FROM`、`EMAIL_REPLY_TO`、`OWNER_EMAIL` 和失败告警，
-再由获授权人员执行。初始部署仍保持两个 Worker 为 `false`；只有新的负责人
-明确指示后才可启动邮件 Worker：
+先确认 Resend 域名、`EMAIL_FROM`、`EMAIL_REPLY_TO`、`OWNER_EMAIL`、失败告警、
+独立生成的 `CUSTOMER_ACTION_TOKEN_SECRET`（至少 32 字节，且不得与
+`RESEND_API_KEY` 共用）以及 `NEXT_PUBLIC_SITE_URL`。站点 URL 必须是 HTTPS 的
+规范根域名，例如 `https://yezyy.com`，不得包含路径、查询参数、片段、用户名、
+密码或自定义端口。令牌不得写入命令输出、工单或日志。先用部署平台的密钥管理
+界面保存这些值并验证 API 可重启，才可由获授权人员开启 Worker。初始部署仍保持
+两个 Worker 为 `false`；只有新的负责人明确指示后才可启动邮件 Worker：
 
 ```bash
 fly secrets set EMAIL_OUTBOX_WORKER_ENABLED=true
@@ -562,6 +568,14 @@ fly secrets set EMAIL_OUTBOX_WORKER_ENABLED=true
 ### 8. 单独启用体验请求
 
 只有收到新的负责人明确指示后才可执行：
+
+1. 保持 `REQUEST_FLOW_EXPERIENCE_ENABLED=false`，在获授权的只读核对后，
+   仅将已批准的项目设置为 `bookable=true`；不得批量开放其它项目。
+2. 通过已审计的后台/API 路径更新对应数据库开关
+   `experienceRequestsEnabled=true`，并在后台读取数据库、部署硬门和实际可用
+   三个状态，确认实际可用仍为 `false`。
+3. 目录、数据库开关和仍关闭的实际状态均由获授权人员复核后，最后才开启对应
+   `REQUEST_FLOW_*_ENABLED` 环境门控：
 
 ```bash
 fly secrets set \
@@ -580,6 +594,12 @@ fly secrets set \
 ### 10. 单独启用派对请求
 
 只有收到新的负责人明确指示后才可执行：
+
+1. 保持 `REQUEST_FLOW_PARTY_ENABLED=false`，核对已批准派对套餐、人数范围、
+   时长、场地费和库存目录；不得同时变更普通手作或产品目录。
+2. 通过已审计的后台/API 路径更新对应数据库开关
+   `partyRequestsEnabled=true`，并确认实际可用仍为 `false`。
+3. 获授权人员复核后，最后才开启对应 `REQUEST_FLOW_*_ENABLED` 环境门控：
 
 ```bash
 fly secrets set \
@@ -613,6 +633,11 @@ fly secrets set \
 fly deploy --image <LAST_KNOWN_GOOD_GATE_AWARE_FLY_IMAGE>
 vercel rollback <LAST_KNOWN_GOOD_GATE_AWARE_VERCEL_DEPLOYMENT_URL>
 ```
+
+回滚先关闭并核对环境门控和对应数据库开关：通过已审计的后台/API 路径将已启用的
+`experienceRequestsEnabled` 或 `partyRequestsEnabled` 复原为 `false`；普通手作
+还必须在核对现有预约后，仅将本次获授权开放的项目复原为 `bookable=false`。产品始终保持 `false`，没有启用步骤。确认数据库、部署硬门和实际可用三层均关闭后，
+才继续部署或前滚修复。
 
 如果不存在更早的 gate-aware 版本，则保持当前版本，仅关闭变量并修复前滚；
 不得选择 pre-gate 版本。保留新增表、请求、状态事件和邮件记录供审计。只有
@@ -649,8 +674,10 @@ vercel rollback <LAST_KNOWN_GOOD_GATE_AWARE_VERCEL_DEPLOYMENT_URL>
    `Closure capacity blocker` 或本地测试预约/邮件记录。任何命中都停止并调查，
    不得自动删除生产数据。
 7. DNS、发件人、Owner 地址和失败告警全部验证后，取得负责人明确授权，仅把
-   `EMAIL_OUTBOX_WORKER_ENABLED` 改为 `true`。保持维护 Worker 和三个公开请求
-   开关为 `false`。
+   `EMAIL_OUTBOX_WORKER_ENABLED` 改为 `true`。此前必须已在部署平台保存独立的
+   至少 32 字节 `CUSTOMER_ACTION_TOKEN_SECRET` 和规范根域名
+   `NEXT_PUBLIC_SITE_URL=https://yezyy.com`；二者均不得出现在命令输出、工单或
+   日志中。保持维护 Worker 和三个公开请求开关为 `false`。
 8. 运行幂等生产初始化以创建唯一 Owner 和一次性设置密码邮件（如果尚不存在），
    观察该邮件 `pending → processing → sent`，由 Owner 完成一次性密码设置并验证
    登录；不得在命令行或工单中提供初始密码。
@@ -674,6 +701,9 @@ vercel rollback <LAST_KNOWN_GOOD_GATE_AWARE_VERCEL_DEPLOYMENT_URL>
 - [ ] 非轮换期间，Fly 未保留 `WEB_API_SHARED_SECRET_PREVIOUS`
 - [ ] S3 存储已配置（如需图片上传功能）
 - [ ] `RESEND_API_KEY`、`OWNER_EMAIL`、`EMAIL_FROM` 和 `EMAIL_REPLY_TO` 已配置
+- [ ] `CUSTOMER_ACTION_TOKEN_SECRET` 已独立生成且至少 32 字节，不与
+      `RESEND_API_KEY` 共用，且未写入命令输出、工单或日志
+- [ ] `NEXT_PUBLIC_SITE_URL` 是 HTTPS 规范根域名，例如 `https://yezyy.com`
 - [ ] 三个 `REQUEST_FLOW_*_ENABLED` 在初始生产部署中均为 `false`
 - [ ] `EMAIL_OUTBOX_WORKER_ENABLED` 在邮件服务验证前保持 `false`
 - [ ] 运行了 `pnpm db:migrate`
@@ -727,6 +757,7 @@ OWNER_EMAIL=congdongdong03@gmail.com
 EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>"
 EMAIL_REPLY_TO=congdongdong03@gmail.com
 STORE_TIMEZONE=Australia/Melbourne
+CUSTOMER_ACTION_TOKEN_SECRET=xxxx        # 独立运行 openssl rand -base64 32；不得与 RESEND_API_KEY 共用
 EMAIL_OUTBOX_WORKER_ENABLED=false
 BOOKING_MAINTENANCE_WORKER_ENABLED=false
 REQUEST_FLOW_EXPERIENCE_ENABLED=false

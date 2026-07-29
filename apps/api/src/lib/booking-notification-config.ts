@@ -30,6 +30,12 @@ export function parseBookingManagementBaseUrl(
     const hostname = parsed.hostname.toLowerCase();
     if (
       parsed.protocol !== "https:" ||
+      parsed.username ||
+      parsed.password ||
+      parsed.port ||
+      parsed.pathname !== "/" ||
+      parsed.search ||
+      parsed.hash ||
       hostname === "localhost" ||
       hostname === "0.0.0.0" ||
       hostname === "::1" ||
