@@ -54,6 +54,11 @@ export type CustomerActionScope =
   | "request_cancellation"
   | "request_reschedule";
 
+export type CustomerRescheduleRequest = {
+  date: string;
+  startTime: string;
+};
+
 export type UserRole = "owner" | "admin" | "staff";
 
 export const users = pgTable("users", {
@@ -605,6 +610,8 @@ export const requestStatusEvents = pgTable(
     fromStatus: varchar("from_status", { length: 32 }).notNull(),
     toStatus: varchar("to_status", { length: 32 }).notNull(),
     adminNote: text("admin_note"),
+    customerRescheduleRequest: jsonb("customer_reschedule_request")
+      .$type<CustomerRescheduleRequest>(),
     actorUserId: uuid("actor_user_id").references(() => users.id, {
       onDelete: "restrict",
     }),

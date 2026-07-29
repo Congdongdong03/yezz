@@ -73,3 +73,43 @@ The affected tests are `src/lib/smtp-outbox.test.ts` (two listener-based tests).
   corepack pnpm --filter @yezz/api typecheck
   # passed
   ```
+
+## Controller verification resolution
+
+The controller reran the previously blocked checks in an environment with isolated PostgreSQL and SMTP loopback access:
+
+- Focused Task 5 DB suite: 4 files, 13 tests passed, exit 0 (`task5-tests.out`).
+- Full API suite: 43 files passed / 4 skipped; 251 tests passed / 29 skipped, exit 0 (`task5-full-tests.out`).
+
+This resolves the local `TEST_DATABASE_URL` and SMTP `listen EPERM` verification concerns; they were sandbox limitations, not Task 5 failures.
+
+## Review fix round 1
+
+- Corrected invalid-link ordering: unknown, revoked, expired, and cancelled links now fail generically before scope handling, and owner-email configuration is evaluated only after a valid link and authorized mutable action.
+- The customer action limiter now consumes the verified-client plus SHA-256 digest-prefix subject before validating token format, so malformed links receive the same quota treatment and generic response.
+- Added the typed `customerRescheduleRequest` JSONB column to status events with generated migration `0004_slippery_kree.sql`, updated migration metadata/snapshot and isolated request-flow schema, and persist the structured `{date, startTime}` payload without altering the booking interval.
+- Booking status history now selects `actorKind` and explicitly renders staff, customer, and system actors. Cart-order history was restored to its original staff-only inner-join semantics.
+
+### TDD and verification evidence
+
+1. Added route, service, structured request, and actor-history regression tests before the associated implementation changes.
+2. RED:
+
+   ```bash
+   corepack pnpm --filter @yezz/api exec vitest run src/routes/v1/customer-bookings.routes.test.ts --config vitest.config.ts
+   ```
+
+   The malformed-token regression failed as expected because `customer_booking_action` had zero limiter calls.
+3. GREEN/type checks:
+
+   ```bash
+   corepack pnpm --filter @yezz/api exec vitest run src/routes/v1/customer-bookings.routes.test.ts --config vitest.config.ts
+   # 4 passed
+
+   corepack pnpm --filter @yezz/db typecheck
+   corepack pnpm --filter @yezz/db build
+   corepack pnpm --filter @yezz/api typecheck
+   # passed
+   ```
+
+4. The database-focused suites and migration suite are present but skipped locally without `TEST_DATABASE_URL`. The full API run had 34 files pass and only the two pre-existing SMTP loopback tests fail because this sandbox returns `listen EPERM: operation not permitted 127.0.0.1`. The full DB package run also hits sandbox `EPERM` when `tsx` attempts its IPC pipe. Controller rerun is required for isolated PostgreSQL and SMTP verification.

@@ -97,9 +97,9 @@ export function createCustomerActionsService(
     if (!validRawToken(rawToken)) throw invalidLink();
     const token = await tokensRepo.findActiveByDigest(digest(rawToken), now(), tx);
     if (!token) throw invalidLink();
-    if (scope && !token.scopes.includes(scope)) throw forbidden();
     const booking = await bookingsRepo.findById(token.bookingId, tx);
     if (!booking || booking.status === "cancelled") throw invalidLink();
+    if (scope && !token.scopes.includes(scope)) throw forbidden();
     if (
       !booking.slotDate ||
       !booking.slotStartTime ||
@@ -133,12 +133,12 @@ export function createCustomerActionsService(
     request?: { date: string; startTime: string },
   ): Promise<CustomerBookingView> {
     if (request) assertRequestTime(request);
-    const notificationEmail = ownerEmail();
     return db.transaction(async (tx) => {
       const resolved = await resolveAction(rawToken, scope, tx);
       if (resolved.view.status !== "confirmed" && resolved.view.status !== "confirmed_paid") {
         throw forbidden();
       }
+      const notificationEmail = ownerEmail();
       const updated = await bookingsRepo.compareAndSetOrdinaryStatus(
         resolved.token.bookingId,
         resolved.view.status,
@@ -152,9 +152,8 @@ export function createCustomerActionsService(
           operationId: crypto.randomUUID(),
           fromStatus: resolved.view.status,
           toStatus,
-          adminNote: request
-            ? JSON.stringify({ customerActionRequest: { date: request.date, startTime: request.startTime } })
-            : null,
+          adminNote: null,
+          customerRescheduleRequest: request ?? null,
           actorUserId: null,
           actorKind: "customer",
         },

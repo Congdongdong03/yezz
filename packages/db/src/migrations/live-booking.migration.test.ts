@@ -62,6 +62,7 @@ async function applyThroughLiveBooking(sql: Sql, schema: string): Promise<void> 
   await applyMigration(sql, schema, "0001_nice_ezekiel.sql");
   await applyMigration(sql, schema, "0002_yezyy_flow_closure.sql");
   await applyMigration(sql, schema, "0003_yezyy_live_booking_operations.sql");
+  await applyMigration(sql, schema, "0004_slippery_kree.sql");
 }
 
 afterEach(async () => {
@@ -135,6 +136,15 @@ describe.skipIf(!runDatabaseTests)(
         product_requests_enabled: false,
       });
 
+      const [requestColumn] = await client<{ data_type: string }[]>`
+        SELECT data_type
+        FROM information_schema.columns
+        WHERE table_schema = ${schema}
+          AND table_name = 'request_status_events'
+          AND column_name = 'customer_reschedule_request'
+      `;
+      expect(requestColumn).toEqual({ data_type: "jsonb" });
+
       const [owner] = await client<{ role: string; session_version: number }[]>`
         INSERT INTO users (email, password_hash, name, role)
         VALUES ('owner@example.test', 'not-a-real-password-hash', 'Owner', 'owner')
@@ -187,6 +197,7 @@ describe.skipIf(!runDatabaseTests)(
       `;
 
       await applyMigration(client, schema, "0003_yezyy_live_booking_operations.sql");
+      await applyMigration(client, schema, "0004_slippery_kree.sql");
 
       const [booking] = await client<{
         status: string;

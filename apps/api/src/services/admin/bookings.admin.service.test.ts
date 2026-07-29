@@ -58,6 +58,49 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
     ).rejects.toMatchObject({ code: "WAITLIST_CONTACT_REQUIRED" });
   });
 
+  it("renders customer and system history actors from their explicit actor kinds", async () => {
+    const bookingId = crypto.randomUUID();
+    await database.connection.db.insert(bookings).values({
+      id: bookingId,
+      name: "Alice",
+      phone: "0430000088",
+      requestKind: "experience",
+      status: "cancellation_requested",
+      slotDate: "2030-08-13",
+      slotStartTime: "10:00",
+      slotEndTime: "11:00",
+    });
+    await database.connection.db.insert(requestStatusEvents).values([
+      {
+        bookingId,
+        operationId: crypto.randomUUID(),
+        fromStatus: "confirmed",
+        toStatus: "cancellation_requested",
+        actorKind: "customer",
+        customerRescheduleRequest: { date: "2030-08-14", startTime: "13:30" },
+      },
+      {
+        bookingId,
+        operationId: crypto.randomUUID(),
+        fromStatus: "cancellation_requested",
+        toStatus: "cancelled",
+        actorKind: "system",
+      },
+    ]);
+
+    await expect(
+      createAdminBookingsService(database.connection.db).getById(bookingId),
+    ).resolves.toMatchObject({
+      statusHistory: [
+        {
+          actor: { kind: "customer", name: "Customer" },
+          customerRescheduleRequest: { date: "2030-08-14", startTime: "13:30" },
+        },
+        { actor: { kind: "system", name: "System" } },
+      ],
+    });
+  });
+
   it("returns immutable offering/slot details, history, and delivery state", async () => {
     const actorId = crypto.randomUUID();
     const slotId = crypto.randomUUID();

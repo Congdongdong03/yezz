@@ -1,0 +1,1 @@
+ALTER TABLE "request_status_events" ADD COLUMN "customer_reschedule_request" jsonb;

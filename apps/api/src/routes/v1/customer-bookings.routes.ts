@@ -46,7 +46,6 @@ export default async function customerBookingsRoutes(app: FastifyInstance) {
     request: { params: { token: string }; verifiedClientIdentity: unknown; ip: string },
     reply: Parameters<typeof enforceRequestLimit>[5],
   ) {
-    assertToken(request.params.token);
     const subject = `${resolvePublicRateLimitSubject(request as never)}:${tokenDigestPrefix(request.params.token)}`;
     await enforceRequestLimit(
       app.services.rateLimits,
@@ -56,6 +55,7 @@ export default async function customerBookingsRoutes(app: FastifyInstance) {
       CUSTOMER_ACTION_RATE_WINDOW_SECONDS,
       reply,
     );
+    assertToken(request.params.token);
   }
 
   app.get<{ Params: { token: string } }>("/:token", async (request, reply) => {

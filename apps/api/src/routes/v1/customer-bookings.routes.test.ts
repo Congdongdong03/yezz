@@ -6,6 +6,7 @@ import { registerErrorHandler } from "../../plugins/error-handler.js";
 import customerBookingsRoutes from "./customer-bookings.routes.js";
 
 const TOKEN = "A".repeat(43);
+const MALFORMED_TOKEN = "not-a-token";
 const VERIFIED_IDENTITY = {
   clientIp: "203.0.113.10",
   requestId: "00000000-0000-4000-8000-000000000001",
@@ -74,6 +75,40 @@ describe("customer booking routes", () => {
         success: false,
         error: { code: "LINK_INVALID_OR_EXPIRED" },
       });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("consumes the dedicated limiter before rejecting a malformed token", async () => {
+    const consume = vi.fn(async () => limitResult());
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = VERIFIED_IDENTITY;
+    });
+    app.decorate("services", {
+      rateLimits: { consume },
+      customerActions: { resolve: vi.fn() },
+    } as never);
+    await app.register(customerBookingsRoutes, { prefix: "/customer-bookings" });
+
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: `/customer-bookings/${MALFORMED_TOKEN}`,
+      });
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toMatchObject({
+        error: { code: "LINK_INVALID_OR_EXPIRED" },
+      });
+      expect(consume).toHaveBeenCalledWith(
+        "customer_booking_action",
+        `203.0.113.10:${createHash("sha256").update(MALFORMED_TOKEN).digest("hex").slice(0, 16)}`,
+        12,
+        3600,
+      );
     } finally {
       await app.close();
     }

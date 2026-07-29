@@ -271,6 +271,7 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       from_status varchar(32) NOT NULL,
       to_status varchar(32) NOT NULL,
       admin_note text,
+      customer_reschedule_request jsonb,
       actor_user_id uuid REFERENCES "${schema}".users(id) ON DELETE RESTRICT,
       actor_kind varchar(16) NOT NULL DEFAULT 'staff',
       created_at timestamptz NOT NULL DEFAULT now(),

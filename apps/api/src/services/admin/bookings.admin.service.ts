@@ -1,4 +1,10 @@
-import { bookings, emailOutbox, type BookingStatus, type Db } from "@yezz/db";
+import {
+  bookings,
+  emailOutbox,
+  type BookingStatus,
+  type CustomerRescheduleRequest,
+  type Db,
+} from "@yezz/db";
 import { desc, eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import {
@@ -29,13 +35,35 @@ export type BookingStatusHistoryItem = {
   fromStatus: OrderStatus | BookingStatus;
   toStatus: OrderStatus | BookingStatus;
   note: string | null;
+  customerRescheduleRequest: CustomerRescheduleRequest | null;
   createdAt: Date;
   actor: {
+    kind: "staff" | "customer" | "system";
     id: string;
     name: string;
     email: string;
   };
 };
+
+function historyActor(event: {
+  actorKind: "staff" | "customer" | "system";
+  actorId: string | null;
+  actorName: string | null;
+  actorEmail: string | null;
+}): BookingStatusHistoryItem["actor"] {
+  if (event.actorKind === "customer") {
+    return { kind: "customer", id: "customer", name: "Customer", email: "" };
+  }
+  if (event.actorKind === "system") {
+    return { kind: "system", id: "system", name: "System", email: "" };
+  }
+  return {
+    kind: "staff",
+    id: event.actorId ?? "staff",
+    name: event.actorName ?? "Staff",
+    email: event.actorEmail ?? "",
+  };
+}
 
 export type BookingEmailDelivery = {
   id: string;
@@ -210,12 +238,9 @@ export function createAdminBookingsService(db: Db) {
         fromStatus: displayBookingEventStatus(event.fromStatus),
         toStatus: displayBookingEventStatus(event.toStatus),
         note: decodeOrdinaryOperationNote(event.note)?.note ?? event.note,
+        customerRescheduleRequest: event.customerRescheduleRequest,
         createdAt: event.createdAt,
-        actor: {
-          id: event.actorId ?? "customer",
-          name: event.actorName ?? "Customer",
-          email: event.actorEmail ?? "",
-        },
+        actor: historyActor(event),
       })),
     };
   }

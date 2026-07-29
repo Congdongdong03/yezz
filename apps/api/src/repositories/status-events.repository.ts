@@ -1,4 +1,10 @@
-import { requestStatusEvents, users, type BookingStatus, type Db } from "@yezz/db";
+import {
+  requestStatusEvents,
+  users,
+  type BookingStatus,
+  type CustomerRescheduleRequest,
+  type Db,
+} from "@yezz/db";
 import { asc, desc, eq, sql } from "drizzle-orm";
 
 export type RequestStatus = "new" | "contacted" | BookingStatus;
@@ -9,13 +15,14 @@ export type CreateBookingStatusEventInput = {
   fromStatus: RequestStatus;
   toStatus: RequestStatus;
   adminNote?: string | null;
+  customerRescheduleRequest?: CustomerRescheduleRequest | null;
   actorUserId: string | null;
   actorKind?: "staff" | "customer" | "system";
 };
 
 export type CreateCartOrderStatusEventInput = Omit<
   CreateBookingStatusEventInput,
-  "bookingId"
+  "bookingId" | "customerRescheduleRequest"
 > & {
   cartOrderId: string;
 };
@@ -59,6 +66,7 @@ export function createStatusEventsRepository(db: Db) {
           fromStatus: input.fromStatus,
           toStatus: input.toStatus,
           adminNote: input.adminNote?.trim() || null,
+          customerRescheduleRequest: input.customerRescheduleRequest ?? null,
           actorUserId: input.actorUserId,
           actorKind: input.actorKind ?? "staff",
         })
@@ -93,6 +101,8 @@ export function createStatusEventsRepository(db: Db) {
           fromStatus: requestStatusEvents.fromStatus,
           toStatus: requestStatusEvents.toStatus,
           note: requestStatusEvents.adminNote,
+          customerRescheduleRequest: requestStatusEvents.customerRescheduleRequest,
+          actorKind: requestStatusEvents.actorKind,
           createdAt: requestStatusEvents.createdAt,
           actorId: users.id,
           actorName: users.name,
@@ -118,7 +128,7 @@ export function createStatusEventsRepository(db: Db) {
           actorEmail: users.email,
         })
         .from(requestStatusEvents)
-        .leftJoin(users, eq(requestStatusEvents.actorUserId, users.id))
+        .innerJoin(users, eq(requestStatusEvents.actorUserId, users.id))
         .where(eq(requestStatusEvents.cartOrderId, cartOrderId))
         .orderBy(asc(requestStatusEvents.createdAt));
     },

@@ -97,6 +97,30 @@ describe.skipIf(!runDatabaseTests)("customer actions", () => {
     });
   });
 
+  it("rejects a cancelled link generically before reporting a missing scope", async () => {
+    const raw = await service.issue({
+      bookingId,
+      scopes: ["request_cancellation"],
+      expiresAt: new Date("2030-08-06T00:00:00Z"),
+    });
+    await database.connection.db
+      .update(bookings)
+      .set({ status: "cancelled" })
+      .where(eq(bookings.id, bookingId));
+
+    await expect(service.resolve(raw, "accept_time")).rejects.toMatchObject({
+      code: "LINK_INVALID_OR_EXPIRED",
+    });
+  });
+
+  it("rejects an invalid mutation link generically before reading owner email configuration", async () => {
+    vi.stubEnv("OWNER_EMAIL", "");
+
+    await expect(service.requestCancellation("x".repeat(43))).rejects.toMatchObject({
+      code: "LINK_INVALID_OR_EXPIRED",
+    });
+  });
+
   it("records a customer cancellation request and owner notification atomically", async () => {
     const raw = await service.issue({
       bookingId,
@@ -136,7 +160,9 @@ describe.skipIf(!runDatabaseTests)("customer actions", () => {
       status: "reschedule_requested",
     });
     const [event] = await database.connection.db.select().from(requestStatusEvents);
-    expect(event?.adminNote).toContain('"date":"2030-08-14"');
-    expect(event?.adminNote).toContain('"startTime":"13:30"');
+    expect(event?.customerRescheduleRequest).toEqual({
+      date: "2030-08-14",
+      startTime: "13:30",
+    });
   });
 });
