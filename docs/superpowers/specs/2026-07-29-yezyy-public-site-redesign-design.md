@@ -219,16 +219,21 @@ The homepage shows exactly three image-led signature activities:
 2. paint clay figurine;
 3. melty bead craft.
 
-Selection is keyed by canonical project slug rather than translated title.
-Each tile shows a verified YezYY project image when available. Before those
-assets exist, it may show an explicitly licensed generic category image for
-painted plaster figurines, bracelet beading, or air-dry cream piping. Generic
-images are illustrative only: captions and alternative text must not call them
-YezYY work, and their pictured object, price, inclusion, or outcome is not
-promised. Each tile also shows the bilingual name, current starting price,
-duration, age guidance, and one link to the project detail. The permanent page
-does not advertise the photographed temporary melty-bead discount. A single
-`View all DIY projects` link follows the three activities.
+Selection is keyed by the canonical category slugs
+`air-dry-cream-piping`, `paint-clay`, and `melty-beads`, never by translated
+title. Each activity aggregates real project rows in that category to derive
+its current starting price and duration range; it is not represented as a
+fictional project record. Each tile shows a verified YezYY project image when
+available. Before those assets exist, it may show an explicitly licensed
+generic category image for painted plaster figurines, bracelet beading, or
+air-dry cream piping. Generic images are illustrative only: captions and
+alternative text must not call them YezYY work, and their pictured object,
+price, inclusion, or outcome is not promised. Each tile also shows the
+bilingual category name, derived starting price, derived duration, confirmed
+age guidance when available, and one link to the matching catalogue category
+anchor. The permanent page does not advertise the photographed temporary
+melty-bead discount. A single `View all DIY projects` link follows the three
+activities.
 
 ### 5.5 How it works
 
