@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   createStudioClosure,
@@ -14,13 +14,24 @@ import type { AdminSchedule, WeeklyHours } from "@/lib/admin/types";
 
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
-export default function BusinessHoursEditor({
-  schedule,
-  onChanged,
-}: {
+type BusinessHoursEditorProps = {
   schedule: AdminSchedule;
   onChanged: () => void | Promise<void>;
-}) {
+};
+
+export default function BusinessHoursEditor(props: BusinessHoursEditorProps) {
+  const scheduleRevision = JSON.stringify({
+    weekly: props.schedule.weekly,
+    specialHours: props.schedule.specialHours,
+    closures: props.schedule.closures,
+  });
+  return <BusinessHoursEditorForm key={scheduleRevision} {...props} />;
+}
+
+function BusinessHoursEditorForm({
+  schedule,
+  onChanged,
+}: BusinessHoursEditorProps) {
   const [weekly, setWeekly] = useState(schedule.weekly);
   const [weeklyAcknowledged, setWeeklyAcknowledged] = useState(false);
   const [weeklyConflictFingerprint, setWeeklyConflictFingerprint] = useState<
@@ -45,12 +56,6 @@ export default function BusinessHoursEditor({
   });
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    setWeekly(schedule.weekly);
-    setWeeklyAcknowledged(false);
-    setWeeklyConflictFingerprint(null);
-  }, [schedule.weekly]);
 
   const run = async (
     action: () => Promise<unknown>,
