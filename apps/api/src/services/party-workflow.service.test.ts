@@ -115,7 +115,7 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     const service = createPartyWorkflowService(database.connection.db, {
       now: () => new Date("2030-08-10T00:00:00.000Z"),
     });
-    const created = await service.createPartyRequest(validParty({ desiredStartTime: "12:30" }), crypto.randomUUID());
+    const created = await service.createPartyRequest(validParty({ desiredStartTime: "12:00" }), crypto.randomUUID());
     const interval = { date: "2030-08-12", startTime: "12:00", endTime: "14:30" };
     const availability = createBookingAvailabilityRepository(database.connection.db);
 
