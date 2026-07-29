@@ -17,6 +17,7 @@ import {
   safeWorkerDiagnostic,
   startEmailOutboxWorker,
 } from "./services/email-outbox.service.js";
+import { startBookingMaintenanceWorker } from "./services/booking-maintenance.service.js";
 
 function parseAllowedOrigins(): string[] {
   const raw = process.env.CORS_ORIGIN ?? "http://localhost:3000";
@@ -98,6 +99,26 @@ export async function buildApp() {
     );
     app.addHook("onClose", async () => {
       await stopEmailWorker();
+    });
+  }
+
+  if (process.env.BOOKING_MAINTENANCE_WORKER_ENABLED === "true") {
+    const stopBookingMaintenanceWorker = startBookingMaintenanceWorker(
+      app.services.bookingMaintenance,
+      (diagnostic) =>
+        app.log.error(
+          { diagnostic },
+          "Booking maintenance worker poll failed",
+        ),
+      {
+        pollMilliseconds:
+          process.env.NODE_ENV === "test"
+            ? Number(process.env.BOOKING_MAINTENANCE_POLL_MILLISECONDS)
+            : undefined,
+      },
+    );
+    app.addHook("onClose", async () => {
+      await stopBookingMaintenanceWorker();
     });
   }
 

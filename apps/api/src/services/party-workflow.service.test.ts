@@ -309,10 +309,56 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     const interval = { date: "2030-08-12", startTime: "11:30", endTime: "14:00" };
     await expect(createBookingAvailabilityRepository(database.connection.db).hasExclusivePartyOverlap(interval)).resolves.toBe(true);
     current = new Date("2030-08-10T02:00:00.000Z");
-    await expect(service.expirePartyHold({ bookingId: created.id, expectedStatus: "awaiting_in_store_payment", operationId: crypto.randomUUID(), actorUserId: staffId })).resolves.toMatchObject({ status: "payment_expired" });
+    const expiryOperationId = crypto.randomUUID();
+    await expect(service.expirePartyHold({ bookingId: created.id, expectedStatus: "awaiting_in_store_payment", operationId: expiryOperationId, actorUserId: staffId })).resolves.toMatchObject({ status: "payment_expired" });
+    const [staffExpiryEvent] = await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.operationId, expiryOperationId));
+    expect(staffExpiryEvent).toMatchObject({
+      actorUserId: staffId,
+      actorKind: "staff",
+    });
     await expect(createBookingAvailabilityRepository(database.connection.db).hasExclusivePartyOverlap(interval)).resolves.toBe(false);
     await expect(service.recordPartyPayment({ bookingId: created.id, expectedStatus: "awaiting_in_store_payment", amountCents: 9500, paidAt: current, operationId: crypto.randomUUID(), actorUserId: staffId })).rejects.toMatchObject({ code: "STATUS_CONFLICT" });
     await expect(service.expirePartyHold({ bookingId: created.id, expectedStatus: "confirmed_paid" as never, operationId: crypto.randomUUID(), actorUserId: staffId })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("records maintenance expiry as a system event without a fabricated user", async () => {
+    let current = new Date("2030-08-10T00:00:00.000Z");
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => current,
+    });
+    const created = await service.createPartyRequest(
+      validParty(),
+      crypto.randomUUID(),
+    );
+    await service.proposePartyTime({
+      bookingId: created.id,
+      expectedStatus: "pending_review",
+      finalDate: "2030-08-12",
+      finalGuestStart: "12:00",
+      paymentDeadline: new Date("2030-08-10T01:00:00.000Z"),
+      operationId: crypto.randomUUID(),
+      actorUserId: staffId,
+    });
+    current = new Date("2030-08-10T02:00:00.000Z");
+    const operationId = crypto.randomUUID();
+
+    await service.expirePartyHold({
+      bookingId: created.id,
+      expectedStatus: "awaiting_in_store_payment",
+      operationId,
+      actorUserId: null as never,
+    });
+
+    const [event] = await database.connection.db
+      .select()
+      .from(requestStatusEvents)
+      .where(eq(requestStatusEvents.operationId, operationId));
+    expect(event).toMatchObject({
+      actorUserId: null,
+      actorKind: "system",
+      fromStatus: "awaiting_in_store_payment",
+      toStatus: "payment_expired",
+    });
   });
 
   it("consumes a valid accept token with one status event and two deduplicated emails", async () => {

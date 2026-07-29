@@ -59,11 +59,57 @@ export type OwnerRequestOutboxPayload = {
   fields: Array<{ label: string; value: string }>;
 };
 
+export type BookingNotificationTemplate =
+  | "booking_confirmed"
+  | "booking_rejected"
+  | "booking_waitlisted"
+  | "party_time_proposed"
+  | "party_payment_due"
+  | "party_payment_recorded"
+  | "party_payment_expired"
+  | "cancellation_request"
+  | "reschedule_request"
+  | "booking_reminder"
+  | "staff_notification";
+
+export type CustomerManagePayload = {
+  template: BookingNotificationTemplate;
+  customerName: string;
+  bookingNumber: string;
+  offeringLabel: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  manageUrl: string;
+  storeName: "YezYY";
+  contactEmail: "congdongdong03@gmail.com";
+  contactPhone: "0430 787 712";
+  paymentDeadline?: string;
+  amountCents?: 9500 | 14500;
+  note?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+};
+
+export type BookingReminderPayload = CustomerManagePayload & {
+  template: "booking_reminder";
+};
+
+export type PartyPaymentPayload = CustomerManagePayload & {
+  template:
+    | "party_payment_due"
+    | "party_payment_recorded"
+    | "party_payment_expired";
+  amountCents: 9500 | 14500;
+  paymentDeadline?: string;
+};
+
 export type EmailTemplatePayload =
   | BookingStatusOutboxPayload
   | BookingReceivedOutboxPayload
   | OrderReceivedOutboxPayload
-  | OwnerRequestOutboxPayload;
+  | OwnerRequestOutboxPayload
+  | CustomerManagePayload;
 
 export type EmailOutboxEnvelope = {
   bookingId?: string | null;
@@ -94,7 +140,9 @@ export type EmailMessageType =
   | "cart_order_received_customer"
   | "cart_order_received_owner"
   | "booking_status_customer"
-  | "cart_order_status_customer";
+  | "cart_order_status_customer"
+  | "booking_notification_customer"
+  | "booking_notification_owner";
 
 type PlainRecord = Record<string, unknown>;
 
@@ -179,6 +227,150 @@ function dateString(value: unknown, field: string): void {
   if (!text || Number.isNaN(new Date(text).getTime())) {
     invalid(`${field} must be a valid date`);
   }
+}
+
+function calendarDate(value: unknown, field: string): void {
+  const text = stringValue(value, field, { max: 10 });
+  if (!text || !/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    invalid(`${field} must use YYYY-MM-DD`);
+  }
+}
+
+function clockTime(value: unknown, field: string): void {
+  const text = stringValue(value, field, { max: 5 });
+  if (!text || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(text)) {
+    invalid(`${field} must use HH:MM`);
+  }
+}
+
+function httpUrl(value: unknown, field: string): void {
+  const text = stringValue(value, field, { max: 2048 });
+  if (!text) invalid(`${field} must be an http(s) URL`);
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      invalid(`${field} must be an http(s) URL`);
+    }
+  } catch {
+    invalid(`${field} must be an http(s) URL`);
+  }
+}
+
+const BOOKING_NOTIFICATION_TEMPLATES = new Set<BookingNotificationTemplate>([
+  "booking_confirmed",
+  "booking_rejected",
+  "booking_waitlisted",
+  "party_time_proposed",
+  "party_payment_due",
+  "party_payment_recorded",
+  "party_payment_expired",
+  "cancellation_request",
+  "reschedule_request",
+  "booking_reminder",
+  "staff_notification",
+]);
+
+function bookingNotification(value: unknown): CustomerManagePayload {
+  const candidate = record(
+    value,
+    "payload",
+    [
+      "template",
+      "customerName",
+      "bookingNumber",
+      "offeringLabel",
+      "date",
+      "startTime",
+      "endTime",
+      "manageUrl",
+      "storeName",
+      "contactEmail",
+      "contactPhone",
+      "paymentDeadline",
+      "amountCents",
+      "note",
+      "customerEmail",
+      "customerPhone",
+    ],
+    [
+      "template",
+      "customerName",
+      "bookingNumber",
+      "offeringLabel",
+      "date",
+      "startTime",
+      "endTime",
+      "manageUrl",
+      "storeName",
+      "contactEmail",
+      "contactPhone",
+    ],
+  );
+  if (
+    !BOOKING_NOTIFICATION_TEMPLATES.has(
+      candidate.template as BookingNotificationTemplate,
+    )
+  ) {
+    invalid("payload.template is invalid");
+  }
+  for (const key of [
+    "customerName",
+    "bookingNumber",
+    "offeringLabel",
+  ] as const) {
+    stringValue(candidate[key], `payload.${key}`, { max: 255 });
+  }
+  calendarDate(candidate.date, "payload.date");
+  clockTime(candidate.startTime, "payload.startTime");
+  clockTime(candidate.endTime, "payload.endTime");
+  httpUrl(candidate.manageUrl, "payload.manageUrl");
+  if (candidate.storeName !== "YezYY") {
+    invalid("payload.storeName must be YezYY");
+  }
+  if (candidate.contactEmail !== "congdongdong03@gmail.com") {
+    invalid("payload.contactEmail must be congdongdong03@gmail.com");
+  }
+  if (candidate.contactPhone !== "0430 787 712") {
+    invalid("payload.contactPhone must be 0430 787 712");
+  }
+  if (candidate.paymentDeadline !== undefined) {
+    dateString(candidate.paymentDeadline, "payload.paymentDeadline");
+  }
+  if (
+    candidate.amountCents !== undefined &&
+    candidate.amountCents !== 9500 &&
+    candidate.amountCents !== 14500
+  ) {
+    invalid("payload.amountCents must be 9500 or 14500");
+  }
+  for (const key of ["note", "customerEmail", "customerPhone"] as const) {
+    stringValue(candidate[key], `payload.${key}`, {
+      max: key === "note" ? 5000 : 255,
+    });
+  }
+  if (
+    (candidate.template === "party_time_proposed" ||
+      candidate.template === "party_payment_due") &&
+    candidate.paymentDeadline === undefined
+  ) {
+    invalid("payload.paymentDeadline is required");
+  }
+  if (
+    (candidate.template === "party_payment_due" ||
+      candidate.template === "party_payment_recorded" ||
+      candidate.template === "party_payment_expired") &&
+    candidate.amountCents === undefined
+  ) {
+    invalid("payload.amountCents is required");
+  }
+  if (
+    candidate.template === "staff_notification" &&
+    (candidate.customerEmail === undefined ||
+      candidate.customerPhone === undefined)
+  ) {
+    invalid("staff notification customer contact is required");
+  }
+  return candidate as CustomerManagePayload;
 }
 
 function uuidValue(value: unknown, field: string): string {
@@ -322,6 +514,20 @@ function validatePayloadForMessage(
   payload: unknown,
 ): EmailTemplatePayload {
   if (
+    messageType === "booking_notification_customer" ||
+    messageType === "booking_notification_owner"
+  ) {
+    const candidate = bookingNotification(payload);
+    if (
+      (messageType === "booking_notification_owner") !==
+      (candidate.template === "staff_notification")
+    ) {
+      invalid("notification template does not match the recipient kind");
+    }
+    return candidate;
+  }
+
+  if (
     messageType === "booking_received_customer" ||
     messageType === "cart_order_received_customer"
   ) {
@@ -444,6 +650,8 @@ const MESSAGE_TYPES = new Set<EmailMessageType>([
   "cart_order_received_owner",
   "booking_status_customer",
   "cart_order_status_customer",
+  "booking_notification_customer",
+  "booking_notification_owner",
 ]);
 
 export function validateEmailOutboxEnvelope(

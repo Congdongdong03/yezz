@@ -234,6 +234,35 @@ describe("email outbox delivery state machine", () => {
     expect(repo.current.lastError).not.toContain("TypeError");
   });
 
+  it("validates a typed booking notification before repository enqueue", async () => {
+    const repo = createMemoryRepository();
+    const service = createEmailOutboxService(repo, { send: vi.fn() });
+
+    expect(() =>
+      service.enqueue({
+        dedupeKey: "booking:1:reminder:customer",
+        bookingId: "00000000-0000-4000-8000-000000000002",
+        messageType: "booking_notification_customer",
+        recipient: "customer@example.com",
+        locale: "en",
+        payload: {
+          template: "booking_reminder",
+          customerName: "Customer",
+          bookingNumber: "booking-20260729-0000",
+          offeringLabel: "DIY",
+          date: "2026-08-02",
+          startTime: "13:00",
+          endTime: "14:00",
+          manageUrl: "javascript:alert(1)",
+          storeName: "YezYY",
+          contactEmail: "congdongdong03@gmail.com",
+          contactPhone: "0430 787 712",
+        },
+      } as never),
+    ).toThrow(expect.objectContaining({ code: "INVALID_EMAIL_PAYLOAD" }));
+    expect(repo.enqueue).not.toHaveBeenCalled();
+  });
+
   it("stores only a safe 300-character error without payload or recipient", async () => {
     const repo = createMemoryRepository();
     const secret = "sensitive-customer-message";

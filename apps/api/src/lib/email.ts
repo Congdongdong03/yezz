@@ -10,6 +10,8 @@ import {
   type BookingReceivedOutboxPayload,
   type BookingStatusOutboxPayload,
   type BookingStatusTemplate,
+  type CustomerManagePayload,
+  type EmailTemplatePayload,
   type OrderReceivedOutboxPayload,
   type OwnerRequestOutboxPayload,
 } from "./email-outbox-payload.js";
@@ -244,7 +246,7 @@ function renderBookingConfirmation(options: BookingConfirmationOptions): {
       ${input.activityType?.trim() ? infoRow("活动类型 / Activity", escapeHtml(input.activityType.trim())) : ""}
       ${input.message?.trim() ? infoRow("留言 / Message", escapeHtml(input.message.trim())) : ""}
     </table>
-    <p style="margin:24px 0 0;color:#5C5C5C;font-size:14px;">我们会人工审核并联系您确认。无需线上付款，请到店付款。<br/>Your request is awaiting confirmation. We will review it manually and contact you to confirm it. No online payment is required; please Pay in Store.</p>
+    <p style="margin:24px 0 0;color:#5C5C5C;font-size:14px;">您的申请正在等待人工确认。我们会审核并联系您；无需线上付款，请到店付款。<br/>Your request is awaiting confirmation. We will review it manually and contact you to confirm it. No online payment is required; please Pay in Store.</p>
     ${contactFooter(contact)}
   `;
 
@@ -315,6 +317,217 @@ export async function sendOrderConfirmationToCustomer(
 ): Promise<void> {
   const rendered = renderOrderConfirmation(options);
   await sendCustomerEmail(options.to, rendered.subject, rendered.html);
+}
+
+function renderBookingNotification(
+  payload: CustomerManagePayload,
+  locale: string,
+): { subject: string; html: string } {
+  const zh = locale.toLowerCase().startsWith("zh");
+  const copy: Record<
+    CustomerManagePayload["template"],
+    { en: [string, string]; zh: [string, string] }
+  > = {
+    booking_confirmed: {
+      en: [
+        "Booking Confirmed",
+        "Your booking is confirmed. We look forward to seeing you.",
+      ],
+      zh: ["预约已确认", "您的预约已确认，期待您的到来。"],
+    },
+    booking_rejected: {
+      en: [
+        "Booking Request Update",
+        "We are unable to accept this booking request. Please contact us if you would like help choosing another time.",
+      ],
+      zh: [
+        "预约申请更新",
+        "我们目前无法接受此预约申请。如需选择其他时间，请联系我们。",
+      ],
+    },
+    booking_waitlisted: {
+      en: [
+        "Booking Waitlist",
+        "Your request is on the waitlist. This is not a confirmed booking; staff will contact you if a place becomes available.",
+      ],
+      zh: [
+        "预约候补",
+        "您的申请已加入候补名单，目前尚未确认。如有空位，工作人员会联系您。",
+      ],
+    },
+    party_time_proposed: {
+      en: [
+        "Proposed Party Time",
+        "Staff have proposed the party time below. Please review it in your booking page. Any venue fee or deposit is paid in store, and staff record it only after confirming payment.",
+      ],
+      zh: [
+        "建议的派对时间",
+        "工作人员建议了以下派对时间，请在预约管理页面查看。场地费或订金须到店支付，并由工作人员确认收款后记录。",
+      ],
+    },
+    party_payment_due: {
+      en: [
+        "Party Venue Fee Due",
+        "The venue fee is due by the deadline below. It is paid in store; staff record the venue fee or deposit only after confirming payment.",
+      ],
+      zh: [
+        "派对场地费待支付",
+        "请在以下期限前到店支付场地费。场地费或订金由工作人员确认收款后记录。",
+      ],
+    },
+    party_payment_recorded: {
+      en: [
+        "Party Payment Recorded",
+        "Staff have recorded your venue fee after confirming it was paid in store. No online payment was taken.",
+      ],
+      zh: [
+        "派对付款已记录",
+        "工作人员已确认您在店内支付的场地费并完成记录，本次未收取线上付款。",
+      ],
+    },
+    party_payment_expired: {
+      en: [
+        "Party Payment Deadline Expired",
+        "The in-store payment deadline has expired and the party time is no longer held. Contact YezYY if you would like staff to review another time.",
+      ],
+      zh: [
+        "派对付款期限已过",
+        "到店付款期限已过，派对时间不再保留。如需其他时间，请联系 YezYY 工作人员。",
+      ],
+    },
+    cancellation_request: {
+      en: [
+        "Cancellation Request Received",
+        "We received your cancellation request. Staff will review it; the booking is not cancelled until staff confirm the outcome.",
+      ],
+      zh: [
+        "取消申请已收到",
+        "我们已收到您的取消申请，工作人员将进行审核。在工作人员确认处理结果前，预约尚未取消。",
+      ],
+    },
+    reschedule_request: {
+      en: [
+        "Reschedule Request Received",
+        "We received your reschedule request. The requested time is not reserved or confirmed until staff approve it.",
+      ],
+      zh: [
+        "改期申请已收到",
+        "我们已收到您的改期申请。在工作人员批准前，新时间尚未保留或确认。",
+      ],
+    },
+    booking_reminder: {
+      en: [
+        "Booking Reminder",
+        "This is a reminder for your confirmed YezYY booking tomorrow.",
+      ],
+      zh: ["预约提醒", "温馨提醒：您已确认的 YezYY 预约将在明天进行。"],
+    },
+    staff_notification: {
+      en: [
+        "Booking Staff Notification",
+        "A customer booking action needs staff review.",
+      ],
+      zh: ["预约工作人员通知", "有一项客户预约操作需要工作人员审核。"],
+    },
+  };
+  const [title, summary] = zh
+    ? copy[payload.template].zh
+    : copy[payload.template].en;
+  const amount =
+    payload.amountCents === undefined
+      ? ""
+      : infoRow(
+          zh ? "金额" : "Amount",
+          escapeHtml(`$${(payload.amountCents / 100).toFixed(2)} AUD`),
+        );
+  const deadline = payload.paymentDeadline
+    ? infoRow(
+        zh ? "付款期限" : "Payment deadline",
+        escapeHtml(formatDate(parseOutboxDate(payload.paymentDeadline), locale)),
+      )
+    : "";
+  const note = payload.note
+    ? `<p style="background:#FFF8F3;border-left:3px solid #B07D5C;padding:8px 12px;"><strong>${zh ? "备注" : "Note"}:</strong> ${escapeHtml(payload.note)}</p>`
+    : "";
+  const staffContact =
+    payload.template === "staff_notification"
+      ? `${payload.customerEmail ? infoRow(zh ? "客户邮箱" : "Customer email", escapeHtml(payload.customerEmail)) : ""}${payload.customerPhone ? infoRow(zh ? "客户电话" : "Customer phone", escapeHtml(payload.customerPhone)) : ""}`
+      : "";
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">${escapeHtml(title)}</h2>
+    <p style="color:#5C5C5C;margin:0 0 20px;">${escapeHtml(payload.customerName)}${zh ? " 您好，" : ", "}${escapeHtml(summary)}</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
+      ${infoRow(zh ? "预约编号" : "Booking number", escapeHtml(payload.bookingNumber))}
+      ${infoRow(zh ? "项目" : "Offering", escapeHtml(payload.offeringLabel))}
+      ${infoRow(zh ? "日期" : "Date", escapeHtml(payload.date))}
+      ${infoRow(zh ? "时间" : "Time", escapeHtml(`${payload.startTime}–${payload.endTime}`))}
+      ${amount}
+      ${deadline}
+      ${staffContact}
+    </table>
+    ${note}
+    <p style="margin:24px 0 0;"><a href="${escapeHtml(payload.manageUrl)}" style="display:inline-block;background:#B07D5C;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">${zh ? "管理预约" : "Manage booking"}</a></p>
+    <div style="background:#F4EFE9;border-radius:8px;padding:16px;margin-top:24px;">
+      <p style="margin:4px 0;"><strong>${zh ? "店铺" : "Store"}:</strong> ${escapeHtml(payload.storeName)}</p>
+      <p style="margin:4px 0;"><strong>${zh ? "邮箱" : "Email"}:</strong> ${escapeHtml(payload.contactEmail)}</p>
+      <p style="margin:4px 0;"><strong>${zh ? "电话" : "Phone"}:</strong> ${escapeHtml(payload.contactPhone)}</p>
+    </div>
+  `;
+  const subject = `YezYY ${title} ${payload.bookingNumber}`;
+  return { subject, html: brandedEmail(subject, body) };
+}
+
+export function renderEmail(input: {
+  locale: string;
+  payload: EmailTemplatePayload;
+}): string {
+  const messageType =
+    input.payload.template === "booking_received"
+      ? "booking_received_customer"
+      : input.payload.template === "staff_notification"
+        ? "booking_notification_owner"
+        : "booking_notification_customer";
+  const bookingId =
+    input.payload.template === "booking_received"
+      ? input.payload.orderId
+      : "00000000-0000-4000-8000-000000000001";
+  const validated = validateEmailOutboxEnvelope({
+    bookingId,
+    messageType,
+    recipient: "render@example.com",
+    locale: input.locale,
+    payload: input.payload,
+  });
+  const payload = validated.payload;
+  if (payload.template === "booking_received") {
+    return renderBookingConfirmation({
+      to: "",
+      orderId: payload.orderId,
+      orderNumber: payload.orderNumber,
+      submittedAt: parseOutboxDate(payload.submittedAt),
+      input: payload.input,
+      contact: payload.contact,
+    }).html;
+  }
+  if (
+    payload.template === "booking_confirmed" ||
+    payload.template === "booking_rejected" ||
+    payload.template === "booking_waitlisted" ||
+    payload.template === "party_time_proposed" ||
+    payload.template === "party_payment_due" ||
+    payload.template === "party_payment_recorded" ||
+    payload.template === "party_payment_expired" ||
+    payload.template === "cancellation_request" ||
+    payload.template === "reschedule_request" ||
+    payload.template === "booking_reminder" ||
+    payload.template === "staff_notification"
+  ) {
+    return renderBookingNotification(payload, validated.locale).html;
+  }
+  throw Object.assign(new Error("Unsupported email template"), {
+    code: "invalid_template_payload",
+    statusCode: 422,
+  });
 }
 
 export type BookingStatusEmailContext = {
@@ -396,25 +609,68 @@ function renderBookingStatusEmail(
     };
   }
 
-  const reason = ctx.adminNote?.trim()
-    ? escapeHtml(ctx.adminNote)
-    : zh
-      ? "档期已满或时间冲突"
-      : "schedule conflict or capacity limit";
+  const statusCopy: Record<
+    Exclude<BookingStatusTemplate, "contacted" | "confirmed">,
+    { en: [string, string]; zh: [string, string] }
+  > = {
+    pending_review: {
+      en: [
+        "Booking Request Awaiting Manual Confirmation",
+        "Your request is awaiting manual confirmation. It is not a confirmed booking yet.",
+      ],
+      zh: [
+        "预约申请等待人工确认",
+        "您的预约申请正在等待人工确认，目前尚未确认。",
+      ],
+    },
+    waitlisted: {
+      en: [
+        "Booking Waitlist",
+        "Your request is on the waitlist. Staff will contact you if a place becomes available.",
+      ],
+      zh: ["预约候补", "您的申请已加入候补名单。如有空位，工作人员会联系您。"],
+    },
+    rejected: {
+      en: [
+        "Booking Request Not Accepted",
+        "We are unable to accept this booking request. Please contact us to discuss another time.",
+      ],
+      zh: ["预约申请未接受", "我们目前无法接受此预约申请，请联系我们商议其他时间。"],
+    },
+    reschedule_requested: {
+      en: [
+        "Reschedule Request Under Review",
+        "Your reschedule request is under staff review. The requested time is not reserved or confirmed yet.",
+      ],
+      zh: ["改期申请等待审核", "您的改期申请正在等待工作人员审核，新时间尚未保留或确认。"],
+    },
+    cancellation_requested: {
+      en: [
+        "Cancellation Request Under Review",
+        "Your cancellation request is under staff review. The booking is not cancelled until staff confirm the outcome.",
+      ],
+      zh: ["取消申请等待审核", "您的取消申请正在等待工作人员审核，预约尚未取消。"],
+    },
+    cancelled: {
+      en: ["Booking Cancelled", "Your booking has been cancelled."],
+      zh: ["预约已取消", "您的预约已取消。"],
+    },
+    no_show: {
+      en: ["Booking Marked No-show", "This booking was recorded as a no-show."],
+      zh: ["预约标记为未到店", "此预约已记录为未到店。"],
+    },
+    completed: {
+      en: ["Booking Completed", "Thank you for visiting YezYY."],
+      zh: ["预约已完成", "感谢您到访 YezYY。"],
+    },
+  };
+  const [title, summary] = zh ? statusCopy[status].zh : statusCopy[status].en;
   return {
-    subject: zh
-      ? `YezYY 预约取消 ${ctx.orderNumber}`
-      : `YezYY booking cancelled ${ctx.orderNumber}`,
-    body: zh
-      ? `<h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">预约未能安排</h2>
-       <p style="color:#5C5C5C;margin:0 0 16px;">${escapeHtml(ctx.customerName)} 您好，很遗憾您的预约（<strong>${escapeHtml(ctx.orderNumber)}</strong>）目前无法安排。</p>
-       <p style="background:#FFF5F5;border-left:3px solid #E07070;padding:8px 12px;font-size:13px;"><strong>原因：</strong> ${reason}</p>
-       <p style="margin-top:16px;color:#5C5C5C;">欢迎联系我们重新预约。</p>
-       ${contactFooter(ctx.contact)}`
-      : `<h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Booking Unavailable</h2>
-       <p style="color:#5C5C5C;margin:0 0 16px;">Hi <strong>${escapeHtml(ctx.customerName)}</strong>, we are unable to accommodate your booking (<strong>${escapeHtml(ctx.orderNumber)}</strong>) at this time.</p>
-       <p style="background:#FFF5F5;border-left:3px solid #E07070;padding:8px 12px;font-size:13px;"><strong>Reason:</strong> ${reason}</p>
-       <p style="margin-top:16px;color:#5C5C5C;">Please contact us to reschedule.</p>
+    subject: `YezYY ${title} ${ctx.orderNumber}`,
+    body: `<h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">${escapeHtml(title)}</h2>
+       <p style="color:#5C5C5C;margin:0 0 16px;">${escapeHtml(ctx.customerName)}${zh ? " 您好，" : ", "}${escapeHtml(summary)}</p>
+       ${infoRow(zh ? "预约编号" : "Booking number", escapeHtml(ctx.orderNumber))}
+       ${note}
        ${contactFooter(ctx.contact)}`,
   };
 }
@@ -489,6 +745,23 @@ function renderOutboxMessage(message: OutboxProviderMessage) {
       subject: payload.subject,
       html: brandedEmail(payload.subject, body),
     };
+  } else if (
+    template === "booking_confirmed" ||
+    template === "booking_rejected" ||
+    template === "booking_waitlisted" ||
+    template === "party_time_proposed" ||
+    template === "party_payment_due" ||
+    template === "party_payment_recorded" ||
+    template === "party_payment_expired" ||
+    template === "cancellation_request" ||
+    template === "reschedule_request" ||
+    template === "booking_reminder" ||
+    template === "staff_notification"
+  ) {
+    rendered = renderBookingNotification(
+      validated.payload as CustomerManagePayload,
+      validated.locale,
+    );
   } else {
     throw Object.assign(new Error("Unsupported email template"), {
       code: "invalid_template_payload",

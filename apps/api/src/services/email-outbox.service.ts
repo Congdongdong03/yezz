@@ -182,7 +182,20 @@ export function createEmailOutboxService(
       input: EnqueueOutboxInput,
       tx?: Parameters<EmailOutboxRepository["enqueue"]>[1],
     ) {
-      return repo.enqueue(input, tx);
+      const validated = validateEmailOutboxEnvelope(input);
+      return repo.enqueue(
+        {
+          ...input,
+          bookingId: validated.bookingId,
+          cartOrderId: validated.cartOrderId,
+          statusEventId: validated.statusEventId,
+          messageType: validated.messageType,
+          recipient: validated.recipient,
+          locale: validated.locale,
+          payload: validated.payload,
+        },
+        tx,
+      );
     },
 
     deliverOne,

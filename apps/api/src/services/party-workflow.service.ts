@@ -411,16 +411,18 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
       });
     },
 
-    async expirePartyHold(input: { bookingId: string; expectedStatus: "awaiting_in_store_payment"; operationId: string; actorUserId: string }): Promise<PartyBookingDto> {
+    async expirePartyHold(input: { bookingId: string; expectedStatus: "awaiting_in_store_payment"; operationId: string; actorUserId: string | null }): Promise<PartyBookingDto> {
       const bookingId = assertUuid(input.bookingId, "bookingId");
       const operationId = assertUuid(input.operationId, "operationId");
-      const actorUserId = assertUuid(input.actorUserId, "actorUserId");
+      const actorUserId = input.actorUserId === null
+        ? null
+        : assertUuid(input.actorUserId, "actorUserId");
       if (input.expectedStatus !== "awaiting_in_store_payment") throw new AppError(400, "VALIDATION_ERROR", "expectedStatus must be awaiting_in_store_payment");
       const expectedStatus = "awaiting_in_store_payment" as const;
       const current = now();
       return db.transaction(async (tx) => {
         const operationPayload = { action: "expiry" };
-        const transition = await recordTransition({ bookingId, expectedStatus, toStatus: "payment_expired", operationId, actorUserId, operationPayload }, tx);
+        const transition = await recordTransition({ bookingId, expectedStatus, toStatus: "payment_expired", operationId, actorUserId, actorKind: actorUserId ? "staff" : "system", operationPayload }, tx);
         if (transition.replayed) return { id: transition.booking.id, status: transition.booking.status, createdAt: transition.booking.createdAt, replayed: true };
         const booking = await bookingsRepo.findById(bookingId, tx);
         if (!booking || booking.requestKind !== "party") throw new AppError(404, "NOT_FOUND", "Party booking not found");
@@ -429,7 +431,7 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
         if (!details?.paymentDeadline || details.paymentDeadline > current) throw new AppError(409, "PARTY_HOLD_NOT_EXPIRED", "Party hold has not expired");
         const updated = await partyRepo.setStatus(bookingId, expectedStatus, "payment_expired", tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: expectedStatus, toStatus: "payment_expired", adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
+        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: expectedStatus, toStatus: "payment_expired", adminNote: encodePartyOperation(operationPayload), actorUserId, actorKind: actorUserId ? "staff" : "system" }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },

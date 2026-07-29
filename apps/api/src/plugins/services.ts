@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
 import { createEmailOutboxRepository } from "../repositories/email-outbox.repository.js";
+import { createBookingMaintenanceRepository } from "../repositories/booking-maintenance.repository.js";
 import { createRateLimitsRepository } from "../repositories/rate-limits.repository.js";
 import { createAdminBookingsService, type AdminBookingsService } from "../services/admin/bookings.admin.service.js";
 import { createAdminCartOrdersService, type AdminCartOrdersService } from "../services/admin/cart-orders.admin.service.js";
@@ -14,6 +15,10 @@ import { createNotificationsAdminService, type NotificationsAdminService } from 
 import { createAdminUsersService, type AdminUsersService } from "../services/admin/users.admin.service.js";
 import { createAuthService, type AuthService } from "../services/auth.service.js";
 import { createBookingsService, type BookingsService } from "../services/bookings.service.js";
+import {
+  createBookingMaintenanceService,
+  type BookingMaintenanceService,
+} from "../services/booking-maintenance.service.js";
 import { createAvailabilityService, type AvailabilityService } from "../services/availability.service.js";
 import { createCartOrdersService, type CartOrdersService } from "../services/cart-orders.service.js";
 import { createCustomerActionsService, type CustomerActionsService } from "../services/customer-actions.service.js";
@@ -44,6 +49,7 @@ export type AppServices = {
   availability: AvailabilityService;
   auth: AuthService;
   bookings: BookingsService;
+  bookingMaintenance: BookingMaintenanceService;
   cartOrders: CartOrdersService;
   cartSessions: CartSessionsService;
   customerActions: CustomerActionsService;
@@ -82,17 +88,23 @@ export default fp(async (app: FastifyInstance) => {
       hashSecret: process.env.RATE_LIMIT_HASH_SECRET,
     },
   );
+  const partyWorkflow = createPartyWorkflowService(app.db);
+  const bookingMaintenance = createBookingMaintenanceService(
+    createBookingMaintenanceRepository(app.db),
+    partyWorkflow,
+  );
   app.decorate("services", {
     availability: createAvailabilityService(app.db),
     auth: createAuthService(app.db),
     bookings: createBookingsService(app.db, requestCapabilities),
+    bookingMaintenance,
     cartOrders: createCartOrdersService(app.db, requestCapabilities),
     cartSessions: createCartSessionsService(app.db),
     customerActions: createCustomerActionsService(app.db),
     categories: createCategoriesService(app.db),
     projects: createProjectsService(app.db, app.redis),
     parties: createPartiesService(app.db),
-    partyWorkflow: createPartyWorkflowService(app.db),
+    partyWorkflow,
     gallery: createGalleryService(app.db),
     settings: createSettingsService(app.db, app.redis),
     timeSlots: createTimeSlotsService(app.db),

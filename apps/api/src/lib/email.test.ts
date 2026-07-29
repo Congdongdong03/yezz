@@ -199,8 +199,8 @@ describe("booking request acknowledgement email", () => {
     expect(cancelled.replyTo).toBe("congdongdong03@gmail.com");
     expect(confirmed.subject).toContain("booking confirmed");
     expect(confirmed.html).toContain("your booking is confirmed");
-    expect(cancelled.subject).toContain("booking cancelled");
-    expect(cancelled.html).toContain("unable to accommodate your booking");
+    expect(cancelled.subject).toMatch(/booking cancelled/i);
+    expect(cancelled.html).toContain("booking has been cancelled");
   });
 
   it("returns the provider message ID for a typed outbox template", async () => {
@@ -281,4 +281,288 @@ describe("booking request acknowledgement email", () => {
       "EMAIL_FROM must be configured in production",
     );
   });
+});
+
+describe("live booking notification templates", () => {
+  beforeEach(() => {
+    sentEmails.length = 0;
+    vi.resetModules();
+    process.env.NODE_ENV = "test";
+    process.env.RESEND_API_KEY = "test-resend-key";
+    process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
+    process.env.EMAIL_REPLY_TO = "congdongdong03@gmail.com";
+  });
+
+  const common = {
+    customerName: "Wesley",
+    bookingNumber: "booking-20260729-1234",
+    offeringLabel: "Melty Bead Craft",
+    date: "2026-08-02",
+    startTime: "13:00",
+    endTime: "14:00",
+    manageUrl:
+      "https://yezyy.com/en/manage-booking/customer-token-1234567890",
+    storeName: "YezYY",
+    contactEmail: "congdongdong03@gmail.com",
+    contactPhone: "0430 787 712",
+  } as const;
+
+  const cases = [
+    {
+      template: "booking_confirmed",
+      en: /booking confirmed/i,
+      zh: /预约已确认/,
+    },
+    {
+      template: "booking_rejected",
+      en: /unable to accept/i,
+      zh: /无法接受/,
+    },
+    {
+      template: "booking_waitlisted",
+      en: /waitlist/i,
+      zh: /候补/,
+    },
+    {
+      template: "party_time_proposed",
+      en: /proposed party time/i,
+      zh: /建议的派对时间/,
+      extra: { paymentDeadline: "2026-07-31T02:00:00.000Z" },
+    },
+    {
+      template: "party_payment_due",
+      en: /venue fee.*due/i,
+      zh: /场地费.*待支付/,
+      extra: {
+        paymentDeadline: "2026-07-31T02:00:00.000Z",
+        amountCents: 9500,
+      },
+    },
+    {
+      template: "party_payment_recorded",
+      en: /payment recorded/i,
+      zh: /付款已记录/,
+      extra: { amountCents: 9500 },
+    },
+    {
+      template: "party_payment_expired",
+      en: /payment deadline.*expired/i,
+      zh: /付款期限已过/,
+      extra: { amountCents: 9500 },
+    },
+    {
+      template: "cancellation_request",
+      en: /cancellation request.*received/i,
+      zh: /取消申请已收到/,
+    },
+    {
+      template: "reschedule_request",
+      en: /reschedule request.*received/i,
+      zh: /改期申请已收到/,
+    },
+    {
+      template: "booking_reminder",
+      en: /booking reminder/i,
+      zh: /预约提醒/,
+    },
+  ] as const;
+
+  it.each(cases)("renders $template safely in English and Chinese", async (testCase) => {
+    const { renderEmail } = await import("./email.js");
+    for (const locale of ["en", "zh"] as const) {
+      const html = renderEmail({
+        locale,
+        payload: {
+          template: testCase.template,
+          ...common,
+          ...("extra" in testCase ? testCase.extra : {}),
+        },
+      });
+      expect(html).toMatch(locale === "zh" ? testCase.zh : testCase.en);
+      expect(html).toContain("YezYY");
+      expect(html).toContain("congdongdong03@gmail.com");
+      expect(html).toContain("0430 787 712");
+      expect(html).toContain("manage-booking");
+    }
+  });
+
+  it.each(["en", "zh"] as const)(
+    "never calls a pending booking request confirmed in %s",
+    async (locale) => {
+      const { renderEmail } = await import("./email.js");
+      const html = renderEmail({
+        locale,
+        payload: {
+          template: "booking_received",
+          orderId: "00000000-0000-4000-8000-000000000002",
+          orderNumber: common.bookingNumber,
+          submittedAt: "2026-07-29T02:00:00.000Z",
+          input: {
+            name: common.customerName,
+            phone: "0430787712",
+            locale,
+          },
+          contact: {
+            email: common.contactEmail,
+            phone: common.contactPhone,
+          },
+        },
+      });
+      expect(html).not.toMatch(
+        locale === "zh" ? /预约已确认/ : /booking confirmed/i,
+      );
+      expect(html).toMatch(
+        locale === "zh" ? /等待人工确认/ : /awaiting.*confirmation/i,
+      );
+    },
+  );
+
+  it.each([
+    "party_time_proposed",
+    "party_payment_due",
+    "party_payment_recorded",
+  ] as const)(
+    "keeps %s strictly in-store and staff-recorded",
+    async (template) => {
+      const { renderEmail } = await import("./email.js");
+      const html = renderEmail({
+        locale: "en",
+        payload: {
+          template,
+          ...common,
+          amountCents: 9500,
+          paymentDeadline: "2026-07-31T02:00:00.000Z",
+        },
+      });
+      expect(html).toMatch(/paid in store/i);
+      expect(html).toMatch(/staff.*record/i);
+      expect(html).not.toMatch(/pay online|online checkout|payment link/i);
+    },
+  );
+
+  it("escapes every customer and staff free-text field and URL attribute", async () => {
+    const { renderEmail } = await import("./email.js");
+    const injection = `<img src=x onerror="alert(1)">`;
+    const html = renderEmail({
+      locale: "en",
+      payload: {
+        template: "staff_notification",
+        ...common,
+        customerName: injection,
+        offeringLabel: injection,
+        note: injection,
+        customerEmail: "customer@example.com",
+        customerPhone: injection,
+        manageUrl: `https://yezyy.com/manage-booking/x" onmouseover="alert(2)`,
+      },
+    });
+    expect(html).not.toContain(injection);
+    expect(html).not.toContain('onmouseover="alert(2)"');
+    expect(html).toContain("&lt;img");
+    expect(html).toContain("&quot; onmouseover=&quot;");
+  });
+
+  it.each([
+    ["storeName", "YEZZ"],
+    ["contactEmail", "attacker@example.com"],
+    ["contactPhone", "0000 000 000"],
+    ["amountCents", 1234],
+    ["manageUrl", "javascript:alert(1)"],
+  ] as const)("rejects an invalid typed %s before provider send", async (field, value) => {
+    const { createResendOutboxProvider } = await import("./email.js");
+    const provider = createResendOutboxProvider();
+
+    await expect(
+      provider.send({
+        id: "00000000-0000-4000-8000-000000000001",
+        dedupeKey: `booking:1:notification:${field}`,
+        bookingId: "00000000-0000-4000-8000-000000000002",
+        cartOrderId: null,
+        statusEventId: null,
+        messageType: "booking_notification_customer",
+        recipient: "customer@example.com",
+        locale: "en",
+        payload: {
+          template: "party_payment_due",
+          ...common,
+          paymentDeadline: "2026-07-31T02:00:00.000Z",
+          amountCents: 9500,
+          [field]: value,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+  });
+
+  it("validates typed payloads before direct rendering", async () => {
+    const { renderEmail } = await import("./email.js");
+    expect(() =>
+      renderEmail({
+        locale: "en",
+        payload: {
+          template: "booking_reminder",
+          ...common,
+          manageUrl: "javascript:alert(1)",
+        },
+      }),
+    ).toThrow(expect.objectContaining({ code: "INVALID_EMAIL_PAYLOAD" }));
+  });
+
+  it.each([
+    {
+      status: "pending_review",
+      en: /awaiting manual confirmation/i,
+      zh: /等待人工确认/,
+    },
+    { status: "waitlisted", en: /waitlist/i, zh: /候补/ },
+    { status: "rejected", en: /unable to accept/i, zh: /无法接受/ },
+    {
+      status: "reschedule_requested",
+      en: /reschedule request.*review/i,
+      zh: /改期申请.*审核/,
+    },
+    {
+      status: "cancellation_requested",
+      en: /cancellation request.*review/i,
+      zh: /取消申请.*审核/,
+    },
+    { status: "cancelled", en: /booking cancelled/i, zh: /预约已取消/ },
+  ] as const)(
+    "keeps legacy status outbox rendering truthful for $status",
+    async ({ status, en, zh }) => {
+      const { createResendOutboxProvider } = await import("./email.js");
+      const provider = createResendOutboxProvider();
+      for (const locale of ["en", "zh"] as const) {
+        await provider.send({
+          id: "00000000-0000-4000-8000-000000000001",
+          dedupeKey: `booking:1:status:${status}:${locale}`,
+          bookingId: "00000000-0000-4000-8000-000000000002",
+          cartOrderId: null,
+          statusEventId: "00000000-0000-4000-8000-000000000003",
+          messageType: "booking_status_customer",
+          recipient: "customer@example.com",
+          locale,
+          payload: {
+            template: "booking_status",
+            status,
+            locale,
+            customerName: "Wesley",
+            orderNumber: common.bookingNumber,
+            storeName: "YezYY",
+            contact: {
+              email: common.contactEmail,
+              phone: common.contactPhone,
+            },
+          },
+        });
+        const email = sentEmails.at(-1) as { subject: string; html: string };
+        const combined = `${email.subject}\n${email.html}`;
+        expect(combined).toMatch(locale === "zh" ? zh : en);
+        if (status === "pending_review") {
+          expect(combined).not.toMatch(
+            locale === "zh" ? /预约已确认/ : /booking confirmed/i,
+          );
+        }
+      }
+    },
+  );
 });
