@@ -51,7 +51,9 @@ The finished public experience must:
 - meet keyboard, focus, contrast, labelling, reduced-motion, and semantic HTML
   requirements;
 - contain no fictional projects, placeholder reviews, stock customer work, or
-  AI-generated imagery presented as YezYY content.
+  AI-generated imagery presented as YezYY content;
+- distinguish licensed generic inspiration imagery from verified YezYY
+  premises, projects, events, and customer work.
 
 ## 3. Approved Direction
 
@@ -177,11 +179,16 @@ selection.
 The hero uses a three-image target set:
 
 1. the real studio or DIY workspace;
-2. hands making an activity or three featured finished projects;
+2. hands making an activity or the three featured finished projects;
 3. a real friends, family, or party scene with documented permission.
 
-Until all three types exist, the hero uses only verified available images and
-falls back to a static composition. The fixed copy communicates:
+The premises image must be verified YezYY photography. A making-process image
+may be a properly licensed generic image when it does not contain another
+studio's marks or imply that the people shown are YezYY customers. A finished
+project or customer scene must be verified YezYY content with the required
+permission. Until suitable images exist, the hero uses only verified or
+licensed available images and falls back to a static composition. The fixed
+copy communicates:
 
 - a short creative promise;
 - Glen Waverley location;
@@ -213,10 +220,15 @@ The homepage shows exactly three image-led signature activities:
 3. melty bead craft.
 
 Selection is keyed by canonical project slug rather than translated title.
-Each tile shows a verified image when available, bilingual name, current
-starting price, duration, age guidance, and one link to the project detail.
-The permanent page does not advertise the photographed temporary melty-bead
-discount. A single `View all DIY projects` link follows the three activities.
+Each tile shows a verified YezYY project image when available. Before those
+assets exist, it may show an explicitly licensed generic category image for
+painted plaster figurines, bracelet beading, or air-dry cream piping. Generic
+images are illustrative only: captions and alternative text must not call them
+YezYY work, and their pictured object, price, inclusion, or outcome is not
+promised. Each tile also shows the bilingual name, current starting price,
+duration, age guidance, and one link to the project detail. The permanent page
+does not advertise the photographed temporary melty-bead discount. A single
+`View all DIY projects` link follows the three activities.
 
 ### 5.5 How it works
 
@@ -320,11 +332,13 @@ The page must not imply that selecting a time confirms the event.
 ### 6.4 Gallery
 
 The gallery contains only approved YezYY store, material, process, event, and
-finished-work images. It supports meaningful alternative text and preserves
-image aspect ratios. Captions distinguish a store space, a product example,
-and customer work.
+finished-work images. Licensed generic inspiration imagery is not mixed into
+the gallery because visitors would reasonably interpret gallery entries as
+real YezYY content. The gallery supports meaningful alternative text and
+preserves image aspect ratios. Captions distinguish a store space, a product
+example, and customer work.
 
-No empty gallery shell, fake social feed, stock craft image, or AI-generated
+No empty gallery shell, fake social feed, stock customer work, or AI-generated
 example is published. When there are too few images, the page uses a smaller
 honest collection.
 
@@ -400,12 +414,31 @@ avoid layout shift and oversized mobile downloads.
 The initial media policy is:
 
 - use empty-store, workspace, material, and finished-project images;
+- use YezYY-owned photography for the storefront, premises, actual YezYY
+  projects, events, prices, and customer examples;
+- allow generic making-process or category inspiration photography only when
+  the source explicitly grants commercial reuse, including reputable
+  commercial-use stock libraries or a compatible Creative Commons licence;
+- keep a checked-in media manifest recording the original page URL, creator,
+  licence name, licence URL, download date, local asset path, and approved use;
+- label generic imagery as illustrative where context could otherwise imply it
+  is a YezYY result, customer, class, price, or included item;
 - do not publish identifiable adult customers without consent;
 - do not publish identifiable children without explicit guardian consent;
 - do not use temporary messenger thumbnails as permanent production masters;
+- do not treat the absence of a copyright notice or download restriction as
+  permission;
 - do not use another studio's photography;
+- do not copy assets from UnicDIY or another reference/competitor site;
 - do not generate fake YezYY work;
 - do not duplicate one image to create an artificial gallery.
+
+For the initial redesign, external sourcing is limited to generic images that
+help visitors understand painted plaster figurines, bracelet beading, and
+air-dry cream piping. Search-result thumbnails are never committed. The source
+page and licence are verified before downloading the original. If a suitable
+licence cannot be verified, the layout uses YezYY premises photography or an
+honest text-first fallback instead.
 
 The target future shoot list is a landscape studio view, a hands-making scene,
 the three featured finished projects, an adult/friends experience, a
