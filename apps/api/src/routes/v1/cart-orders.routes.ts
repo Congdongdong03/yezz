@@ -6,11 +6,10 @@ import {
 import type { CartOrderCreateInput } from "../../repositories/cart-orders.repository.js";
 import { success } from "../../lib/response.js";
 import { requireIdempotencyKey } from "../../lib/public-create-idempotency.js";
-import { requireRequestCapability } from "../../services/settings.service.js";
 
 export default async function cartOrdersRoutes(app: FastifyInstance) {
   app.post<{ Body: CartOrderCreateInput }>("/", async (request, reply) => {
-    requireRequestCapability("product");
+    await app.services.settings.requirePublicRequestCapability("product");
 
     await enforceRequestLimit(
       app.services.rateLimits,
