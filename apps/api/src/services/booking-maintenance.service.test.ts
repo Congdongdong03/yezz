@@ -253,12 +253,15 @@ describe.skipIf(!runDatabaseTests)(
       const repository = createBookingMaintenanceRepository(
         database.connection.db,
       );
+      const customerActionTokenSecret =
+        "maintenance-test-secret-at-least-32-bytes";
       const partyWorkflow = createPartyWorkflowService(database.connection.db, {
         now,
+        customerActionTokenSecret,
       });
       const options = {
         now,
-        customerActionTokenSecret: "maintenance-test-secret-at-least-32-bytes",
+        customerActionTokenSecret,
         customerManageBaseUrl: "https://yezyy.com",
       };
 
