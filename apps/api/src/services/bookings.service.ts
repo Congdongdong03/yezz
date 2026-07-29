@@ -30,6 +30,7 @@ import {
 import { createPartiesRepository } from "../repositories/parties.repository.js";
 import { createProjectsRepository } from "../repositories/projects.repository.js";
 import { createRequestCapacityRepository } from "../repositories/request-capacity.repository.js";
+import { createBookingAvailabilityRepository } from "../repositories/booking-availability.repository.js";
 import { createStudioScheduleRepository } from "../repositories/studio-schedule.repository.js";
 import { createStatusEventsRepository } from "../repositories/status-events.repository.js";
 import {
@@ -280,6 +281,7 @@ export function createBookingsService(
   const partiesRepo = createPartiesRepository(db);
   const capacityRepo = createRequestCapacityRepository(db);
   const scheduleRepo = createStudioScheduleRepository(db);
+  const availabilityRepo = createBookingAvailabilityRepository(db);
   const outboxRepo = createEmailOutboxRepository(db);
   const statusEventsRepo = createStatusEventsRepository(db);
   const now = dependencies?.now ?? (() => new Date());
@@ -636,6 +638,7 @@ export function createBookingsService(
 
       const result = await db.transaction(async (tx) => {
         await requirePublicCreateCapability("experience", tx, true);
+        await availabilityRepo.lockScheduleRevision(tx);
         await beforePersist?.(tx);
         await repo.lockCreateAttempt(normalizedKey, tx);
         const replay = await repo.findByIdempotencyKey(normalizedKey, tx);

@@ -9,16 +9,11 @@ import {
 } from "@yezz/db";
 import { and, asc, eq } from "drizzle-orm";
 import { formatBookingOrderId } from "../lib/email.js";
+import { occupiesStudioSchedule } from "../lib/schedule-occupancy.js";
 import {
   createStudioScheduleRepository,
   studioScheduleDateValue,
 } from "./studio-schedule.repository.js";
-
-const ACTIVE_PARTY_STATUSES: ReadonlySet<BookingStatus> = new Set([
-  "awaiting_in_store_payment",
-  "confirmed_paid",
-  "confirmed",
-]);
 
 export type CalendarBookingReference = {
   bookingId: string;
@@ -187,7 +182,7 @@ export function createBookingCalendarRepository(db: Db) {
         .filter(
           (row) =>
             row.requestKind === "experience" &&
-            row.status === "confirmed" &&
+            occupiesStudioSchedule(row.requestKind, row.status) &&
             row.attendanceCount !== null &&
             row.slotStartTime !== null &&
             row.slotEndTime !== null,
@@ -207,7 +202,7 @@ export function createBookingCalendarRepository(db: Db) {
         .filter(
           (row) =>
             row.requestKind === "party" &&
-            ACTIVE_PARTY_STATUSES.has(row.status) &&
+            occupiesStudioSchedule(row.requestKind, row.status) &&
             row.finalSetupStart !== null &&
             row.finalGuestStart !== null &&
             row.finalGuestEnd !== null &&

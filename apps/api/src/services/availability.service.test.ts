@@ -20,6 +20,7 @@ describe("availability service", () => {
         sumConfirmedAttendance: async () => 6,
         hasExclusivePartyOverlap: async () => false,
         lockOperationalDate: async () => undefined,
+        lockScheduleRevision: async () => undefined,
       },
     });
 
@@ -52,6 +53,7 @@ describe("availability service", () => {
         sumConfirmedAttendance: async () => 0,
         hasExclusivePartyOverlap: async (interval) => interval.startTime === "09:30",
         lockOperationalDate: async () => undefined,
+        lockScheduleRevision: async () => undefined,
       },
     });
 
@@ -84,6 +86,7 @@ describe("availability service", () => {
         sumConfirmedAttendance: async () => 0,
         hasExclusivePartyOverlap: async (interval) => interval.startTime === "09:30",
         lockOperationalDate: async () => undefined,
+        lockScheduleRevision: async () => undefined,
       },
     });
 
@@ -115,6 +118,7 @@ describe("availability service", () => {
         sumConfirmedAttendance: async () => 0,
         hasExclusivePartyOverlap: async () => false,
         lockOperationalDate: async () => undefined,
+        lockScheduleRevision: async () => undefined,
       },
     });
 
@@ -134,6 +138,7 @@ describe("availability service", () => {
         sumConfirmedAttendance: async () => 0,
         hasExclusivePartyOverlap: async () => false,
         lockOperationalDate: async () => undefined,
+        lockScheduleRevision: async () => undefined,
       },
     });
 

@@ -175,6 +175,7 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
   }
 
   async function assertCanHold(bookingId: string, interval: { date: string; setupStart: string; guestStart: string; guestEnd: string; cleanupEnd: string }, tx: Db) {
+    await availabilityRepo.lockScheduleRevision(tx);
     await availabilityRepo.lockOperationalDate(interval.date, tx);
     const schedule = await scheduleRepo.resolveDay(interval.date);
     if (

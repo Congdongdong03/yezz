@@ -1,13 +1,11 @@
 import { bookings, type Db } from "@yezz/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import {
+  OCCUPYING_EXPERIENCE_STATUSES,
+  OCCUPYING_PARTY_STATUSES,
+} from "../lib/schedule-occupancy.js";
 
 export type LocalInterval = { date: string; startTime: string; endTime: string };
-
-const ACTIVE_PARTY_STATUSES = [
-  "awaiting_in_store_payment",
-  "confirmed_paid",
-  "confirmed",
-] as const;
 
 function overlaps(interval: LocalInterval) {
   return [
@@ -28,7 +26,7 @@ export function createBookingAvailabilityRepository(db: Db) {
         .where(
           and(
             eq(bookings.requestKind, "experience"),
-            eq(bookings.status, "confirmed"),
+            inArray(bookings.status, OCCUPYING_EXPERIENCE_STATUSES),
             ...overlaps(interval),
           ),
         );
@@ -42,7 +40,7 @@ export function createBookingAvailabilityRepository(db: Db) {
         .where(
           and(
             eq(bookings.requestKind, "party"),
-            inArray(bookings.status, ACTIVE_PARTY_STATUSES),
+            inArray(bookings.status, OCCUPYING_PARTY_STATUSES),
             ...overlaps(interval),
           ),
         )
@@ -54,6 +52,10 @@ export function createBookingAvailabilityRepository(db: Db) {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${date}, 0))`,
       );
+    },
+
+    async lockScheduleRevision(tx: Db): Promise<void> {
+      await tx.execute(sql`select pg_advisory_xact_lock(149978, 1126)`);
     },
   };
 }

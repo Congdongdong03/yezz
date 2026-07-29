@@ -13,6 +13,7 @@ import { asc, eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import { CACHE_KEYS, cacheDel } from "../../lib/cache.js";
 import { formatBookingOrderId } from "../../lib/email.js";
+import { occupiesStudioSchedule } from "../../lib/schedule-occupancy.js";
 import {
   BOOKING_HORIZON_CALENDAR_DAYS,
   getMelbourneClock,
@@ -103,22 +104,11 @@ export const DEFAULT_YEZYY_SITE_SETTINGS = {
 
 const HH_MM = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const MILLISECONDS_PER_DAY = 86_400_000;
-const OCCUPYING_EXPERIENCE_STATUSES = new Set([
-  "confirmed",
-  "cancellation_requested",
-  "reschedule_requested",
-]);
-const OCCUPYING_PARTY_STATUSES = new Set([
-  "awaiting_in_store_payment",
-  "confirmed_paid",
-  "confirmed",
-  "cancellation_requested",
-  "reschedule_requested",
-]);
 
 type ScheduleAcknowledgement = {
   fingerprint: string;
 };
+const SCHEDULE_CONFLICT_FINGERPRINT_SCHEMA_VERSION = 2;
 
 function assertTimePair(
   opensAt: string | null | undefined,
@@ -177,17 +167,6 @@ function overlaps(
     closureEnd !== null &&
     bookingStart < closureEnd &&
     bookingEnd > closureStart
-  );
-}
-
-function occupiesSchedule(
-  requestKind: string,
-  status: string,
-): boolean {
-  return (
-    (requestKind === "experience" &&
-      OCCUPYING_EXPERIENCE_STATUSES.has(status)) ||
-    (requestKind === "party" && OCCUPYING_PARTY_STATUSES.has(status))
   );
 }
 
@@ -269,7 +248,7 @@ export function createAdminSettingsService(
     return scheduled
       .filter(
         (booking) =>
-          occupiesSchedule(booking.requestKind, booking.status) &&
+          occupiesStudioSchedule(booking.requestKind, booking.status) &&
           overlaps(
             booking.startTime,
             booking.endTime,
@@ -278,6 +257,21 @@ export function createAdminSettingsService(
           ),
       )
       .map((booking) => formatBookingOrderId(booking.id, booking.createdAt));
+  }
+
+  async function completeScheduleFingerprintState(connection: Db) {
+    const [weekly, specialHours, closures, bookingRows] = await Promise.all([
+      connection.select().from(studioWeeklyHours).orderBy(asc(studioWeeklyHours.weekday)),
+      connection.select().from(studioSpecialHours).orderBy(asc(studioSpecialHours.date)),
+      connection.select().from(studioClosures).orderBy(asc(studioClosures.date), asc(studioClosures.startTime), asc(studioClosures.id)),
+      connection.select({ id: bookings.id, createdAt: bookings.createdAt, requestKind: bookings.requestKind, status: bookings.status, date: bookings.slotDate, startTime: bookings.slotStartTime, endTime: bookings.slotEndTime }).from(bookings).orderBy(asc(bookings.createdAt), asc(bookings.id)),
+    ]);
+    return {
+      weekly: weekly.map(({ weekday, opensAt, closesAt, isClosed }) => ({ weekday, opensAt, closesAt, isClosed })),
+      specialHours: specialHours.map(({ date, opensAt, closesAt, isClosed, note }) => ({ date: dateValue(date), opensAt, closesAt, isClosed, note })),
+      closures: closures.map(({ id, date, startTime, endTime, note }) => ({ id, date: dateValue(date), startTime, endTime, note })),
+      bookings: bookingRows.filter((booking) => occupiesStudioSchedule(booking.requestKind, booking.status)).map((booking) => ({ id: booking.id, number: formatBookingOrderId(booking.id, booking.createdAt), date: dateValue(booking.date!), startTime: booking.startTime, endTime: booking.endTime, requestKind: booking.requestKind, status: booking.status })),
+    };
   }
 
   async function findBookingsOutsideSpecialHours(
@@ -315,7 +309,7 @@ export function createAdminSettingsService(
             ? (booking.partyGuestEnd ?? booking.endTime)
             : booking.endTime;
         return (
-          occupiesSchedule(booking.requestKind, booking.status) &&
+          occupiesStudioSchedule(booking.requestKind, booking.status) &&
           !!publicStart &&
           !!publicEnd &&
           (publicStart < opensAt || publicEnd > closesAt)
@@ -423,6 +417,7 @@ export function createAdminSettingsService(
         assertTimePair(day.opensAt, day.closesAt);
       }
       await db.transaction(async (tx) => {
+        await availabilityRepo.lockScheduleRevision(tx);
         const horizon = await lockStableOperationalHorizon(tx);
         const current = await tx
           .select()
@@ -482,7 +477,9 @@ export function createAdminSettingsService(
           );
         }
         const affected = [...new Set(affectedBookingNumbers)];
+        const completeState = await completeScheduleFingerprintState(tx);
         const fingerprint = scheduleConflictFingerprint({
+          schemaVersion: SCHEDULE_CONFLICT_FINGERPRINT_SCHEMA_VERSION,
           kind: "weekly",
           affectedBookingNumbers: affected,
           currentWeekly: current.map((day) => ({
@@ -500,6 +497,7 @@ export function createAdminSettingsService(
               isClosed: day.isClosed,
             })),
           relevantSpecialHours,
+          completeState,
         });
         requireScheduleAcknowledgement(
           affected,
@@ -553,6 +551,7 @@ export function createAdminSettingsService(
         assertTimePair(input.opensAt, input.closesAt);
       }
       const row = await db.transaction(async (tx) => {
+        await availabilityRepo.lockScheduleRevision(tx);
         await availabilityRepo.lockOperationalDate(input.date, tx);
         const [[currentWeekly], [currentSpecial]] = await Promise.all([
           tx
@@ -583,7 +582,9 @@ export function createAdminSettingsService(
               input.closesAt!,
               tx,
             );
+        const completeState = await completeScheduleFingerprintState(tx);
         const fingerprint = scheduleConflictFingerprint({
+          schemaVersion: SCHEDULE_CONFLICT_FINGERPRINT_SCHEMA_VERSION,
           kind: "special-hours",
           affectedBookingNumbers: affected,
           currentWeekly: currentWeekly ?? null,
@@ -594,6 +595,7 @@ export function createAdminSettingsService(
             closesAt: input.isClosed ? null : input.closesAt!,
             isClosed: input.isClosed,
           },
+          completeState,
         });
         requireScheduleAcknowledgement(
           affected,
@@ -651,6 +653,7 @@ export function createAdminSettingsService(
       if (startTime !== null) assertTimePair(startTime, endTime);
 
       const row = await db.transaction(async (tx) => {
+        await availabilityRepo.lockScheduleRevision(tx);
         await availabilityRepo.lockOperationalDate(input.date, tx);
         const [[currentWeekly], [currentSpecial]] = await Promise.all([
           tx
@@ -679,12 +682,15 @@ export function createAdminSettingsService(
           endTime,
           tx,
         );
+        const completeState = await completeScheduleFingerprintState(tx);
         const fingerprint = scheduleConflictFingerprint({
+          schemaVersion: SCHEDULE_CONFLICT_FINGERPRINT_SCHEMA_VERSION,
           kind: "closure",
           affectedBookingNumbers,
           currentWeekly: currentWeekly ?? null,
           currentSpecial: currentSpecial ?? null,
           nextClosure: { date: input.date, startTime, endTime },
+          completeState,
         });
         requireScheduleAcknowledgement(
           affectedBookingNumbers,

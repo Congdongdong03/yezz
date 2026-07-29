@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   createStudioClosure,
@@ -46,6 +46,12 @@ export default function BusinessHoursEditor({
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    setWeekly(schedule.weekly);
+    setWeeklyAcknowledged(false);
+    setWeeklyConflictFingerprint(null);
+  }, [schedule.weekly]);
+
   const run = async (
     action: () => Promise<unknown>,
     success: string,
@@ -56,6 +62,10 @@ export default function BusinessHoursEditor({
     try {
       await action();
       await onChanged();
+      setWeeklyAcknowledged(false);
+      setWeeklyConflictFingerprint(null);
+      setSpecial((value) => ({ ...value, acknowledged: false, conflictFingerprint: null }));
+      setClosure((value) => ({ ...value, acknowledged: false, conflictFingerprint: null }));
       setMessage(success);
     } catch (error) {
       const conflictFingerprint =

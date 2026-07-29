@@ -246,6 +246,7 @@ export function createRequestTransitionService(
         }
 
         if (input.toStatus === "confirmed") {
+          await availabilityRepo.lockScheduleRevision(tx);
           for (const date of [...new Set([existing.slotDate!, interval.date])].sort()) await availabilityRepo.lockOperationalDate(date, tx);
           const schedule = await scheduleRepo.resolveDay(interval.date);
           if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt) throw new AppError(400, "STUDIO_CLOSED", "The studio is closed on this date");
