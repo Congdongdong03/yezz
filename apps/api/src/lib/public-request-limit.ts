@@ -81,13 +81,9 @@ export async function enforceRequestLimit(
   reply: Pick<FastifyReply, "header">,
   connection?: Db,
 ): Promise<void> {
-  const result = await service.consume(
-    scope,
-    subject,
-    limit,
-    windowSeconds,
-    connection,
-  );
+  const result = connection === undefined
+    ? await service.consume(scope, subject, limit, windowSeconds)
+    : await service.consume(scope, subject, limit, windowSeconds, connection);
   enforceRateLimitResult(result, reply);
 }
 

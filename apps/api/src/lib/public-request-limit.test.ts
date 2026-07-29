@@ -169,4 +169,35 @@ describe("enforceRequestLimit", () => {
       "RateLimit-Reset": "60",
     });
   });
+
+  it("preserves the four-argument service contract without a transaction", async () => {
+    const consume = vi.fn(async () => ({
+      allowed: true,
+      limit: 5,
+      remaining: 4,
+      resetAt: new Date("2026-07-28T10:00:00.000Z"),
+      resetAfter: 60,
+    }));
+    const service: RateLimitsService = {
+      consume,
+      async purgeExpired() {},
+    };
+    const reply = { header() { return this; } } as never;
+
+    await enforceRequestLimit(
+      service,
+      "booking",
+      "203.0.113.10",
+      5,
+      3600,
+      reply,
+    );
+
+    expect(consume).toHaveBeenCalledWith(
+      "booking",
+      "203.0.113.10",
+      5,
+      3600,
+    );
+  });
 });

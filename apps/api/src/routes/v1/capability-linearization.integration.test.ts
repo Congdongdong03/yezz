@@ -28,6 +28,7 @@ import {
   createRequestFlowTestDatabase,
   type RequestFlowTestDatabase,
 } from "../../test-utils/request-flow-postgres.js";
+import { CURRENT_BOOKING_POLICY_VERSION } from "../../lib/booking-policy-version.js";
 import { registerErrorHandler } from "../../plugins/error-handler.js";
 import bookingsRoutes from "./bookings.routes.js";
 
@@ -262,7 +263,7 @@ describe.skipIf(!runDatabaseTests)(
             accompanyingAdultCount: 1,
             items: [{ projectId, quantity: 2 }],
             locale: "en" as const,
-            policyVersion: "2026-07-30" as const,
+            policyVersion: CURRENT_BOOKING_POLICY_VERSION,
             policyAccepted: true as const,
           };
         },
@@ -290,7 +291,7 @@ describe.skipIf(!runDatabaseTests)(
             byoSnacks: true,
             cakeCuttingRequested: true,
             locale: "en" as const,
-            policyVersion: "2026-07-30" as const,
+            policyVersion: CURRENT_BOOKING_POLICY_VERSION,
             policyAccepted: true as const,
           };
         },
