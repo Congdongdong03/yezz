@@ -20,13 +20,15 @@
     "pretest:api": "pnpm build:db",
     "test:api": "pnpm --filter @yezz/api test",
     "test:api:booking-db": "pnpm build:db && pnpm --filter @yezz/api test:booking-db",
+    "test:api:booking-db:closure": "node apps/web/e2e/run-booking-db-closure.mjs",
     "test:rate-limits:db": "pnpm --filter @yezz/api test:rate-limits:db",
     "test:e2e": "pnpm --filter @yezz/web test:e2e",
     "test:e2e:closure": "node apps/web/e2e/run-closure.mjs",
     "test:e2e:ui": "pnpm --filter @yezz/web test:e2e:ui",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
-    "verify": "pnpm typecheck && pnpm test:api && pnpm lint && pnpm build:api && pnpm build"
+    "verify": "pnpm typecheck && pnpm test:api && pnpm lint && pnpm build:api && pnpm build",
+    "verify:release": "pnpm verify && pnpm --filter @yezz/db test && pnpm --filter @yezz/web test && pnpm test:api:booking-db:closure && pnpm test:e2e:closure"
   },
   "devDependencies": {
     "prettier": "^3.8.1",

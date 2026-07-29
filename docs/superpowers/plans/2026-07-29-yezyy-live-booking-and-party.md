@@ -1931,18 +1931,12 @@ Prove:
 Run:
 
 ```bash
-corepack pnpm build:db
-corepack pnpm typecheck
-corepack pnpm test:api
-corepack pnpm --filter @yezz/db test
-corepack pnpm --filter @yezz/web test
-corepack pnpm lint
-corepack pnpm build:api
-corepack pnpm build
-corepack pnpm test:e2e:closure
+corepack pnpm verify:release
 ```
 
-Expected: all commands pass. If the local PostgreSQL/Mailpit services are unavailable, start only the repository's `docker-compose.test.yml` services and rerun; never substitute production services.
+`verify:release` runs the type, unit, lint, and build checks, then provisions a unique local Docker PostgreSQL project for the booking database suite and separately provisions the full PostgreSQL/Mailpit closure E2E environment. Both runners use loopback-only test URLs, do not inherit production credentials, and remove their containers and volumes in `finally`.
+
+Expected: the complete command passes. Docker must be available locally; never substitute production services or supply production configuration.
 
 - [ ] **Step 6: Update the production checklist**
 
