@@ -569,11 +569,15 @@ export function createBookingsService(
       }
       assertOrdinaryInput(input);
       const normalizedKey = assertUuid(idempotencyKey, "Idempotency-Key");
+      const initialSettings = await settingsRepo.findSingleton();
+      if (!initialSettings?.experienceRequestsEnabled) {
+        throw new AppError(503, "REQUEST_FLOW_DISABLED", "experience requests are not currently available");
+      }
       const existing = await repo.findByIdempotencyKey(normalizedKey);
       const assertReplay = async (row: Awaited<ReturnType<typeof repo.findByIdempotencyKey>>) => {
         if (!row) return false;
         const items = await repo.findItems(row.id);
-        const same = row.requestKind === "experience" && row.status === (input.mode === "waitlist" ? "waitlisted" : "pending_review") && row.participantCount === input.participantCount && row.youngChildCount === input.youngChildCount && row.accompanyingAdultCount === input.accompanyingAdultCount && row.slotDate === input.date && row.slotStartTime === input.startTime && row.name === input.name.trim() && row.phone === input.phone.trim() && row.email === input.email.trim().toLowerCase() && row.message === (input.message?.trim() || null) && row.locale === input.locale && row.policyVersion === input.policyVersion && Boolean(row.policyAcceptedAt) && items.length === input.items.length && items.every((item, index) => item.projectId === (input.items[index]?.decideInStore ? null : input.items[index]?.projectId) && item.quantity === input.items[index]?.quantity && item.decideInStore === Boolean(input.items[index]?.decideInStore));
+        const same = row.requestKind === "experience" && row.activityType === `ordinary_${input.mode}` && row.participantCount === input.participantCount && row.youngChildCount === input.youngChildCount && row.accompanyingAdultCount === input.accompanyingAdultCount && row.slotDate === input.date && row.slotStartTime === input.startTime && row.name === input.name.trim() && row.phone === input.phone.trim() && row.email === input.email.trim().toLowerCase() && row.message === (input.message?.trim() || null) && row.locale === input.locale && row.policyVersion === input.policyVersion && Boolean(row.policyAcceptedAt) && items.length === input.items.length && items.every((item, index) => item.projectId === (input.items[index]?.decideInStore ? null : input.items[index]?.projectId) && item.quantity === input.items[index]?.quantity && item.decideInStore === Boolean(input.items[index]?.decideInStore));
         if (!same) throw new AppError(409, "IDEMPOTENCY_KEY_CONFLICT", "The idempotency key belongs to a different booking request");
         return true;
       };
@@ -583,14 +587,14 @@ export function createBookingsService(
 
       const result = await db.transaction(async (tx) => {
         await repo.lockCreateAttempt(normalizedKey, tx);
+        const settings = await createSettingsRepository(tx).findSingleton();
+        if (!settings?.experienceRequestsEnabled) {
+          throw new AppError(503, "REQUEST_FLOW_DISABLED", "experience requests are not currently available");
+        }
         const replay = await repo.findByIdempotencyKey(normalizedKey, tx);
         if (replay) {
           if (!(await assertReplay(replay))) throw new Error("unreachable");
           return { row: replay, replayed: true };
-        }
-        const settings = await settingsRepo.findSingleton();
-        if (!settings?.experienceRequestsEnabled) {
-          throw new AppError(503, "REQUEST_FLOW_DISABLED", "experience requests are not currently available");
         }
         const snapshots = [] as Array<{ projectId: string | null; projectNameSnapshot: { en: string; zh: string } | null; unitPriceCentsSnapshot: number | null; durationMinutesSnapshot: number; quantity: number; decideInStore: boolean }>;
         for (const item of input.items) {
@@ -608,7 +612,7 @@ export function createBookingsService(
         const schedule = await scheduleRepo.resolveDay(input.date);
         if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt) throw new AppError(400, "STUDIO_CLOSED", "The studio is closed on this date");
         validateBookingWindow({ date: input.date, startTime: input.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(new Date()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
-        return { row: await repo.createOrdinary({ ...input, email: input.email.trim().toLowerCase(), endTime: interval.endTime, attendanceCount: interval.attendanceCount, durationMinutes: interval.durationMinutes, idempotencyKey: normalizedKey, status: input.mode === "waitlist" ? "waitlisted" : "pending_review", items: snapshots }, tx), replayed: false };
+        return { row: await repo.createOrdinary({ ...input, email: input.email.trim().toLowerCase(), endTime: interval.endTime, attendanceCount: interval.attendanceCount, durationMinutes: interval.durationMinutes, idempotencyKey: normalizedKey, status: input.mode === "waitlist" ? "waitlisted" : "pending_review", submissionMode: input.mode, items: snapshots }, tx), replayed: false };
       });
       return { id: result.row.id, status: result.row.status, createdAt: result.row.createdAt, replayed: result.replayed, notification: "queued" };
     },

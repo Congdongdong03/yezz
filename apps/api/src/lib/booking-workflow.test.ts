@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertOrdinaryTransition,
   ORDINARY_TRANSITIONS,
   buildOrdinaryInterval,
   validateOrdinaryAttendance,
@@ -49,4 +50,13 @@ describe("ordinary booking workflow", () => {
     expect(ORDINARY_TRANSITIONS.waitlisted).toContain("confirmed");
     expect(ORDINARY_TRANSITIONS.rejected).toEqual([]);
   });
+
+  it.each(["awaiting_in_store_payment", "not-a-status"]) (
+    "rejects external non-ordinary expected status %s with a validation error",
+    (status) => {
+      expect(() =>
+        assertOrdinaryTransition(status as never, "confirmed"),
+      ).toThrow(/ordinary workflow status/i);
+    },
+  );
 });

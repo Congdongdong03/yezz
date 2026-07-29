@@ -18,6 +18,18 @@ import { createRequestTransitionService } from "./request-transition.service.js"
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
 
+describe("ordinary transition input validation", () => {
+  it("rejects party-only external expected status before opening a transaction", async () => {
+    await expect(createRequestTransitionService({} as never).transitionOrdinary({
+      bookingId: "10000000-0000-4000-8000-000000000001",
+      expectedStatus: "awaiting_in_store_payment" as never,
+      toStatus: "confirmed",
+      operationId: "10000000-0000-4000-8000-000000000002",
+      actorUserId: "10000000-0000-4000-8000-000000000003",
+    })).rejects.toMatchObject({ statusCode: 400, code: "VALIDATION_ERROR" });
+  });
+});
+
 describe.skipIf(!runDatabaseTests)(
   "request transition PostgreSQL integration",
   () => {
@@ -263,6 +275,74 @@ describe.skipIf(!runDatabaseTests)(
       expect([first.replayed, second.replayed].sort()).toEqual([false, true]);
       expect(await database.connection.db.select().from(emailOutbox).where(eq(emailOutbox.bookingId, booking.id))).toHaveLength(1);
       expect(await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.bookingId, booking.id))).toHaveLength(1);
+    });
+
+    it("replays the same reschedule operation but rejects a changed interval", async () => {
+      await database.connection.db.insert(studioWeeklyHours).values([
+        { weekday: 0, opensAt: "09:00", closesAt: "17:00", isClosed: false },
+        { weekday: 1, opensAt: "09:00", closesAt: "17:00", isClosed: false },
+      ]);
+      const [booking] = await database.connection.db.insert(bookings).values({
+        name: "Reschedule customer", phone: "0430000000", email: "reschedule@example.com",
+        preferredDate: "2026-08-02", numberOfPeople: 2, requestKind: "experience",
+        slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00", locale: "en",
+        status: "reschedule_requested", participantCount: 2, youngChildCount: 0,
+        accompanyingAdultCount: 1, attendanceCount: 3, durationMinutes: 60,
+        policyVersion: "2026-07-29", policyAcceptedAt: new Date(),
+      }).returning();
+      const input = {
+        bookingId: booking.id, expectedStatus: "reschedule_requested" as const,
+        toStatus: "confirmed" as const, operationId: crypto.randomUUID(), actorUserId: actorId,
+        newDate: "2026-08-03", newStartTime: "11:00",
+      };
+      const transition = createRequestTransitionService(database.connection.db);
+      const first = await transition.transitionOrdinary(input);
+      const replay = await transition.transitionOrdinary(input);
+      expect([first.replayed, replay.replayed]).toEqual([false, true]);
+      await expect(transition.transitionOrdinary({ ...input, newStartTime: "12:00" })).rejects.toMatchObject({ code: "OPERATION_ID_CONFLICT" });
+      const [updated] = await database.connection.db.select().from(bookings).where(eq(bookings.id, booking.id));
+      expect(updated).toMatchObject({ status: "confirmed", slotDate: "2026-08-03", slotStartTime: "11:00", slotEndTime: "12:00" });
+      expect(await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.bookingId, booking.id))).toHaveLength(1);
+      expect(await database.connection.db.select().from(emailOutbox).where(eq(emailOutbox.bookingId, booking.id))).toHaveLength(1);
+    });
+
+    it.each(["capacity", "party overlap"])("rejects ordinary confirmation on %s", async (conflict) => {
+      await database.connection.db.insert(studioWeeklyHours).values({ weekday: 0, opensAt: "09:00", closesAt: "17:00", isClosed: false });
+      if (conflict === "capacity") {
+        await database.connection.db.insert(bookings).values({
+          name: "Occupied", phone: "0430000001", requestKind: "experience", status: "confirmed",
+          slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00", attendanceCount: 6,
+        });
+      } else {
+        await database.connection.db.insert(bookings).values({
+          name: "Party", phone: "0430000002", requestKind: "party", partyPackageId,
+          status: "confirmed", slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00",
+        });
+      }
+      const [ordinary] = await database.connection.db.insert(bookings).values({
+        name: "Ordinary", phone: "0430000003", email: "ordinary-conflict@example.com", requestKind: "experience",
+        status: "pending_review", slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00",
+        participantCount: 2, youngChildCount: 0, accompanyingAdultCount: 1, attendanceCount: 3,
+        durationMinutes: 60, policyVersion: "2026-07-29", policyAcceptedAt: new Date(),
+      }).returning();
+      await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
+        bookingId: ordinary.id, expectedStatus: "pending_review", toStatus: "confirmed",
+        operationId: crypto.randomUUID(), actorUserId: actorId,
+      })).rejects.toMatchObject({ code: "CAPACITY_CONFLICT" });
+    });
+
+    it("rejects a stale ordinary expected status before writing an event", async () => {
+      const [ordinary] = await database.connection.db.insert(bookings).values({
+        name: "Stale", phone: "0430000004", requestKind: "experience", status: "waitlisted",
+        slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00",
+        participantCount: 2, youngChildCount: 0, accompanyingAdultCount: 1, attendanceCount: 3,
+        durationMinutes: 60, policyVersion: "2026-07-29", policyAcceptedAt: new Date(),
+      }).returning();
+      await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
+        bookingId: ordinary.id, expectedStatus: "pending_review", toStatus: "confirmed",
+        operationId: crypto.randomUUID(), actorUserId: actorId,
+      })).rejects.toMatchObject({ code: "STATUS_CONFLICT" });
+      expect(await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.bookingId, ordinary.id))).toHaveLength(0);
     });
 
     it("does not let a new expectation update a contacted-effective booking", async () => {

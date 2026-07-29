@@ -113,6 +113,40 @@ function normalizeNote(note: string | null | undefined): string | null {
   return note?.trim() || null;
 }
 
+type OrdinaryOperationNote = {
+  note: string | null;
+  newDate: string | null;
+  newStartTime: string | null;
+};
+
+function normalizedOptionalValue(value: string | undefined): string | null {
+  return value?.trim() || null;
+}
+
+function encodeOrdinaryOperationNote(value: OrdinaryOperationNote): string {
+  return JSON.stringify({ ordinaryWorkflow: 1, ...value });
+}
+
+export function decodeOrdinaryOperationNote(value: string | null): OrdinaryOperationNote | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      typeof parsed === "object" && parsed !== null &&
+      "ordinaryWorkflow" in parsed && parsed.ordinaryWorkflow === 1 &&
+      "note" in parsed && "newDate" in parsed && "newStartTime" in parsed &&
+      (parsed.note === null || typeof parsed.note === "string") &&
+      (parsed.newDate === null || typeof parsed.newDate === "string") &&
+      (parsed.newStartTime === null || typeof parsed.newStartTime === "string")
+    ) {
+      return parsed as OrdinaryOperationNote;
+    }
+  } catch {
+    // Legacy and non-ordinary notes remain plain text.
+  }
+  return null;
+}
+
 async function loadStoreContext(db: Db) {
   const row = await createSettingsRepository(db).findSingleton();
   const contact: StoreContact = {
@@ -144,11 +178,14 @@ export function createRequestTransitionService(db: Db) {
       const operationId = assertUuid(input.operationId, "operationId");
       const actorUserId = assertUuid(input.actorUserId, "actorUserId");
       const note = normalizeNote(input.note);
+      const newDate = normalizedOptionalValue(input.newDate);
+      const newStartTime = normalizedOptionalValue(input.newStartTime);
       return db.transaction(async (tx) => {
         await statusEventsRepo.lockOperation(operationId, tx);
         const prior = await statusEventsRepo.findByOperationId(operationId, tx);
         if (prior) {
-          if (prior.bookingId !== bookingId || prior.fromStatus !== input.expectedStatus || prior.toStatus !== input.toStatus || prior.actorUserId !== actorUserId || normalizeNote(prior.adminNote) !== note) throw new AppError(409, "OPERATION_ID_CONFLICT", "The operation ID belongs to a different status change");
+          const priorPayload = decodeOrdinaryOperationNote(prior.adminNote);
+          if (prior.bookingId !== bookingId || prior.fromStatus !== input.expectedStatus || prior.toStatus !== input.toStatus || prior.actorUserId !== actorUserId || !priorPayload || priorPayload.note !== note || priorPayload.newDate !== newDate || priorPayload.newStartTime !== newStartTime) throw new AppError(409, "OPERATION_ID_CONFLICT", "The operation ID belongs to a different status change");
           const row = await bookingsRepo.findById(bookingId, tx);
           if (!row) throw new AppError(404, "NOT_FOUND", "Booking not found");
           return { row, eventId: prior.id, replayed: true };
@@ -162,10 +199,10 @@ export function createRequestTransitionService(db: Db) {
 
         let interval = { date: existing.slotDate!, startTime: existing.slotStartTime!, endTime: existing.slotEndTime!, durationMinutes: existing.durationMinutes! };
         if (input.expectedStatus === "reschedule_requested" && input.toStatus === "confirmed") {
-          if (!input.newDate || !input.newStartTime) throw new AppError(400, "VALIDATION_ERROR", "newDate and newStartTime are required when confirming a reschedule");
-          const built = buildOrdinaryInterval({ date: input.newDate, startTime: input.newStartTime, participantCount: existing.participantCount, accompanyingAdultCount: existing.accompanyingAdultCount ?? 0, itemDurations: [existing.durationMinutes!] });
+          if (!newDate || !newStartTime) throw new AppError(400, "VALIDATION_ERROR", "newDate and newStartTime are required when confirming a reschedule");
+          const built = buildOrdinaryInterval({ date: newDate, startTime: newStartTime, participantCount: existing.participantCount, accompanyingAdultCount: existing.accompanyingAdultCount ?? 0, itemDurations: [existing.durationMinutes!] });
           interval = { date: built.date, startTime: built.startTime, endTime: built.endTime, durationMinutes: built.durationMinutes };
-        } else if (input.newDate || input.newStartTime) {
+        } else if (newDate || newStartTime) {
           throw new AppError(400, "VALIDATION_ERROR", "newDate and newStartTime are valid only for a reschedule confirmation");
         }
 
@@ -181,7 +218,7 @@ export function createRequestTransitionService(db: Db) {
         }
         const updated = await bookingsRepo.compareAndSetOrdinaryStatus(bookingId, input.expectedStatus, input.toStatus, tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The request changed. Refresh and try again.");
-        const event = await statusEventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: input.toStatus, adminNote: note, actorUserId }, tx);
+        const event = await statusEventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: input.toStatus, adminNote: encodeOrdinaryOperationNote({ note, newDate, newStartTime }), actorUserId }, tx);
         if (updated.email) {
           const store = await loadStoreContext(tx);
           await outboxRepo.enqueue({ dedupeKey: `booking:${bookingId}:status:${event.id}:customer`, bookingId, statusEventId: event.id, messageType: "booking_status_customer", recipient: updated.email, locale: updated.locale?.startsWith("zh") ? "zh" : "en", payload: { template: "booking_status", status: input.toStatus, locale: updated.locale?.startsWith("zh") ? "zh" : "en", customerName: updated.name, orderNumber: formatBookingOrderId(updated.id, updated.createdAt), preferredDate: interval.date, slotLabel: `${interval.date} ${interval.startTime}–${interval.endTime} Australia/Melbourne`, storeName: store.storeName, address: store.address, businessHours: store.businessHours, contact: store.contact, adminNote: note } }, tx);

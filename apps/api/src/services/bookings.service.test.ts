@@ -612,13 +612,18 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
 
   afterEach(async () => database.close());
 
+  function ordinaryInput(overrides: Record<string, unknown> = {}) {
+    return {
+      kind: "experience" as const, mode: "booking" as const, name: "Customer", email: "customer@example.com", phone: "0430000000",
+      date: "2026-08-02", startTime: "10:00", participantCount: 2, youngChildCount: 1, accompanyingAdultCount: 1,
+      items: [{ projectId, quantity: 2 }], locale: "en" as const, policyVersion: "2026-07-29" as const, policyAccepted: true as const,
+      ...overrides,
+    };
+  }
+
   it("creates a pending request without reserving capacity", async () => {
     const service = createEnabledBookingsService(database.connection.db);
-    const result = await service.createOrdinaryRequest({
-      kind: "experience", mode: "booking", name: "Customer", email: "customer@example.com", phone: "0430000000",
-      date: "2026-08-02", startTime: "10:00", participantCount: 2, youngChildCount: 1, accompanyingAdultCount: 1,
-      items: [{ projectId, quantity: 2 }], locale: "en", policyVersion: "2026-07-29", policyAccepted: true,
-    }, crypto.randomUUID());
+    const result = await service.createOrdinaryRequest(ordinaryInput(), crypto.randomUUID());
 
     expect(result.status).toBe("pending_review");
     const [row] = await database.connection.db.select().from(bookings).where(eq(bookings.id, result.id));
@@ -627,6 +632,59 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
     expect(await database.connection.db.select().from(bookingItems).where(eq(bookingItems.bookingId, result.id))).toMatchObject([
       { projectId, durationMinutesSnapshot: 60, unitPriceCentsSnapshot: 4300, quantity: 2 },
     ]);
+  });
+
+  it("rejects an idempotent replay when the database booking gate is disabled", async () => {
+    const key = crypto.randomUUID();
+    const service = createEnabledBookingsService(database.connection.db);
+    await service.createOrdinaryRequest(ordinaryInput(), key);
+    await database.connection.db.update(siteSettings).set({ experienceRequestsEnabled: false });
+
+    await expect(service.createOrdinaryRequest(ordinaryInput(), key)).rejects.toMatchObject({
+      statusCode: 503,
+      code: "REQUEST_FLOW_DISABLED",
+    });
+  });
+
+  it("replays the original immutable submission after staff confirms it", async () => {
+    const key = crypto.randomUUID();
+    const service = createEnabledBookingsService(database.connection.db);
+    const created = await service.createOrdinaryRequest(ordinaryInput(), key);
+    await database.connection.db.update(bookings).set({ status: "confirmed" }).where(eq(bookings.id, created.id));
+
+    await expect(service.createOrdinaryRequest(ordinaryInput(), key)).resolves.toMatchObject({
+      id: created.id,
+      replayed: true,
+    });
+    await expect(service.createOrdinaryRequest(ordinaryInput({ phone: "0499999999" }), key)).rejects.toMatchObject({
+      code: "IDEMPOTENCY_KEY_CONFLICT",
+    });
+  });
+
+  it.each([
+    ["quantity mismatch", { items: [{ projectId: "placeholder", quantity: 1 }] }],
+    ["missing policy acceptance", { policyAccepted: false }],
+    ["after close", { startTime: "16:30" }],
+  ])("rejects ordinary creation with %s", async (_label, overrides) => {
+    const input = ordinaryInput(overrides);
+    if (input.items[0]?.projectId === "placeholder") input.items[0].projectId = projectId;
+    await expect(createEnabledBookingsService(database.connection.db).createOrdinaryRequest(input, crypto.randomUUID())).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+  });
+
+  it("rejects an unknown or non-bookable project", async () => {
+    const service = createEnabledBookingsService(database.connection.db);
+    await expect(service.createOrdinaryRequest(ordinaryInput({ items: [{ projectId: crypto.randomUUID(), quantity: 2 }] }), crypto.randomUUID())).rejects.toMatchObject({ code: "PROJECT_NOT_BOOKABLE" });
+    await database.connection.db.update(diyProjects).set({ bookable: false }).where(eq(diyProjects.id, projectId));
+    await expect(service.createOrdinaryRequest(ordinaryInput(), crypto.randomUUID())).rejects.toMatchObject({ code: "PROJECT_NOT_BOOKABLE" });
+  });
+
+  it("starts a waitlisted request without reserving attendance", async () => {
+    const result = await createEnabledBookingsService(database.connection.db).createOrdinaryRequest(ordinaryInput({ mode: "waitlist" }), crypto.randomUUID());
+    const [row] = await database.connection.db.select().from(bookings).where(eq(bookings.id, result.id));
+    expect(row.status).toBe("waitlisted");
+    expect(row.attendanceCount).toBe(3);
   });
 });
 

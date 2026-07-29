@@ -126,10 +126,18 @@ export function buildOrdinaryInterval(input: {
 }
 
 export function assertOrdinaryTransition(
-  from: OrdinaryStatus,
+  from: string,
   to: BookingStatus,
 ): void {
-  if (!ORDINARY_TRANSITIONS[from].includes(to as never)) {
+  if (!Object.hasOwn(ORDINARY_TRANSITIONS, from)) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "expectedStatus must be an ordinary workflow status",
+    );
+  }
+  const ordinaryFrom = from as OrdinaryStatus;
+  if (!ORDINARY_TRANSITIONS[ordinaryFrom].includes(to as never)) {
     throw new AppError(
       400,
       "INVALID_TRANSITION",

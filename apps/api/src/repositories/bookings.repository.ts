@@ -117,6 +117,7 @@ export type OrdinaryBookingInsertInput = {
   policyVersion: string;
   idempotencyKey: string;
   status: "pending_review" | "waitlisted";
+  submissionMode: "booking" | "waitlist";
   items: Array<{
     projectId: string | null;
     projectNameSnapshot: LocalizedString | null;
@@ -174,7 +175,7 @@ export function createBookingsRepository(db: Db) {
           email: input.email.trim().toLowerCase(),
           preferredDate: input.date,
           numberOfPeople: input.participantCount,
-          activityType: "experience",
+          activityType: `ordinary_${input.submissionMode}`,
           message: input.message?.trim() || null,
           locale: input.locale,
           requestKind: "experience",

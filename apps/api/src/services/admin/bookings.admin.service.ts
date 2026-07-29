@@ -14,6 +14,7 @@ import { createAdminRequestReadsRepository } from "../../repositories/admin-requ
 import { createStatusEventsRepository } from "../../repositories/status-events.repository.js";
 import {
   createRequestTransitionService,
+  decodeOrdinaryOperationNote,
   ORDER_STATUSES,
   validateOrderStatus,
   validateStatusTransition,
@@ -208,7 +209,7 @@ export function createAdminBookingsService(db: Db) {
         operationId: event.operationId,
         fromStatus: displayBookingEventStatus(event.fromStatus),
         toStatus: displayBookingEventStatus(event.toStatus),
-        note: event.note,
+        note: decodeOrdinaryOperationNote(event.note)?.note ?? event.note,
         createdAt: event.createdAt,
         actor: {
           id: event.actorId,
