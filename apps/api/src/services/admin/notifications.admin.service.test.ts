@@ -1,4 +1,11 @@
-import { adminRequestReads, bookings, cartOrders, emailOutbox, users } from "@yezz/db";
+import {
+  adminRequestReads,
+  bookings,
+  cartOrders,
+  emailOutbox,
+  requestStatusEvents,
+  users,
+} from "@yezz/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createRequestFlowTestDatabase,
@@ -23,6 +30,7 @@ describe.skipIf(!runDatabaseTests)("admin queue summary PostgreSQL", () => {
     const staffId = crypto.randomUUID();
     const readBookingId = crypto.randomUUID();
     const unseenBookingId = crypto.randomUUID();
+    const contactedBookingId = crypto.randomUUID();
     const orderId = crypto.randomUUID();
     const now = new Date("2030-01-15T02:30:00.000Z");
     await database.connection.db.insert(users).values({
@@ -49,7 +57,20 @@ describe.skipIf(!runDatabaseTests)("admin queue summary PostgreSQL", () => {
         createdAt: new Date("2030-01-14T23:30:00.000Z"),
         updatedAt: new Date("2030-01-15T01:00:00.000Z"),
       },
+      {
+        id: contactedBookingId,
+        name: "已联系预约",
+        phone: "0430000003",
+        status: "pending_review",
+      },
     ]);
+    await database.connection.db.insert(requestStatusEvents).values({
+      bookingId: contactedBookingId,
+      operationId: crypto.randomUUID(),
+      fromStatus: "new",
+      toStatus: "contacted",
+      actorUserId: staffId,
+    });
     await database.connection.db.insert(cartOrders).values({
       id: orderId,
       name: "已联系订单",
@@ -60,6 +81,10 @@ describe.skipIf(!runDatabaseTests)("admin queue summary PostgreSQL", () => {
     await database.connection.db.insert(adminRequestReads).values({
       userId: staffId,
       bookingId: readBookingId,
+    });
+    await database.connection.db.insert(adminRequestReads).values({
+      userId: staffId,
+      bookingId: contactedBookingId,
     });
     await database.connection.db.insert(emailOutbox).values({
       bookingId: unseenBookingId,
@@ -78,7 +103,7 @@ describe.skipIf(!runDatabaseTests)("admin queue summary PostgreSQL", () => {
     ).resolves.toEqual({
       unseen: { bookings: 1, orders: 1, total: 2 },
       new: 1,
-      contacted: 1,
+      contacted: 2,
       overdue: 1,
       confirmedToday: 1,
       emailFailures: 1,

@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import {
   legacyStatusFromBookingStatus,
+  legacyStatusFromBookingEvidence,
   legacyStatusFromStoredValue,
 } from "../../lib/legacy-booking-status.js";
 import {
@@ -102,6 +103,7 @@ const EMPTY_EXTRAS: BookingDtoExtras = {
 export function mapBookingRow(
   row: BookingRow,
   extras: BookingDtoExtras = EMPTY_EXTRAS,
+  latestTransitionStatus?: string | null,
 ): BookingDto {
   const offeringName = row.offeringNameSnapshot ?? null;
   const offering =
@@ -137,7 +139,10 @@ export function mapBookingRow(
     message: row.message ?? null,
     locale: row.locale ?? null,
     timeSlotId: row.timeSlotId ?? null,
-    status: legacyStatusFromBookingStatus(row.status),
+    status: legacyStatusFromBookingEvidence(
+      row.status,
+      latestTransitionStatus ?? extras.statusHistory.at(-1)?.toStatus,
+    ),
     offering,
     slot,
     notificationSummary: extras.notificationSummary,
@@ -246,9 +251,13 @@ export function createAdminBookingsService(db: Db) {
         confirmedToday: options?.confirmedToday,
       });
       const data = await Promise.all(
-        rows.map(async ({ row, isUnread }) =>
+        rows.map(async ({ row, isUnread, latestTransitionStatus }) =>
           ({
-            ...mapBookingRow(row, await loadExtras(row.id, false)),
+            ...mapBookingRow(
+              row,
+              await loadExtras(row.id, false),
+              latestTransitionStatus,
+            ),
             isUnread,
           }),
         ),

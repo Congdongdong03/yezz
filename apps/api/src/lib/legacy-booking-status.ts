@@ -71,6 +71,21 @@ export function legacyStatusFromBookingStatus(
   }
 }
 
+/**
+ * The live schema deliberately stores both legacy unresolved states as
+ * `pending_review`. A legacy `contacted` state is therefore represented by the
+ * latest booking transition event while the persisted booking is unresolved.
+ */
+export function legacyStatusFromBookingEvidence(
+  status: BookingStatus,
+  latestTransitionStatus?: string | null,
+): LegacyBookingStatus {
+  if (status === "pending_review" && latestTransitionStatus === "contacted") {
+    return "contacted";
+  }
+  return legacyStatusFromBookingStatus(status);
+}
+
 export function legacyStatusFromStoredValue(
   status: string,
 ): LegacyBookingStatus {

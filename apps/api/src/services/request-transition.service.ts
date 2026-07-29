@@ -3,6 +3,7 @@ import { AppError } from "../lib/errors.js";
 import {
   bookingStatusFromLegacyStatus,
   legacyStatusFromBookingStatus,
+  legacyStatusFromBookingEvidence,
 } from "../lib/legacy-booking-status.js";
 import {
   formatBookingOrderId,
@@ -159,15 +160,20 @@ export function createRequestTransitionService(db: Db) {
         if (!existing) {
           throw new AppError(404, "NOT_FOUND", "Booking not found");
         }
-        if (
-          existing.status !==
-          bookingStatusFromLegacyStatus(input.expectedStatus)
-        ) {
+        const latestTransition = await statusEventsRepo.findLatestForBooking(
+          bookingId,
+          tx,
+        );
+        const currentStatus = legacyStatusFromBookingEvidence(
+          existing.status,
+          latestTransition?.toStatus,
+        );
+        if (currentStatus !== input.expectedStatus) {
           throw new AppError(
             409,
             "STATUS_CONFLICT",
             "The request changed. Refresh and try again.",
-            { currentStatus: legacyStatusFromBookingStatus(existing.status) },
+            { currentStatus },
           );
         }
 
@@ -179,13 +185,19 @@ export function createRequestTransitionService(db: Db) {
         );
         if (!updated) {
           const current = await bookingsRepo.findById(bookingId, tx);
+          const currentTransition = current
+            ? await statusEventsRepo.findLatestForBooking(bookingId, tx)
+            : null;
           throw new AppError(
             409,
             "STATUS_CONFLICT",
             "The request changed. Refresh and try again.",
             {
               currentStatus: current
-                ? legacyStatusFromBookingStatus(current.status)
+                ? legacyStatusFromBookingEvidence(
+                    current.status,
+                    currentTransition?.toStatus,
+                  )
                 : null,
             },
           );

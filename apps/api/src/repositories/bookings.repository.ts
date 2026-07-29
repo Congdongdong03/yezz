@@ -1,5 +1,21 @@
-import { adminRequestReads, bookings, type Db } from "@yezz/db";
-import { and, count, desc, eq, ilike, isNull, lt, or, sql } from "drizzle-orm";
+import {
+  adminRequestReads,
+  bookings,
+  requestStatusEvents,
+  type Db,
+} from "@yezz/db";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import {
   bookingStatusFromLegacyStatus,
   type LegacyBookingStatus,
@@ -7,6 +23,35 @@ import {
 import { lockPublicCreateAttempt } from "../lib/public-create-idempotency.js";
 
 export type OrderStatus = LegacyBookingStatus;
+
+const latestBookingTransitionStatus = sql<string | null>`(
+  SELECT ${requestStatusEvents.toStatus}
+  FROM ${requestStatusEvents}
+  WHERE ${requestStatusEvents.bookingId} = ${bookings.id}
+  ORDER BY ${requestStatusEvents.createdAt} DESC, ${requestStatusEvents.id} DESC
+  LIMIT 1
+)`;
+
+export function legacyBookingStatusCondition(status: OrderStatus) {
+  switch (status) {
+    case "new":
+      return and(
+        eq(bookings.status, "pending_review"),
+        or(
+          isNull(latestBookingTransitionStatus),
+          ne(latestBookingTransitionStatus, "contacted"),
+        ),
+      );
+    case "contacted":
+      return and(
+        eq(bookings.status, "pending_review"),
+        eq(latestBookingTransitionStatus, "contacted"),
+      );
+    case "confirmed":
+    case "cancelled":
+      return eq(bookings.status, bookingStatusFromLegacyStatus(status));
+  }
+}
 
 type BookingContactInput = {
   name: string;
@@ -106,9 +151,7 @@ export function createBookingsRepository(db: Db) {
       );
       const search = opts.search?.trim();
       const conditions = [
-        ...(opts.status
-          ? [eq(bookings.status, bookingStatusFromLegacyStatus(opts.status))]
-          : []),
+        ...(opts.status ? [legacyBookingStatusCondition(opts.status)] : []),
         ...(search
           ? [
               or(
@@ -123,7 +166,7 @@ export function createBookingsRepository(db: Db) {
         ...(opts.overdue
           ? [
               and(
-                eq(bookings.status, "pending_review"),
+                legacyBookingStatusCondition("new"),
                 lt(bookings.createdAt, new Date(Date.now() - 2 * 60 * 60 * 1000)),
               ),
             ]
@@ -149,12 +192,18 @@ export function createBookingsRepository(db: Db) {
         .select({
           row: bookings,
           isUnread: sql<boolean>`${adminRequestReads.userId} IS NULL`,
+          latestTransitionStatus: latestBookingTransitionStatus,
         })
         .from(bookings)
         .leftJoin(adminRequestReads, readJoin)
         .where(condition)
         .orderBy(
-          sql`CASE WHEN ${bookings.status} = 'pending_review' THEN 0 ELSE 1 END`,
+          sql`CASE
+            WHEN ${bookings.status} = 'pending_review'
+              AND ${latestBookingTransitionStatus} = 'contacted' THEN 1
+            WHEN ${bookings.status} = 'pending_review' THEN 0
+            ELSE 2
+          END`,
           desc(bookings.createdAt),
         )
         .limit(opts.limit)
@@ -196,10 +245,7 @@ export function createBookingsRepository(db: Db) {
         .where(
           and(
             eq(bookings.id, id),
-            eq(
-              bookings.status,
-              bookingStatusFromLegacyStatus(expectedStatus),
-            ),
+            legacyBookingStatusCondition(expectedStatus),
           ),
         )
         .returning();

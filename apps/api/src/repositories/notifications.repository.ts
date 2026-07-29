@@ -6,7 +6,7 @@ import {
   type Db,
 } from "@yezz/db";
 import { and, count, eq, isNull, lt, sql } from "drizzle-orm";
-import { bookingStatusFromLegacyStatus } from "../lib/legacy-booking-status.js";
+import { legacyBookingStatusCondition } from "./bookings.repository.js";
 import { getMelbourneDate } from "../lib/slot-policy.js";
 
 export function createNotificationsRepository(db: Db) {
@@ -46,17 +46,10 @@ export function createNotificationsRepository(db: Db) {
       const melbourneToday = getMelbourneDate(now);
       const countByStatus = async (status: "new" | "contacted") => {
         const [bookingCount, [order]] = await Promise.all([
-          status === "new"
-            ? db
-                .select({ count: count() })
-                .from(bookings)
-                .where(
-                  eq(
-                    bookings.status,
-                    bookingStatusFromLegacyStatus(status),
-                  ),
-                )
-            : Promise.resolve([{ count: 0 }]),
+          db
+            .select({ count: count() })
+            .from(bookings)
+            .where(legacyBookingStatusCondition(status)),
           db
             .select({ count: count() })
             .from(cartOrders)
@@ -70,10 +63,7 @@ export function createNotificationsRepository(db: Db) {
             .select({ count: count() })
             .from(bookings)
             .where(
-              and(
-                eq(bookings.status, "pending_review"),
-                lt(bookings.createdAt, cutoff),
-              ),
+              and(legacyBookingStatusCondition("new"), lt(bookings.createdAt, cutoff)),
             ),
           db
             .select({ count: count() })

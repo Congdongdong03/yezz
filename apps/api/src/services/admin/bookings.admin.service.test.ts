@@ -230,6 +230,22 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
       createdAt: new Date(`2030-08-${String((index % 20) + 1).padStart(2, "0")}T10:00:00.000Z`),
     }));
     await database.connection.db.insert(bookings).values(rows);
+    await database.connection.db.insert(requestStatusEvents).values([
+      {
+        bookingId: rows[24]!.id,
+        operationId: crypto.randomUUID(),
+        fromStatus: "new",
+        toStatus: "contacted",
+        actorUserId: staffId,
+      },
+      {
+        bookingId: rows[25]!.id,
+        operationId: crypto.randomUUID(),
+        fromStatus: "new",
+        toStatus: "contacted",
+        actorUserId: staffId,
+      },
+    ]);
     const service = createAdminBookingsService(database.connection.db);
 
     const firstPage = await service.list({ actorUserId: staffId });
@@ -248,8 +264,11 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
     expect(firstPage.data.every((booking) => booking.status !== "confirmed")).toBe(true);
     expect(secondPage).toMatchObject({ total: 31, page: 2, limit: 25 });
     expect(secondPage.data).toHaveLength(6);
-    expect(contacted).toMatchObject({ total: 26 });
-    expect(contacted.data).toHaveLength(25);
+    expect(contacted).toMatchObject({ total: 2 });
+    expect(contacted.data).toHaveLength(2);
+    expect(contacted.data.every((booking) => booking.status === "contacted")).toBe(
+      true,
+    );
     expect(search).toMatchObject({ total: 1 });
     expect(search.data[0]?.name).toBe("Needle Customer");
   });

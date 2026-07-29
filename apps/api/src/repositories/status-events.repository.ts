@@ -1,5 +1,5 @@
 import { requestStatusEvents, users, type Db } from "@yezz/db";
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 
 export type RequestStatus = "new" | "contacted" | "confirmed" | "cancelled";
 
@@ -32,6 +32,16 @@ export function createStatusEventsRepository(db: Db) {
         .select()
         .from(requestStatusEvents)
         .where(eq(requestStatusEvents.operationId, operationId))
+        .limit(1);
+      return row ?? null;
+    },
+
+    async findLatestForBooking(bookingId: string, tx: Db = db) {
+      const [row] = await tx
+        .select({ toStatus: requestStatusEvents.toStatus })
+        .from(requestStatusEvents)
+        .where(eq(requestStatusEvents.bookingId, bookingId))
+        .orderBy(desc(requestStatusEvents.createdAt), desc(requestStatusEvents.id))
         .limit(1);
       return row ?? null;
     },

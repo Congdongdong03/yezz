@@ -103,6 +103,16 @@ describe.skipIf(!runDatabaseTests)(
       return order;
     }
 
+    async function markBookingContacted(bookingId: string) {
+      await database.connection.db.insert(requestStatusEvents).values({
+        bookingId,
+        operationId: crypto.randomUUID(),
+        fromStatus: "new",
+        toStatus: "contacted",
+        actorUserId: actorId,
+      });
+    }
+
     it("releases capacity once and records one event/email for concurrent cancellation", async () => {
       const booking = await insertBooking("confirmed", "party");
       const first = createRequestTransitionService(database.connection.db);
@@ -192,6 +202,41 @@ describe.skipIf(!runDatabaseTests)(
           .from(emailOutbox)
           .where(eq(emailOutbox.statusEventId, first.eventId)),
       ).toHaveLength(1);
+    });
+
+    it("does not let a contacted expectation update a merely new booking", async () => {
+      const booking = await insertBooking("pending_review");
+
+      await expect(
+        createRequestTransitionService(database.connection.db).transitionBooking({
+          bookingId: booking.id,
+          expectedStatus: "contacted",
+          status: "confirmed",
+          operationId: crypto.randomUUID(),
+          actorUserId: actorId,
+        }),
+      ).rejects.toMatchObject({
+        code: "STATUS_CONFLICT",
+        details: { currentStatus: "new" },
+      });
+    });
+
+    it("does not let a new expectation update a contacted-effective booking", async () => {
+      const booking = await insertBooking("pending_review");
+      await markBookingContacted(booking.id);
+
+      await expect(
+        createRequestTransitionService(database.connection.db).transitionBooking({
+          bookingId: booking.id,
+          expectedStatus: "new",
+          status: "confirmed",
+          operationId: crypto.randomUUID(),
+          actorUserId: actorId,
+        }),
+      ).rejects.toMatchObject({
+        code: "STATUS_CONFLICT",
+        details: { currentStatus: "contacted" },
+      });
     });
 
     it("confirms a cart request with one event-bound customer email", async () => {
