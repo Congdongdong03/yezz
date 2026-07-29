@@ -3,6 +3,7 @@ import type { BookingStatus } from "@yezz/db";
 import type { OrderStatus } from "../../../services/admin/bookings.admin.service.js";
 import { success } from "../../../lib/response.js";
 import { parseAdminQueueQuery } from "../../../lib/admin-queue-query.js";
+import { AppError } from "../../../lib/errors.js";
 
 export default async function adminBookingsRoutes(app: FastifyInstance) {
   app.get<{
@@ -89,6 +90,9 @@ export default async function adminBookingsRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Params: { id: string }; Body: { expectedStatus: "awaiting_in_store_payment"; operationId: string } }>("/:id/expire-party-hold", async (request) => {
+    if (request.body.expectedStatus !== "awaiting_in_store_payment") {
+      throw new AppError(400, "VALIDATION_ERROR", "expectedStatus must be awaiting_in_store_payment");
+    }
     return success(await app.services.adminBookings.expirePartyHold(request.params.id, request.body, request.user.sub));
   });
 

@@ -25,7 +25,7 @@ import {
   validateOrderStatus,
   validateStatusTransition,
 } from "../request-transition.service.js";
-import { createPartyWorkflowService } from "../party-workflow.service.js";
+import { createPartyWorkflowService, decodePartyOperationNote } from "../party-workflow.service.js";
 
 type BookingRow = typeof bookings.$inferSelect;
 type DeliveryStatus = "pending" | "processing" | "sent" | "failed";
@@ -239,7 +239,7 @@ export function createAdminBookingsService(db: Db) {
         operationId: event.operationId,
         fromStatus: displayBookingEventStatus(event.fromStatus),
         toStatus: displayBookingEventStatus(event.toStatus),
-        note: decodeOrdinaryOperationNote(event.note)?.note ?? event.note,
+        note: decodeOrdinaryOperationNote(event.note)?.note ?? decodePartyOperationNote(event.note)?.note ?? event.note,
         customerRescheduleRequest: event.customerRescheduleRequest,
         createdAt: event.createdAt,
         actor: historyActor(event),
