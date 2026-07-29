@@ -262,7 +262,7 @@ describe.skipIf(!runDatabaseTests)(
             accompanyingAdultCount: 1,
             items: [{ projectId, quantity: 2 }],
             locale: "en" as const,
-            policyVersion: "2026-07-29" as const,
+            policyVersion: "2026-07-30" as const,
             policyAccepted: true as const,
           };
         },
@@ -290,7 +290,7 @@ describe.skipIf(!runDatabaseTests)(
             byoSnacks: true,
             cakeCuttingRequested: true,
             locale: "en" as const,
-            policyVersion: "2026-07-29" as const,
+            policyVersion: "2026-07-30" as const,
             policyAccepted: true as const,
           };
         },
