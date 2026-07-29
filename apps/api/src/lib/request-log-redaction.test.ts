@@ -5,7 +5,7 @@ import { registerInternalRequestProtection } from "./internal-request.js";
 import { serializeRequestForLog } from "./request-log-redaction.js";
 import customerBookingsRoutes from "../routes/v1/customer-bookings.routes.js";
 
-const token = "A".repeat(43);
+const token = `-${"A".repeat(42)}`;
 const SECRET = "0123456789abcdef0123456789abcdef";
 const REQUEST_ID = "00000000-0000-4000-8000-000000000001";
 const TIMESTAMP = 1_785_200_000;

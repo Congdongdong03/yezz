@@ -1,7 +1,7 @@
 type RequestForLog = { id: string; method: string; url: string };
 
 const customerBookingPath =
-  /^(\/api\/v1\/customer-bookings\/)\b[A-Za-z0-9_-]{43}\b/;
+  /^(\/api\/v1\/customer-bookings\/)[A-Za-z0-9_-]{43}(?=\/|$)/;
 const sensitiveQueryKey =
   /(?:token|secret|signature|password|authorization|api[_-]?key)/i;
 
