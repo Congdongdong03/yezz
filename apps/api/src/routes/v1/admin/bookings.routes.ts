@@ -38,6 +38,7 @@ export default async function adminBookingsRoutes(app: FastifyInstance) {
     note?: string;
     newDate?: string;
     newStartTime?: string;
+    contactedCustomer?: boolean;
   };
 
   const updateStatus = async (

@@ -212,9 +212,9 @@ export function createAdminBookingsService(db: Db) {
         note: decodeOrdinaryOperationNote(event.note)?.note ?? event.note,
         createdAt: event.createdAt,
         actor: {
-          id: event.actorId,
-          name: event.actorName,
-          email: event.actorEmail,
+          id: event.actorId ?? "customer",
+          name: event.actorName ?? "Customer",
+          email: event.actorEmail ?? "",
         },
       })),
     };
@@ -293,6 +293,7 @@ export function createAdminBookingsService(db: Db) {
         note?: string | null;
         newDate?: string;
         newStartTime?: string;
+        contactedCustomer?: boolean;
       },
       actorUserId: string,
     ): Promise<BookingDto> {
@@ -305,6 +306,17 @@ export function createAdminBookingsService(db: Db) {
       }
       const row = await repo.findById(id);
       if (!row) throw new AppError(404, "NOT_FOUND", "Booking not found");
+      if (
+        input.expectedStatus === "waitlisted" &&
+        (input.toStatus ?? input.status) === "confirmed" &&
+        input.contactedCustomer !== true
+      ) {
+        throw new AppError(
+          400,
+          "WAITLIST_CONTACT_REQUIRED",
+          "Confirm customer contact before converting a waitlist request",
+        );
+      }
       const result = row.participantCount !== null
         ? await transitionService.transitionOrdinary({
             bookingId: id,

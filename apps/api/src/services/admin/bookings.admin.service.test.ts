@@ -28,6 +28,36 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
     await database.close();
   });
 
+  it("requires staff to record customer contact before converting a waitlist request", async () => {
+    const bookingId = crypto.randomUUID();
+    await database.connection.db.insert(bookings).values({
+      id: bookingId,
+      name: "Waitlisted customer",
+      phone: "0430000099",
+      requestKind: "experience",
+      status: "waitlisted",
+      participantCount: 1,
+      attendanceCount: 1,
+      durationMinutes: 60,
+      slotDate: "2030-08-13",
+      slotStartTime: "10:00",
+      slotEndTime: "11:00",
+    });
+
+    await expect(
+      createAdminBookingsService(database.connection.db).updateStatus(
+        bookingId,
+        {
+          expectedStatus: "waitlisted",
+          toStatus: "confirmed",
+          operationId: crypto.randomUUID(),
+          contactedCustomer: false,
+        },
+        crypto.randomUUID(),
+      ),
+    ).rejects.toMatchObject({ code: "WAITLIST_CONTACT_REQUIRED" });
+  });
+
   it("returns immutable offering/slot details, history, and delivery state", async () => {
     const actorId = crypto.randomUUID();
     const slotId = crypto.randomUUID();

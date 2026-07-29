@@ -9,7 +9,8 @@ export type CreateBookingStatusEventInput = {
   fromStatus: RequestStatus;
   toStatus: RequestStatus;
   adminNote?: string | null;
-  actorUserId: string;
+  actorUserId: string | null;
+  actorKind?: "staff" | "customer" | "system";
 };
 
 export type CreateCartOrderStatusEventInput = Omit<
@@ -59,6 +60,7 @@ export function createStatusEventsRepository(db: Db) {
           toStatus: input.toStatus,
           adminNote: input.adminNote?.trim() || null,
           actorUserId: input.actorUserId,
+          actorKind: input.actorKind ?? "staff",
         })
         .returning();
       return row;
@@ -77,6 +79,7 @@ export function createStatusEventsRepository(db: Db) {
           toStatus: input.toStatus,
           adminNote: input.adminNote?.trim() || null,
           actorUserId: input.actorUserId,
+          actorKind: input.actorKind ?? "staff",
         })
         .returning();
       return row;
@@ -96,7 +99,7 @@ export function createStatusEventsRepository(db: Db) {
           actorEmail: users.email,
         })
         .from(requestStatusEvents)
-        .innerJoin(users, eq(requestStatusEvents.actorUserId, users.id))
+        .leftJoin(users, eq(requestStatusEvents.actorUserId, users.id))
         .where(eq(requestStatusEvents.bookingId, bookingId))
         .orderBy(asc(requestStatusEvents.createdAt));
     },
@@ -115,7 +118,7 @@ export function createStatusEventsRepository(db: Db) {
           actorEmail: users.email,
         })
         .from(requestStatusEvents)
-        .innerJoin(users, eq(requestStatusEvents.actorUserId, users.id))
+        .leftJoin(users, eq(requestStatusEvents.actorUserId, users.id))
         .where(eq(requestStatusEvents.cartOrderId, cartOrderId))
         .orderBy(asc(requestStatusEvents.createdAt));
     },

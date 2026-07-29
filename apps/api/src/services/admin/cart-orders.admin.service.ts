@@ -207,9 +207,9 @@ export function createAdminCartOrdersService(db: Db) {
         note: event.note,
         createdAt: event.createdAt,
         actor: {
-          id: event.actorId,
-          name: event.actorName,
-          email: event.actorEmail,
+          id: event.actorId ?? "customer",
+          name: event.actorName ?? "Customer",
+          email: event.actorEmail ?? "",
         },
       })),
     };

@@ -198,6 +198,15 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       decide_in_store boolean NOT NULL DEFAULT false,
       sort_order integer NOT NULL DEFAULT 0
     );
+    CREATE TABLE "${schema}".customer_action_tokens (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      booking_id uuid NOT NULL REFERENCES "${schema}".bookings(id) ON DELETE CASCADE,
+      token_digest varchar(64) NOT NULL UNIQUE,
+      scopes text[] NOT NULL,
+      expires_at timestamptz NOT NULL,
+      revoked_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE "${schema}".cart_orders (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       name varchar(255) NOT NULL,
