@@ -115,6 +115,21 @@ async function applyMigration(
   }
 }
 
+async function applyCurrentMigrations(client: Sql, schemaName: string) {
+  await applyMigration(
+    client,
+    schemaName,
+    "0000_ordinary_captain_britain.sql",
+  );
+  await applyMigration(client, schemaName, "0001_nice_ezekiel.sql");
+  await applyMigration(client, schemaName, "0002_yezyy_flow_closure.sql");
+  await applyMigration(
+    client,
+    schemaName,
+    "0003_yezyy_live_booking_operations.sql",
+  );
+}
+
 afterEach(async () => {
   await applicationClient?.end();
   applicationClient = undefined;
@@ -320,21 +335,7 @@ describe.skipIf(!runDatabaseTests)(
       integrationClient = postgres(requireSafeTestDatabaseUrl(), { max: 1 });
       integrationSchema = `yezyy_bootstrap_test_${crypto.randomUUID().replaceAll("-", "")}`;
       await integrationClient.unsafe(`CREATE SCHEMA "${integrationSchema}"`);
-      await applyMigration(
-        integrationClient,
-        integrationSchema,
-        "0000_ordinary_captain_britain.sql",
-      );
-      await applyMigration(
-        integrationClient,
-        integrationSchema,
-        "0001_nice_ezekiel.sql",
-      );
-      await applyMigration(
-        integrationClient,
-        integrationSchema,
-        "0002_yezyy_flow_closure.sql",
-      );
+      await applyCurrentMigrations(integrationClient, integrationSchema);
 
       applicationClient = postgres(
         withSearchPath(requireSafeTestDatabaseUrl(), integrationSchema),
@@ -388,21 +389,7 @@ describe.skipIf(!runDatabaseTests)(
       integrationClient = postgres(requireSafeTestDatabaseUrl(), { max: 1 });
       integrationSchema = `yezyy_bootstrap_test_${crypto.randomUUID().replaceAll("-", "")}`;
       await integrationClient.unsafe(`CREATE SCHEMA "${integrationSchema}"`);
-      await applyMigration(
-        integrationClient,
-        integrationSchema,
-        "0000_ordinary_captain_britain.sql",
-      );
-      await applyMigration(
-        integrationClient,
-        integrationSchema,
-        "0001_nice_ezekiel.sql",
-      );
-      await applyMigration(
-        integrationClient,
-        integrationSchema,
-        "0002_yezyy_flow_closure.sql",
-      );
+      await applyCurrentMigrations(integrationClient, integrationSchema);
 
       applicationClient = postgres(
         withSearchPath(requireSafeTestDatabaseUrl(), integrationSchema),
@@ -449,21 +436,7 @@ describe.skipIf(!runDatabaseTests)(
       integrationClient = postgres(requireSafeTestDatabaseUrl(), { max: 1 });
       integrationSchema = `yezyy_demo_seed_test_${crypto.randomUUID().replaceAll("-", "")}`;
       await integrationClient.unsafe(`CREATE SCHEMA "${integrationSchema}"`);
-      await applyMigration(
-        integrationClient,
-        integrationSchema,
-        "0000_ordinary_captain_britain.sql",
-      );
-      await applyMigration(
-        integrationClient,
-        integrationSchema,
-        "0001_nice_ezekiel.sql",
-      );
-      await applyMigration(
-        integrationClient,
-        integrationSchema,
-        "0002_yezyy_flow_closure.sql",
-      );
+      await applyCurrentMigrations(integrationClient, integrationSchema);
 
       const result = spawnSync(
         "corepack",
