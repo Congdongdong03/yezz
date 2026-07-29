@@ -18,7 +18,6 @@ import { sql } from "drizzle-orm";
 
 export type LocalizedString = { en: string; zh: string };
 
-export const userRoleEnum = pgEnum("user_role", ["admin", "staff"]);
 export const projectTypeEnum = pgEnum("project_type", ["experience", "product"]);
 export const orderStatusEnum = pgEnum("order_status", [
   "new",
@@ -27,15 +26,49 @@ export const orderStatusEnum = pgEnum("order_status", [
   "cancelled",
 ]);
 
+export type BookingStatus =
+  | "pending_review"
+  | "confirmed"
+  | "waitlisted"
+  | "rejected"
+  | "time_proposed"
+  | "awaiting_in_store_payment"
+  | "confirmed_paid"
+  | "payment_expired"
+  | "reschedule_requested"
+  | "cancellation_requested"
+  | "cancelled"
+  | "refunded"
+  | "no_show"
+  | "completed";
+
+export type BookingChargeType =
+  | "venue_fee"
+  | "cake_cutting"
+  | "cleaning"
+  | "overtime"
+  | "refund";
+
+export type CustomerActionScope =
+  | "accept_time"
+  | "request_cancellation"
+  | "request_reschedule";
+
+export type UserRole = "owner" | "admin" | "staff";
+
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
-  role: userRoleEnum("role").notNull().default("admin"),
+  role: varchar("role", { length: 16 }).$type<UserRole>().notNull().default("staff"),
+  sessionVersion: integer("session_version").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  check("users_role_valid", sql`${table.role} IN ('owner', 'admin', 'staff')`),
+  check("users_session_version_nonnegative", sql`${table.sessionVersion} >= 0`),
+]);
 
 export const projectCategories = pgTable("project_categories", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -62,12 +95,26 @@ export const diyProjects = pgTable("diy_projects", {
   priceMax: integer("price_max"),
   priceCurrency: varchar("price_currency", { length: 10 }).default("AUD"),
   duration: varchar("duration", { length: 64 }),
+  durationMinutes: integer("duration_minutes"),
+  bookable: boolean("bookable").notNull().default(false),
+  variantSelectedInStore: boolean("variant_selected_in_store").notNull().default(false),
+  extraTimeMinutes: integer("extra_time_minutes"),
+  extraTimePriceCents: integer("extra_time_price_cents"),
   tags: text("tags").array(),
   sortOrder: integer("sort_order").notNull().default(0),
   coverImageUrl: text("cover_image_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  check(
+    "diy_projects_cents_nonnegative",
+    sql`(${table.priceMin} IS NULL OR ${table.priceMin} >= 0) AND (${table.priceMax} IS NULL OR ${table.priceMax} >= 0) AND (${table.extraTimePriceCents} IS NULL OR ${table.extraTimePriceCents} >= 0)`,
+  ),
+  check(
+    "diy_projects_duration_positive",
+    sql`(${table.durationMinutes} IS NULL OR ${table.durationMinutes} > 0) AND (${table.extraTimeMinutes} IS NULL OR ${table.extraTimeMinutes} > 0)`,
+  ),
+]);
 
 export const projectStyles = pgTable("project_styles", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -100,11 +147,31 @@ export const partyPackages = pgTable("party_packages", {
   minPeople: integer("min_people").notNull().default(2),
   maxPeople: integer("max_people").notNull().default(20),
   priceIndicator: varchar("price_indicator", { length: 128 }),
+  guestDurationMinutes: integer("guest_duration_minutes"),
+  setupMinutes: integer("setup_minutes"),
+  cleanupMinutes: integer("cleanup_minutes"),
+  venueFeeCents: integer("venue_fee_cents"),
+  minSpendPerPersonCents: integer("min_spend_per_person_cents"),
+  minParents: integer("min_parents").notNull().default(1),
+  maxParents: integer("max_parents").notNull().default(2),
   tags: text("tags").array(),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  check(
+    "party_packages_cents_nonnegative",
+    sql`(${table.venueFeeCents} IS NULL OR ${table.venueFeeCents} >= 0) AND (${table.minSpendPerPersonCents} IS NULL OR ${table.minSpendPerPersonCents} >= 0)`,
+  ),
+  check(
+    "party_packages_duration_positive",
+    sql`(${table.guestDurationMinutes} IS NULL OR ${table.guestDurationMinutes} > 0) AND (${table.setupMinutes} IS NULL OR ${table.setupMinutes} > 0) AND (${table.cleanupMinutes} IS NULL OR ${table.cleanupMinutes} > 0)`,
+  ),
+  check(
+    "party_packages_parents_range",
+    sql`${table.minParents} BETWEEN 1 AND 2 AND ${table.maxParents} BETWEEN ${table.minParents} AND 2`,
+  ),
+]);
 
 export const galleryImages = pgTable("gallery_images", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -198,7 +265,17 @@ export const bookings = pgTable("bookings", {
     .default("Australia/Melbourne"),
   idempotencyKey: uuid("idempotency_key").notNull().defaultRandom(),
   isRead: boolean("is_read").notNull().default(false),
-  status: orderStatusEnum("status").notNull().default("new"),
+  status: varchar("status", { length: 32 })
+    .$type<BookingStatus>()
+    .notNull()
+    .default("pending_review"),
+  participantCount: integer("participant_count"),
+  youngChildCount: integer("young_child_count"),
+  accompanyingAdultCount: integer("accompanying_adult_count"),
+  attendanceCount: integer("attendance_count"),
+  durationMinutes: integer("duration_minutes"),
+  policyVersion: varchar("policy_version", { length: 32 }),
+  policyAcceptedAt: timestamp("policy_accepted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -211,7 +288,206 @@ export const bookings = pgTable("bookings", {
     "bookings_kind_parent_consistent",
     sql`(${table.projectId} IS NULL AND ${table.partyPackageId} IS NULL) OR (${table.requestKind} = 'experience' AND ${table.projectId} IS NOT NULL AND ${table.partyPackageId} IS NULL) OR (${table.requestKind} = 'party' AND ${table.projectId} IS NULL AND ${table.partyPackageId} IS NOT NULL)`,
   ),
+  check(
+    "bookings_status_valid",
+    sql`${table.status} IN ('pending_review', 'confirmed', 'waitlisted', 'rejected', 'time_proposed', 'awaiting_in_store_payment', 'confirmed_paid', 'payment_expired', 'reschedule_requested', 'cancellation_requested', 'cancelled', 'refunded', 'no_show', 'completed')`,
+  ),
+  check(
+    "bookings_ordinary_attendance_range",
+    sql`${table.requestKind} <> 'experience' OR ${table.attendanceCount} IS NULL OR ${table.attendanceCount} BETWEEN 1 AND 8`,
+  ),
+  check(
+    "bookings_duration_positive",
+    sql`${table.durationMinutes} IS NULL OR ${table.durationMinutes} > 0`,
+  ),
 ]);
+
+export const bookingItems = pgTable(
+  "booking_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => diyProjects.id, {
+      onDelete: "restrict",
+    }),
+    projectNameSnapshot: jsonb("project_name_snapshot").$type<LocalizedString>(),
+    unitPriceCentsSnapshot: integer("unit_price_cents_snapshot"),
+    durationMinutesSnapshot: integer("duration_minutes_snapshot").notNull(),
+    quantity: integer("quantity").notNull(),
+    decideInStore: boolean("decide_in_store").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    check(
+      "booking_items_duration_positive",
+      sql`${table.durationMinutesSnapshot} > 0`,
+    ),
+    check("booking_items_quantity_positive", sql`${table.quantity} > 0`),
+    check(
+      "booking_items_unit_price_nonnegative",
+      sql`${table.unitPriceCentsSnapshot} IS NULL OR ${table.unitPriceCentsSnapshot} >= 0`,
+    ),
+  ],
+);
+
+export const bookingPartyDetails = pgTable(
+  "booking_party_details",
+  {
+    bookingId: uuid("booking_id")
+      .primaryKey()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    birthdayChildName: varchar("birthday_child_name", { length: 255 }).notNull(),
+    birthdayChildAge: integer("birthday_child_age").notNull(),
+    participantCount: integer("participant_count").notNull(),
+    parentCount: integer("parent_count").notNull(),
+    desiredDate: date("desired_date").notNull(),
+    desiredStartTime: varchar("desired_start_time", { length: 5 }).notNull(),
+    byoCake: boolean("byo_cake").notNull().default(false),
+    byoDrinks: boolean("byo_drinks").notNull().default(false),
+    byoFood: boolean("byo_food").notNull().default(false),
+    byoSnacks: boolean("byo_snacks").notNull().default(false),
+    cakeCuttingRequested: boolean("cake_cutting_requested").notNull().default(false),
+    specialRequirements: text("special_requirements"),
+    finalDate: date("final_date"),
+    finalSetupStart: varchar("final_setup_start", { length: 5 }),
+    finalGuestStart: varchar("final_guest_start", { length: 5 }),
+    finalGuestEnd: varchar("final_guest_end", { length: 5 }),
+    finalCleanupEnd: varchar("final_cleanup_end", { length: 5 }),
+    venueFeeCents: integer("venue_fee_cents").notNull(),
+    minSpendPerPersonCents: integer("min_spend_per_person_cents").notNull(),
+    paymentDeadline: timestamp("payment_deadline", { withTimezone: true }),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    paidAmountCents: integer("paid_amount_cents"),
+    refundedAt: timestamp("refunded_at", { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      "booking_party_details_participants_range",
+      sql`${table.participantCount} BETWEEN 4 AND 8`,
+    ),
+    check(
+      "booking_party_details_parents_range",
+      sql`${table.parentCount} BETWEEN 1 AND 2`,
+    ),
+    check(
+      "booking_party_details_cents_nonnegative",
+      sql`${table.venueFeeCents} >= 0 AND ${table.minSpendPerPersonCents} >= 0 AND (${table.paidAmountCents} IS NULL OR ${table.paidAmountCents} >= 0)`,
+    ),
+    check(
+      "booking_party_details_time_format",
+      sql`${table.desiredStartTime} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$' AND (${table.finalSetupStart} IS NULL OR ${table.finalSetupStart} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$') AND (${table.finalGuestStart} IS NULL OR ${table.finalGuestStart} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$') AND (${table.finalGuestEnd} IS NULL OR ${table.finalGuestEnd} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$') AND (${table.finalCleanupEnd} IS NULL OR ${table.finalCleanupEnd} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$')`,
+    ),
+  ],
+);
+
+export const bookingCharges = pgTable(
+  "booking_charges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 24 }).$type<BookingChargeType>().notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    note: text("note"),
+    recordedByUserId: uuid("recorded_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("booking_charges_amount_nonnegative", sql`${table.amountCents} >= 0`),
+    check(
+      "booking_charges_type_valid",
+      sql`${table.type} IN ('venue_fee', 'cake_cutting', 'cleaning', 'overtime', 'refund')`,
+    ),
+  ],
+);
+
+export const customerActionTokens = pgTable("customer_action_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookingId: uuid("booking_id")
+    .notNull()
+    .references(() => bookings.id, { onDelete: "cascade" }),
+  tokenDigest: varchar("token_digest", { length: 64 }).notNull().unique(),
+  scopes: text("scopes").array().$type<CustomerActionScope[]>().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const passwordSetupTokens = pgTable("password_setup_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenDigest: varchar("token_digest", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const studioWeeklyHours = pgTable(
+  "studio_weekly_hours",
+  {
+    weekday: integer("weekday").primaryKey(),
+    opensAt: varchar("opens_at", { length: 5 }).notNull(),
+    closesAt: varchar("closes_at", { length: 5 }).notNull(),
+    isClosed: boolean("is_closed").notNull().default(false),
+  },
+  (table) => [
+    check("studio_weekly_hours_weekday_range", sql`${table.weekday} BETWEEN 0 AND 6`),
+    check(
+      "studio_weekly_hours_time_format",
+      sql`${table.opensAt} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$' AND ${table.closesAt} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$' AND ${table.opensAt} < ${table.closesAt}`,
+    ),
+  ],
+);
+
+export const studioSpecialHours = pgTable(
+  "studio_special_hours",
+  {
+    date: date("date").primaryKey(),
+    opensAt: varchar("opens_at", { length: 5 }),
+    closesAt: varchar("closes_at", { length: 5 }),
+    isClosed: boolean("is_closed").notNull().default(false),
+    note: text("note"),
+  },
+  (table) => [
+    check(
+      "studio_special_hours_whole_day_closure",
+      sql`(${table.isClosed} AND ${table.opensAt} IS NULL AND ${table.closesAt} IS NULL) OR (NOT ${table.isClosed} AND ${table.opensAt} IS NOT NULL AND ${table.closesAt} IS NOT NULL)`,
+    ),
+    check(
+      "studio_special_hours_time_format",
+      sql`${table.opensAt} IS NULL OR (${table.opensAt} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$' AND ${table.closesAt} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$' AND ${table.opensAt} < ${table.closesAt})`,
+    ),
+  ],
+);
+
+export const studioClosures = pgTable(
+  "studio_closures",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    date: date("date").notNull(),
+    startTime: varchar("start_time", { length: 5 }),
+    endTime: varchar("end_time", { length: 5 }),
+    note: text("note"),
+  },
+  (table) => [
+    check(
+      "studio_closures_whole_day_null_pair",
+      sql`(${table.startTime} IS NULL AND ${table.endTime} IS NULL) OR (${table.startTime} IS NOT NULL AND ${table.endTime} IS NOT NULL)`,
+    ),
+    check(
+      "studio_closures_time_format",
+      sql`${table.startTime} IS NULL OR (${table.startTime} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$' AND ${table.endTime} ~ '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$' AND ${table.startTime} < ${table.endTime})`,
+    ),
+  ],
+);
 
 export const cartOrders = pgTable("cart_orders", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -329,9 +605,13 @@ export const requestStatusEvents = pgTable(
     fromStatus: varchar("from_status", { length: 32 }).notNull(),
     toStatus: varchar("to_status", { length: 32 }).notNull(),
     adminNote: text("admin_note"),
-    actorUserId: uuid("actor_user_id")
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "restrict",
+    }),
+    actorKind: varchar("actor_kind", { length: 16 })
+      .$type<"staff" | "customer" | "system">()
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
+      .default("staff"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -344,11 +624,15 @@ export const requestStatusEvents = pgTable(
     ),
     check(
       "request_status_events_from_status_valid",
-      sql`${table.fromStatus} IN ('new', 'contacted', 'confirmed', 'cancelled')`,
+      sql`${table.fromStatus} IN ('new', 'contacted', 'pending_review', 'confirmed', 'waitlisted', 'rejected', 'time_proposed', 'awaiting_in_store_payment', 'confirmed_paid', 'payment_expired', 'reschedule_requested', 'cancellation_requested', 'cancelled', 'refunded', 'no_show', 'completed')`,
     ),
     check(
       "request_status_events_to_status_valid",
-      sql`${table.toStatus} IN ('new', 'contacted', 'confirmed', 'cancelled')`,
+      sql`${table.toStatus} IN ('new', 'contacted', 'pending_review', 'confirmed', 'waitlisted', 'rejected', 'time_proposed', 'awaiting_in_store_payment', 'confirmed_paid', 'payment_expired', 'reschedule_requested', 'cancellation_requested', 'cancelled', 'refunded', 'no_show', 'completed')`,
+    ),
+    check(
+      "request_status_events_actor_kind_valid",
+      sql`${table.actorKind} IN ('staff', 'customer', 'system')`,
     ),
   ],
 );
@@ -449,6 +733,9 @@ export const siteSettings = pgTable("site_settings", {
   googleMapUrl: text("google_map_url"),
   seoTitle: varchar("seo_title", { length: 255 }),
   seoDescription: text("seo_description"),
+  experienceRequestsEnabled: boolean("experience_requests_enabled").notNull().default(false),
+  partyRequestsEnabled: boolean("party_requests_enabled").notNull().default(false),
+  productRequestsEnabled: boolean("product_requests_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
