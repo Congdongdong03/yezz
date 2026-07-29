@@ -94,38 +94,57 @@ export function getMelbourneClock(now: Date): MelbourneClock {
   };
 }
 
-export function validateBookingWindow(
-  input: BookingWindowInput,
+export function validateBookingDate(
+  date: string,
   clock: MelbourneClock,
-  hours: OperatingHours,
 ): void {
-  const candidate = parseCalendarDate(input.date);
+  const candidate = parseCalendarDate(date);
   const today = parseCalendarDate(clock.date);
-  const start = minutes(input.startTime);
-  const opensAt = minutes(hours.opensAt);
-  const closesAt = minutes(hours.closesAt);
-
-  if (!ALLOWED_DURATIONS.has(input.durationMinutes)) {
-    throw validationError("durationMinutes is not supported");
-  }
-  if (start % START_INCREMENT_MINUTES !== 0) {
-    throw validationError("startTime must align to a 30-minute interval");
-  }
   if (candidate.ordinal < today.ordinal) {
     throw validationError("date is in the past in Australia/Melbourne");
   }
   if (candidate.ordinal - today.ordinal > BOOKING_HORIZON_CALENDAR_DAYS) {
     throw validationError("date must be within seven calendar days");
   }
+}
+
+export function validateSupportedDuration(durationMinutes: number): void {
+  if (!ALLOWED_DURATIONS.has(durationMinutes as BookingWindowInput["durationMinutes"])) {
+    throw validationError("durationMinutes is not supported");
+  }
+}
+
+export function validateBookingSlot(
+  input: BookingWindowInput,
+  clock: MelbourneClock,
+  hours: OperatingHours,
+): void {
+  const start = minutes(input.startTime);
+  const opensAt = minutes(hours.opensAt);
+  const closesAt = minutes(hours.closesAt);
+
+  validateSupportedDuration(input.durationMinutes);
+  if (start % START_INCREMENT_MINUTES !== 0) {
+    throw validationError("startTime must align to a 30-minute interval");
+  }
   if (start < opensAt || start + input.durationMinutes > closesAt) {
     throw validationError("booking must finish by closing time");
   }
   if (
-    candidate.ordinal === today.ordinal &&
+    input.date === clock.date &&
     start - clock.minuteOfDay < MINIMUM_LEAD_MINUTES
   ) {
     throw validationError("same-day bookings require two hours lead time");
   }
+}
+
+export function validateBookingWindow(
+  input: BookingWindowInput,
+  clock: MelbourneClock,
+  hours: OperatingHours,
+): void {
+  validateBookingDate(input.date, clock);
+  validateBookingSlot(input, clock, hours);
 }
 
 export function generateThirtyMinuteStarts(input: {

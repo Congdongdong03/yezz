@@ -4,7 +4,9 @@ import {
   MINIMUM_LEAD_MINUTES,
   generateThirtyMinuteStarts,
   getMelbourneClock,
-  validateBookingWindow,
+  validateBookingDate,
+  validateBookingSlot,
+  validateSupportedDuration,
   type BookingWindowInput,
 } from "../lib/booking-policy.js";
 import { AppError } from "../lib/errors.js";
@@ -117,6 +119,8 @@ export function createAvailabilityService(
 
   return {
     async listOrdinary(input: OrdinaryInput): Promise<AvailabilitySlot[]> {
+      const clock = getMelbourneClock(now());
+      validateBookingDate(input.date, clock);
       requireAttendance(input.attendance);
       if (input.durationMinutes !== 30 && input.durationMinutes !== 60) {
         throw new AppError(
@@ -127,7 +131,6 @@ export function createAvailabilityService(
       }
       const schedule = await scheduleRepository.resolveDay(input.date);
       const hours = requireOpenHours(schedule);
-      const clock = getMelbourneClock(now());
       const starts = generateThirtyMinuteStarts({
         ...hours,
         durationMinutes: input.durationMinutes,
@@ -136,8 +139,8 @@ export function createAvailabilityService(
 
       for (const startTime of starts) {
         if (isInsideSameDayLeadTime(input.date, startTime, clock)) continue;
-        validateBookingWindow(
-          { ...input, startTime },
+        validateBookingSlot(
+          { date: input.date, startTime, durationMinutes: input.durationMinutes },
           clock,
           hours,
         );
@@ -159,9 +162,11 @@ export function createAvailabilityService(
     },
 
     async listPartyCandidates(input: PartyInput): Promise<PartyCandidateSlot[]> {
+      const clock = getMelbourneClock(now());
+      validateBookingDate(input.date, clock);
+      validateSupportedDuration(input.guestDurationMinutes);
       const schedule = await scheduleRepository.resolveDay(input.date);
       const hours = requireOpenHours(schedule);
-      const clock = getMelbourneClock(now());
       const starts = generateThirtyMinuteStarts({
         ...hours,
         durationMinutes: input.guestDurationMinutes,
@@ -170,7 +175,7 @@ export function createAvailabilityService(
 
       for (const startTime of starts) {
         if (isInsideSameDayLeadTime(input.date, startTime, clock)) continue;
-        validateBookingWindow(
+        validateBookingSlot(
           {
             date: input.date,
             startTime,

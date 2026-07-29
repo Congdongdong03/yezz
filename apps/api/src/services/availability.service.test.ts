@@ -113,4 +113,64 @@ describe("availability service", () => {
       }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
+
+  it("rejects an out-of-horizon closed day before checking the schedule", async () => {
+    const service = createAvailabilityService(null as never, {
+      now: () => new Date("2026-07-29T00:00:00.000Z"),
+      schedule: {
+        resolveDay: async () => ({
+          date: "2026-08-06",
+          isClosed: true,
+          opensAt: null,
+          closesAt: null,
+          closures: [],
+        }),
+      },
+    });
+
+    await expect(
+      service.listOrdinary({ date: "2026-08-06", durationMinutes: 60, attendance: 1 }),
+    ).rejects.toThrow(/seven calendar days/);
+  });
+
+  it("rejects an out-of-horizon day even when its hours cannot generate a slot", async () => {
+    const service = createAvailabilityService(null as never, {
+      now: () => new Date("2026-07-29T00:00:00.000Z"),
+      schedule: {
+        resolveDay: async () => ({
+          date: "2026-08-06",
+          isClosed: false,
+          opensAt: "09:30",
+          closesAt: "10:00",
+          closures: [],
+        }),
+      },
+    });
+
+    await expect(
+      service.listOrdinary({ date: "2026-08-06", durationMinutes: 60, attendance: 1 }),
+    ).rejects.toThrow(/seven calendar days/);
+  });
+
+  it("rejects an unsupported party duration before generating slots", async () => {
+    const service = createAvailabilityService(null as never, {
+      now: () => new Date("2026-07-29T00:00:00.000Z"),
+      schedule: {
+        resolveDay: async () => ({
+          date: "2026-07-30",
+          isClosed: false,
+          opensAt: "09:30",
+          closesAt: "10:00",
+          closures: [],
+        }),
+      },
+    });
+
+    await expect(
+      service.listPartyCandidates({
+        date: "2026-07-30",
+        guestDurationMinutes: 45 as never,
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
 });
