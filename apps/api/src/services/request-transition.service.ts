@@ -17,6 +17,7 @@ import {
   formatCartOrderId,
   type StoreContact,
 } from "../lib/email.js";
+import { CANONICAL_BOOKING_EMAIL_IDENTITY } from "../lib/email-outbox-payload.js";
 import {
   createBookingsRepository,
   type OrderStatus,
@@ -150,12 +151,12 @@ export function decodeOrdinaryOperationNote(value: string | null): OrdinaryOpera
 async function loadStoreContext(db: Db) {
   const row = await createSettingsRepository(db).findSingleton();
   const contact: StoreContact = {
-    phone: row?.phone,
+    phone: CANONICAL_BOOKING_EMAIL_IDENTITY.contactPhone,
     wechatId: row?.wechatId,
-    email: row?.email,
+    email: CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail,
   };
   return {
-    storeName: row?.storeName || "YezYY Studio",
+    storeName: CANONICAL_BOOKING_EMAIL_IDENTITY.storeName,
     address: row?.address ?? null,
     businessHours: row?.businessHours ?? null,
     contact,

@@ -8,6 +8,18 @@ type StoreContactPayload = {
   email?: string | null;
 };
 
+export const CANONICAL_BOOKING_EMAIL_IDENTITY = {
+  storeName: "YezYY",
+  contactEmail: "congdongdong03@gmail.com",
+  contactPhone: "0430 787 712",
+} as const;
+
+export type CanonicalBookingContactPayload = {
+  phone: typeof CANONICAL_BOOKING_EMAIL_IDENTITY.contactPhone;
+  wechatId?: string | null;
+  email: typeof CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail;
+};
+
 export type BookingStatusTemplate =
   | "contacted"
   | "pending_review"
@@ -28,20 +40,21 @@ export type BookingStatusOutboxPayload = {
   orderNumber: string;
   preferredDate?: string | null;
   slotLabel?: string | null;
-  storeName: string;
+  storeName: typeof CANONICAL_BOOKING_EMAIL_IDENTITY.storeName;
   address?: string | null;
   businessHours?: string | null;
-  contact: StoreContactPayload;
+  contact: CanonicalBookingContactPayload;
   adminNote?: string | null;
 };
 
 export type BookingReceivedOutboxPayload = {
   template: "booking_received";
+  storeName: typeof CANONICAL_BOOKING_EMAIL_IDENTITY.storeName;
   orderId: string;
   orderNumber: string;
   submittedAt: string;
   input: BookingCreateInput;
-  contact: StoreContactPayload;
+  contact: CanonicalBookingContactPayload;
 };
 
 export type OrderReceivedOutboxPayload = {
@@ -220,6 +233,36 @@ function contact(value: unknown, field = "payload.contact"): void {
       nullable: true,
     });
   }
+}
+
+function canonicalBookingContact(
+  value: unknown,
+  field = "payload.contact",
+): void {
+  const candidate = record(
+    value,
+    field,
+    ["phone", "wechatId", "email"],
+    ["phone", "email"],
+  );
+  if (
+    candidate.phone !== CANONICAL_BOOKING_EMAIL_IDENTITY.contactPhone
+  ) {
+    invalid(
+      `${field}.phone must be ${CANONICAL_BOOKING_EMAIL_IDENTITY.contactPhone}`,
+    );
+  }
+  if (
+    candidate.email !== CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail
+  ) {
+    invalid(
+      `${field}.email must be ${CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail}`,
+    );
+  }
+  stringValue(candidate.wechatId, `${field}.wechatId`, {
+    max: 128,
+    nullable: true,
+  });
 }
 
 function dateString(value: unknown, field: string): void {
@@ -535,6 +578,7 @@ function validatePayloadForMessage(
     const allowed = booking
       ? [
           "template",
+          "storeName",
           "orderId",
           "orderNumber",
           "submittedAt",
@@ -549,12 +593,23 @@ function validatePayloadForMessage(
     if (candidate.template !== expectedTemplate) {
       invalid(`payload.template must be ${expectedTemplate}`);
     }
-    if (booking) stringValue(candidate.orderId, "payload.orderId", { max: 64 });
+    if (booking) {
+      if (
+        candidate.storeName !==
+        CANONICAL_BOOKING_EMAIL_IDENTITY.storeName
+      ) {
+        invalid(
+          `payload.storeName must be ${CANONICAL_BOOKING_EMAIL_IDENTITY.storeName}`,
+        );
+      }
+      stringValue(candidate.orderId, "payload.orderId", { max: 64 });
+    }
     stringValue(candidate.orderNumber, "payload.orderNumber", { max: 128 });
     dateString(candidate.submittedAt, "payload.submittedAt");
     if (booking) bookingInput(candidate.input);
     else cartInput(candidate.input);
-    contact(candidate.contact);
+    if (booking) canonicalBookingContact(candidate.contact);
+    else contact(candidate.contact);
     return candidate as EmailTemplatePayload;
   }
 
@@ -626,6 +681,13 @@ function validatePayloadForMessage(
   for (const key of ["customerName", "orderNumber", "storeName"]) {
     stringValue(candidate[key], `payload.${key}`, { max: 255 });
   }
+  if (
+    candidate.storeName !== CANONICAL_BOOKING_EMAIL_IDENTITY.storeName
+  ) {
+    invalid(
+      `payload.storeName must be ${CANONICAL_BOOKING_EMAIL_IDENTITY.storeName}`,
+    );
+  }
   for (const key of [
     "locale",
     "preferredDate",
@@ -639,7 +701,7 @@ function validatePayloadForMessage(
       nullable: true,
     });
   }
-  contact(candidate.contact);
+  canonicalBookingContact(candidate.contact);
   return candidate as EmailTemplatePayload;
 }
 
@@ -675,11 +737,17 @@ export function validateEmailOutboxEnvelope(
     invalid("messageType does not match the request parent");
   }
   const isStatus = messageType.endsWith("_status_customer");
+  const isLifecycleNotification =
+    messageType === "booking_notification_customer" ||
+    messageType === "booking_notification_owner";
   const statusEventId =
     input.statusEventId == null
       ? null
       : uuidValue(input.statusEventId, "statusEventId");
-  if (isStatus !== Boolean(statusEventId)) {
+  if (
+    (isStatus && !statusEventId) ||
+    (!isStatus && !isLifecycleNotification && statusEventId)
+  ) {
     invalid(
       isStatus
         ? "statusEventId is required for status messages"

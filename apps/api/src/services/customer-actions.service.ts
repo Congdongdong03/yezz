@@ -1,10 +1,18 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { BookingStatus, CustomerActionScope, Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
-import { formatBookingOrderId } from "../lib/email.js";
+import {
+  bookingLocale,
+  bookingOfferingLabel,
+  customerManageUrl,
+  notificationPayload,
+  staffBookingUrl,
+} from "../lib/booking-notification.js";
+import { CANONICAL_BOOKING_EMAIL_IDENTITY } from "../lib/email-outbox-payload.js";
 import { createBookingsRepository } from "../repositories/bookings.repository.js";
 import { createCustomerActionTokensRepository } from "../repositories/customer-action-tokens.repository.js";
 import { createEmailOutboxRepository } from "../repositories/email-outbox.repository.js";
+import { createPartyWorkflowRepository } from "../repositories/party-workflow.repository.js";
 import { createStatusEventsRepository } from "../repositories/status-events.repository.js";
 
 const SCOPES: readonly CustomerActionScope[] = [
@@ -22,7 +30,12 @@ export type CustomerBookingView = {
   startTime: string;
   endTime: string;
   allowedActions: CustomerActionScope[];
-  proposedTime?: { date: string; startTime: string; endTime: string };
+  proposedTime?: {
+    date: string;
+    startTime: string;
+    endTime: string;
+    paymentDeadline: string;
+  };
 };
 
 type ResolvedAction = {
@@ -42,29 +55,17 @@ function validRawToken(rawToken: string): boolean {
   return /^[A-Za-z0-9_-]{43}$/.test(rawToken);
 }
 
-function locale(value: string | null): "en" | "zh" {
-  return value?.toLowerCase().startsWith("zh") ? "zh" : "en";
-}
-
 function allowedActions(
   scopes: CustomerActionScope[],
   status: BookingStatus,
 ): CustomerActionScope[] {
   const permitted = new Set<CustomerActionScope>();
+  if (status === "time_proposed") permitted.add("accept_time");
   if (status === "confirmed" || status === "confirmed_paid") {
     permitted.add("request_cancellation");
     permitted.add("request_reschedule");
   }
-  // accept_time is intentionally resolvable only; Task 6 exposes it.
-  return scopes.filter((scope) => scope !== "accept_time" && permitted.has(scope));
-}
-
-function ownerEmail(): string {
-  const email = process.env.OWNER_EMAIL?.trim().toLowerCase();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new AppError(503, "OWNER_EMAIL_UNAVAILABLE", "Booking notifications are temporarily unavailable");
-  }
-  return email;
+  return scopes.filter((scope) => permitted.has(scope));
 }
 
 function assertRequestTime(input: { date: string; startTime: string }): void {
@@ -77,13 +78,14 @@ export type CustomerActionsService = ReturnType<typeof createCustomerActionsServ
 
 export function createCustomerActionsService(
   db: Db,
-  dependencies?: { now?: () => Date },
+  dependencies?: { now?: () => Date; customerManageBaseUrl?: string },
 ) {
   const now = dependencies?.now ?? (() => new Date());
   const bookingsRepo = createBookingsRepository(db);
   const tokensRepo = createCustomerActionTokensRepository(db);
   const eventsRepo = createStatusEventsRepository(db);
   const outboxRepo = createEmailOutboxRepository(db);
+  const partyRepo = createPartyWorkflowRepository(db);
 
   function digest(rawToken: string): string {
     return createHash("sha256").update(rawToken).digest("hex");
@@ -99,6 +101,16 @@ export function createCustomerActionsService(
     if (!token) throw invalidLink();
     const booking = await bookingsRepo.findById(token.bookingId, tx);
     if (!booking || booking.status === "cancelled") throw invalidLink();
+    const isAcceptView =
+      booking.requestKind === "party" &&
+      booking.status === "time_proposed" &&
+      token.scopes.includes("accept_time");
+    if (
+      (booking.status === "time_proposed" || token.scopes.includes("accept_time")) &&
+      !isAcceptView
+    ) {
+      throw invalidLink();
+    }
     if (scope && !token.scopes.includes(scope)) throw forbidden();
     if (
       !booking.slotDate ||
@@ -108,20 +120,49 @@ export function createCustomerActionsService(
     ) {
       throw invalidLink();
     }
-    const bookingLocale = locale(booking.locale);
-    const label = booking.offeringNameSnapshot?.[bookingLocale]
-      ?? booking.offeringNameSnapshot?.en
-      ?? booking.offeringNameSnapshot?.zh
-      ?? (booking.requestKind === "party" ? "Party booking" : "DIY booking");
+    const resolvedLocale = bookingLocale(booking.locale);
+    const label = bookingOfferingLabel(
+      booking.offeringNameSnapshot,
+      resolvedLocale,
+      booking.requestKind,
+    );
+    const partyDetails =
+      booking.requestKind === "party"
+        ? await partyRepo.findDetails(booking.id, tx)
+        : null;
+    if (
+      booking.status === "time_proposed" &&
+      (!partyDetails?.finalDate ||
+        !partyDetails.finalGuestStart ||
+        !partyDetails.finalGuestEnd ||
+        !partyDetails.paymentDeadline ||
+        partyDetails.paymentDeadline <= now())
+    ) {
+      throw invalidLink();
+    }
+    const date = partyDetails?.finalDate ?? booking.slotDate;
+    const startTime = partyDetails?.finalGuestStart ?? booking.slotStartTime;
+    const endTime = partyDetails?.finalGuestEnd ?? booking.slotEndTime;
+    if (!date || !startTime || !endTime) throw invalidLink();
     const view: CustomerBookingView = {
       kind: booking.requestKind,
       status: booking.status,
-      locale: bookingLocale,
+      locale: resolvedLocale,
       offeringLabel: label,
-      date: booking.slotDate,
-      startTime: booking.slotStartTime,
-      endTime: booking.slotEndTime,
+      date,
+      startTime,
+      endTime,
       allowedActions: allowedActions(token.scopes, booking.status),
+      ...(booking.status === "time_proposed" && partyDetails?.paymentDeadline
+        ? {
+            proposedTime: {
+              date,
+              startTime,
+              endTime,
+              paymentDeadline: partyDetails.paymentDeadline.toISOString(),
+            },
+          }
+        : {}),
     };
     return { token, view };
   }
@@ -138,7 +179,6 @@ export function createCustomerActionsService(
       if (resolved.view.status !== "confirmed" && resolved.view.status !== "confirmed_paid") {
         throw forbidden();
       }
-      const notificationEmail = ownerEmail();
       const updated = await bookingsRepo.compareAndSetOrdinaryStatus(
         resolved.token.bookingId,
         resolved.view.status,
@@ -159,29 +199,66 @@ export function createCustomerActionsService(
         },
         tx,
       );
+      if (!updated.email) throw invalidLink();
+      const template =
+        scope === "request_cancellation"
+          ? "cancellation_request"
+          : "reschedule_request";
+      const customerPayload = notificationPayload({
+        template,
+        booking: updated,
+        locale: resolved.view.locale,
+        date: resolved.view.date,
+        startTime: resolved.view.startTime,
+        endTime: resolved.view.endTime,
+        manageUrl: customerManageUrl(
+          resolved.view.locale,
+          rawToken,
+          dependencies?.customerManageBaseUrl,
+        ),
+        ...(request
+          ? {
+              note: `Requested ${request.date} at ${request.startTime}`,
+            }
+          : {}),
+      });
       await outboxRepo.enqueue(
         {
-          dedupeKey: `booking:${updated.id}:customer-action:${event.id}:owner`,
+          dedupeKey: `booking:${updated.id}:event:${event.id}:${template}:customer`,
           bookingId: updated.id,
-          messageType: "booking_received_owner",
-          recipient: notificationEmail,
+          statusEventId: event.id,
+          messageType: "booking_notification_customer",
+          recipient: updated.email,
+          locale: resolved.view.locale,
+          payload: customerPayload,
+        },
+        tx,
+      );
+      await outboxRepo.enqueue(
+        {
+          dedupeKey: `booking:${updated.id}:event:${event.id}:staff_notification:owner`,
+          bookingId: updated.id,
+          statusEventId: event.id,
+          messageType: "booking_notification_owner",
+          recipient: CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail,
           locale: "en",
-          payload: {
-            template: "owner_request",
-            subject: `Customer ${toStatus.replaceAll("_", " ")} ${formatBookingOrderId(updated.id, updated.createdAt)}`,
-            heading: "Customer booking action requested",
-            fields: [
-              { label: "Customer", value: updated.name },
-              { label: "Booking", value: formatBookingOrderId(updated.id, updated.createdAt) },
-              { label: "Action", value: toStatus },
-              ...(request
-                ? [
-                    { label: "Requested date", value: request.date },
-                    { label: "Requested start", value: request.startTime },
-                  ]
-                : []),
-            ],
-          },
+          payload: notificationPayload({
+            template: "staff_notification",
+            booking: updated,
+            locale: "en",
+            date: resolved.view.date,
+            startTime: resolved.view.startTime,
+            endTime: resolved.view.endTime,
+            manageUrl: staffBookingUrl(
+              updated.id,
+              dependencies?.customerManageBaseUrl,
+            ),
+            note: request
+              ? `${toStatus}: ${request.date} at ${request.startTime}`
+              : toStatus,
+            customerEmail: updated.email,
+            customerPhone: updated.phone,
+          }),
         },
         tx,
       );

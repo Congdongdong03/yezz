@@ -6,6 +6,7 @@ import {
   emailOutbox,
   partyPackages,
   requestStatusEvents,
+  siteSettings,
   studioWeeklyHours,
   users,
 } from "@yezz/db";
@@ -46,6 +47,12 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
         closesAt: "18:00",
       })),
     );
+    await database.connection.db.insert(siteSettings).values({
+      storeName: "Mutable studio label",
+      phone: "0000 000 000",
+      email: "attacker@example.com",
+      wechatId: "retained-wechat",
+    });
     await database.connection.db.insert(partyPackages).values({
       id: packageId,
       name: { en: "Ninety-minute party", zh: "九十分钟派对" },
@@ -110,14 +117,37 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     const service = createPartyWorkflowService(database.connection.db, {
       now: () => new Date("2030-08-10T00:00:00.000Z"),
     });
+    const idempotencyKey = crypto.randomUUID();
 
-    const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+    const created = await service.createPartyRequest(validParty(), idempotencyKey);
+    await expect(
+      service.createPartyRequest(validParty(), idempotencyKey),
+    ).resolves.toMatchObject({ id: created.id, replayed: true });
     const [booking] = await database.connection.db.select().from(bookings).where(eq(bookings.id, created.id));
     const [details] = await database.connection.db.select().from(bookingPartyDetails).where(eq(bookingPartyDetails.bookingId, created.id));
+    const deliveries = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id));
 
     expect(created).toMatchObject({ status: "pending_review", replayed: false });
     expect(booking).toMatchObject({ status: "pending_review", slotDate: null, slotStartTime: null, slotEndTime: null });
     expect(details).toMatchObject({ desiredDate: "2030-08-12", desiredStartTime: "12:00", venueFeeCents: 9500 });
+    expect(deliveries.map(({ payload }) => payload.template).sort()).toEqual([
+      "booking_received",
+      "staff_notification",
+    ]);
+    expect(
+      deliveries.find(({ payload }) => payload.template === "booking_received")
+        ?.payload,
+    ).toMatchObject({
+      storeName: "YezYY",
+      contact: {
+        phone: "0430 787 712",
+        email: "congdongdong03@gmail.com",
+        wechatId: "retained-wechat",
+      },
+    });
   });
 
   it("holds setup through cleanup only after acceptance", async () => {
@@ -137,6 +167,18 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       operationId: crypto.randomUUID(),
       actorUserId: staffId,
     });
+    const [proposed] = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id))
+      .then((rows) =>
+        rows.filter(({ payload }) => payload.template === "party_time_proposed"),
+      );
+    expect(proposed?.payload).toMatchObject({
+      template: "party_time_proposed",
+      amountCents: 9500,
+      paymentDeadline: "2030-08-11T00:00:00.000Z",
+    });
     expect(await availability.hasExclusivePartyOverlap(interval)).toBe(false);
 
     await service.acceptPartyTime({
@@ -145,6 +187,14 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       operationId: crypto.randomUUID(),
       actorUserId: staffId,
     });
+    const dueEmails = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id))
+      .then((rows) =>
+        rows.filter(({ payload }) => payload.template === "party_payment_due"),
+      );
+    expect(dueEmails).toHaveLength(1);
 
     expect(await availability.hasExclusivePartyOverlap(interval)).toBe(true);
   });
@@ -187,6 +237,20 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     expect(await database.connection.db.select().from(bookingCharges).where(eq(bookingCharges.bookingId, created.id))).toMatchObject([
       { type: "venue_fee", amountCents: 9500 },
     ]);
+    const recorded = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id))
+      .then((rows) =>
+        rows.filter(
+          ({ payload }) => payload.template === "party_payment_recorded",
+        ),
+      );
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]?.payload).toMatchObject({
+      amountCents: 9500,
+      template: "party_payment_recorded",
+    });
     await expect(service.recordPartyPayment(paymentInput)).resolves.toMatchObject({ replayed: true });
     await expect(service.recordPartyPayment({ ...paymentInput, amountCents: 14500 })).rejects.toMatchObject({ code: "OPERATION_ID_CONFLICT" });
     await expect(service.recordPartyPayment({ ...paymentInput, operationId: crypto.randomUUID() })).rejects.toMatchObject({ code: "STATUS_CONFLICT" });
@@ -230,16 +294,19 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     expect(replay).toMatchObject({ id: created.id, replayed: true });
     expect(replay.acceptTimeToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(replay.acceptTimeToken).toBe(first.acceptTimeToken);
+    const proposedEmails = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id))
+      .then((rows) =>
+        rows.filter(
+          ({ payload }) => payload.template === "party_time_proposed",
+        ),
+      );
+    expect(proposedEmails).toHaveLength(1);
     const [replayedToken] = await database.connection.db.select().from(customerActionTokens).where(eq(customerActionTokens.bookingId, created.id));
     expect(replayedToken).toMatchObject({ id: persistedToken?.id, tokenDigest: persistedToken?.tokenDigest, revokedAt: persistedToken?.revokedAt });
-    const previousOwnerEmail = process.env.OWNER_EMAIL;
-    process.env.OWNER_EMAIL = "owner@example.com";
-    try {
-      await expect(service.acceptPartyTimeByToken(first.acceptTimeToken!)).resolves.toMatchObject({ status: "awaiting_in_store_payment" });
-    } finally {
-      if (previousOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
-      else process.env.OWNER_EMAIL = previousOwnerEmail;
-    }
+    await expect(service.acceptPartyTimeByToken(first.acceptTimeToken!)).resolves.toMatchObject({ status: "awaiting_in_store_payment" });
     await expect(service.proposePartyTime({ ...proposal, finalGuestStart: "13:00" }))
       .rejects.toMatchObject({ code: "OPERATION_ID_CONFLICT" });
   });
@@ -316,6 +383,16 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       actorUserId: staffId,
       actorKind: "staff",
     });
+    const expiredEmails = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id))
+      .then((rows) =>
+        rows.filter(
+          ({ payload }) => payload.template === "party_payment_expired",
+        ),
+      );
+    expect(expiredEmails).toHaveLength(1);
     await expect(createBookingAvailabilityRepository(database.connection.db).hasExclusivePartyOverlap(interval)).resolves.toBe(false);
     await expect(service.recordPartyPayment({ bookingId: created.id, expectedStatus: "awaiting_in_store_payment", amountCents: 9500, paidAt: current, operationId: crypto.randomUUID(), actorUserId: staffId })).rejects.toMatchObject({ code: "STATUS_CONFLICT" });
     await expect(service.expirePartyHold({ bookingId: created.id, expectedStatus: "confirmed_paid" as never, operationId: crypto.randomUUID(), actorUserId: staffId })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
@@ -362,26 +439,23 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
   });
 
   it("consumes a valid accept token with one status event and two deduplicated emails", async () => {
-    const previousOwnerEmail = process.env.OWNER_EMAIL;
-    process.env.OWNER_EMAIL = "owner@example.com";
-    try {
-      const service = createPartyWorkflowService(database.connection.db, { now: () => new Date("2030-08-10T00:00:00.000Z") });
-      const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
-      const proposal = await service.proposePartyTime({ bookingId: created.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "12:30", paymentDeadline: new Date("2030-08-11T00:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
-      await expect(service.acceptPartyTimeByToken(proposal.acceptTimeToken!)).resolves.toMatchObject({ status: "awaiting_in_store_payment" });
-      const tokens = await database.connection.db.select().from(customerActionTokens).where(eq(customerActionTokens.bookingId, created.id));
-      const events = await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.bookingId, created.id));
-      const emails = await database.connection.db.select().from(emailOutbox).where(eq(emailOutbox.bookingId, created.id));
-      expect(tokens).toHaveLength(1);
-      expect(tokens[0]?.revokedAt).not.toBeNull();
-      expect(events.filter((event) => event.toStatus === "awaiting_in_store_payment")).toHaveLength(1);
-      expect(emails).toHaveLength(2);
-      await expect(service.acceptPartyTimeByToken(proposal.acceptTimeToken!)).rejects.toMatchObject({ code: "LINK_INVALID_OR_EXPIRED" });
-      await expect(service.acceptPartyTimeByToken("x".repeat(43))).rejects.toMatchObject({ code: "LINK_INVALID_OR_EXPIRED" });
-    } finally {
-      if (previousOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
-      else process.env.OWNER_EMAIL = previousOwnerEmail;
-    }
+    const service = createPartyWorkflowService(database.connection.db, { now: () => new Date("2030-08-10T00:00:00.000Z") });
+    const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+    const proposal = await service.proposePartyTime({ bookingId: created.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "12:30", paymentDeadline: new Date("2030-08-11T00:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
+    await expect(service.acceptPartyTimeByToken(proposal.acceptTimeToken!)).resolves.toMatchObject({ status: "awaiting_in_store_payment" });
+    const tokens = await database.connection.db.select().from(customerActionTokens).where(eq(customerActionTokens.bookingId, created.id));
+    const events = await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.bookingId, created.id));
+    const emails = await database.connection.db.select().from(emailOutbox).where(eq(emailOutbox.bookingId, created.id));
+    expect(tokens.some(({ revokedAt }) => revokedAt !== null)).toBe(true);
+    expect(tokens.some(({ revokedAt }) => revokedAt === null)).toBe(true);
+    expect(events.filter((event) => event.toStatus === "awaiting_in_store_payment")).toHaveLength(1);
+    expect(
+      emails.filter(
+        ({ payload }) => payload.template === "party_payment_due",
+      ),
+    ).toHaveLength(1);
+    await expect(service.acceptPartyTimeByToken(proposal.acceptTimeToken!)).rejects.toMatchObject({ code: "LINK_INVALID_OR_EXPIRED" });
+    await expect(service.acceptPartyTimeByToken("x".repeat(43))).rejects.toMatchObject({ code: "LINK_INVALID_OR_EXPIRED" });
   });
 
   it("returns the same generic invalid-link error for wrong-scope, wrong-state, and expired accept tokens", async () => {
@@ -399,22 +473,87 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     }
   });
 
-  it("rolls back token consumption and status when acceptance email enqueue cannot be completed", async () => {
+  it("uses canonical notification identity instead of mutable owner email configuration", async () => {
     const previousOwnerEmail = process.env.OWNER_EMAIL;
     delete process.env.OWNER_EMAIL;
     try {
       const service = createPartyWorkflowService(database.connection.db, { now: () => new Date("2030-08-10T00:00:00.000Z") });
       const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
       const proposal = await service.proposePartyTime({ bookingId: created.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "12:30", paymentDeadline: new Date("2030-08-11T00:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
-      await expect(service.acceptPartyTimeByToken(proposal.acceptTimeToken!)).rejects.toMatchObject({ code: "OWNER_EMAIL_UNAVAILABLE" });
+      await expect(service.acceptPartyTimeByToken(proposal.acceptTimeToken!)).resolves.toMatchObject({ status: "awaiting_in_store_payment" });
       const [booking] = await database.connection.db.select().from(bookings).where(eq(bookings.id, created.id));
-      const [token] = await database.connection.db.select().from(customerActionTokens).where(eq(customerActionTokens.bookingId, created.id));
-      expect(booking?.status).toBe("time_proposed");
-      expect(token?.revokedAt).toBeNull();
+      const tokens = await database.connection.db.select().from(customerActionTokens).where(eq(customerActionTokens.bookingId, created.id));
+      expect(booking?.status).toBe("awaiting_in_store_payment");
+      expect(tokens.some(({ revokedAt }) => revokedAt !== null)).toBe(true);
+      expect(tokens.some(({ revokedAt }) => revokedAt === null)).toBe(true);
     } finally {
       if (previousOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
       else process.env.OWNER_EMAIL = previousOwnerEmail;
     }
+  });
+
+  it("rolls back acceptance, token consumption, event, and email when lifecycle enqueue cannot complete", async () => {
+    const current = new Date("2030-08-10T00:00:00.000Z");
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => current,
+      customerManageBaseUrl: "https://yezyy.com",
+    });
+    const created = await service.createPartyRequest(
+      validParty(),
+      crypto.randomUUID(),
+    );
+    const proposal = await service.proposePartyTime({
+      bookingId: created.id,
+      expectedStatus: "pending_review",
+      finalDate: "2030-08-12",
+      finalGuestStart: "12:30",
+      paymentDeadline: new Date("2030-08-11T00:00:00.000Z"),
+      operationId: crypto.randomUUID(),
+      actorUserId: staffId,
+    });
+    const brokenLinkService = createPartyWorkflowService(
+      database.connection.db,
+      {
+        now: () => current,
+        customerManageBaseUrl: "javascript:alert(1)",
+      },
+    );
+
+    await expect(
+      brokenLinkService.acceptPartyTimeByToken(proposal.acceptTimeToken!),
+    ).rejects.toMatchObject({ code: "CUSTOMER_MANAGE_URL_UNAVAILABLE" });
+
+    const [booking] = await database.connection.db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, created.id));
+    const tokens = await database.connection.db
+      .select()
+      .from(customerActionTokens)
+      .where(eq(customerActionTokens.bookingId, created.id));
+    const acceptedEvents = await database.connection.db
+      .select()
+      .from(requestStatusEvents)
+      .where(eq(requestStatusEvents.bookingId, created.id))
+      .then((events) =>
+        events.filter(
+          ({ toStatus }) => toStatus === "awaiting_in_store_payment",
+        ),
+      );
+    const dueEmails = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id))
+      .then((emails) =>
+        emails.filter(
+          ({ payload }) => payload.template === "party_payment_due",
+        ),
+      );
+    expect(booking?.status).toBe("time_proposed");
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]?.revokedAt).toBeNull();
+    expect(acceptedEvents).toHaveLength(0);
+    expect(dueEmails).toHaveLength(0);
   });
 
   it("accepts only the configured variable party charge types and ranges", async () => {

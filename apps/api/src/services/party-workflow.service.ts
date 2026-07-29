@@ -2,12 +2,22 @@ import type { BookingStatus, Db } from "@yezz/db";
 import { createHash, createHmac } from "node:crypto";
 import { AppError } from "../lib/errors.js";
 import { getMelbourneClock, parseCalendarDate, validateBookingWindow } from "../lib/booking-policy.js";
+import {
+  bookingLocale,
+  customerManageUrl,
+  issueDeterministicManagementToken,
+  notificationPayload,
+  staffBookingUrl,
+} from "../lib/booking-notification.js";
+import { CANONICAL_BOOKING_EMAIL_IDENTITY } from "../lib/email-outbox-payload.js";
+import { formatBookingOrderId } from "../lib/email.js";
 import { createBookingAvailabilityRepository } from "../repositories/booking-availability.repository.js";
 import { createBookingsRepository } from "../repositories/bookings.repository.js";
 import { createCustomerActionTokensRepository } from "../repositories/customer-action-tokens.repository.js";
 import { createEmailOutboxRepository } from "../repositories/email-outbox.repository.js";
 import { createPartiesRepository } from "../repositories/parties.repository.js";
 import { createPartyWorkflowRepository } from "../repositories/party-workflow.repository.js";
+import { createSettingsRepository } from "../repositories/settings.repository.js";
 import { createStatusEventsRepository } from "../repositories/status-events.repository.js";
 import { createStudioScheduleRepository } from "../repositories/studio-schedule.repository.js";
 
@@ -121,7 +131,11 @@ function canonicalProjectInterests(projectInterests: string[]): string[] {
   return projectInterests.map((value) => value.trim());
 }
 
-export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => Date; customerActionTokenSecret?: string }) {
+export function createPartyWorkflowService(db: Db, dependencies?: {
+  now?: () => Date;
+  customerActionTokenSecret?: string;
+  customerManageBaseUrl?: string;
+}) {
   const bookingsRepo = createBookingsRepository(db);
   const partiesRepo = createPartiesRepository(db);
   const partyRepo = createPartyWorkflowRepository(db);
@@ -185,34 +199,141 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
     return new AppError(404, "LINK_INVALID_OR_EXPIRED", "This link is invalid or expired");
   }
 
-  function ownerEmail(): string {
-    const value = process.env.OWNER_EMAIL?.trim().toLowerCase();
-    if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new AppError(503, "OWNER_EMAIL_UNAVAILABLE", "Booking notifications are temporarily unavailable");
-    return value;
+  async function enqueuePartyLifecycle(input: {
+    booking: Awaited<ReturnType<typeof bookingsRepo.findById>> & {};
+    statusEventId: string;
+    template:
+      | "party_time_proposed"
+      | "party_payment_due"
+      | "party_payment_recorded"
+      | "party_payment_expired";
+    date: string;
+    startTime: string;
+    endTime: string;
+    paymentDeadline?: Date;
+    amountCents?: 9500 | 14500;
+    rawToken?: string;
+  }, tx: Db): Promise<void> {
+    if (!input.booking.email) {
+      throw new AppError(422, "PARTY_EMAIL_MISSING", "Party booking email is required");
+    }
+    const messageLocale = bookingLocale(input.booking.locale);
+    const rawToken =
+      input.rawToken ??
+      (await issueDeterministicManagementToken(
+        {
+          bookingId: input.booking.id,
+          identity: `event:${input.statusEventId}:${input.template}`,
+          now: now(),
+          secret: customerActionTokenSecret,
+        },
+        tx,
+      ));
+    await outboxRepo.enqueue(
+      {
+        dedupeKey: `booking:${input.booking.id}:event:${input.statusEventId}:${input.template}:customer`,
+        bookingId: input.booking.id,
+        statusEventId: input.statusEventId,
+        messageType: "booking_notification_customer",
+        recipient: input.booking.email,
+        locale: messageLocale,
+        payload: notificationPayload({
+          template: input.template,
+          booking: input.booking,
+          locale: messageLocale,
+          date: input.date,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          manageUrl: customerManageUrl(
+            messageLocale,
+            rawToken,
+            dependencies?.customerManageBaseUrl,
+          ),
+          ...(input.paymentDeadline
+            ? { paymentDeadline: input.paymentDeadline.toISOString() }
+            : {}),
+          ...(input.amountCents ? { amountCents: input.amountCents } : {}),
+        }),
+      },
+      tx,
+    );
   }
 
-  async function enqueueAcceptanceEmails(booking: { id: string; name: string; email: string | null; locale: string | null }, tx: Db) {
-    const owner = ownerEmail();
-    const fields = [
-      { label: "Customer", value: booking.name },
-      { label: "Status", value: "Time accepted; venue fee is due in store" },
-    ];
-    if (booking.email) await outboxRepo.enqueue({
-      dedupeKey: `booking:${booking.id}:party-time-accepted:customer`,
-      bookingId: booking.id,
-      messageType: "booking_received_owner",
-      recipient: booking.email,
-      locale: booking.locale?.startsWith("zh") ? "zh" : "en",
-      payload: { template: "owner_request", subject: "YezYY party time accepted", heading: "Party time accepted", fields },
-    }, tx);
-    await outboxRepo.enqueue({
-      dedupeKey: `booking:${booking.id}:party-time-accepted:owner`,
-      bookingId: booking.id,
-      messageType: "booking_received_owner",
-      recipient: owner,
-      locale: "en",
-      payload: { template: "owner_request", subject: "Party time accepted", heading: "Party time accepted", fields },
-    }, tx);
+  async function enqueuePartyCreated(input: {
+    booking: Awaited<ReturnType<typeof bookingsRepo.findById>> & {};
+    partyPackage: Awaited<ReturnType<typeof partiesRepo.findById>> & {};
+    request: PartyCreateInput;
+  }, tx: Db): Promise<void> {
+    if (!input.booking.email) {
+      throw new AppError(422, "PARTY_EMAIL_MISSING", "Party booking email is required");
+    }
+    const messageLocale = bookingLocale(input.booking.locale);
+    const duration = input.partyPackage.guestDurationMinutes!;
+    const endTime = time(minutes(input.request.desiredStartTime) + duration);
+    const orderNumber = formatBookingOrderId(
+      input.booking.id,
+      input.booking.createdAt,
+    );
+    const settings = await createSettingsRepository(tx).findSingleton();
+    await outboxRepo.enqueue(
+      {
+        dedupeKey: `booking:${input.booking.id}:received:customer`,
+        bookingId: input.booking.id,
+        messageType: "booking_received_customer",
+        recipient: input.booking.email,
+        locale: messageLocale,
+        payload: {
+          template: "booking_received",
+          storeName: CANONICAL_BOOKING_EMAIL_IDENTITY.storeName,
+          orderId: input.booking.id,
+          orderNumber,
+          submittedAt: input.booking.createdAt.toISOString(),
+          input: {
+            name: input.booking.name,
+            phone: input.booking.phone,
+            email: input.booking.email,
+            preferredDate: input.request.desiredDate,
+            numberOfPeople:
+              input.request.participantCount + input.request.parentCount,
+            activityType: "party",
+            interestedProject: input.request.projectInterests.join(", "),
+            message: input.request.specialRequirements?.trim() || null,
+            locale: messageLocale,
+          },
+          contact: {
+            phone: CANONICAL_BOOKING_EMAIL_IDENTITY.contactPhone,
+            email: CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail,
+            wechatId: settings?.wechatId ?? null,
+          },
+        },
+      },
+      tx,
+    );
+    await outboxRepo.enqueue(
+      {
+        dedupeKey: `booking:${input.booking.id}:created:staff_notification:owner`,
+        bookingId: input.booking.id,
+        messageType: "booking_notification_owner",
+        recipient: CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail,
+        locale: "en",
+        payload: notificationPayload({
+          template: "staff_notification",
+          booking: input.booking,
+          locale: "en",
+          date: input.request.desiredDate,
+          startTime: input.request.desiredStartTime,
+          endTime,
+          manageUrl: staffBookingUrl(
+            input.booking.id,
+            dependencies?.customerManageBaseUrl,
+          ),
+          note: "New party request",
+          customerEmail: input.booking.email,
+          customerPhone: input.booking.phone,
+        }),
+      },
+      tx,
+    );
   }
 
   async function assertPartyReplay(booking: Awaited<ReturnType<typeof bookingsRepo.findByIdempotencyKey>> & {}, input: PartyCreateInput, packageId: string, tx: Db = db): Promise<void> {
@@ -269,6 +390,10 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
           venueFeeCents: partyPackage.venueFeeCents!,
           minSpendPerPersonCents: partyPackage.minSpendPerPersonCents!,
         }, tx);
+        await enqueuePartyCreated(
+          { booking: row, partyPackage, request: canonicalInput },
+          tx,
+        );
         return { id: row.id, status: row.status, createdAt: row.createdAt, replayed: false };
       });
     },
@@ -319,10 +444,33 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
         if (sameDesired) await assertCanHold(bookingId, interval, tx);
         const updated = await partyRepo.setProposal({ bookingId, expectedStatus: input.expectedStatus, date: input.finalDate, setupStart: interval.setupStart, guestStart: interval.guestStart, guestEnd: interval.guestEnd, cleanupEnd: interval.cleanupEnd, paymentDeadline: input.paymentDeadline, status: target }, tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: target, adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
-        if (target === "awaiting_in_store_payment") return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
+        const event = await eventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: target, adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
+        if (target === "awaiting_in_store_payment") {
+          await enqueuePartyLifecycle({
+            booking: updated,
+            statusEventId: event.id,
+            template: "party_payment_due",
+            date: interval.date,
+            startTime: interval.guestStart,
+            endTime: interval.guestEnd,
+            paymentDeadline: input.paymentDeadline,
+            amountCents: partyPackage.venueFeeCents as 9500 | 14500,
+          }, tx);
+          return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
+        }
         const raw = acceptTimeToken(bookingId, operationId);
         await tokensRepo.create({ bookingId, tokenDigest: createHash("sha256").update(raw).digest("hex"), scopes: ["accept_time"], expiresAt: input.paymentDeadline }, tx);
+        await enqueuePartyLifecycle({
+          booking: updated,
+          statusEventId: event.id,
+          template: "party_time_proposed",
+          date: interval.date,
+          startTime: interval.guestStart,
+          endTime: interval.guestEnd,
+          paymentDeadline: input.paymentDeadline,
+          amountCents: partyPackage.venueFeeCents as 9500 | 14500,
+          rawToken: raw,
+        }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false, acceptTimeToken: raw };
       });
     },
@@ -340,7 +488,17 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
         await assertCanHold(bookingId, { date: details.finalDate, setupStart: details.finalSetupStart, cleanupEnd: details.finalCleanupEnd }, tx);
         const updated = await partyRepo.setStatus(bookingId, "time_proposed", "awaiting_in_store_payment", tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "time_proposed", toStatus: "awaiting_in_store_payment", adminNote: encodePartyOperation(operationPayload), actorUserId, actorKind: actorUserId ? "staff" : "customer" }, tx);
+        const event = await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "time_proposed", toStatus: "awaiting_in_store_payment", adminNote: encodePartyOperation(operationPayload), actorUserId, actorKind: actorUserId ? "staff" : "customer" }, tx);
+        await enqueuePartyLifecycle({
+          booking: updated,
+          statusEventId: event.id,
+          template: "party_payment_due",
+          date: details.finalDate,
+          startTime: details.finalGuestStart,
+          endTime: details.finalGuestEnd,
+          paymentDeadline: details.paymentDeadline,
+          amountCents: details.venueFeeCents as 9500 | 14500,
+        }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },
@@ -368,7 +526,20 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
         await partyRepo.recordPayment(bookingId, input.paidAt, input.amountCents, tx);
         await partyRepo.addCharge({ bookingId, type: "venue_fee", amountCents: input.amountCents, recordedByUserId: actorUserId }, tx);
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "awaiting_in_store_payment", toStatus: "confirmed_paid", adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
+        const event = await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "awaiting_in_store_payment", toStatus: "confirmed_paid", adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
+        if (!details.finalDate || !details.finalGuestStart || !details.finalGuestEnd) {
+          throw new AppError(409, "PARTY_PROPOSAL_INCOMPLETE", "Party final time is required");
+        }
+        await enqueuePartyLifecycle({
+          booking: updated,
+          statusEventId: event.id,
+          template: "party_payment_recorded",
+          date: details.finalDate,
+          startTime: details.finalGuestStart,
+          endTime: details.finalGuestEnd,
+          paymentDeadline: details.paymentDeadline ?? undefined,
+          amountCents: input.amountCents,
+        }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },
@@ -397,7 +568,7 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
         const booking = await bookingsRepo.findById(token.bookingId, tx);
         if (!booking || booking.requestKind !== "party" || booking.status !== "time_proposed") throw invalidLink();
         const details = await partyRepo.findDetails(booking.id, tx);
-        if (!details?.finalDate || !details.finalSetupStart || !details.finalCleanupEnd || !details.paymentDeadline || details.paymentDeadline <= now()) throw invalidLink();
+        if (!details?.finalDate || !details.finalSetupStart || !details.finalGuestStart || !details.finalGuestEnd || !details.finalCleanupEnd || !details.paymentDeadline || details.paymentDeadline <= now()) throw invalidLink();
         await assertCanHold(booking.id, { date: details.finalDate, setupStart: details.finalSetupStart, cleanupEnd: details.finalCleanupEnd }, tx);
         const updated = await partyRepo.setStatus(booking.id, "time_proposed", "awaiting_in_store_payment", tx);
         if (!updated) throw invalidLink();
@@ -406,7 +577,16 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
         const operationId = crypto.randomUUID();
         const event = await eventsRepo.createBooking({ bookingId: booking.id, operationId, fromStatus: "time_proposed", toStatus: "awaiting_in_store_payment", actorUserId: null, actorKind: "customer" }, tx);
         if (!event) throw new Error("Party acceptance event was not created");
-        await enqueueAcceptanceEmails(updated, tx);
+        await enqueuePartyLifecycle({
+          booking: updated,
+          statusEventId: event.id,
+          template: "party_payment_due",
+          date: details.finalDate,
+          startTime: details.finalGuestStart,
+          endTime: details.finalGuestEnd,
+          paymentDeadline: details.paymentDeadline,
+          amountCents: details.venueFeeCents as 9500 | 14500,
+        }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },
@@ -431,7 +611,20 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
         if (!details?.paymentDeadline || details.paymentDeadline > current) throw new AppError(409, "PARTY_HOLD_NOT_EXPIRED", "Party hold has not expired");
         const updated = await partyRepo.setStatus(bookingId, expectedStatus, "payment_expired", tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: expectedStatus, toStatus: "payment_expired", adminNote: encodePartyOperation(operationPayload), actorUserId, actorKind: actorUserId ? "staff" : "system" }, tx);
+        const event = await eventsRepo.createBooking({ bookingId, operationId, fromStatus: expectedStatus, toStatus: "payment_expired", adminNote: encodePartyOperation(operationPayload), actorUserId, actorKind: actorUserId ? "staff" : "system" }, tx);
+        if (!details.finalDate || !details.finalGuestStart || !details.finalGuestEnd) {
+          throw new AppError(409, "PARTY_PROPOSAL_INCOMPLETE", "Party final time is required");
+        }
+        await enqueuePartyLifecycle({
+          booking: updated,
+          statusEventId: event.id,
+          template: "party_payment_expired",
+          date: details.finalDate,
+          startTime: details.finalGuestStart,
+          endTime: details.finalGuestEnd,
+          paymentDeadline: details.paymentDeadline,
+          amountCents: details.venueFeeCents as 9500 | 14500,
+        }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },

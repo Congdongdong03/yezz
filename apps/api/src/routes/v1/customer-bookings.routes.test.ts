@@ -21,7 +21,23 @@ function limitResult() {
 describe("customer booking routes", () => {
   it("uses a dedicated rate-limit scope keyed by verified client identity and token digest prefix", async () => {
     const consume = vi.fn(async () => limitResult());
-    const resolve = vi.fn(async () => ({ kind: "experience", status: "confirmed" }));
+    const safeView = {
+      kind: "party",
+      status: "time_proposed",
+      locale: "en",
+      offeringLabel: "Classic party",
+      date: "2030-08-16",
+      startTime: "12:30",
+      endTime: "14:00",
+      proposedTime: {
+        date: "2030-08-16",
+        startTime: "12:30",
+        endTime: "14:00",
+        paymentDeadline: "2030-08-12T00:00:00.000Z",
+      },
+      allowedActions: ["accept_time"],
+    };
+    const resolve = vi.fn(async () => safeView);
     const digest = vi.fn(() => "c".repeat(64));
     const app = Fastify();
     registerErrorHandler(app);
@@ -38,6 +54,7 @@ describe("customer booking routes", () => {
     try {
       const response = await app.inject({ method: "GET", url: `/customer-bookings/${TOKEN}` });
       expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ success: true, data: safeView });
       expect(resolve).toHaveBeenCalledWith(TOKEN);
       expect(consume).toHaveBeenCalledWith(
         "customer_booking_action",

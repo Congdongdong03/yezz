@@ -17,7 +17,10 @@ const queuedMessage = {
     customerName: "Closure Customer",
     orderNumber: "booking-closure-0001",
     storeName: "YezYY",
-    contact: { email: "contact@closure.test" },
+    contact: {
+      email: "congdongdong03@gmail.com",
+      phone: "0430 787 712",
+    },
   },
 } as const;
 

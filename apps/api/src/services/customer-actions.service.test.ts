@@ -1,4 +1,4 @@
-import { bookings, customerActionTokens, emailOutbox, requestStatusEvents } from "@yezz/db";
+import { bookingPartyDetails, bookings, customerActionTokens, emailOutbox, requestStatusEvents } from "@yezz/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -113,8 +113,81 @@ describe.skipIf(!runDatabaseTests)("customer actions", () => {
     });
   });
 
-  it("rejects an invalid mutation link generically before reading owner email configuration", async () => {
-    vi.stubEnv("OWNER_EMAIL", "");
+  it("returns only the safe proposed party time and accept action for a valid accept token", async () => {
+    const partyId = crypto.randomUUID();
+    await database.connection.db.insert(bookings).values({
+      id: partyId,
+      name: "Party parent",
+      phone: "0430111222",
+      email: "parent@example.com",
+      requestKind: "party",
+      status: "time_proposed",
+      locale: "zh",
+      offeringNameSnapshot: { en: "Classic party", zh: "经典派对" },
+      slotDate: "2030-08-16",
+      slotStartTime: "12:00",
+      slotEndTime: "14:00",
+      participantCount: 6,
+      attendanceCount: 8,
+    });
+    await database.connection.db.insert(bookingPartyDetails).values({
+      bookingId: partyId,
+      birthdayChildName: "Alex",
+      birthdayChildAge: 8,
+      participantCount: 6,
+      parentCount: 2,
+      desiredDate: "2030-08-15",
+      desiredStartTime: "11:00",
+      finalDate: "2030-08-16",
+      finalSetupStart: "12:00",
+      finalGuestStart: "12:30",
+      finalGuestEnd: "14:00",
+      finalCleanupEnd: "14:30",
+      paymentDeadline: new Date("2030-08-12T00:00:00.000Z"),
+      venueFeeCents: 9500,
+      minSpendPerPersonCents: 4500,
+    });
+    const raw = await service.issue({
+      bookingId: partyId,
+      scopes: ["accept_time"],
+      expiresAt: new Date("2030-08-06T00:00:00Z"),
+    });
+
+    await expect(service.resolve(raw)).resolves.toEqual({
+      kind: "party",
+      status: "time_proposed",
+      locale: "zh",
+      offeringLabel: "经典派对",
+      date: "2030-08-16",
+      startTime: "12:30",
+      endTime: "14:00",
+      proposedTime: {
+        date: "2030-08-16",
+        startTime: "12:30",
+        endTime: "14:00",
+        paymentDeadline: "2030-08-12T00:00:00.000Z",
+      },
+      allowedActions: ["accept_time"],
+    });
+
+    const wrongScope = await service.issue({
+      bookingId: partyId,
+      scopes: ["request_cancellation"],
+      expiresAt: new Date("2030-08-06T00:00:00Z"),
+    });
+    await expect(service.resolve(wrongScope)).rejects.toMatchObject({
+      code: "LINK_INVALID_OR_EXPIRED",
+    });
+    await database.connection.db
+      .update(bookings)
+      .set({ status: "awaiting_in_store_payment" })
+      .where(eq(bookings.id, partyId));
+    await expect(service.resolve(raw)).rejects.toMatchObject({
+      code: "LINK_INVALID_OR_EXPIRED",
+    });
+  });
+
+  it("rejects an invalid mutation link generically without mutable owner configuration", async () => {
 
     await expect(service.requestCancellation("x".repeat(43))).rejects.toMatchObject({
       code: "LINK_INVALID_OR_EXPIRED",
@@ -137,9 +210,24 @@ describe.skipIf(!runDatabaseTests)("customer actions", () => {
     ).resolves.toMatchObject([
       { fromStatus: "confirmed", toStatus: "cancellation_requested", actorKind: "customer", actorUserId: null },
     ]);
-    await expect(database.connection.db.select().from(emailOutbox)).resolves.toMatchObject([
-      { recipient: "owner@example.com", messageType: "booking_received_owner" },
-    ]);
+    const deliveries = await database.connection.db.select().from(emailOutbox);
+    expect(deliveries).toHaveLength(2);
+    expect(deliveries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipient: "alice@example.com",
+          messageType: "booking_notification_customer",
+          statusEventId: expect.any(String),
+          payload: expect.objectContaining({ template: "cancellation_request" }),
+        }),
+        expect.objectContaining({
+          recipient: "congdongdong03@gmail.com",
+          messageType: "booking_notification_owner",
+          statusEventId: expect.any(String),
+          payload: expect.objectContaining({ template: "staff_notification" }),
+        }),
+      ]),
+    );
   });
 
   it("records a reschedule request without reserving its requested interval", async () => {
@@ -164,5 +252,16 @@ describe.skipIf(!runDatabaseTests)("customer actions", () => {
       date: "2030-08-14",
       startTime: "13:30",
     });
+    const deliveries = await database.connection.db.select().from(emailOutbox);
+    expect(
+      deliveries.filter(
+        ({ payload }) => payload.template === "reschedule_request",
+      ),
+    ).toHaveLength(1);
+    expect(
+      deliveries.filter(
+        ({ payload }) => payload.template === "staff_notification",
+      ),
+    ).toHaveLength(1);
   });
 });

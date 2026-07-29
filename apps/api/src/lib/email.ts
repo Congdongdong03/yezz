@@ -127,9 +127,14 @@ export function formatCartOrderId(id: string, createdAt: Date): string {
 }
 
 /** Wraps email body content in a branded YezYY HTML shell. */
-function brandedEmail(title: string, body: string): string {
+function brandedEmail(
+  title: string,
+  body: string,
+  locale: string | null | undefined = "en",
+): string {
+  const documentLanguage = locale?.toLowerCase().startsWith("zh") ? "zh" : "en";
   return `<!DOCTYPE html>
-<html lang="zh">
+<html lang="${documentLanguage}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -214,8 +219,13 @@ async function sendCustomerTemplatedEmail(
   to: string,
   subject: string,
   bodyHtml: string,
+  locale?: string | null,
 ): Promise<void> {
-  return sendCustomerEmail(to, subject, brandedEmail(subject, bodyHtml));
+  return sendCustomerEmail(
+    to,
+    subject,
+    brandedEmail(subject, bodyHtml, locale),
+  );
 }
 
 type BookingConfirmationOptions = {
@@ -251,7 +261,7 @@ function renderBookingConfirmation(options: BookingConfirmationOptions): {
   `;
 
   const subject = `YezYY Booking Request Received ${orderNumber} / 预约申请已收到`;
-  return { subject, html: brandedEmail(subject, body) };
+  return { subject, html: brandedEmail(subject, body, input.locale) };
 }
 
 export async function sendBookingConfirmationToCustomer(
@@ -309,7 +319,7 @@ function renderOrderConfirmation(options: OrderConfirmationOptions): {
   `;
 
   const subject = `YezYY Booking Request Received ${orderNumber} / 预约申请已收到`;
-  return { subject, html: brandedEmail(subject, body) };
+  return { subject, html: brandedEmail(subject, body, input.locale) };
 }
 
 export async function sendOrderConfirmationToCustomer(
@@ -474,7 +484,7 @@ function renderBookingNotification(
     </div>
   `;
   const subject = `YezYY ${title} ${payload.bookingNumber}`;
-  return { subject, html: brandedEmail(subject, body) };
+  return { subject, html: brandedEmail(subject, body, locale) };
 }
 
 export function renderEmail(input: {
@@ -552,7 +562,12 @@ export async function sendBookingStatusContactedEmail(
   ctx: BookingStatusEmailContext,
 ): Promise<void> {
   const rendered = renderBookingStatusEmail("contacted", ctx);
-  await sendCustomerTemplatedEmail(ctx.to, rendered.subject, rendered.body);
+  await sendCustomerTemplatedEmail(
+    ctx.to,
+    rendered.subject,
+    rendered.body,
+    ctx.locale,
+  );
 }
 
 function renderBookingStatusEmail(
@@ -679,14 +694,24 @@ export async function sendBookingStatusConfirmedEmail(
   ctx: BookingStatusEmailContext,
 ): Promise<void> {
   const rendered = renderBookingStatusEmail("confirmed", ctx);
-  await sendCustomerTemplatedEmail(ctx.to, rendered.subject, rendered.body);
+  await sendCustomerTemplatedEmail(
+    ctx.to,
+    rendered.subject,
+    rendered.body,
+    ctx.locale,
+  );
 }
 
 export async function sendBookingStatusCancelledEmail(
   ctx: BookingStatusEmailContext,
 ): Promise<void> {
   const rendered = renderBookingStatusEmail("cancelled", ctx);
-  await sendCustomerTemplatedEmail(ctx.to, rendered.subject, rendered.body);
+  await sendCustomerTemplatedEmail(
+    ctx.to,
+    rendered.subject,
+    rendered.body,
+    ctx.locale,
+  );
 }
 
 function parseOutboxDate(value: string): Date {
@@ -713,7 +738,11 @@ function renderOutboxMessage(message: OutboxProviderMessage) {
     });
     rendered = {
       subject: statusEmail.subject,
-      html: brandedEmail(statusEmail.subject, statusEmail.body),
+      html: brandedEmail(
+        statusEmail.subject,
+        statusEmail.body,
+        validated.locale,
+      ),
     };
   } else if (template === "booking_received") {
     const payload = validated.payload as BookingReceivedOutboxPayload;
@@ -743,7 +772,7 @@ function renderOutboxMessage(message: OutboxProviderMessage) {
       .join("")}</table>`;
     rendered = {
       subject: payload.subject,
-      html: brandedEmail(payload.subject, body),
+      html: brandedEmail(payload.subject, body, validated.locale),
     };
   } else if (
     template === "booking_confirmed" ||

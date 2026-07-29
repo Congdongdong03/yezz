@@ -115,7 +115,10 @@ describe("booking request acknowledgement email", () => {
       phone: "0430787712",
       locale: "en",
     },
-    contact: { email: "congdongdong03@gmail.com" },
+    contact: {
+      email: "congdongdong03@gmail.com",
+      phone: "0430 787 712",
+    },
   };
 
   it("describes a new submission as awaiting manual confirmation", async () => {
@@ -159,7 +162,10 @@ describe("booking request acknowledgement email", () => {
         phone: "0430787712",
         items: [{ projectName: { en: "Melty Bead Craft", zh: "拼豆" } }],
       },
-      contact: { email: "congdongdong03@gmail.com" },
+      contact: {
+        email: "congdongdong03@gmail.com",
+        phone: "0430 787 712",
+      },
     });
 
     const sentEmail = sentEmails[0] as { subject: string; html: string };
@@ -182,7 +188,10 @@ describe("booking request acknowledgement email", () => {
       customerName: "Wesley",
       orderNumber: "booking-20260728-1234",
       storeName: "YezYY",
-      contact: { email: "congdongdong03@gmail.com" },
+      contact: {
+        email: "congdongdong03@gmail.com",
+        phone: "0430 787 712",
+      },
     };
 
     await sendOwnerEmail("New request", "<p>Request</p>");
@@ -223,7 +232,10 @@ describe("booking request acknowledgement email", () => {
           customerName: "Wesley",
           orderNumber: "booking-20260728-1234",
           storeName: "YezYY",
-          contact: { email: "congdongdong03@gmail.com" },
+          contact: {
+            email: "congdongdong03@gmail.com",
+            phone: "0430 787 712",
+          },
         },
       }),
     ).resolves.toEqual({ providerMessageId: "resend-message-123" });
@@ -253,6 +265,7 @@ describe("booking request acknowledgement email", () => {
       locale: "en",
       payload: {
         template: "booking_received",
+        storeName: "YezYY",
         orderId: "00000000-0000-4000-8000-000000000002",
         orderNumber: "booking-20260728-1234",
         submittedAt: "2026-07-28T02:00:00.000Z",
@@ -261,7 +274,10 @@ describe("booking request acknowledgement email", () => {
           phone: "0430787712",
           locale: "en",
         },
-        contact: { email: "congdongdong03@gmail.com" },
+        contact: {
+          email: "congdongdong03@gmail.com",
+          phone: "0430 787 712",
+        },
       },
     });
 
@@ -383,8 +399,159 @@ describe("live booking notification templates", () => {
       expect(html).toContain("congdongdong03@gmail.com");
       expect(html).toContain("0430 787 712");
       expect(html).toContain("manage-booking");
+      expect(html).toContain(`<html lang="${locale}">`);
     }
   });
+
+  it.each(["en", "zh"] as const)(
+    "renders canonical identity in the legacy receipt and status paths for %s",
+    async (locale) => {
+      const { createResendOutboxProvider } = await import("./email.js");
+      const provider = createResendOutboxProvider();
+      const bookingId = "00000000-0000-4000-8000-000000000002";
+
+      await provider.send({
+        id: "00000000-0000-4000-8000-000000000001",
+        dedupeKey: `booking:canonical:received:${locale}`,
+        bookingId,
+        cartOrderId: null,
+        statusEventId: null,
+        messageType: "booking_received_customer",
+        recipient: "customer@example.com",
+        locale,
+        payload: {
+          template: "booking_received",
+          storeName: "YezYY",
+          orderId: bookingId,
+          orderNumber: common.bookingNumber,
+          submittedAt: "2026-07-29T02:00:00.000Z",
+          input: {
+            name: common.customerName,
+            phone: "0430787712",
+            locale,
+          },
+          contact: {
+            email: common.contactEmail,
+            phone: common.contactPhone,
+          },
+        },
+      });
+      await provider.send({
+        id: "00000000-0000-4000-8000-000000000003",
+        dedupeKey: `booking:canonical:status:${locale}`,
+        bookingId,
+        cartOrderId: null,
+        statusEventId: "00000000-0000-4000-8000-000000000004",
+        messageType: "booking_status_customer",
+        recipient: "customer@example.com",
+        locale,
+        payload: {
+          template: "booking_status",
+          status: "confirmed",
+          locale,
+          customerName: common.customerName,
+          orderNumber: common.bookingNumber,
+          storeName: "YezYY",
+          contact: {
+            email: common.contactEmail,
+            phone: common.contactPhone,
+          },
+        },
+      });
+
+      for (const sent of sentEmails.slice(-2) as Array<{ html: string }>) {
+        expect(sent.html).toContain("YezYY");
+        expect(sent.html).toContain("congdongdong03@gmail.com");
+        expect(sent.html).toContain("0430 787 712");
+        expect(sent.html).toContain(`<html lang="${locale}">`);
+      }
+    },
+  );
+
+  it.each([
+    {
+      label: "receipt store name",
+      messageType: "booking_received_customer",
+      statusEventId: null,
+      payload: {
+        template: "booking_received",
+        storeName: "YezYY Studio",
+        orderId: "00000000-0000-4000-8000-000000000002",
+        orderNumber: "booking-20260729-1234",
+        submittedAt: "2026-07-29T02:00:00.000Z",
+        input: { name: "Wesley", phone: "0430787712", locale: "en" },
+        contact: {
+          email: "congdongdong03@gmail.com",
+          phone: "0430 787 712",
+        },
+      },
+    },
+    {
+      label: "receipt contact",
+      messageType: "booking_received_customer",
+      statusEventId: null,
+      payload: {
+        template: "booking_received",
+        storeName: "YezYY",
+        orderId: "00000000-0000-4000-8000-000000000002",
+        orderNumber: "booking-20260729-1234",
+        submittedAt: "2026-07-29T02:00:00.000Z",
+        input: { name: "Wesley", phone: "0430787712", locale: "en" },
+        contact: { email: "attacker@example.com", phone: "0000" },
+      },
+    },
+    {
+      label: "status store name",
+      messageType: "booking_status_customer",
+      statusEventId: "00000000-0000-4000-8000-000000000003",
+      payload: {
+        template: "booking_status",
+        status: "confirmed",
+        locale: "en",
+        customerName: "Wesley",
+        orderNumber: "booking-20260729-1234",
+        storeName: "YezYY Studio",
+        contact: {
+          email: "congdongdong03@gmail.com",
+          phone: "0430 787 712",
+        },
+      },
+    },
+    {
+      label: "status contact",
+      messageType: "booking_status_customer",
+      statusEventId: "00000000-0000-4000-8000-000000000003",
+      payload: {
+        template: "booking_status",
+        status: "confirmed",
+        locale: "en",
+        customerName: "Wesley",
+        orderNumber: "booking-20260729-1234",
+        storeName: "YezYY",
+        contact: { email: "attacker@example.com", phone: "0000" },
+      },
+    },
+  ] as const)(
+    "rejects non-canonical legacy $label",
+    async ({ messageType, statusEventId, payload }) => {
+      const { createResendOutboxProvider } = await import("./email.js");
+      const provider = createResendOutboxProvider();
+
+      await expect(
+        provider.send({
+          id: "00000000-0000-4000-8000-000000000001",
+          dedupeKey: `booking:invalid-canonical:${messageType}`,
+          bookingId: "00000000-0000-4000-8000-000000000002",
+          cartOrderId: null,
+          statusEventId,
+          messageType,
+          recipient: "customer@example.com",
+          locale: "en",
+          payload,
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+    },
+  );
 
   it.each(["en", "zh"] as const)(
     "never calls a pending booking request confirmed in %s",
@@ -394,6 +561,7 @@ describe("live booking notification templates", () => {
         locale,
         payload: {
           template: "booking_received",
+          storeName: "YezYY",
           orderId: "00000000-0000-4000-8000-000000000002",
           orderNumber: common.bookingNumber,
           submittedAt: "2026-07-29T02:00:00.000Z",
@@ -460,6 +628,116 @@ describe("live booking notification templates", () => {
     expect(html).not.toContain('onmouseover="alert(2)"');
     expect(html).toContain("&lt;img");
     expect(html).toContain("&quot; onmouseover=&quot;");
+  });
+
+  it("independently escapes booking number and customer email", async () => {
+    const { renderEmail } = await import("./email.js");
+    const injection = `<img src=x onerror="alert(1)">`;
+    const html = renderEmail({
+      locale: "en",
+      payload: {
+        template: "staff_notification",
+        ...common,
+        bookingNumber: injection,
+        customerEmail: injection,
+        customerPhone: "0430787712",
+      },
+    });
+
+    expect(html).not.toContain(injection);
+    expect(html.match(/&lt;img/g)?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("independently escapes legacy receipt and status fields", async () => {
+    const { createResendOutboxProvider } = await import("./email.js");
+    const provider = createResendOutboxProvider();
+    const injection = `<img src=x onerror="alert(1)">`;
+    const bookingId = "00000000-0000-4000-8000-000000000002";
+
+    await provider.send({
+      id: "00000000-0000-4000-8000-000000000001",
+      dedupeKey: "booking:escaping:received",
+      bookingId,
+      cartOrderId: null,
+      statusEventId: null,
+      messageType: "booking_received_customer",
+      recipient: "customer@example.com",
+      locale: "en",
+      payload: {
+        template: "booking_received",
+        storeName: "YezYY",
+        orderId: bookingId,
+        orderNumber: injection,
+        submittedAt: "2026-07-29T02:00:00.000Z",
+        input: {
+          name: injection,
+          phone: injection,
+          message: injection,
+          locale: "en",
+        },
+        contact: {
+          email: common.contactEmail,
+          phone: common.contactPhone,
+        },
+      },
+    });
+    await provider.send({
+      id: "00000000-0000-4000-8000-000000000003",
+      dedupeKey: "booking:escaping:status",
+      bookingId,
+      cartOrderId: null,
+      statusEventId: "00000000-0000-4000-8000-000000000004",
+      messageType: "booking_status_customer",
+      recipient: "customer@example.com",
+      locale: "en",
+      payload: {
+        template: "booking_status",
+        status: "confirmed",
+        locale: "en",
+        customerName: injection,
+        orderNumber: injection,
+        storeName: "YezYY",
+        address: injection,
+        businessHours: injection,
+        adminNote: injection,
+        contact: {
+          email: common.contactEmail,
+          phone: common.contactPhone,
+        },
+      },
+    });
+
+    for (const sent of sentEmails.slice(-2) as Array<{ html: string }>) {
+      expect(sent.html).not.toContain(injection);
+      expect(sent.html).toContain("&lt;img");
+    }
+  });
+
+  it("independently escapes owner notification labels and values", async () => {
+    const { createResendOutboxProvider } = await import("./email.js");
+    const provider = createResendOutboxProvider();
+    const injection = `<img src=x onerror="alert(1)">`;
+
+    await provider.send({
+      id: "00000000-0000-4000-8000-000000000001",
+      dedupeKey: "booking:escaping:owner",
+      bookingId: "00000000-0000-4000-8000-000000000002",
+      cartOrderId: null,
+      statusEventId: null,
+      messageType: "booking_received_owner",
+      recipient: "owner@example.com",
+      locale: "en",
+      payload: {
+        template: "owner_request",
+        subject: "Owner notification",
+        heading: injection,
+        fields: [{ label: injection, value: injection }],
+      },
+    });
+
+    const sent = sentEmails.at(-1) as { html: string };
+    expect(sent.html).not.toContain(injection);
+    expect(sent.html.match(/&lt;img/g)).toHaveLength(3);
   });
 
   it.each([

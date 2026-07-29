@@ -11,6 +11,7 @@ const NOW = new Date("2026-07-28T02:00:00.000Z");
 
 const VALID_BOOKING_RECEIVED_PAYLOAD = {
   template: "booking_received",
+  storeName: "YezYY",
   orderId: "00000000-0000-4000-8000-000000000002",
   orderNumber: "booking-20260728-1234",
   submittedAt: "2026-07-28T02:00:00.000Z",
@@ -19,7 +20,10 @@ const VALID_BOOKING_RECEIVED_PAYLOAD = {
     phone: "0430000000",
     locale: "en",
   },
-  contact: { email: "congdongdong03@gmail.com" },
+  contact: {
+    email: "congdongdong03@gmail.com",
+    phone: "0430 787 712",
+  },
 };
 
 function pendingRow(overrides: Partial<EmailOutboxRow> = {}): EmailOutboxRow {

@@ -86,6 +86,7 @@ function bookingReceivedPayload(
 ) {
   return {
     template: "booking_received",
+    storeName: "YezYY",
     orderId: bookingId,
     orderNumber: "booking-20260728-1234",
     submittedAt: "2026-07-28T02:00:00.000Z",
@@ -94,7 +95,10 @@ function bookingReceivedPayload(
       phone: "0430000000",
       locale: "en",
     },
-    contact: { email: "congdongdong03@gmail.com" },
+    contact: {
+      email: "congdongdong03@gmail.com",
+      phone: "0430 787 712",
+    },
     ...overrides,
   };
 }
@@ -109,7 +113,10 @@ function statusPayload(
     customerName: "Queue Customer",
     orderNumber,
     storeName: "YezYY",
-    contact: { email: "congdongdong03@gmail.com" },
+    contact: {
+      email: "congdongdong03@gmail.com",
+      phone: "0430 787 712",
+    },
   };
 }
 
@@ -220,7 +227,10 @@ describe.skipIf(!runDatabaseTests)(
       const sameContentDifferentKeyOrder = await repo.enqueue({
         ...message,
         payload: {
-          contact: { email: "congdongdong03@gmail.com" },
+          contact: {
+            email: "congdongdong03@gmail.com",
+            phone: "0430 787 712",
+          },
           input: {
             locale: "en",
             phone: "0430000000",
@@ -229,6 +239,7 @@ describe.skipIf(!runDatabaseTests)(
           submittedAt: "2026-07-28T02:00:00.000Z",
           orderNumber: "booking-20260728-1234",
           orderId: bookingId,
+          storeName: "YezYY",
           template: "booking_received",
         },
       });

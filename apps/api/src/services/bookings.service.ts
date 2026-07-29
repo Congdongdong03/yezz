@@ -12,6 +12,14 @@ import {
   formatBookingOrderId,
   type StoreContact,
 } from "../lib/email.js";
+import { CANONICAL_BOOKING_EMAIL_IDENTITY } from "../lib/email-outbox-payload.js";
+import {
+  bookingOfferingLabel,
+  customerManageUrl,
+  issueDeterministicManagementToken,
+  notificationPayload,
+  staffBookingUrl,
+} from "../lib/booking-notification.js";
 import { createEmailOutboxRepository } from "../repositories/email-outbox.repository.js";
 import { createSettingsRepository } from "../repositories/settings.repository.js";
 import {
@@ -247,18 +255,21 @@ export function buildBookingEmailHtml(input: BookingCreateInput): string {
 async function loadStoreContact(db: Db): Promise<StoreContact> {
   const settingsRepo = createSettingsRepository(db);
   const row = await settingsRepo.findSingleton();
-  if (!row) return {};
   return {
-    phone: row.phone,
-    wechatId: row.wechatId,
-    email: row.email,
+    phone: CANONICAL_BOOKING_EMAIL_IDENTITY.contactPhone,
+    wechatId: row?.wechatId ?? null,
+    email: CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail,
   };
 }
 
 export function createBookingsService(
   db: Db,
   requestCapabilities: RequestCapabilities = readRequestCapabilities(),
-  dependencies?: { now?: () => Date },
+  dependencies?: {
+    now?: () => Date;
+    customerActionTokenSecret?: string;
+    customerManageBaseUrl?: string;
+  },
 ) {
   const repo = createBookingsRepository(db);
   const projectsRepo = createProjectsRepository(db);
@@ -330,7 +341,7 @@ export function createBookingsService(
         };
       }
 
-      const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
+      const ownerEmail = CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail;
 
       try {
         const result = await db.transaction(async (tx) => {
@@ -339,17 +350,6 @@ export function createBookingsService(
           if (existing) {
             assertReplayMatches(existing, normalizedInput, replayIdentity);
             return { row: existing, replayed: true };
-          }
-
-          if (
-            !ownerEmail ||
-            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail)
-          ) {
-            throw new AppError(
-              503,
-              "EMAIL_NOT_CONFIGURED",
-              "Owner email is not configured",
-            );
           }
 
           const offering =
@@ -483,6 +483,7 @@ export function createBookingsService(
               locale,
               payload: {
                 template: "booking_received",
+                storeName: CANONICAL_BOOKING_EMAIL_IDENTITY.storeName,
                 orderId: created.id,
                 orderNumber,
                 submittedAt: created.createdAt.toISOString(),
@@ -618,7 +619,112 @@ export function createBookingsService(
         const schedule = await scheduleRepo.resolveDay(input.date);
         if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt) throw new AppError(400, "STUDIO_CLOSED", "The studio is closed on this date");
         validateBookingWindow({ date: input.date, startTime: input.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(now()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
-        return { row: await repo.createOrdinary({ ...input, email: input.email.trim().toLowerCase(), endTime: interval.endTime, attendanceCount: interval.attendanceCount, durationMinutes: interval.durationMinutes, idempotencyKey: normalizedKey, status: input.mode === "waitlist" ? "waitlisted" : "pending_review", submissionMode: input.mode, items: snapshots }, tx), replayed: false };
+        const created = await repo.createOrdinary({ ...input, email: input.email.trim().toLowerCase(), endTime: interval.endTime, attendanceCount: interval.attendanceCount, durationMinutes: interval.durationMinutes, idempotencyKey: normalizedKey, status: input.mode === "waitlist" ? "waitlisted" : "pending_review", submissionMode: input.mode, items: snapshots }, tx);
+        const messageLocale = input.locale;
+        const customerEmail = input.email.trim().toLowerCase();
+        const offeringLabel = snapshots
+          .map((item) =>
+            bookingOfferingLabel(
+              item.projectNameSnapshot,
+              messageLocale,
+              "experience",
+            ),
+          )
+          .join(", ");
+        const contact = await loadStoreContact(tx);
+        if (input.mode === "booking") {
+          await outboxRepo.enqueue(
+            {
+              dedupeKey: `booking:${created.id}:received:customer`,
+              bookingId: created.id,
+              messageType: "booking_received_customer",
+              recipient: customerEmail,
+              locale: messageLocale,
+              payload: {
+                template: "booking_received",
+                storeName: CANONICAL_BOOKING_EMAIL_IDENTITY.storeName,
+                orderId: created.id,
+                orderNumber: formatBookingOrderId(created.id, created.createdAt),
+                submittedAt: created.createdAt.toISOString(),
+                input: {
+                  name: created.name,
+                  phone: created.phone,
+                  email: customerEmail,
+                  preferredDate: input.date,
+                  numberOfPeople: input.participantCount,
+                  activityType: "ordinary_booking",
+                  interestedProject: offeringLabel,
+                  message: created.message,
+                  locale: messageLocale,
+                },
+                contact,
+              },
+            },
+            tx,
+          );
+        } else {
+          const rawToken = await issueDeterministicManagementToken(
+            {
+              bookingId: created.id,
+              identity: `created:waitlist:${input.date}:${input.startTime}`,
+              now: now(),
+              secret: dependencies?.customerActionTokenSecret,
+            },
+            tx,
+          );
+          await outboxRepo.enqueue(
+            {
+              dedupeKey: `booking:${created.id}:created:booking_waitlisted:customer`,
+              bookingId: created.id,
+              messageType: "booking_notification_customer",
+              recipient: customerEmail,
+              locale: messageLocale,
+              payload: notificationPayload({
+                template: "booking_waitlisted",
+                booking: created,
+                locale: messageLocale,
+                date: input.date,
+                startTime: input.startTime,
+                endTime: interval.endTime,
+                manageUrl: customerManageUrl(
+                  messageLocale,
+                  rawToken,
+                  dependencies?.customerManageBaseUrl,
+                ),
+              }),
+            },
+            tx,
+          );
+        }
+        await outboxRepo.enqueue(
+          {
+            dedupeKey: `booking:${created.id}:created:staff_notification:owner`,
+            bookingId: created.id,
+            messageType: "booking_notification_owner",
+            recipient: CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail,
+            locale: "en",
+            payload: notificationPayload({
+              template: "staff_notification",
+              booking: created,
+              locale: "en",
+              date: input.date,
+              startTime: input.startTime,
+              endTime: interval.endTime,
+              manageUrl: staffBookingUrl(
+                created.id,
+                dependencies?.customerManageBaseUrl,
+              ),
+              note:
+                input.mode === "waitlist"
+                  ? "New ordinary waitlist request"
+                  : "New ordinary booking request",
+              customerEmail,
+              customerPhone: created.phone,
+            }),
+          },
+          tx,
+        );
+        return { row: created, replayed: false };
       });
       return { id: result.row.id, status: result.row.status, createdAt: result.row.createdAt, replayed: result.replayed, notification: "queued" };
     },

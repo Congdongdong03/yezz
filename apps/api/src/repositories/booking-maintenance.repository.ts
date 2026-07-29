@@ -3,6 +3,7 @@ import {
   bookings,
   customerActionTokens,
   emailOutbox,
+  requestStatusEvents,
   type Db,
   type LocalizedString,
 } from "@yezz/db";
@@ -72,10 +73,41 @@ export function createBookingMaintenanceRepository(db: Db) {
     (${appointmentDate} + ${appointmentStart}::time)
     AT TIME ZONE 'Australia/Melbourne'
   )`;
+  const authoritativeConfirmationAt = sql<Date | null>`(
+    SELECT max(${requestStatusEvents.createdAt})
+    FROM ${requestStatusEvents}
+    WHERE ${requestStatusEvents.bookingId} = ${bookings.id}
+      AND ${requestStatusEvents.toStatus} = CASE
+        WHEN ${bookings.requestKind} = 'party' THEN 'confirmed_paid'
+        ELSE 'confirmed'
+      END
+  )`;
   const reminderDedupeKey = sql<string>`(
     'booking:' || ${bookings.id}::text || ':reminder:' ||
-    ${appointmentDate}::text || ':customer'
+    ${appointmentDate}::text || ':' || ${appointmentStart}::text || ':customer'
   )`;
+  const reminderStatus = or(
+    and(
+      eq(bookings.requestKind, "experience"),
+      eq(bookings.status, "confirmed"),
+    ),
+    and(
+      eq(bookings.requestKind, "party"),
+      eq(bookings.status, "confirmed_paid"),
+    ),
+  );
+  const reminderEligibility = (nowIso: string) =>
+    and(
+      reminderStatus,
+      sql`${appointmentDate} IS NOT NULL`,
+      sql`${appointmentStart} IS NOT NULL`,
+      sql`${appointmentEnd} IS NOT NULL`,
+      sql`${appointmentInstant}
+        BETWEEN ${nowIso}::timestamptz + interval '23 hours 55 minutes'
+            AND ${nowIso}::timestamptz + interval '24 hours 5 minutes'`,
+      sql`${authoritativeConfirmationAt} IS NOT NULL`,
+      sql`${authoritativeConfirmationAt} <= ${appointmentInstant} - interval '24 hours'`,
+    );
 
   return {
     async findBookingsNeedingReminder(
@@ -104,22 +136,7 @@ export function createBookingMaintenanceRepository(db: Db) {
         .where(
           and(
             isNotNull(bookings.email),
-            or(
-              and(
-                eq(bookings.requestKind, "experience"),
-                eq(bookings.status, "confirmed"),
-              ),
-              and(
-                eq(bookings.requestKind, "party"),
-                eq(bookings.status, "confirmed_paid"),
-              ),
-            ),
-            sql`${appointmentDate} IS NOT NULL`,
-            sql`${appointmentStart} IS NOT NULL`,
-            sql`${appointmentEnd} IS NOT NULL`,
-            sql`${appointmentInstant}
-              BETWEEN ${nowIso}::timestamptz + interval '23 hours 55 minutes'
-                  AND ${nowIso}::timestamptz + interval '24 hours 5 minutes'`,
+            reminderEligibility(nowIso),
             notExists(
               db
                 .select({ id: emailOutbox.id })
@@ -190,26 +207,40 @@ export function createBookingMaintenanceRepository(db: Db) {
     ): Promise<boolean> {
       return db.transaction(async (transaction) => {
         const tx = transaction as unknown as Db;
+        const nowIso = now.toISOString();
+        const dedupeKey = `booking:${input.bookingId}:reminder:${input.date}:${input.startTime}:customer`;
         const [locked] = await tx
-          .select({
-            requestKind: bookings.requestKind,
-            status: bookings.status,
-          })
+          .select({ bookingId: bookings.id })
           .from(bookings)
           .where(eq(bookings.id, input.bookingId))
           .limit(1)
           .for("update");
-        if (
-          !locked ||
-          (locked.requestKind === "experience" &&
-            locked.status !== "confirmed") ||
-          (locked.requestKind === "party" &&
-            locked.status !== "confirmed_paid") ||
-          (locked.requestKind !== "experience" &&
-            locked.requestKind !== "party")
-        ) {
-          return false;
-        }
+        if (!locked) return false;
+
+        const [eligible] = await tx
+          .select({ bookingId: bookings.id })
+          .from(bookings)
+          .leftJoin(
+            bookingPartyDetails,
+            eq(bookingPartyDetails.bookingId, bookings.id),
+          )
+          .where(
+            and(
+              eq(bookings.id, input.bookingId),
+              reminderEligibility(nowIso),
+              sql`${appointmentDate} = ${input.date}::date`,
+              sql`${appointmentStart} = ${input.startTime}`,
+              sql`${appointmentEnd} = ${input.endTime}`,
+              notExists(
+                tx
+                  .select({ id: emailOutbox.id })
+                  .from(emailOutbox)
+                  .where(eq(emailOutbox.dedupeKey, dedupeKey)),
+              ),
+            ),
+          )
+          .limit(1);
+        if (!eligible) return false;
 
         await tx
           .insert(customerActionTokens)
@@ -222,14 +253,6 @@ export function createBookingMaintenanceRepository(db: Db) {
           .onConflictDoNothing({
             target: customerActionTokens.tokenDigest,
           });
-
-        const dedupeKey = `booking:${input.bookingId}:reminder:${input.date}:customer`;
-        const existing = await tx
-          .select({ id: emailOutbox.id })
-          .from(emailOutbox)
-          .where(eq(emailOutbox.dedupeKey, dedupeKey))
-          .limit(1);
-        if (existing.length > 0) return false;
 
         await outbox.enqueue(
           {

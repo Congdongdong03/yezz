@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { sql } from "drizzle-orm";
 import type { RequestFlowTestDatabase } from "../test-utils/request-flow-postgres.js";
 import { createRequestFlowTestDatabase } from "../test-utils/request-flow-postgres.js";
 import { createBookingMaintenanceRepository } from "./booking-maintenance.repository.js";
@@ -26,6 +27,7 @@ describe.skipIf(!runDatabaseTests)("booking maintenance repository", () => {
     end?: string | null;
     deadline?: Date;
     venueFeeCents?: number;
+    confirmedAt?: Date | null;
   }): Promise<string> {
     const [booking] = await database.connection.client`
       INSERT INTO bookings (
@@ -61,6 +63,29 @@ describe.skipIf(!runDatabaseTests)("booking maintenance repository", () => {
           ${input.end === undefined ? "13:00" : input.end}, '13:30',
           ${input.venueFeeCents ?? 9500}, 4500,
           ${paymentDeadline}::timestamptz
+        )
+      `;
+    }
+    const status = input.status ?? "confirmed";
+    const confirmationStatus =
+      input.requestKind === "party" ? "confirmed_paid" : "confirmed";
+    if (
+      status === confirmationStatus &&
+      input.confirmedAt !== null
+    ) {
+      const confirmedAt = (
+        input.confirmedAt ?? new Date("2026-10-02T00:00:00.000Z")
+      ).toISOString();
+      await database.connection.client`
+        INSERT INTO request_status_events (
+          booking_id, operation_id, from_status, to_status,
+          actor_user_id, actor_kind, created_at
+        )
+        VALUES (
+          ${booking.id}, ${crypto.randomUUID()},
+          ${input.requestKind === "party" ? "awaiting_in_store_payment" : "pending_review"},
+          ${confirmationStatus}, NULL, 'system',
+          ${confirmedAt}::timestamptz
         )
       `;
     }
@@ -129,6 +154,127 @@ describe.skipIf(!runDatabaseTests)("booking maintenance repository", () => {
     await expect(repo.findBookingsNeedingReminder(now)).resolves.toEqual([]);
   });
 
+  it("requires the latest authoritative confirmation event to be at least 24 hours before the appointment", async () => {
+    const repo = createBookingMaintenanceRepository(database.connection.db);
+    const now = new Date("2026-10-03T01:00:00.000Z");
+    const ordinaryEarly = await insertBooking({
+      confirmedAt: new Date("2026-10-03T00:59:59.000Z"),
+    });
+    const ordinaryExact = await insertBooking({
+      confirmedAt: new Date("2026-10-03T01:00:00.000Z"),
+    });
+    await insertBooking({
+      confirmedAt: new Date("2026-10-03T01:00:01.000Z"),
+    });
+    const partyEarly = await insertBooking({
+      requestKind: "party",
+      status: "confirmed_paid",
+      confirmedAt: new Date("2026-10-03T00:59:59.000Z"),
+    });
+    const partyExact = await insertBooking({
+      requestKind: "party",
+      status: "confirmed_paid",
+      confirmedAt: new Date("2026-10-03T01:00:00.000Z"),
+    });
+    await insertBooking({
+      requestKind: "party",
+      status: "confirmed_paid",
+      confirmedAt: new Date("2026-10-03T01:00:01.000Z"),
+    });
+    await insertBooking({ confirmedAt: null });
+
+    const candidates = await repo.findBookingsNeedingReminder(now);
+
+    expect(candidates.map(({ bookingId }) => bookingId).sort()).toEqual(
+      [ordinaryEarly, ordinaryExact, partyEarly, partyExact].sort(),
+    );
+  });
+
+  it("revalidates a real committed reschedule before enqueue and keeps the new same-day reminder identity", async () => {
+    const repo = createBookingMaintenanceRepository(database.connection.db);
+    const firstNow = new Date("2026-10-03T01:00:00.000Z");
+    const bookingId = await insertBooking({});
+    const [stale] = await repo.findBookingsNeedingReminder(firstNow);
+    expect(stale?.bookingId).toBe(bookingId);
+
+    await database.connection.db.transaction(async (tx) => {
+      await tx.execute(sql`
+        UPDATE bookings
+        SET status = 'reschedule_requested'
+        WHERE id = ${bookingId}
+      `);
+      await tx.execute(sql`
+        UPDATE bookings
+        SET status = 'confirmed',
+            slot_start_time = '16:00',
+            slot_end_time = '17:00'
+        WHERE id = ${bookingId}
+          AND status = 'reschedule_requested'
+      `);
+      await tx.execute(sql`
+        INSERT INTO request_status_events (
+          booking_id, operation_id, from_status, to_status,
+          actor_user_id, actor_kind, created_at
+        )
+        VALUES (
+          ${bookingId}, ${crypto.randomUUID()},
+          'reschedule_requested', 'confirmed', NULL, 'system',
+          '2026-10-03T04:59:59.000Z'::timestamptz
+        )
+      `);
+    });
+
+    await expect(
+      repo.markReminderEnqueued(
+        {
+          ...stale!,
+          manageUrl:
+            "https://yezyy.com/en/manage-booking/abcdefghijklmnopqrstuvwxyzABCDEFG123456789",
+          rawToken: "abcdefghijklmnopqrstuvwxyzABCDEFG123456789",
+          tokenDigest:
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        },
+        firstNow,
+      ),
+    ).resolves.toBe(false);
+
+    const secondNow = new Date("2026-10-03T05:00:00.000Z");
+    const [current] = await repo.findBookingsNeedingReminder(secondNow);
+    expect(current).toMatchObject({
+      bookingId,
+      date: "2026-10-04",
+      startTime: "16:00",
+      endTime: "17:00",
+    });
+    await expect(
+      repo.markReminderEnqueued(
+        {
+          ...current!,
+          manageUrl:
+            "https://yezyy.com/en/manage-booking/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi123456789",
+          rawToken: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi123456789",
+          tokenDigest:
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        },
+        secondNow,
+      ),
+    ).resolves.toBe(true);
+
+    const [delivery] = await database.connection.client`
+      SELECT dedupe_key, payload
+      FROM email_outbox
+      WHERE booking_id = ${bookingId}
+    `;
+    expect(delivery.dedupe_key).toBe(
+      `booking:${bookingId}:reminder:2026-10-04:16:00:customer`,
+    );
+    expect(delivery.payload).toMatchObject({
+      date: "2026-10-04",
+      startTime: "16:00",
+      endTime: "17:00",
+    });
+  });
+
   it("selects only overdue active party holds", async () => {
     const repo = createBookingMaintenanceRepository(database.connection.db);
     const now = new Date("2026-10-03T01:00:00.000Z");
@@ -188,7 +334,7 @@ describe.skipIf(!runDatabaseTests)("booking maintenance repository", () => {
     const [outboxCount] = await database.connection.client`
       SELECT count(*)::int AS count
       FROM email_outbox
-      WHERE dedupe_key = ${`booking:${bookingId}:reminder:2026-10-04:customer`}
+      WHERE dedupe_key = ${`booking:${bookingId}:reminder:2026-10-04:12:00:customer`}
     `;
     const [tokenCount] = await database.connection.client`
       SELECT count(*)::int AS count

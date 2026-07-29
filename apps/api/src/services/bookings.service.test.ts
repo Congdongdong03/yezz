@@ -36,7 +36,11 @@ const enabledCapabilities = {
 function createEnabledBookingsService(
   db: Parameters<typeof createBookingsService>[0],
 ) {
-  return createBookingsService(db, enabledCapabilities);
+  return createBookingsService(db, enabledCapabilities, {
+    customerActionTokenSecret:
+      "bookings-service-test-customer-action-secret",
+    customerManageBaseUrl: "https://yezyy.com",
+  });
 }
 
 describe("createBookingsService", () => {
@@ -633,6 +637,14 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
     expect(await database.connection.db.select().from(bookingItems).where(eq(bookingItems.bookingId, result.id))).toMatchObject([
       { projectId, durationMinutesSnapshot: 60, unitPriceCentsSnapshot: 4300, quantity: 2 },
     ]);
+    const deliveries = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, result.id));
+    expect(deliveries.map(({ payload }) => payload.template).sort()).toEqual([
+      "booking_received",
+      "staff_notification",
+    ]);
   });
 
   it("rejects an idempotent replay when the database booking gate is disabled", async () => {
@@ -709,6 +721,14 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
     const [row] = await database.connection.db.select().from(bookings).where(eq(bookings.id, result.id));
     expect(row.status).toBe("waitlisted");
     expect(row.attendanceCount).toBe(3);
+    const deliveries = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, result.id));
+    expect(deliveries.map(({ payload }) => payload.template).sort()).toEqual([
+      "booking_waitlisted",
+      "staff_notification",
+    ]);
     expect(await availability.sumConfirmedAttendance(interval)).toBe(beforeAttendance);
     const [afterSlot] = await database.connection.db.select().from(timeSlots).where(eq(timeSlots.id, legacySlotId));
     expect(afterSlot.bookedCount).toBe(beforeSlot.bookedCount);
