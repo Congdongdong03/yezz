@@ -19,9 +19,10 @@ export function parseBookingManagementBaseUrl(
   production: boolean,
 ): URL | null {
   let parsed: URL;
+  const raw = value?.trim();
   try {
-    if (!value?.trim()) return null;
-    parsed = new URL(value);
+    if (!raw) return null;
+    parsed = new URL(raw);
   } catch {
     return null;
   }
@@ -29,6 +30,7 @@ export function parseBookingManagementBaseUrl(
   if (production) {
     const hostname = parsed.hostname.toLowerCase();
     if (
+      (raw !== parsed.origin && raw !== `${parsed.origin}/`) ||
       parsed.protocol !== "https:" ||
       parsed.username ||
       parsed.password ||
