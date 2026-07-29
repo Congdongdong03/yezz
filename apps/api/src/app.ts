@@ -18,6 +18,7 @@ import {
   startEmailOutboxWorker,
 } from "./services/email-outbox.service.js";
 import { startBookingMaintenanceWorker } from "./services/booking-maintenance.service.js";
+import { serializeRequestForLog } from "./lib/request-log-redaction.js";
 
 function parseAllowedOrigins(): string[] {
   const raw = process.env.CORS_ORIGIN ?? "http://localhost:3000";
@@ -35,7 +36,13 @@ function isDevLocalOrigin(origin: string): boolean {
 }
 
 export async function buildApp() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: {
+      serializers: {
+        req: serializeRequestForLog,
+      },
+    },
+  });
 
   const allowedOrigins = parseAllowedOrigins();
   const isProduction = process.env.NODE_ENV === "production";

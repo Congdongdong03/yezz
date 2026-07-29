@@ -36,6 +36,38 @@ describe("availability service", () => {
     ]);
   });
 
+  it("omits ordinary slots occupied by an active exclusive party", async () => {
+    const service = createAvailabilityService(null as never, {
+      now: () => new Date("2026-07-29T00:00:00.000Z"),
+      schedule: {
+        resolveDay: async () => ({
+          date: "2026-07-30",
+          isClosed: false,
+          opensAt: "09:30",
+          closesAt: "11:00",
+          closures: [],
+        }),
+      },
+      availability: {
+        sumConfirmedAttendance: async () => 0,
+        hasExclusivePartyOverlap: async (interval) => interval.startTime === "09:30",
+        lockOperationalDate: async () => undefined,
+      },
+    });
+
+    await expect(
+      service.listOrdinary({ date: "2026-07-30", durationMinutes: 60, attendance: 1 }),
+    ).resolves.toEqual([
+      {
+        date: "2026-07-30",
+        startTime: "10:00",
+        endTime: "11:00",
+        status: "available",
+        remaining: 8,
+      },
+    ]);
+  });
+
   it("returns only non-conflicting party candidates as request-only", async () => {
     const service = createAvailabilityService(null as never, {
       now: () => new Date("2026-07-29T00:00:00.000Z"),

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./party-policy": "./dist/party-policy.js"
   },
   "scripts": {
     "build": "tsc",

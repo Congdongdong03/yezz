@@ -1,4 +1,5 @@
 import type { BookingStatus, Db } from "@yezz/db";
+import { PARTY_MINIMUM_BIRTHDAY_AGE } from "@yezz/db/party-policy";
 import { createHash, createHmac } from "node:crypto";
 import { AppError } from "../lib/errors.js";
 import { getMelbourneClock, parseCalendarDate, validateBookingWindow } from "../lib/booking-policy.js";
@@ -121,7 +122,7 @@ function assertPartyInput(input: PartyCreateInput): void {
   if (!Number.isInteger(input.participantCount) || input.participantCount < 4 || input.participantCount > 8 || !Number.isInteger(input.parentCount) || input.parentCount < 1 || input.parentCount > 2) {
     throw new AppError(400, "PARTY_ATTENDANCE_INVALID", "Party guests must be 4–8 and parents must be 1–2");
   }
-  if (!Number.isInteger(input.birthdayChildAge) || input.birthdayChildAge < 5) throw new AppError(400, "PARTY_BIRTHDAY_AGE_INVALID", "Birthday child must be at least five");
+  if (!Number.isInteger(input.birthdayChildAge) || input.birthdayChildAge < PARTY_MINIMUM_BIRTHDAY_AGE) throw new AppError(400, "PARTY_BIRTHDAY_AGE_INVALID", `Birthday child must be at least ${PARTY_MINIMUM_BIRTHDAY_AGE}`);
   if (!input.birthdayChildName.trim() || !Array.isArray(input.projectInterests) || input.projectInterests.length === 0 || input.projectInterests.some((value) => !value.trim())) {
     throw new AppError(400, "VALIDATION_ERROR", "birthdayChildName and projectInterests are required");
   }

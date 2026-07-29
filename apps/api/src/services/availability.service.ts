@@ -150,6 +150,7 @@ export function createAvailabilityService(
           endTime: endTime(startTime, input.durationMinutes),
         };
         if (overlapsClosure(interval, schedule.closures)) continue;
+        if (await availabilityRepository.hasExclusivePartyOverlap(interval)) continue;
         const occupied = await availabilityRepository.sumConfirmedAttendance(interval);
         const remaining = Math.max(0, ORDINARY_CAPACITY - occupied);
         slots.push({

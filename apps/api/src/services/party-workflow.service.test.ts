@@ -115,6 +115,19 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       .rejects.toMatchObject({ code: "PARTY_ATTENDANCE_INVALID" });
   });
 
+  it("uses the shared five-year birthday minimum without changing party attendance limits", async () => {
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => new Date("2030-08-10T00:00:00.000Z"),
+    });
+
+    await expect(
+      service.createPartyRequest(validParty({ birthdayChildAge: 4 }), crypto.randomUUID()),
+    ).rejects.toMatchObject({ code: "PARTY_BIRTHDAY_AGE_INVALID" });
+    await expect(
+      service.createPartyRequest(validParty({ birthdayChildAge: 5 }), crypto.randomUUID()),
+    ).resolves.toMatchObject({ status: "pending_review" });
+  });
+
   it("creates a pending party request without an exclusive hold", async () => {
     const service = createPartyWorkflowService(database.connection.db, {
       now: () => new Date("2030-08-10T00:00:00.000Z"),
