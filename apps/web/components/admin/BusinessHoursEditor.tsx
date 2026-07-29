@@ -23,25 +23,34 @@ export default function BusinessHoursEditor({
 }) {
   const [weekly, setWeekly] = useState(schedule.weekly);
   const [weeklyAcknowledged, setWeeklyAcknowledged] = useState(false);
+  const [weeklyConflictFingerprint, setWeeklyConflictFingerprint] = useState<
+    string | null
+  >(null);
   const [special, setSpecial] = useState({
     date: "",
     opensAt: "09:30",
     closesAt: "17:00",
     isClosed: false,
     note: "",
-    acknowledgeExistingBookings: false,
+    acknowledged: false,
+    conflictFingerprint: null as string | null,
   });
   const [closure, setClosure] = useState({
     date: "",
     startTime: "12:00",
     endTime: "12:30",
     note: "",
-    acknowledgeExistingBookings: false,
+    acknowledged: false,
+    conflictFingerprint: null as string | null,
   });
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const run = async (action: () => Promise<unknown>, success: string) => {
+  const run = async (
+    action: () => Promise<unknown>,
+    success: string,
+    onScheduleConflict?: (fingerprint: string | null) => void,
+  ) => {
     setBusy(true);
     setMessage(null);
     try {
@@ -49,6 +58,14 @@ export default function BusinessHoursEditor({
       await onChanged();
       setMessage(success);
     } catch (error) {
+      const conflictFingerprint =
+        error instanceof ApiClientError && error.code === "SCHEDULE_CONFLICT"
+          ? (error.details?.conflictFingerprint as string | undefined) ?? null
+          : null;
+      if (conflictFingerprint !== null ||
+        (error instanceof ApiClientError && error.code === "SCHEDULE_CONFLICT")) {
+        onScheduleConflict?.(conflictFingerprint);
+      }
       setMessage(
         error instanceof ApiClientError && error.code === "SCHEDULE_CONFLICT"
           ? `与现有预约冲突：${(
@@ -62,11 +79,35 @@ export default function BusinessHoursEditor({
   };
 
   const patchDay = (weekday: number, patch: Partial<WeeklyHours>) => {
+    setWeeklyAcknowledged(false);
+    setWeeklyConflictFingerprint(null);
     setWeekly((current) =>
       current.map((day) =>
         day.weekday === weekday ? { ...day, ...patch } : day,
       ),
     );
+  };
+
+  const patchSpecial = (
+    patch: Partial<typeof special>,
+  ) => {
+    setSpecial((value) => ({
+      ...value,
+      ...patch,
+      acknowledged: false,
+      conflictFingerprint: null,
+    }));
+  };
+
+  const patchClosure = (
+    patch: Partial<typeof closure>,
+  ) => {
+    setClosure((value) => ({
+      ...value,
+      ...patch,
+      acknowledged: false,
+      conflictFingerprint: null,
+    }));
   };
 
   return (
@@ -92,8 +133,18 @@ export default function BusinessHoursEditor({
             disabled={busy}
             onClick={() =>
               void run(
-                () => updateWeeklyHours(weekly, weeklyAcknowledged),
+                () =>
+                  updateWeeklyHours(
+                    weekly,
+                    weeklyAcknowledged && weeklyConflictFingerprint
+                      ? { fingerprint: weeklyConflictFingerprint }
+                      : undefined,
+                  ),
                 "每周营业时间已保存",
+                (fingerprint) => {
+                  setWeeklyAcknowledged(false);
+                  setWeeklyConflictFingerprint(fingerprint);
+                },
               )
             }
             size="sm"
@@ -149,12 +200,13 @@ export default function BusinessHoursEditor({
           <input
             aria-label="已核对未来预约"
             checked={weeklyAcknowledged}
+            disabled={!weeklyConflictFingerprint}
             onChange={(event) =>
               setWeeklyAcknowledged(event.target.checked)
             }
             type="checkbox"
           />
-          已核对可预约日期范围内的现有预约；即使冲突也保存（不会修改预约）
+          看到冲突预约后重新核对并确认保存（不会修改预约）
         </label>
       </section>
 
@@ -171,10 +223,18 @@ export default function BusinessHoursEditor({
                   closesAt: special.isClosed ? null : special.closesAt,
                   isClosed: special.isClosed,
                   note: special.note || null,
-                  acknowledgeExistingBookings:
-                    special.acknowledgeExistingBookings,
+                  acknowledgement:
+                    special.acknowledged && special.conflictFingerprint
+                      ? { fingerprint: special.conflictFingerprint }
+                      : undefined,
                 }),
               special.isClosed ? "全天特别闭店已保存" : "特别营业时间已保存",
+              (fingerprint) =>
+                setSpecial((value) => ({
+                  ...value,
+                  acknowledged: false,
+                  conflictFingerprint: fingerprint,
+                })),
             );
           }}
         >
@@ -183,9 +243,7 @@ export default function BusinessHoursEditor({
             <input
               aria-label="特别安排日期"
               className="h-9 rounded-md border px-2"
-              onChange={(event) =>
-                setSpecial((value) => ({ ...value, date: event.target.value }))
-              }
+              onChange={(event) => patchSpecial({ date: event.target.value })}
               required
               type="date"
               value={special.date}
@@ -193,12 +251,7 @@ export default function BusinessHoursEditor({
             <label className="flex gap-2 text-sm">
               <input
                 checked={special.isClosed}
-                onChange={(event) =>
-                  setSpecial((value) => ({
-                    ...value,
-                    isClosed: event.target.checked,
-                  }))
-                }
+                onChange={(event) => patchSpecial({ isClosed: event.target.checked })}
                 type="checkbox"
               />
               全天特别闭店
@@ -208,24 +261,14 @@ export default function BusinessHoursEditor({
                 <input
                   aria-label="特别开门"
                   className="h-9 rounded-md border px-2"
-                  onChange={(event) =>
-                    setSpecial((value) => ({
-                      ...value,
-                      opensAt: event.target.value,
-                    }))
-                  }
+                  onChange={(event) => patchSpecial({ opensAt: event.target.value })}
                   type="time"
                   value={special.opensAt}
                 />
                 <input
                   aria-label="特别关门"
                   className="h-9 rounded-md border px-2"
-                  onChange={(event) =>
-                    setSpecial((value) => ({
-                      ...value,
-                      closesAt: event.target.value,
-                    }))
-                  }
+                  onChange={(event) => patchSpecial({ closesAt: event.target.value })}
                   type="time"
                   value={special.closesAt}
                 />
@@ -233,16 +276,17 @@ export default function BusinessHoursEditor({
             )}
             <label className="flex gap-2 text-sm text-[#6E6968]">
               <input
-                checked={special.acknowledgeExistingBookings}
+                checked={special.acknowledged}
+                disabled={!special.conflictFingerprint}
                 onChange={(event) =>
                   setSpecial((value) => ({
                     ...value,
-                    acknowledgeExistingBookings: event.target.checked,
+                    acknowledged: event.target.checked,
                   }))
                 }
                 type="checkbox"
               />
-              已核对现有预约；缩短营业时间或闭店即使冲突也保存（不会修改预约）
+              看到冲突预约后重新核对并确认保存（不会修改预约）
             </label>
             <Button disabled={busy} size="sm" type="submit">
               保存特别安排
@@ -261,10 +305,18 @@ export default function BusinessHoursEditor({
                   startTime: closure.startTime,
                   endTime: closure.endTime,
                   note: closure.note || null,
-                  acknowledgeExistingBookings:
-                    closure.acknowledgeExistingBookings,
+                  acknowledgement:
+                    closure.acknowledged && closure.conflictFingerprint
+                      ? { fingerprint: closure.conflictFingerprint }
+                      : undefined,
                 }),
               "部分时段闭店已保存",
+              (fingerprint) =>
+                setClosure((value) => ({
+                  ...value,
+                  acknowledged: false,
+                  conflictFingerprint: fingerprint,
+                })),
             );
           }}
         >
@@ -273,9 +325,7 @@ export default function BusinessHoursEditor({
             <input
               aria-label="部分闭店日期"
               className="h-9 rounded-md border px-2"
-              onChange={(event) =>
-                setClosure((value) => ({ ...value, date: event.target.value }))
-              }
+              onChange={(event) => patchClosure({ date: event.target.value })}
               required
               type="date"
               value={closure.date}
@@ -284,40 +334,31 @@ export default function BusinessHoursEditor({
               <input
                 aria-label="部分闭店开始"
                 className="h-9 rounded-md border px-2"
-                onChange={(event) =>
-                  setClosure((value) => ({
-                    ...value,
-                    startTime: event.target.value,
-                  }))
-                }
+                  onChange={(event) => patchClosure({ startTime: event.target.value })}
                 type="time"
                 value={closure.startTime}
               />
               <input
                 aria-label="部分闭店结束"
                 className="h-9 rounded-md border px-2"
-                onChange={(event) =>
-                  setClosure((value) => ({
-                    ...value,
-                    endTime: event.target.value,
-                  }))
-                }
+                  onChange={(event) => patchClosure({ endTime: event.target.value })}
                 type="time"
                 value={closure.endTime}
               />
             </div>
             <label className="flex gap-2 text-sm text-[#6E6968]">
               <input
-                checked={closure.acknowledgeExistingBookings}
+                checked={closure.acknowledged}
+                disabled={!closure.conflictFingerprint}
                 onChange={(event) =>
                   setClosure((value) => ({
                     ...value,
-                    acknowledgeExistingBookings: event.target.checked,
+                    acknowledged: event.target.checked,
                   }))
                 }
                 type="checkbox"
               />
-              已核对现有预约；即使冲突也保存（不会修改预约）
+              看到冲突预约后重新核对并确认保存（不会修改预约）
             </label>
             <Button disabled={busy} size="sm" type="submit">
               添加闭店时段

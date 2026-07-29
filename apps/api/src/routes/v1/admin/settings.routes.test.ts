@@ -54,7 +54,7 @@ describe("admin structured schedule routes", () => {
             closesAt: "17:00",
             isClosed: false,
           })),
-          acknowledgeExistingBookings: true,
+          acknowledgement: { fingerprint: "schedule-version-1" },
         },
       });
       const special = await app.inject({
@@ -65,6 +65,7 @@ describe("admin structured schedule routes", () => {
           opensAt: "11:00",
           closesAt: "15:00",
           isClosed: false,
+          acknowledgement: { fingerprint: "special-version-1" },
         },
       });
       const closure = await app.inject({
@@ -74,6 +75,7 @@ describe("admin structured schedule routes", () => {
           date: "2026-08-01",
           startTime: "12:00",
           endTime: "12:30",
+          acknowledgement: { fingerprint: "closure-version-1" },
         },
       });
       const deleted = await app.inject({
@@ -86,10 +88,22 @@ describe("admin structured schedule routes", () => {
       expect(weekly.statusCode).toBe(200);
       expect(weekly.json().data.weekly).toHaveLength(7);
       expect(app.services.adminSettings.updateWeekly).toHaveBeenCalledWith(
-        expect.objectContaining({ acknowledgeExistingBookings: true }),
+        expect.objectContaining({
+          acknowledgement: { fingerprint: "schedule-version-1" },
+        }),
       );
       expect(special.json().data.date).toBe("2026-08-01");
       expect(closure.json().data.id).toBe("closure-1");
+      expect(app.services.adminSettings.upsertSpecialHours).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acknowledgement: { fingerprint: "special-version-1" },
+        }),
+      );
+      expect(app.services.adminSettings.createClosure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acknowledgement: { fingerprint: "closure-version-1" },
+        }),
+      );
       expect(deleted.json().data).toEqual({ id: "closure-1" });
     } finally {
       await app.close();

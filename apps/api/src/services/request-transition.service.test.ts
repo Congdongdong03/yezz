@@ -514,6 +514,133 @@ describe.skipIf(!runDatabaseTests)(
       ).toBe(true);
     });
 
+    it("rejects a stale weekly acknowledgement when a concurrent confirmation changes its conflict set", async () => {
+      await database.connection.db.insert(studioWeeklyHours).values(
+        Array.from({ length: 7 }, (_, weekday) => ({
+          weekday,
+          opensAt: "10:00",
+          closesAt: "18:00",
+          isClosed: false,
+        })),
+      );
+      const [existingConflict, pendingConfirmation] = await database.connection.db
+        .insert(bookings)
+        .values([
+          {
+            name: "Existing schedule conflict",
+            phone: "0430000009",
+            email: "existing-schedule-conflict@example.com",
+            requestKind: "experience",
+            status: "confirmed",
+            participantCount: 2,
+            youngChildCount: 0,
+            accompanyingAdultCount: 1,
+            attendanceCount: 3,
+            durationMinutes: 60,
+            slotDate: "2030-08-12",
+            slotStartTime: "17:00",
+            slotEndTime: "18:00",
+            policyVersion: "2026-07-29",
+            policyAcceptedAt: new Date(),
+          },
+          {
+            name: "Concurrent acknowledgement confirmation",
+            phone: "0430000010",
+            email: "concurrent-acknowledgement@example.com",
+            requestKind: "experience",
+            status: "pending_review",
+            participantCount: 2,
+            youngChildCount: 0,
+            accompanyingAdultCount: 1,
+            attendanceCount: 3,
+            durationMinutes: 60,
+            slotDate: "2030-08-12",
+            slotStartTime: "17:00",
+            slotEndTime: "18:00",
+            policyVersion: "2026-07-29",
+            policyAcceptedAt: new Date(),
+          },
+        ])
+        .returning();
+      const now = () => new Date("2030-08-10T00:00:00.000Z");
+      const changedDays = Array.from({ length: 7 }, (_, weekday) => ({
+        weekday,
+        opensAt: "10:00",
+        closesAt: weekday === 1 ? "17:00" : "18:00",
+        isClosed: false,
+      }));
+      const scheduleService = createAdminSettingsService(
+        database.connection.db,
+        null,
+        process.env,
+        { now },
+      );
+
+      let initialConflict: unknown;
+      try {
+        await scheduleService.updateWeekly({ days: changedDays });
+      } catch (caught) {
+        initialConflict = caught;
+      }
+      expect(initialConflict).toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+      });
+      const fingerprint = (
+        initialConflict as { details?: { conflictFingerprint?: unknown } }
+      ).details?.conflictFingerprint;
+      expect(fingerprint).toEqual(expect.any(String));
+
+      const results = await Promise.allSettled([
+        scheduleService.updateWeekly({
+          days: changedDays,
+          acknowledgement: { fingerprint: fingerprint as string },
+        }),
+        createRequestTransitionService(database.connection.db, {
+          now,
+        }).transitionOrdinary({
+          bookingId: pendingConfirmation!.id,
+          expectedStatus: "pending_review",
+          toStatus: "confirmed",
+          operationId: crypto.randomUUID(),
+          actorUserId: actorId,
+          newDate: "2030-08-12",
+          newStartTime: "17:00",
+        }),
+      ]);
+
+      expect(
+        results.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      expect(
+        results.filter(({ status }) => status === "rejected"),
+      ).toHaveLength(1);
+      const rejected = results.find(
+        (result): result is PromiseRejectedResult => result.status === "rejected",
+      );
+      if (rejected?.reason.code === "SCHEDULE_CONFLICT") {
+        expect(rejected.reason.details?.conflictFingerprint).not.toBe(fingerprint);
+        expect(rejected.reason.details?.affectedBookingNumbers).toEqual(
+          expect.arrayContaining([
+            expect.any(String),
+            expect.any(String),
+          ]),
+        );
+      } else {
+        expect(rejected?.reason).toMatchObject({
+          code: "VALIDATION_ERROR",
+          message: expect.stringMatching(/closing time/),
+        });
+      }
+
+      await expect(
+        database.connection.db
+          .select({ status: bookings.status })
+          .from(bookings)
+          .where(eq(bookings.id, existingConflict!.id)),
+      ).resolves.toEqual([{ status: "confirmed" }]);
+    });
+
     it.each([
       ["rejected", "booking_rejected"],
       ["waitlisted", "booking_waitlisted"],

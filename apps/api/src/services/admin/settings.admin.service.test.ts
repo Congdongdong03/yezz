@@ -67,6 +67,27 @@ describe.skipIf(!runDatabaseTests)(
       await database.close();
     });
 
+    async function requireScheduleConflict(
+      operation: () => Promise<unknown>,
+    ): Promise<string> {
+      let error: unknown;
+      try {
+        await operation();
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error).toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+      });
+      const fingerprint = (
+        error as { details?: { conflictFingerprint?: unknown } }
+      ).details?.conflictFingerprint;
+      expect(fingerprint).toEqual(expect.any(String));
+      return fingerprint as string;
+    }
+
     it("writes and reads structured weekly, special, and closure rows", async () => {
       const service = createAdminSettingsService(database.connection.db);
       await service.updateWeekly({
@@ -164,27 +185,19 @@ describe.skipIf(!runDatabaseTests)(
         code: "SCHEDULE_CONFLICT",
       });
 
-      await expect(
+      const closureFingerprint = await requireScheduleConflict(() =>
         service.createClosure({
           date: "2026-08-01",
           startTime: "12:30",
           endTime: "13:30",
         }),
-      ).rejects.toMatchObject({
-        statusCode: 409,
-        code: "SCHEDULE_CONFLICT",
-        details: {
-          affectedBookingNumbers: [
-            expect.stringMatching(/^booking-\d{8}-[A-F0-9]{4}$/),
-          ],
-        },
-      });
+      );
 
       const closure = await service.createClosure({
         date: "2026-08-01",
         startTime: "12:30",
         endTime: "13:30",
-        acknowledgeExistingBookings: true,
+        acknowledgement: { fingerprint: closureFingerprint },
       });
       expect(closure.id).toBeTruthy();
       await expect(
@@ -221,23 +234,14 @@ describe.skipIf(!runDatabaseTests)(
       ]);
       const service = createAdminSettingsService(database.connection.db);
 
-      await expect(
+      const fingerprint = await requireScheduleConflict(() =>
         service.upsertSpecialHours({
           date: "2026-08-01",
           opensAt: "11:30",
           closesAt: "14:00",
           isClosed: false,
         }),
-      ).rejects.toMatchObject({
-        statusCode: 409,
-        code: "SCHEDULE_CONFLICT",
-        details: {
-          affectedBookingNumbers: [
-            expect.stringMatching(/^booking-\d{8}-[A-F0-9]{4}$/),
-            expect.stringMatching(/^booking-\d{8}-[A-F0-9]{4}$/),
-          ],
-        },
-      });
+      );
 
       await expect(
         service.upsertSpecialHours({
@@ -245,13 +249,155 @@ describe.skipIf(!runDatabaseTests)(
           opensAt: "11:30",
           closesAt: "14:00",
           isClosed: false,
-          acknowledgeExistingBookings: true,
+          acknowledgement: { fingerprint },
         }),
       ).resolves.toMatchObject({
         date: "2026-08-01",
         opensAt: "11:30",
         closesAt: "14:00",
       });
+    });
+
+    it("keeps unresolved cancellation and reschedule requests in special-hours capacity", async () => {
+      const inserted = await database.connection.db
+        .insert(bookings)
+        .values([
+          {
+            name: "Ordinary cancellation pending",
+            phone: "0400000024",
+            requestKind: "experience",
+            status: "cancellation_requested",
+            attendanceCount: 2,
+            participantCount: 2,
+            slotDate: "2026-08-01",
+            slotStartTime: "12:00",
+            slotEndTime: "13:00",
+          },
+          {
+            name: "Ordinary reschedule pending",
+            phone: "0400000025",
+            requestKind: "experience",
+            status: "reschedule_requested",
+            attendanceCount: 2,
+            participantCount: 2,
+            slotDate: "2026-08-01",
+            slotStartTime: "12:00",
+            slotEndTime: "13:00",
+          },
+          {
+            name: "Party cancellation pending",
+            phone: "0400000026",
+            requestKind: "party",
+            status: "cancellation_requested",
+            attendanceCount: 5,
+            participantCount: 4,
+            slotDate: "2026-08-01",
+            slotStartTime: "12:00",
+            slotEndTime: "13:00",
+          },
+          {
+            name: "Party reschedule pending",
+            phone: "0400000027",
+            requestKind: "party",
+            status: "reschedule_requested",
+            attendanceCount: 5,
+            participantCount: 4,
+            slotDate: "2026-08-01",
+            slotStartTime: "12:00",
+            slotEndTime: "13:00",
+          },
+          {
+            name: "Terminal ordinary cancellation",
+            phone: "0400000028",
+            requestKind: "experience",
+            status: "cancelled",
+            attendanceCount: 2,
+            participantCount: 2,
+            slotDate: "2026-08-01",
+            slotStartTime: "12:00",
+            slotEndTime: "13:00",
+          },
+          {
+            name: "Terminal party payment expiry",
+            phone: "0400000029",
+            requestKind: "party",
+            status: "payment_expired",
+            attendanceCount: 5,
+            participantCount: 4,
+            slotDate: "2026-08-01",
+            slotStartTime: "12:00",
+            slotEndTime: "13:00",
+          },
+        ])
+        .returning();
+      const service = createAdminSettingsService(database.connection.db);
+
+      let error: unknown;
+      try {
+        await service.upsertSpecialHours({ date: "2026-08-01", isClosed: true });
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error).toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+      });
+      const affected = (
+        error as { details?: { affectedBookingNumbers?: string[] } }
+      ).details?.affectedBookingNumbers;
+      expect(affected).toEqual(
+        expect.arrayContaining(
+          inserted.slice(0, 4).map((booking) =>
+            formatBookingOrderId(booking.id, booking.createdAt),
+          ),
+        ),
+      );
+      expect(affected).toHaveLength(4);
+    });
+
+    it("requires a fresh special-hours acknowledgement when its conflict version changes", async () => {
+      await database.connection.db.insert(bookings).values({
+        name: "Special acknowledgement version",
+        phone: "0400000030",
+        requestKind: "experience",
+        status: "confirmed",
+        attendanceCount: 2,
+        participantCount: 2,
+        slotDate: "2026-08-01",
+        slotStartTime: "12:00",
+        slotEndTime: "13:00",
+      });
+      const service = createAdminSettingsService(database.connection.db);
+      const firstFingerprint = await requireScheduleConflict(() =>
+        service.upsertSpecialHours({
+          date: "2026-08-01",
+          opensAt: "10:00",
+          closesAt: "12:30",
+          isClosed: false,
+        }),
+      );
+
+      const secondFingerprint = await requireScheduleConflict(() =>
+        service.upsertSpecialHours({
+          date: "2026-08-01",
+          opensAt: "10:00",
+          closesAt: "12:00",
+          isClosed: false,
+          acknowledgement: { fingerprint: firstFingerprint },
+        }),
+      );
+      expect(secondFingerprint).not.toBe(firstFingerprint);
+
+      await expect(
+        service.upsertSpecialHours({
+          date: "2026-08-01",
+          opensAt: "10:00",
+          closesAt: "12:00",
+          isClosed: false,
+          acknowledgement: { fingerprint: secondFingerprint },
+        }),
+      ).resolves.toMatchObject({ closesAt: "12:00" });
     });
 
     it("checks changed weekly hours over the Melbourne booking horizon without treating party setup or cleanup as public hours", async () => {
@@ -270,7 +416,7 @@ describe.skipIf(!runDatabaseTests)(
               name: "Weekly ordinary conflict",
               phone: "0400000031",
               requestKind: "experience",
-              status: "confirmed",
+              status: "cancellation_requested",
               attendanceCount: 2,
               participantCount: 2,
               slotDate: "2030-08-12",
@@ -281,7 +427,7 @@ describe.skipIf(!runDatabaseTests)(
               name: "Weekly party staff-only boundary",
               phone: "0400000032",
               requestKind: "party",
-              status: "awaiting_in_store_payment",
+              status: "reschedule_requested",
               participantCount: 4,
               attendanceCount: 5,
               slotDate: "2030-08-13",
@@ -350,22 +496,14 @@ describe.skipIf(!runDatabaseTests)(
               : day,
       );
 
-      await expect(
+      const fingerprint = await requireScheduleConflict(() =>
         service.updateWeekly({ days: changedDays }),
-      ).rejects.toMatchObject({
-        statusCode: 409,
-        code: "SCHEDULE_CONFLICT",
-        details: {
-          affectedBookingNumbers: [
-            formatBookingOrderId(ordinary!.id, ordinary!.createdAt),
-          ],
-        },
-      });
+      );
 
       await expect(
         service.updateWeekly({
           days: changedDays,
-          acknowledgeExistingBookings: true,
+          acknowledgement: { fingerprint },
         }),
       ).resolves.toEqual({ weekly: changedDays });
       await expect(
@@ -380,6 +518,61 @@ describe.skipIf(!runDatabaseTests)(
           })),
         ),
       );
+    });
+
+    it("locks every newly evaluated Melbourne horizon date after midnight rollover", async () => {
+      const originalDays = Array.from({ length: 7 }, (_, weekday) => ({
+        weekday,
+        opensAt: "10:00",
+        closesAt: "18:00",
+        isClosed: false,
+      }));
+      await database.connection.db.insert(studioWeeklyHours).values(originalDays);
+      const [booking] = await database.connection.db
+        .insert(bookings)
+        .values({
+          name: "Midnight rollover horizon booking",
+          phone: "0400000035",
+          requestKind: "experience",
+          status: "confirmed",
+          attendanceCount: 2,
+          participantCount: 2,
+          slotDate: "2030-08-18",
+          slotStartTime: "17:00",
+          slotEndTime: "18:00",
+        })
+        .returning();
+      let reads = 0;
+      const service = createAdminSettingsService(
+        database.connection.db,
+        null,
+        process.env,
+        {
+          now: () =>
+            reads++ === 0
+              ? new Date("2030-08-10T13:59:59.000Z")
+              : new Date("2030-08-10T14:00:00.000Z"),
+        },
+      );
+      const changedDays = originalDays.map((day) =>
+        day.weekday === 0 ? { ...day, closesAt: "17:00" } : day,
+      );
+
+      let error: unknown;
+      try {
+        await service.updateWeekly({ days: changedDays });
+      } catch (caught) {
+        error = caught;
+      }
+      expect(error).toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+        details: {
+          affectedBookingNumbers: [
+            formatBookingOrderId(booking!.id, booking!.createdAt),
+          ],
+        },
+      });
     });
   },
 );

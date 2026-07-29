@@ -11,7 +11,7 @@ export default async function adminSettingsRoutes(app: FastifyInstance) {
   };
   type WeeklyHoursBody = {
     days: WeeklyDay[];
-    acknowledgeExistingBookings?: boolean;
+    acknowledgement?: { fingerprint: string };
   };
   type SpecialHoursBody = {
     date: string;
@@ -19,14 +19,14 @@ export default async function adminSettingsRoutes(app: FastifyInstance) {
     closesAt?: string | null;
     isClosed: boolean;
     note?: string | null;
-    acknowledgeExistingBookings?: boolean;
+    acknowledgement?: { fingerprint: string };
   };
   type ClosureBody = {
     date: string;
     startTime?: string | null;
     endTime?: string | null;
     note?: string | null;
-    acknowledgeExistingBookings?: boolean;
+    acknowledgement?: { fingerprint: string };
   };
 
   app.get("/", async () => {

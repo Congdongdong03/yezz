@@ -333,20 +333,20 @@ export async function getAdminSchedule() {
 
 export async function updateWeeklyHours(
   days: WeeklyHours[],
-  acknowledgeExistingBookings = false,
+  acknowledgement?: { fingerprint: string },
 ) {
   return adminFetch<{ weekly: WeeklyHours[] }>(
     "/api/v1/admin/settings/schedule/weekly",
     {
       method: "PUT",
-      body: JSON.stringify({ days, acknowledgeExistingBookings }),
+      body: JSON.stringify({ days, acknowledgement }),
     },
   );
 }
 
 export async function saveSpecialHours(input: Omit<SpecialHours, "note"> & {
   note?: string | null;
-  acknowledgeExistingBookings?: boolean;
+  acknowledgement?: { fingerprint: string };
 }) {
   return adminFetch<SpecialHours>(
     "/api/v1/admin/settings/schedule/special-hours",
@@ -355,7 +355,7 @@ export async function saveSpecialHours(input: Omit<SpecialHours, "note"> & {
 }
 
 export async function createStudioClosure(input: Omit<StudioClosure, "id"> & {
-  acknowledgeExistingBookings?: boolean;
+  acknowledgement?: { fingerprint: string };
 }) {
   return adminFetch<StudioClosure>(
     "/api/v1/admin/settings/schedule/closures",

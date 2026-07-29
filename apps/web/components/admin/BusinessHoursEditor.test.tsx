@@ -73,6 +73,7 @@ describe("BusinessHoursEditor", () => {
       .mockRejectedValueOnce(
         new ApiClientError("Conflicting bookings", "SCHEDULE_CONFLICT", 409, {
           affectedBookingNumbers: ["YZZ-20300812-001"],
+          conflictFingerprint: "special-version-1",
         }),
       )
       .mockResolvedValueOnce({});
@@ -90,7 +91,7 @@ describe("BusinessHoursEditor", () => {
     });
     expect(adminApi.saveSpecialHours).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ acknowledgeExistingBookings: false }),
+      expect.objectContaining({ acknowledgement: undefined }),
     );
     expect(container.querySelector("[role='status']")?.textContent).toContain(
       "YZZ-20300812-001",
@@ -107,7 +108,9 @@ describe("BusinessHoursEditor", () => {
     });
     expect(adminApi.saveSpecialHours).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ acknowledgeExistingBookings: true }),
+      expect.objectContaining({
+        acknowledgement: { fingerprint: "special-version-1" },
+      }),
     );
     expect(onChanged).toHaveBeenCalledTimes(1);
     expect(container.querySelector("[role='status']")?.textContent).toContain(
@@ -121,6 +124,13 @@ describe("BusinessHoursEditor", () => {
       .mockRejectedValueOnce(
         new ApiClientError("Conflicting bookings", "SCHEDULE_CONFLICT", 409, {
           affectedBookingNumbers: ["YZZ-20300812-002"],
+          conflictFingerprint: "weekly-version-1",
+        }),
+      )
+      .mockRejectedValueOnce(
+        new ApiClientError("Conflicting bookings", "SCHEDULE_CONFLICT", 409, {
+          affectedBookingNumbers: ["YZZ-20300812-002", "YZZ-20300812-003"],
+          conflictFingerprint: "weekly-version-2",
         }),
       )
       .mockResolvedValueOnce({});
@@ -137,7 +147,7 @@ describe("BusinessHoursEditor", () => {
     expect(adminApi.updateWeeklyHours).toHaveBeenNthCalledWith(
       1,
       expect.any(Array),
-      false,
+      undefined,
     );
     expect(container.querySelector("[role='status']")?.textContent).toContain(
       "YZZ-20300812-002",
@@ -151,7 +161,15 @@ describe("BusinessHoursEditor", () => {
     expect(adminApi.updateWeeklyHours).toHaveBeenNthCalledWith(
       2,
       expect.any(Array),
-      true,
+      { fingerprint: "weekly-version-1" },
+    );
+    expect(acknowledgement?.checked).toBe(false);
+    await act(async () => acknowledgement?.click());
+    await act(async () => saveWeekly?.click());
+    expect(adminApi.updateWeeklyHours).toHaveBeenNthCalledWith(
+      3,
+      expect.any(Array),
+      { fingerprint: "weekly-version-2" },
     );
     expect(onChanged).toHaveBeenCalledTimes(1);
     expect(container.querySelector("[role='status']")?.textContent).toContain(

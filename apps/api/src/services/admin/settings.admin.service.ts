@@ -8,6 +8,7 @@ import {
   type Db,
 } from "@yezz/db";
 import type Redis from "ioredis";
+import { createHash } from "node:crypto";
 import { asc, eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import { CACHE_KEYS, cacheDel } from "../../lib/cache.js";
@@ -102,11 +103,22 @@ export const DEFAULT_YEZYY_SITE_SETTINGS = {
 
 const HH_MM = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const MILLISECONDS_PER_DAY = 86_400_000;
-const ACTIVE_PARTY_STATUSES = new Set([
+const OCCUPYING_EXPERIENCE_STATUSES = new Set([
+  "confirmed",
+  "cancellation_requested",
+  "reschedule_requested",
+]);
+const OCCUPYING_PARTY_STATUSES = new Set([
   "awaiting_in_store_payment",
   "confirmed_paid",
   "confirmed",
+  "cancellation_requested",
+  "reschedule_requested",
 ]);
+
+type ScheduleAcknowledgement = {
+  fingerprint: string;
+};
 
 function assertTimePair(
   opensAt: string | null | undefined,
@@ -168,6 +180,23 @@ function overlaps(
   );
 }
 
+function occupiesSchedule(
+  requestKind: string,
+  status: string,
+): boolean {
+  return (
+    (requestKind === "experience" &&
+      OCCUPYING_EXPERIENCE_STATUSES.has(status)) ||
+    (requestKind === "party" && OCCUPYING_PARTY_STATUSES.has(status))
+  );
+}
+
+function scheduleConflictFingerprint(value: unknown): string {
+  return createHash("sha256")
+    .update(JSON.stringify(value))
+    .digest("base64url");
+}
+
 export function createAdminSettingsService(
   db: Db,
   redis: Redis | null = null,
@@ -177,6 +206,23 @@ export function createAdminSettingsService(
   const repo = createSettingsRepository(db);
   const availabilityRepo = createBookingAvailabilityRepository(db);
   const now = dependencies?.now ?? (() => new Date());
+
+  async function lockStableOperationalHorizon(tx: Db) {
+    const lockedDates = new Set<string>();
+    while (true) {
+      const snapshot = operationalHorizon(now());
+      for (const { date } of snapshot) {
+        if (!lockedDates.has(date)) {
+          await availabilityRepo.lockOperationalDate(date, tx);
+          lockedDates.add(date);
+        }
+      }
+      const verified = operationalHorizon(now());
+      if (verified.every(({ date }) => lockedDates.has(date))) {
+        return verified;
+      }
+    }
+  }
 
   async function settingsRow(
     connection: Db = db,
@@ -223,10 +269,7 @@ export function createAdminSettingsService(
     return scheduled
       .filter(
         (booking) =>
-          ((booking.requestKind === "experience" &&
-            booking.status === "confirmed") ||
-            (booking.requestKind === "party" &&
-              ACTIVE_PARTY_STATUSES.has(booking.status))) &&
+          occupiesSchedule(booking.requestKind, booking.status) &&
           overlaps(
             booking.startTime,
             booking.endTime,
@@ -272,10 +315,7 @@ export function createAdminSettingsService(
             ? (booking.partyGuestEnd ?? booking.endTime)
             : booking.endTime;
         return (
-          ((booking.requestKind === "experience" &&
-            booking.status === "confirmed") ||
-            (booking.requestKind === "party" &&
-              ACTIVE_PARTY_STATUSES.has(booking.status))) &&
+          occupiesSchedule(booking.requestKind, booking.status) &&
           !!publicStart &&
           !!publicEnd &&
           (publicStart < opensAt || publicEnd > closesAt)
@@ -284,12 +324,28 @@ export function createAdminSettingsService(
       .map((booking) => formatBookingOrderId(booking.id, booking.createdAt));
   }
 
-  function throwScheduleConflict(affectedBookingNumbers: string[]) {
+  function requireScheduleAcknowledgement(
+    affectedBookingNumbers: string[],
+    fingerprint: string,
+    acknowledgement: ScheduleAcknowledgement | undefined,
+  ) {
+    if (
+      affectedBookingNumbers.length > 0 &&
+      acknowledgement?.fingerprint !== fingerprint
+    ) {
+      throwScheduleConflict(affectedBookingNumbers, fingerprint);
+    }
+  }
+
+  function throwScheduleConflict(
+    affectedBookingNumbers: string[],
+    conflictFingerprint: string,
+  ) {
     throw new AppError(
       409,
       "SCHEDULE_CONFLICT",
       "The schedule change affects active bookings",
-      { affectedBookingNumbers },
+      { affectedBookingNumbers, conflictFingerprint },
     );
   }
 
@@ -345,7 +401,7 @@ export function createAdminSettingsService(
         closesAt: string;
         isClosed: boolean;
       }>;
-      acknowledgeExistingBookings?: boolean;
+      acknowledgement?: ScheduleAcknowledgement;
     }) {
       const days = input?.days;
       if (
@@ -366,11 +422,8 @@ export function createAdminSettingsService(
       for (const day of days) {
         assertTimePair(day.opensAt, day.closesAt);
       }
-      const horizon = operationalHorizon(now());
       await db.transaction(async (tx) => {
-        for (const { date } of horizon) {
-          await availabilityRepo.lockOperationalDate(date, tx);
-        }
+        const horizon = await lockStableOperationalHorizon(tx);
         const current = await tx
           .select()
           .from(studioWeeklyHours)
@@ -395,13 +448,26 @@ export function createAdminSettingsService(
           days.map((day) => [day.weekday, day]),
         );
         const affectedBookingNumbers: string[] = [];
+        const relevantSpecialHours: Array<{
+          date: string;
+          special: {
+            opensAt: string | null;
+            closesAt: string | null;
+            isClosed: boolean;
+          } | null;
+        }> = [];
         for (const { date, weekday } of horizon) {
           if (!changedWeekdays.has(weekday)) continue;
           const [special] = await tx
-            .select({ date: studioSpecialHours.date })
+            .select({
+              opensAt: studioSpecialHours.opensAt,
+              closesAt: studioSpecialHours.closesAt,
+              isClosed: studioSpecialHours.isClosed,
+            })
             .from(studioSpecialHours)
             .where(eq(studioSpecialHours.date, date))
             .limit(1);
+          relevantSpecialHours.push({ date, special: special ?? null });
           if (special) continue;
           const day = nextByWeekday.get(weekday)!;
           affectedBookingNumbers.push(
@@ -416,12 +482,30 @@ export function createAdminSettingsService(
           );
         }
         const affected = [...new Set(affectedBookingNumbers)];
-        if (
-          affected.length > 0 &&
-          input.acknowledgeExistingBookings !== true
-        ) {
-          throwScheduleConflict(affected);
-        }
+        const fingerprint = scheduleConflictFingerprint({
+          kind: "weekly",
+          affectedBookingNumbers: affected,
+          currentWeekly: current.map((day) => ({
+            weekday: day.weekday,
+            opensAt: day.opensAt,
+            closesAt: day.closesAt,
+            isClosed: day.isClosed,
+          })),
+          nextWeekly: [...days]
+            .sort((left, right) => left.weekday - right.weekday)
+            .map((day) => ({
+              weekday: day.weekday,
+              opensAt: day.opensAt,
+              closesAt: day.closesAt,
+              isClosed: day.isClosed,
+            })),
+          relevantSpecialHours,
+        });
+        requireScheduleAcknowledgement(
+          affected,
+          fingerprint,
+          input.acknowledgement,
+        );
         for (const day of [...days].sort(
           (left, right) => left.weekday - right.weekday,
         )) {
@@ -447,7 +531,7 @@ export function createAdminSettingsService(
       closesAt?: string | null;
       isClosed: boolean;
       note?: string | null;
-      acknowledgeExistingBookings?: boolean;
+      acknowledgement?: ScheduleAcknowledgement;
     }) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
         throw new AppError(
@@ -456,6 +540,7 @@ export function createAdminSettingsService(
           "date must use YYYY-MM-DD",
         );
       }
+      const weekday = parseCalendarDate(input.date).weekday;
       if (input.isClosed) {
         if (input.opensAt || input.closesAt) {
           throw new AppError(
@@ -469,6 +554,27 @@ export function createAdminSettingsService(
       }
       const row = await db.transaction(async (tx) => {
         await availabilityRepo.lockOperationalDate(input.date, tx);
+        const [[currentWeekly], [currentSpecial]] = await Promise.all([
+          tx
+            .select({
+              weekday: studioWeeklyHours.weekday,
+              opensAt: studioWeeklyHours.opensAt,
+              closesAt: studioWeeklyHours.closesAt,
+              isClosed: studioWeeklyHours.isClosed,
+            })
+            .from(studioWeeklyHours)
+            .where(eq(studioWeeklyHours.weekday, weekday))
+            .limit(1),
+          tx
+            .select({
+              opensAt: studioSpecialHours.opensAt,
+              closesAt: studioSpecialHours.closesAt,
+              isClosed: studioSpecialHours.isClosed,
+            })
+            .from(studioSpecialHours)
+            .where(eq(studioSpecialHours.date, input.date))
+            .limit(1),
+        ]);
         const affected = input.isClosed
           ? await findAffectedBookingNumbers(input.date, null, null, tx)
           : await findBookingsOutsideSpecialHours(
@@ -477,12 +583,23 @@ export function createAdminSettingsService(
               input.closesAt!,
               tx,
             );
-        if (
-          affected.length > 0 &&
-          input.acknowledgeExistingBookings !== true
-        ) {
-          throwScheduleConflict(affected);
-        }
+        const fingerprint = scheduleConflictFingerprint({
+          kind: "special-hours",
+          affectedBookingNumbers: affected,
+          currentWeekly: currentWeekly ?? null,
+          currentSpecial: currentSpecial ?? null,
+          nextSpecial: {
+            date: input.date,
+            opensAt: input.isClosed ? null : input.opensAt!,
+            closesAt: input.isClosed ? null : input.closesAt!,
+            isClosed: input.isClosed,
+          },
+        });
+        requireScheduleAcknowledgement(
+          affected,
+          fingerprint,
+          input.acknowledgement,
+        );
         const [updated] = await tx
           .insert(studioSpecialHours)
           .values({
@@ -512,7 +629,7 @@ export function createAdminSettingsService(
       startTime?: string | null;
       endTime?: string | null;
       note?: string | null;
-      acknowledgeExistingBookings?: boolean;
+      acknowledgement?: ScheduleAcknowledgement;
     }) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
         throw new AppError(
@@ -521,6 +638,7 @@ export function createAdminSettingsService(
           "date must use YYYY-MM-DD",
         );
       }
+      const weekday = parseCalendarDate(input.date).weekday;
       const startTime = input.startTime ?? null;
       const endTime = input.endTime ?? null;
       if ((startTime === null) !== (endTime === null)) {
@@ -534,15 +652,45 @@ export function createAdminSettingsService(
 
       const row = await db.transaction(async (tx) => {
         await availabilityRepo.lockOperationalDate(input.date, tx);
+        const [[currentWeekly], [currentSpecial]] = await Promise.all([
+          tx
+            .select({
+              weekday: studioWeeklyHours.weekday,
+              opensAt: studioWeeklyHours.opensAt,
+              closesAt: studioWeeklyHours.closesAt,
+              isClosed: studioWeeklyHours.isClosed,
+            })
+            .from(studioWeeklyHours)
+            .where(eq(studioWeeklyHours.weekday, weekday))
+            .limit(1),
+          tx
+            .select({
+              opensAt: studioSpecialHours.opensAt,
+              closesAt: studioSpecialHours.closesAt,
+              isClosed: studioSpecialHours.isClosed,
+            })
+            .from(studioSpecialHours)
+            .where(eq(studioSpecialHours.date, input.date))
+            .limit(1),
+        ]);
         const affectedBookingNumbers = await findAffectedBookingNumbers(
           input.date,
           startTime,
           endTime,
           tx,
         );
-        if (affectedBookingNumbers.length > 0 && input.acknowledgeExistingBookings !== true) {
-          throwScheduleConflict(affectedBookingNumbers);
-        }
+        const fingerprint = scheduleConflictFingerprint({
+          kind: "closure",
+          affectedBookingNumbers,
+          currentWeekly: currentWeekly ?? null,
+          currentSpecial: currentSpecial ?? null,
+          nextClosure: { date: input.date, startTime, endTime },
+        });
+        requireScheduleAcknowledgement(
+          affectedBookingNumbers,
+          fingerprint,
+          input.acknowledgement,
+        );
         const [created] = await tx.insert(studioClosures).values({
           date: input.date,
           startTime,
