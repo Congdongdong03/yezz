@@ -10,9 +10,10 @@ import {
   timeSlots,
 } from "@yezz/db";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "../lib/errors.js";
 import { createTimeSlotsRepository } from "../repositories/time-slots.repository.js";
+import { createBookingAvailabilityRepository } from "../repositories/booking-availability.repository.js";
 import {
   createBookingsService,
   buildBookingEmailHtml,
@@ -673,6 +674,19 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
     });
   });
 
+  it("rejects a same-day ordinary request less than two Melbourne hours away", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-01T22:01:00.000Z"));
+    try {
+      await expect(createEnabledBookingsService(database.connection.db).createOrdinaryRequest(
+        ordinaryInput({ startTime: "10:00" }),
+        crypto.randomUUID(),
+      )).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("rejects an unknown or non-bookable project", async () => {
     const service = createEnabledBookingsService(database.connection.db);
     await expect(service.createOrdinaryRequest(ordinaryInput({ items: [{ projectId: crypto.randomUUID(), quantity: 2 }] }), crypto.randomUUID())).rejects.toMatchObject({ code: "PROJECT_NOT_BOOKABLE" });
@@ -680,11 +694,26 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
     await expect(service.createOrdinaryRequest(ordinaryInput(), crypto.randomUUID())).rejects.toMatchObject({ code: "PROJECT_NOT_BOOKABLE" });
   });
 
-  it("starts a waitlisted request without reserving attendance", async () => {
+  it("starts a waitlisted request without reserving confirmed or legacy capacity", async () => {
+    const legacySlotId = crypto.randomUUID();
+    await database.connection.db.insert(timeSlots).values({
+      id: legacySlotId, date: "2026-08-02", startTime: "10:00", endTime: "11:00", capacity: 8, bookedCount: 2,
+    });
+    await database.connection.db.insert(bookings).values({
+      name: "Already confirmed", phone: "0430000008", requestKind: "experience", status: "confirmed",
+      slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00", attendanceCount: 4,
+    });
+    const availability = createBookingAvailabilityRepository(database.connection.db);
+    const interval = { date: "2026-08-02", startTime: "10:00", endTime: "11:00" };
+    const beforeAttendance = await availability.sumConfirmedAttendance(interval);
+    const [beforeSlot] = await database.connection.db.select().from(timeSlots).where(eq(timeSlots.id, legacySlotId));
     const result = await createEnabledBookingsService(database.connection.db).createOrdinaryRequest(ordinaryInput({ mode: "waitlist" }), crypto.randomUUID());
     const [row] = await database.connection.db.select().from(bookings).where(eq(bookings.id, result.id));
     expect(row.status).toBe("waitlisted");
     expect(row.attendanceCount).toBe(3);
+    expect(await availability.sumConfirmedAttendance(interval)).toBe(beforeAttendance);
+    const [afterSlot] = await database.connection.db.select().from(timeSlots).where(eq(timeSlots.id, legacySlotId));
+    expect(afterSlot.bookedCount).toBe(beforeSlot.bookedCount);
   });
 });
 

@@ -1,5 +1,11 @@
 import Fastify from "fastify";
 import {
+  diyProjects,
+  projectCategories,
+  siteSettings,
+  studioWeeklyHours,
+} from "@yezz/db";
+import {
   afterEach,
   beforeEach,
   describe,
@@ -10,6 +16,13 @@ import {
 import { AppError } from "../../lib/errors.js";
 import { registerErrorHandler } from "../../plugins/error-handler.js";
 import bookingsRoutes from "./bookings.routes.js";
+import {
+  createRequestFlowTestDatabase,
+  type RequestFlowTestDatabase,
+} from "../../test-utils/request-flow-postgres.js";
+import { createBookingsService } from "../../services/bookings.service.js";
+
+const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
 
 const VERIFIED_IDENTITY = {
   clientIp: "203.0.113.10",
@@ -318,6 +331,52 @@ describe("bookingsRoutes durable rate limits", () => {
       );
     } finally {
       await app.close();
+    }
+  });
+});
+
+describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integration", () => {
+  let database: RequestFlowTestDatabase;
+  let projectId: string;
+
+  beforeEach(async () => {
+    database = await createRequestFlowTestDatabase();
+    const categoryId = crypto.randomUUID();
+    projectId = crypto.randomUUID();
+    await database.connection.db.insert(projectCategories).values({ id: categoryId, name: { en: "DIY", zh: "手作" }, slug: `route-diy-${categoryId}` });
+    await database.connection.db.insert(diyProjects).values({ id: projectId, categoryId, name: { en: "Clay cup", zh: "陶杯" }, slug: `route-clay-${projectId}`, projectType: "experience", bookable: true, durationMinutes: 60, priceMin: 4300 });
+    await database.connection.db.insert(siteSettings).values({ storeName: "YezYY", experienceRequestsEnabled: true });
+    await database.connection.db.insert(studioWeeklyHours).values({ weekday: 0, opensAt: "09:00", closesAt: "17:00", isClosed: false });
+  });
+
+  afterEach(async () => database.close());
+
+  it("rejects an existing ordinary idempotency key when the database gate is disabled", async () => {
+    const key = crypto.randomUUID();
+    const input = {
+      kind: "experience" as const, mode: "booking" as const, name: "Route customer", phone: "0430000000", email: "route@example.com",
+      date: "2026-08-02", startTime: "10:00", participantCount: 2, youngChildCount: 0, accompanyingAdultCount: 1,
+      items: [{ projectId, quantity: 2 }], locale: "en" as const, policyVersion: "2026-07-29" as const, policyAccepted: true as const,
+    };
+    const bookings = createBookingsService(database.connection.db, { experience: true, product: true, party: true });
+    await bookings.createOrdinaryRequest(input, key);
+    await database.connection.db.update(siteSettings).set({ experienceRequestsEnabled: false });
+    vi.stubEnv("REQUEST_FLOW_EXPERIENCE_ENABLED", "true");
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => { request.verifiedClientIdentity = VERIFIED_IDENTITY; });
+    const consume = vi.fn(async () => allowedResult());
+    app.decorate("services", { bookings, rateLimits: { consume } } as never);
+    await app.register(bookingsRoutes, { prefix: "/bookings" });
+    try {
+      const response = await app.inject({ method: "POST", url: "/bookings", headers: { "idempotency-key": key }, payload: input });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toMatchObject({ success: false, error: { code: "REQUEST_FLOW_DISABLED" } });
+      expect(consume).toHaveBeenCalledTimes(1);
+    } finally {
+      await app.close();
+      vi.unstubAllEnvs();
     }
   });
 });
