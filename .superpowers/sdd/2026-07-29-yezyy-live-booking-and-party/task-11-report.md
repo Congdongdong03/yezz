@@ -135,3 +135,175 @@ route validation rejects the pre-existing exported helper
 `apps/web/app/api/backend/[...path]/route.ts`. That route was not changed as
 part of this task. Moving the generated `.next` directory aside restores the
 clean-checkout `corepack pnpm typecheck` result above.
+
+## Fix Round 1 — Analytics boundary, Owner serialization, and PostgreSQL fixture
+
+### Review findings and verified root causes
+
+1. `RootLayout` rendered `GoogleAnalytics` unconditionally. The setup form read
+   the bearer token from `useSearchParams` but left it in
+   `window.location`, so third-party analytics code executed in the same page
+   while the Owner credential remained readable.
+2. Owner demotion and deletion performed `findById`, `countByRole`, and the
+   mutation as separate database operations. Two requests could both observe
+   two Owners before either write and reduce the Owner count to zero.
+3. The request-flow fixture copied the new setup-email constraint onto
+   `request_status_events`, whose columns do not include `message_type` or
+   `status_event_id`. Its actual `email_outbox` table retained the old
+   exactly-one-parent check, rejecting a valid parentless setup email.
+
+### RED evidence
+
+Analytics and visible URL:
+
+```text
+NEXT_PUBLIC_GA_ID=G-SECURITY-REGRESSION \
+  corepack pnpm --filter @yezz/web exec vitest run \
+  app/admin/setup-password/page.test.tsx app/layout.test.tsx
+
+Test Files  2 failed (2)
+Tests       2 failed | 3 passed (5)
+
+layout contained https://www.googletagmanager.com/gtag/js
+location.search still contained ?token=<43-character test token>
+```
+
+Real PostgreSQL fixture:
+
+```text
+YEZYY_RUN_DB_BOOKING_TESTS=1 \
+  corepack pnpm --filter @yezz/api exec vitest run \
+  src/repositories/password-setup-tokens.repository.test.ts
+
+Test Files  1 failed (1)
+Tests       2 failed (2)
+PostgresError: column "message_type" does not exist
+```
+
+The concurrency regression uses an isolated-schema trigger to pause both
+Owner writes after their count. With the advisory lock removed, including in a
+post-fix mutation check:
+
+```text
+Test Files  1 failed (1)
+Tests       1 failed (1)
+expected fulfilled results to have length 1, received 2
+```
+
+The trigger returns `NEW` for updates and `OLD` for deletes; this preserves
+real mutation semantics while making the race deterministic.
+
+### Fixes
+
+- `GoogleAnalytics` now reads the pathname at the root-layout boundary and
+  returns before rendering either Google Tag Manager script on
+  `/admin/setup-password`.
+- `SetupPasswordForm` copies the query credential into one immutable state
+  value, then a layout effect deletes only the `token` parameter with
+  `history.replaceState`, preserving unrelated query values and the fragment.
+- The full-layout regression renders `RootLayout` with a non-empty GA ID and
+  proves the setup route contains no external script, GA ID, `gtag`
+  configuration, token transmission, data layer, or GA function.
+- `users.repository.ts` now supplies a transaction-scoped, shared PostgreSQL
+  advisory lock for privileged Owner mutations. Every role update re-reads,
+  re-counts, and writes inside that locked transaction; every deletion does
+  the same. At `READ COMMITTED`, the second waiter observes the first committed
+  mutation and cannot remove the remaining Owner.
+- A real PostgreSQL test runs a simultaneous Owner demotion and deletion. It
+  requires exactly one success, one rejection, and one persisted Owner.
+- The request-flow fixture restores the exactly-one-request constraint to
+  `request_status_events` and applies the production migration's parentless
+  `admin_password_setup` exception to `email_outbox`.
+- Real PostgreSQL token tests now prove concurrent digest consumption has one
+  winner, a setup token and parentless durable email persist together, raw
+  token material is absent from the digest row, and invalid outbox validation
+  rolls the token insertion back.
+
+### GREEN verification
+
+Analytics boundary and URL cleanup:
+
+```text
+NEXT_PUBLIC_GA_ID=G-SECURITY-REGRESSION \
+  corepack pnpm --filter @yezz/web exec vitest run \
+  app/layout.test.tsx app/admin/setup-password/page.test.tsx
+
+Test Files  2 passed (2)
+Tests       5 passed (5)
+```
+
+Dedicated PostgreSQL security cases, using an isolated local
+`yezyy_closure_test` database with per-test schemas:
+
+```text
+YEZYY_RUN_DB_BOOKING_TESTS=1 \
+  corepack pnpm --filter @yezz/api exec vitest run \
+  src/repositories/password-setup-tokens.repository.test.ts \
+  src/services/admin/users.admin.service.postgres.test.ts
+
+Test Files  2 passed (2)
+Tests       5 passed (5)
+
+YEZYY_RUN_DB_MIGRATION_TESTS=1 \
+  corepack pnpm --filter @yezz/db exec vitest run \
+  src/bootstrap-production.test.ts \
+  -t 'production bootstrap PostgreSQL integration'
+
+Test Files  1 passed (1)
+Tests       3 passed | 8 skipped (11)
+```
+
+Full regressions:
+
+```text
+corepack pnpm --filter @yezz/api test
+Test Files  44 passed | 16 skipped (60)
+Tests       307 passed | 133 skipped (440)
+
+corepack pnpm --filter @yezz/web test
+Test Files  49 passed (49)
+Tests       207 passed (207)
+
+corepack pnpm --filter @yezz/db test
+Test Files  2 passed | 3 skipped (5)
+Tests       14 passed | 9 skipped (23)
+```
+
+The DB suite was rerun alone for the result above. During one parallel
+API/Web/DB invocation, its existing spawned `corepack` seed-guard test took
+7.4 seconds and exceeded Vitest's five-second test timeout; alone it completed
+in 3.13 seconds with no failure.
+
+Static and build verification:
+
+```text
+corepack pnpm typecheck
+exit 0: DB, Web, and API typechecks passed
+
+corepack pnpm --filter @yezz/web lint -- \
+  app/layout.test.tsx \
+  app/admin/setup-password/SetupPasswordForm.tsx \
+  app/admin/setup-password/page.test.tsx \
+  components/analytics/GoogleAnalytics.tsx
+exit 0
+
+corepack pnpm build:api
+exit 0
+
+git diff --check
+exit 0
+```
+
+### Remaining unrelated build limitation
+
+The default `corepack pnpm build` still stops before compilation because
+Turbopack selects the parent checkout's lockfile and cannot resolve
+`next/package.json` from this worktree. The webpack fallback compiles the
+application successfully in 20.0 seconds, then the generated Next route
+validation rejects the pre-existing exported helper `handleBackendRequest` in
+`apps/web/app/api/backend/[...path]/route.ts`. Neither failure originates in
+the Task 11 fix files.
+
+No production data, configuration, deployment, public gate, real password, or
+real setup token was accessed or changed. The dedicated PostgreSQL container
+uses a test-only database on local loopback with tmpfs storage.

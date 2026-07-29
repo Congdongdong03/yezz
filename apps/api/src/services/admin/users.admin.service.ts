@@ -102,50 +102,63 @@ export function createAdminUsersService(db: Db) {
         );
       }
 
-      const existing = await repo.findById(id);
-      if (!existing) {
-        throw new AppError(404, "NOT_FOUND", "User not found");
-      }
-      if (existing.role === "owner") {
-        requireOwner(actor);
-      }
-      const roleChanges = input.role !== undefined && input.role !== existing.role;
-      if (
-        roleChanges &&
-        (existing.role !== "staff" || input.role !== "staff")
-      ) {
-        requireOwner(actor);
-      }
-      if (
-        roleChanges &&
-        existing.role === "owner" &&
-        id === actor.sub &&
-        (await repo.countByRole("owner")) <= 1
-      ) {
-        throw new AppError(
-          400,
-          "VALIDATION_ERROR",
-          "The sole owner cannot demote themselves",
-        );
-      }
-
-      if (input.email && input.email.trim().toLowerCase() !== existing.email) {
-        const conflict = await repo.findByEmail(input.email.trim().toLowerCase());
-        if (conflict && conflict.id !== id) {
-          throw new AppError(409, "CONFLICT", "Email already in use");
+      const updateUser = async (tx?: Db): Promise<AdminUserDto> => {
+        const existing = await repo.findById(id, tx);
+        if (!existing) {
+          throw new AppError(404, "NOT_FOUND", "User not found");
         }
-      }
+        if (existing.role === "owner") {
+          requireOwner(actor);
+        }
+        const roleChanges =
+          input.role !== undefined && input.role !== existing.role;
+        if (
+          roleChanges &&
+          (existing.role !== "staff" || input.role !== "staff")
+        ) {
+          requireOwner(actor);
+        }
+        if (
+          roleChanges &&
+          existing.role === "owner" &&
+          (await repo.countByRole("owner", tx)) <= 1
+        ) {
+          throw new AppError(
+            400,
+            "VALIDATION_ERROR",
+            "The sole owner cannot be demoted",
+          );
+        }
 
-      const row = await repo.update(id, {
-        email: input.email?.trim().toLowerCase(),
-        name: input.name?.trim(),
-        role: input.role,
-      });
-      if (!row) {
-        throw new AppError(500, "INTERNAL_ERROR", "Failed to update user");
-      }
+        if (input.email && input.email.trim().toLowerCase() !== existing.email) {
+          const conflict = await repo.findByEmail(
+            input.email.trim().toLowerCase(),
+            tx,
+          );
+          if (conflict && conflict.id !== id) {
+            throw new AppError(409, "CONFLICT", "Email already in use");
+          }
+        }
 
-      return dto(row);
+        const row = await repo.update(
+          id,
+          {
+            email: input.email?.trim().toLowerCase(),
+            name: input.name?.trim(),
+            role: input.role,
+          },
+          tx,
+        );
+        if (!row) {
+          throw new AppError(500, "INTERNAL_ERROR", "Failed to update user");
+        }
+
+        return dto(row);
+      };
+
+      return input.role === undefined
+        ? updateUser()
+        : repo.withOwnerMutationLock(updateUser);
     },
 
     async resetPassword(
@@ -204,28 +217,30 @@ export function createAdminUsersService(db: Db) {
       if (id === actor.sub) {
         throw new AppError(400, "VALIDATION_ERROR", "Cannot delete your own account");
       }
-      const existing = await repo.findById(id);
-      if (!existing) {
-        throw new AppError(404, "NOT_FOUND", "User not found");
-      }
-      if (existing.role !== "staff") {
-        requireOwner(actor);
-      }
-      if (
-        existing.role === "owner" &&
-        (await repo.countByRole("owner")) <= 1
-      ) {
-        throw new AppError(
-          400,
-          "VALIDATION_ERROR",
-          "The sole owner cannot be deleted",
-        );
-      }
-      const row = await repo.delete(id);
-      if (!row) {
-        throw new AppError(404, "NOT_FOUND", "User not found");
-      }
-      return { id: row.id };
+      return repo.withOwnerMutationLock(async (tx) => {
+        const existing = await repo.findById(id, tx);
+        if (!existing) {
+          throw new AppError(404, "NOT_FOUND", "User not found");
+        }
+        if (existing.role !== "staff") {
+          requireOwner(actor);
+        }
+        if (
+          existing.role === "owner" &&
+          (await repo.countByRole("owner", tx)) <= 1
+        ) {
+          throw new AppError(
+            400,
+            "VALIDATION_ERROR",
+            "The sole owner cannot be deleted",
+          );
+        }
+        const row = await repo.delete(id, tx);
+        if (!row) {
+          throw new AppError(404, "NOT_FOUND", "User not found");
+        }
+        return { id: row.id };
+      });
     },
   };
 }

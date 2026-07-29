@@ -319,18 +319,7 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       actor_user_id uuid REFERENCES "${schema}".users(id) ON DELETE RESTRICT,
       actor_kind varchar(16) NOT NULL DEFAULT 'staff',
       created_at timestamptz NOT NULL DEFAULT now(),
-      CHECK (
-        (
-          message_type = 'admin_password_setup'
-          AND num_nonnulls(booking_id, cart_order_id) = 0
-          AND status_event_id IS NULL
-        )
-        OR
-        (
-          message_type <> 'admin_password_setup'
-          AND num_nonnulls(booking_id, cart_order_id) = 1
-        )
-      )
+      CHECK (num_nonnulls(booking_id, cart_order_id) = 1)
     );
     CREATE TABLE "${schema}".email_outbox (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -351,7 +340,18 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       sent_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
-      CHECK (num_nonnulls(booking_id, cart_order_id) = 1)
+      CHECK (
+        (
+          message_type = 'admin_password_setup'
+          AND num_nonnulls(booking_id, cart_order_id) = 0
+          AND status_event_id IS NULL
+        )
+        OR
+        (
+          message_type <> 'admin_password_setup'
+          AND num_nonnulls(booking_id, cart_order_id) = 1
+        )
+      )
     );
     CREATE TABLE "${schema}".admin_request_reads (
       user_id uuid NOT NULL REFERENCES "${schema}".users(id) ON DELETE CASCADE,

@@ -1,8 +1,12 @@
+"use client";
+
 import Script from "next/script";
+import { usePathname } from "next/navigation";
 import { GA_ID } from "@/lib/analytics/gtag";
 
 export default function GoogleAnalytics() {
-  if (!GA_ID) return null;
+  const pathname = usePathname();
+  if (!GA_ID || pathname === "/admin/setup-password") return null;
 
   return (
     <>

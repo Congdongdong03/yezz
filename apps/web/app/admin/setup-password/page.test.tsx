@@ -26,6 +26,11 @@ describe("admin password setup page", () => {
 
   beforeEach(() => {
     api.completePasswordSetup.mockReset().mockResolvedValue({ ok: true });
+    window.history.replaceState(
+      {},
+      "",
+      `/admin/setup-password?token=${TOKEN}&source=email#setup`,
+    );
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -70,6 +75,15 @@ describe("admin password setup page", () => {
     expect(container.querySelector("form")).toBeNull();
     expect(container.querySelector('a[href="/admin/login"]')).not.toBeNull();
     setItem.mockRestore();
+  });
+
+  it("captures the token in memory and immediately removes it from the visible URL", async () => {
+    await renderPage();
+
+    expect(window.location.pathname).toBe("/admin/setup-password");
+    expect(window.location.search).toBe("?source=email");
+    expect(window.location.hash).toBe("#setup");
+    expect(window.location.href).not.toContain(TOKEN);
   });
 
   it("does not submit mismatched or short passwords", async () => {

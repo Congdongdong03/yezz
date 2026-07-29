@@ -5,6 +5,16 @@ export type { UserRole };
 
 export function createUsersRepository(db: Db) {
   return {
+    async withOwnerMutationLock<T>(
+      operation: (tx: Db) => Promise<T>,
+    ): Promise<T> {
+      return db.transaction(async (transaction) => {
+        const tx = transaction as unknown as Db;
+        await tx.execute(sql`select pg_advisory_xact_lock(149978, 1111)`);
+        return operation(tx);
+      });
+    },
+
     async findByEmail(email: string, tx: Db = db) {
       const [row] = await tx
         .select({

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const repo = vi.hoisted(() => ({
+  withOwnerMutationLock: vi.fn(),
   findByEmail: vi.fn(),
   findById: vi.fn(),
   findByIdWithPasswordHash: vi.fn(),
@@ -39,6 +40,9 @@ const user = {
 describe("admin users service password lifecycle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    repo.withOwnerMutationLock.mockImplementation((operation) =>
+      operation(undefined),
+    );
     repo.findByEmail.mockResolvedValue(null);
     repo.create.mockResolvedValue(user);
     repo.update.mockResolvedValue(user);

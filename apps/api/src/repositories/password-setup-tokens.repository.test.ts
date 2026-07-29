@@ -1,9 +1,11 @@
-import { passwordSetupTokens, users } from "@yezz/db";
+import { emailOutbox, passwordSetupTokens, users } from "@yezz/db";
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createRequestFlowTestDatabase,
   type RequestFlowTestDatabase,
 } from "../test-utils/request-flow-postgres.js";
+import { createEmailOutboxRepository } from "./email-outbox.repository.js";
 import { createPasswordSetupTokensRepository } from "./password-setup-tokens.repository.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
@@ -27,7 +29,7 @@ describe.skipIf(!runDatabaseTests)("password setup token repository", () => {
   });
 
   afterEach(async () => {
-    await database.close();
+    await database?.close();
   });
 
   it("finds only an unused, unrevoked, unexpired digest and never raw tokens", async () => {
@@ -90,5 +92,119 @@ describe.skipIf(!runDatabaseTests)("password setup token repository", () => {
       usedAt: null,
       revokedAt: now,
     });
+  });
+
+  it("allows only one concurrent transaction to consume a setup digest", async () => {
+    const repo = createPasswordSetupTokensRepository(database.connection.db);
+    const digest = "c".repeat(64);
+    await database.connection.db.insert(passwordSetupTokens).values({
+      userId,
+      tokenDigest: digest,
+      expiresAt: new Date("2030-08-01T01:00:00.000Z"),
+    });
+    const now = new Date("2030-08-01T00:00:00.000Z");
+    const consume = () =>
+      database.connection.db.transaction(async (tx) => {
+        const token = await repo.findActiveByDigestForUpdate(
+          digest,
+          now,
+          tx as never,
+        );
+        if (!token) return false;
+        return Boolean(await repo.markUsed(token.id, now, tx as never));
+      });
+
+    const results = await Promise.all([consume(), consume()]);
+
+    expect(results.sort()).toEqual([false, true]);
+  });
+
+  it("persists a parentless setup email with the digest and rolls both back on an invalid outbox payload", async () => {
+    const tokens = createPasswordSetupTokensRepository(database.connection.db);
+    const outbox = createEmailOutboxRepository(database.connection.db);
+    const rawToken = "R".repeat(43);
+    const tokenDigest = createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+    const expiresAt = new Date("2030-08-01T01:00:00.000Z");
+
+    await database.connection.db.transaction(async (tx) => {
+      const token = await tokens.create(
+        { userId, tokenDigest, expiresAt },
+        tx as never,
+      );
+      await outbox.enqueue(
+        {
+          dedupeKey: `admin-password-setup:${token.id}`,
+          bookingId: null,
+          cartOrderId: null,
+          statusEventId: null,
+          messageType: "admin_password_setup",
+          recipient: "owner@example.test",
+          locale: "en",
+          payload: {
+            template: "admin_password_setup",
+            name: "Owner",
+            email: "owner@example.test",
+            role: "owner",
+            setupUrl: `https://yezyy.com/admin/setup-password?token=${rawToken}`,
+            expiresAt: expiresAt.toISOString(),
+          },
+        },
+        tx as never,
+      );
+    });
+
+    const [storedToken] = await database.connection.db
+      .select()
+      .from(passwordSetupTokens);
+    const [storedEmail] = await database.connection.db
+      .select()
+      .from(emailOutbox);
+    expect(storedToken).toMatchObject({ tokenDigest });
+    expect(JSON.stringify(storedToken)).not.toContain(rawToken);
+    expect(storedEmail).toMatchObject({
+      bookingId: null,
+      cartOrderId: null,
+      statusEventId: null,
+      messageType: "admin_password_setup",
+    });
+
+    await expect(
+      database.connection.db.transaction(async (tx) => {
+        await tokens.create(
+          {
+            userId,
+            tokenDigest: "d".repeat(64),
+            expiresAt,
+          },
+          tx as never,
+        );
+        await outbox.enqueue(
+          {
+            dedupeKey: "admin-password-setup:invalid",
+            bookingId: null,
+            cartOrderId: null,
+            statusEventId: null,
+            messageType: "admin_password_setup",
+            recipient: "owner@example.test",
+            locale: "en",
+            payload: {
+              template: "admin_password_setup",
+              name: "Owner",
+              email: "owner@example.test",
+              role: "owner",
+              setupUrl: "https://example.test/unsafe",
+              expiresAt: expiresAt.toISOString(),
+            },
+          },
+          tx as never,
+        );
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+    const tokenRows = await database.connection.db
+      .select()
+      .from(passwordSetupTokens);
+    expect(tokenRows).toHaveLength(1);
   });
 });
