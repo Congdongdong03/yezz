@@ -89,14 +89,32 @@ export async function submitLiveOrdinaryForm(options: {
   await page
     .locator(`input[aria-label*="${fixture.projects.long.seed.name[locale]}"]`)
     .fill("1");
-  const dateButton = page.locator(`[data-date="${fixture.bookingDate}"]`);
-  for (let attempt = 0; attempt < 3 && !(await dateButton.count()); attempt += 1) {
-    await page.getByRole("button", { name: /Next month|下个月/ }).click();
-  }
-  await dateButton.click();
+  const availabilityResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      url.pathname === "/api/v1/availability/ordinary" &&
+      url.searchParams.get("date") === fixture.bookingDate
+    );
+  });
   await page
-    .locator(`button[aria-label*="${mode === "waitlist" ? "Join waitlist" : "Request this time"}"][aria-label*="10:00"]`)
-    .click();
+    .getByLabel(locale === "zh" ? "到店日期" : "Visit date", { exact: true })
+    .fill(fixture.bookingDate);
+  expect((await availabilityResponse).status()).toBe(200);
+  const slotAction =
+    mode === "waitlist"
+      ? locale === "zh"
+        ? "加入候补"
+        : "Join waitlist"
+      : locale === "zh"
+        ? "申请此时段"
+        : "Request this time";
+  const slotButton = page.getByRole("button", {
+    name: new RegExp(`^${slotAction}: 10:00\\b`),
+  });
+  await expect(slotButton).toBeVisible();
+  await expect(slotButton).toBeEnabled();
+  await slotButton.click();
   await page.locator('input[name="name"]').fill(`UI ${fixture.runId}`);
   await page.locator('input[name="phone"]').fill("0430787722");
   await page.locator('input[name="email"]').fill(email);
@@ -104,7 +122,14 @@ export async function submitLiveOrdinaryForm(options: {
   return captureCreatedRequest(page, "bookings", async () => {
     await page
       .getByRole("button", {
-        name: mode === "waitlist" ? "Join the waitlist" : "Send booking request",
+        name:
+          locale === "zh"
+            ? mode === "waitlist"
+              ? "加入候补"
+              : "提交预约申请"
+            : mode === "waitlist"
+              ? "Join the waitlist"
+              : "Send booking request",
       })
       .click();
   });
