@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { mapSiteSettingsFromApi } from "./mappers";
-import type { ApiSiteSettings } from "./types";
+import {
+  mapPartyFromApi,
+  mapProjectListItemFromApi,
+  mapSiteSettingsFromApi,
+} from "./mappers";
+import type { ApiParty, ApiProjectListItem, ApiSiteSettings } from "./types";
 
 const settings: Omit<ApiSiteSettings, "requestCapabilities"> = {
   id: "settings",
@@ -46,6 +50,83 @@ describe("mapSiteSettingsFromApi", () => {
       experience: true,
       product: false,
       party: false,
+    });
+  });
+});
+
+describe("live booking catalogue mappings", () => {
+  it("keeps project cents pricing and operational fields available to the web app", () => {
+    const result = mapProjectListItemFromApi({
+      id: "project-1",
+      name: { en: "Melty bead craft", zh: "拼豆手作" },
+      slug: "melty-bead-craft",
+      projectType: "experience",
+      description: null,
+      priceRange: "$49.50",
+      priceMin: 4950,
+      priceMax: 4950,
+      priceCurrency: "AUD",
+      priceDisplay: "$49.50",
+      duration: "60 minutes",
+      durationMinutes: 60,
+      bookable: false,
+      variantSelectedInStore: false,
+      extraTimeMinutes: 30,
+      extraTimePriceCents: 1650,
+      tags: [],
+      sortOrder: 0,
+      coverImageUrl: null,
+      category: {
+        id: "category-1",
+        name: { en: "Melty beads", zh: "拼豆" },
+        slug: "melty-beads",
+        icon: null,
+      },
+    } as ApiProjectListItem);
+
+    expect(result).toMatchObject({
+      priceMin: 4950,
+      priceMax: 4950,
+      priceCurrency: "AUD",
+      durationMinutes: 60,
+      bookable: false,
+      variantSelectedInStore: false,
+      extraTimeMinutes: 30,
+      extraTimePriceCents: 1650,
+    });
+  });
+
+  it("keeps party timing and fee snapshots available to the web app", () => {
+    const result = mapPartyFromApi({
+      id: "party-1",
+      name: { en: "90-minute party package", zh: "90分钟派对套餐" },
+      slug: "party-90",
+      description: null,
+      includes: [],
+      imageUrl: null,
+      imageUrls: [],
+      minPeople: 4,
+      maxPeople: 8,
+      priceIndicator: null,
+      guestDurationMinutes: 90,
+      setupMinutes: 30,
+      cleanupMinutes: 30,
+      venueFeeCents: 9500,
+      minSpendPerPersonCents: 4500,
+      minParents: 1,
+      maxParents: 2,
+      tags: [],
+      sortOrder: 0,
+    } as ApiParty);
+
+    expect(result).toMatchObject({
+      guestDurationMinutes: 90,
+      setupMinutes: 30,
+      cleanupMinutes: 30,
+      venueFeeCents: 9500,
+      minSpendPerPersonCents: 4500,
+      minParents: 1,
+      maxParents: 2,
     });
   });
 });

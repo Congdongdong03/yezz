@@ -14,6 +14,13 @@ export type PartyDto = {
   minPeople: number;
   maxPeople: number;
   priceIndicator: string | null;
+  guestDurationMinutes: number | null;
+  setupMinutes: number | null;
+  cleanupMinutes: number | null;
+  venueFeeCents: number | null;
+  minSpendPerPersonCents: number | null;
+  minParents: number;
+  maxParents: number;
   tags: string[] | null;
   sortOrder: number;
 };
@@ -34,6 +41,13 @@ export function mapPartyRow(row: PartyRow): PartyDto {
     minPeople: row.minPeople,
     maxPeople: row.maxPeople,
     priceIndicator: row.priceIndicator ?? null,
+    guestDurationMinutes: row.guestDurationMinutes ?? null,
+    setupMinutes: row.setupMinutes ?? null,
+    cleanupMinutes: row.cleanupMinutes ?? null,
+    venueFeeCents: row.venueFeeCents ?? null,
+    minSpendPerPersonCents: row.minSpendPerPersonCents ?? null,
+    minParents: row.minParents,
+    maxParents: row.maxParents,
     tags: row.tags ?? null,
     sortOrder: row.sortOrder,
   };

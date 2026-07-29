@@ -8,12 +8,11 @@ import {
   type ProjectCreateInput,
   type ProjectUpdateInput,
 } from "../../repositories/projects.repository.js";
-import { resolveProjectPricing } from "../../lib/pricing.js";
 import type {
   ProjectDetailDto,
   ProjectListItemDto,
 } from "../projects.service.js";
-import { createProjectsService } from "../projects.service.js";
+import { createProjectsService, mapProjectRow } from "../projects.service.js";
 
 export type AdminProjectsListResult = {
   items: ProjectListItemDto[];
@@ -57,26 +56,7 @@ export function createAdminProjectsService(db: Db, redis: Redis | null = null) {
     project,
     category,
   }: Awaited<ReturnType<typeof projectsRepo.findAllWithCategory>>[number]): ProjectListItemDto {
-    const pricing = resolveProjectPricing(project);
-    return {
-      id: project.id,
-      name: project.name,
-      slug: project.slug,
-      projectType: project.projectType,
-      description: project.description ?? null,
-      priceRange: project.priceRange ?? null,
-      ...pricing,
-      duration: project.duration ?? null,
-      tags: project.tags ?? null,
-      sortOrder: project.sortOrder,
-      coverImageUrl: project.coverImageUrl ?? null,
-      category: {
-        id: category.id,
-        name: category.name,
-        slug: category.slug,
-        icon: category.icon ?? null,
-      },
-    };
+    return mapProjectRow(project, category);
   }
 
   return {

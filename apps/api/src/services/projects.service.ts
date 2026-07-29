@@ -1,3 +1,4 @@
+import type { diyProjects, projectCategories } from "@yezz/db";
 import type { Db } from "@yezz/db";
 import type Redis from "ioredis";
 import { AppError } from "../lib/errors.js";
@@ -22,9 +23,14 @@ export type ProjectListItemDto = {
   priceRange: string | null;
   priceMin: number | null;
   priceMax: number | null;
-  priceCurrency: string;
+  priceCurrency: "AUD";
   priceDisplay: string | null;
   duration: string | null;
+  durationMinutes: number | null;
+  bookable: boolean;
+  variantSelectedInStore: boolean;
+  extraTimeMinutes: number | null;
+  extraTimePriceCents: number | null;
   tags: string[] | null;
   sortOrder: number;
   coverImageUrl: string | null;
@@ -53,6 +59,41 @@ export type ProjectDetailDto = ProjectListItemDto & {
 
 export type ProjectsService = ReturnType<typeof createProjectsService>;
 
+type ProjectRow = typeof diyProjects.$inferSelect;
+type CategoryRow = typeof projectCategories.$inferSelect;
+
+export function mapProjectRow(
+  project: ProjectRow,
+  category: CategoryRow,
+): ProjectListItemDto {
+  const pricing = resolveProjectPricing(project);
+  return {
+    id: project.id,
+    name: project.name,
+    slug: project.slug,
+    projectType: project.projectType,
+    description: project.description ?? null,
+    priceRange: project.priceRange ?? null,
+    ...pricing,
+    priceCurrency: "AUD",
+    duration: project.duration ?? null,
+    durationMinutes: project.durationMinutes ?? null,
+    bookable: project.bookable,
+    variantSelectedInStore: project.variantSelectedInStore,
+    extraTimeMinutes: project.extraTimeMinutes ?? null,
+    extraTimePriceCents: project.extraTimePriceCents ?? null,
+    tags: project.tags ?? null,
+    sortOrder: project.sortOrder,
+    coverImageUrl: project.coverImageUrl ?? null,
+    category: {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      icon: category.icon ?? null,
+    },
+  };
+}
+
 export function createProjectsService(db: Db, redis: Redis | null = null) {
   const projectsRepo = createProjectsRepository(db);
   const categoriesRepo = createCategoriesRepository(db);
@@ -63,28 +104,7 @@ export function createProjectsService(db: Db, redis: Redis | null = null) {
       if (cached) return cached;
 
       const rows = await projectsRepo.findAllWithCategory();
-      const result = rows.map(({ project, category }) => {
-        const pricing = resolveProjectPricing(project);
-        return {
-          id: project.id,
-          name: project.name,
-          slug: project.slug,
-          projectType: project.projectType,
-          description: project.description ?? null,
-          priceRange: project.priceRange ?? null,
-          ...pricing,
-          duration: project.duration ?? null,
-          tags: project.tags ?? null,
-          sortOrder: project.sortOrder,
-          coverImageUrl: project.coverImageUrl ?? null,
-          category: {
-            id: category.id,
-            name: category.name,
-            slug: category.slug,
-            icon: category.icon ?? null,
-          },
-        };
-      });
+      const result = rows.map(({ project, category }) => mapProjectRow(project, category));
       await cacheSet(redis, CACHE_KEYS.projectsList, result);
       return result;
     },
@@ -109,27 +129,11 @@ export function createProjectsService(db: Db, redis: Redis | null = null) {
         projectsRepo.findImagesByProjectId(project.id),
       ]);
 
-      const pricing = resolveProjectPricing(project);
-      const currency = pricing.priceCurrency;
+      const summary = mapProjectRow(project, category);
+      const currency = summary.priceCurrency;
 
       const result: ProjectDetailDto = {
-        id: project.id,
-        name: project.name,
-        slug: project.slug,
-        projectType: project.projectType,
-        description: project.description ?? null,
-        priceRange: project.priceRange ?? null,
-        ...pricing,
-        duration: project.duration ?? null,
-        tags: project.tags ?? null,
-        sortOrder: project.sortOrder,
-        coverImageUrl: project.coverImageUrl ?? null,
-        category: {
-          id: category.id,
-          name: category.name,
-          slug: category.slug,
-          icon: category.icon ?? null,
-        },
+        ...summary,
         styles: styles.map((s) => ({
           id: s.id,
           name: s.name,
