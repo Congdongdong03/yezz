@@ -146,4 +146,28 @@ describe("customer booking routes", () => {
       await app.close();
     }
   });
+
+  it("uses the same token limiter before accepting a proposed party time", async () => {
+    const acceptPartyTimeByToken = vi.fn(async () => ({ status: "awaiting_in_store_payment" }));
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = VERIFIED_IDENTITY;
+    });
+    app.decorate("services", {
+      rateLimits: { consume: vi.fn(async () => limitResult()) },
+      customerActions: { digest: () => "f".repeat(64) },
+      partyWorkflow: { acceptPartyTimeByToken },
+    } as never);
+    await app.register(customerBookingsRoutes, { prefix: "/customer-bookings" });
+
+    try {
+      const response = await app.inject({ method: "POST", url: `/customer-bookings/${TOKEN}/accept-time` });
+      expect(response.statusCode).toBe(200);
+      expect(acceptPartyTimeByToken).toHaveBeenCalledWith(TOKEN);
+    } finally {
+      await app.close();
+    }
+  });
 });

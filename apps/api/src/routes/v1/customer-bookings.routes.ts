@@ -68,6 +68,11 @@ export default async function customerBookingsRoutes(app: FastifyInstance) {
     return success(await app.services.customerActions.requestCancellation(request.params.token));
   });
 
+  app.post<{ Params: { token: string } }>("/:token/accept-time", async (request, reply) => {
+    await enforceCustomerActionLimit(request, reply);
+    return success(await app.services.partyWorkflow.acceptPartyTimeByToken(request.params.token));
+  });
+
   app.post<{ Params: { token: string }; Body: unknown }>("/:token/request-reschedule", async (request, reply) => {
     await enforceCustomerActionLimit(request, reply);
     return success(await app.services.customerActions.requestReschedule(

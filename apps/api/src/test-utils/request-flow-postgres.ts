@@ -198,6 +198,41 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       decide_in_store boolean NOT NULL DEFAULT false,
       sort_order integer NOT NULL DEFAULT 0
     );
+    CREATE TABLE "${schema}".booking_party_details (
+      booking_id uuid PRIMARY KEY REFERENCES "${schema}".bookings(id) ON DELETE CASCADE,
+      birthday_child_name varchar(255) NOT NULL,
+      birthday_child_age integer NOT NULL,
+      participant_count integer NOT NULL CHECK (participant_count BETWEEN 4 AND 8),
+      parent_count integer NOT NULL CHECK (parent_count BETWEEN 1 AND 2),
+      desired_date date NOT NULL,
+      desired_start_time varchar(5) NOT NULL,
+      byo_cake boolean NOT NULL DEFAULT false,
+      byo_drinks boolean NOT NULL DEFAULT false,
+      byo_food boolean NOT NULL DEFAULT false,
+      byo_snacks boolean NOT NULL DEFAULT false,
+      cake_cutting_requested boolean NOT NULL DEFAULT false,
+      special_requirements text,
+      final_date date,
+      final_setup_start varchar(5),
+      final_guest_start varchar(5),
+      final_guest_end varchar(5),
+      final_cleanup_end varchar(5),
+      venue_fee_cents integer NOT NULL,
+      min_spend_per_person_cents integer NOT NULL,
+      payment_deadline timestamptz,
+      paid_at timestamptz,
+      paid_amount_cents integer,
+      refunded_at timestamptz
+    );
+    CREATE TABLE "${schema}".booking_charges (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      booking_id uuid NOT NULL REFERENCES "${schema}".bookings(id) ON DELETE CASCADE,
+      type varchar(24) NOT NULL,
+      amount_cents integer NOT NULL CHECK (amount_cents >= 0),
+      note text,
+      recorded_by_user_id uuid NOT NULL REFERENCES "${schema}".users(id) ON DELETE RESTRICT,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE "${schema}".customer_action_tokens (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       booking_id uuid NOT NULL REFERENCES "${schema}".bookings(id) ON DELETE CASCADE,

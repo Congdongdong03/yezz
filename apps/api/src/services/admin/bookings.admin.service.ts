@@ -25,6 +25,7 @@ import {
   validateOrderStatus,
   validateStatusTransition,
 } from "../request-transition.service.js";
+import { createPartyWorkflowService } from "../party-workflow.service.js";
 
 type BookingRow = typeof bookings.$inferSelect;
 type DeliveryStatus = "pending" | "processing" | "sent" | "failed";
@@ -201,6 +202,7 @@ export function createAdminBookingsService(db: Db) {
   const readsRepo = createAdminRequestReadsRepository(db);
   const eventsRepo = createStatusEventsRepository(db);
   const transitionService = createRequestTransitionService(db);
+  const partyWorkflow = createPartyWorkflowService(db);
 
   async function loadExtras(
     bookingId: string,
@@ -331,6 +333,18 @@ export function createAdminBookingsService(db: Db) {
       }
       const row = await repo.findById(id);
       if (!row) throw new AppError(404, "NOT_FOUND", "Booking not found");
+      if (row.requestKind === "party" && input.toStatus) {
+        const result = await partyWorkflow.transitionPartyStatus({
+          bookingId: id,
+          expectedStatus: input.expectedStatus as BookingStatus,
+          toStatus: input.toStatus,
+          operationId: input.operationId,
+          actorUserId,
+          note: input.note ?? undefined,
+        });
+        const dto = await getById(result.id, actorUserId);
+        return { ...dto, replayed: result.replayed };
+      }
       if (
         input.expectedStatus === "waitlisted" &&
         (input.toStatus ?? input.status) === "confirmed" &&
@@ -363,6 +377,41 @@ export function createAdminBookingsService(db: Db) {
           });
       const dto = await getById(result.row.id, actorUserId);
       return { ...dto, replayed: result.replayed };
+    },
+
+    async proposePartyTime(id: string, input: {
+      expectedStatus: "pending_review";
+      finalDate: string;
+      finalGuestStart: string;
+      paymentDeadline: Date;
+      operationId: string;
+    }, actorUserId: string) {
+      return partyWorkflow.proposePartyTime({ ...input, bookingId: id, actorUserId });
+    },
+
+    async recordPartyPayment(id: string, input: {
+      expectedStatus: "awaiting_in_store_payment";
+      amountCents: 9500 | 14500;
+      paidAt: Date;
+      operationId: string;
+    }, actorUserId: string) {
+      return partyWorkflow.recordPartyPayment({ ...input, bookingId: id, actorUserId });
+    },
+
+    async recordPartyCharge(id: string, input: {
+      type: "cake_cutting" | "cleaning" | "overtime";
+      amountCents: number;
+      note?: string;
+    }, actorUserId: string) {
+      return partyWorkflow.recordPartyCharge({ ...input, bookingId: id, actorUserId });
+    },
+
+    async recordPartyRefund(id: string, input: {
+      expectedStatus: "cancelled";
+      refundedAt: Date;
+      operationId: string;
+    }, actorUserId: string) {
+      return partyWorkflow.recordPartyRefund({ ...input, bookingId: id, actorUserId });
     },
   };
 }

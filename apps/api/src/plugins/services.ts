@@ -26,6 +26,7 @@ import {
 import { createGalleryService, type GalleryService } from "../services/gallery.service.js";
 import { createPartiesService, type PartiesService } from "../services/parties.service.js";
 import { createProjectsService, type ProjectsService } from "../services/projects.service.js";
+import { createPartyWorkflowService, type PartyWorkflowService } from "../services/party-workflow.service.js";
 import {
   createRateLimitsService,
   scheduleRateLimitMaintenance,
@@ -49,6 +50,7 @@ export type AppServices = {
   categories: CategoriesService;
   projects: ProjectsService;
   parties: PartiesService;
+  partyWorkflow: PartyWorkflowService;
   gallery: GalleryService;
   settings: SettingsService;
   timeSlots: TimeSlotsService;
@@ -90,6 +92,7 @@ export default fp(async (app: FastifyInstance) => {
     categories: createCategoriesService(app.db),
     projects: createProjectsService(app.db, app.redis),
     parties: createPartiesService(app.db),
+    partyWorkflow: createPartyWorkflowService(app.db),
     gallery: createGalleryService(app.db),
     settings: createSettingsService(app.db, app.redis),
     timeSlots: createTimeSlotsService(app.db),

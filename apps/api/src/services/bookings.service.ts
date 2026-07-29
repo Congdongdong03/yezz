@@ -26,6 +26,10 @@ import {
   readRequestCapabilities,
   type RequestCapabilities,
 } from "./settings.service.js";
+import {
+  createPartyWorkflowService,
+  type PartyCreateInput,
+} from "./party-workflow.service.js";
 
 export type BookingDto = {
   id: string;
@@ -617,6 +621,10 @@ export function createBookingsService(
         return { row: await repo.createOrdinary({ ...input, email: input.email.trim().toLowerCase(), endTime: interval.endTime, attendanceCount: interval.attendanceCount, durationMinutes: interval.durationMinutes, idempotencyKey: normalizedKey, status: input.mode === "waitlist" ? "waitlisted" : "pending_review", submissionMode: input.mode, items: snapshots }, tx), replayed: false };
       });
       return { id: result.row.id, status: result.row.status, createdAt: result.row.createdAt, replayed: result.replayed, notification: "queued" };
+    },
+
+    async createPartyRequest(input: PartyCreateInput, idempotencyKey?: string) {
+      return createPartyWorkflowService(db, { now }).createPartyRequest(input, idempotencyKey);
     },
   };
 }

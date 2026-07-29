@@ -35,6 +35,15 @@ export function createCustomerActionTokensRepository(db: Db) {
       return row ?? null;
     },
 
+    async consume(id: string, now: Date, tx: Db = db) {
+      const [row] = await tx
+        .update(customerActionTokens)
+        .set({ revokedAt: now })
+        .where(and(eq(customerActionTokens.id, id), isNull(customerActionTokens.revokedAt)))
+        .returning();
+      return row ?? null;
+    },
+
     // Raw plaintext tokens are intentionally not a storage or lookup key.
     async findByRawToken(_rawToken: string): Promise<null> {
       return null;

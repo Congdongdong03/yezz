@@ -5,7 +5,7 @@ import {
   type CustomerRescheduleRequest,
   type Db,
 } from "@yezz/db";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 export type RequestStatus = "new" | "contacted" | BookingStatus;
 
@@ -51,6 +51,13 @@ export function createStatusEventsRepository(db: Db) {
         .where(eq(requestStatusEvents.bookingId, bookingId))
         .orderBy(desc(requestStatusEvents.createdAt), desc(requestStatusEvents.id))
         .limit(1);
+      return row ?? null;
+    },
+
+    async findLatestWithStatus(bookingId: string, status: BookingStatus, tx: Db = db) {
+      const [row] = await tx.select().from(requestStatusEvents)
+        .where(and(eq(requestStatusEvents.bookingId, bookingId), eq(requestStatusEvents.toStatus, status)))
+        .orderBy(desc(requestStatusEvents.createdAt), desc(requestStatusEvents.id)).limit(1);
       return row ?? null;
     },
 
