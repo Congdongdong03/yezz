@@ -398,6 +398,20 @@ export function createAdminBookingsService(db: Db) {
       return partyWorkflow.recordPartyPayment({ ...input, bookingId: id, actorUserId });
     },
 
+    async acceptPartyTime(id: string, input: {
+      expectedStatus: "time_proposed";
+      operationId: string;
+    }, actorUserId: string) {
+      return partyWorkflow.acceptPartyTime({ ...input, bookingId: id, actorUserId });
+    },
+
+    async expirePartyHold(id: string, input: {
+      expectedStatus: "awaiting_in_store_payment";
+      operationId: string;
+    }, actorUserId: string) {
+      return partyWorkflow.expirePartyHold({ ...input, bookingId: id, actorUserId });
+    },
+
     async recordPartyCharge(id: string, input: {
       type: "cake_cutting" | "cleaning" | "overtime";
       amountCents: number;

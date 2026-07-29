@@ -306,7 +306,7 @@ describe.skipIf(!runDatabaseTests)(
       expect(await database.connection.db.select().from(emailOutbox).where(eq(emailOutbox.bookingId, booking.id))).toHaveLength(1);
     });
 
-    it.each(["capacity", "party overlap"])("rejects ordinary confirmation on %s", async (conflict) => {
+    it.each(["capacity", "legacy party overlap", "active party overlap"])("rejects ordinary confirmation on %s", async (conflict) => {
       await database.connection.db.insert(studioWeeklyHours).values({ weekday: 0, opensAt: "09:00", closesAt: "17:00", isClosed: false });
       if (conflict === "capacity") {
         await database.connection.db.insert(bookings).values({
@@ -316,7 +316,7 @@ describe.skipIf(!runDatabaseTests)(
       } else {
         await database.connection.db.insert(bookings).values({
           name: "Party", phone: "0430000002", requestKind: "party", partyPackageId,
-          status: "confirmed", slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00",
+          status: conflict === "active party overlap" ? "awaiting_in_store_payment" : "confirmed", slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00",
         });
       }
       const [ordinary] = await database.connection.db.insert(bookings).values({
@@ -327,6 +327,24 @@ describe.skipIf(!runDatabaseTests)(
       }).returning();
       await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
         bookingId: ordinary.id, expectedStatus: "pending_review", toStatus: "confirmed",
+        operationId: crypto.randomUUID(), actorUserId: actorId,
+      })).rejects.toMatchObject({ code: "CAPACITY_CONFLICT" });
+    });
+
+    it("rejects waitlist conversion while an active party hold occupies the interval", async () => {
+      await database.connection.db.insert(studioWeeklyHours).values({ weekday: 0, opensAt: "09:00", closesAt: "17:00", isClosed: false });
+      await database.connection.db.insert(bookings).values({
+        name: "Party", phone: "0430000010", requestKind: "party", partyPackageId,
+        status: "awaiting_in_store_payment", slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00",
+      });
+      const [waitlisted] = await database.connection.db.insert(bookings).values({
+        name: "Waitlisted", phone: "0430000011", requestKind: "experience", status: "waitlisted",
+        slotDate: "2026-08-02", slotStartTime: "10:00", slotEndTime: "11:00", participantCount: 1,
+        youngChildCount: 0, accompanyingAdultCount: 0, attendanceCount: 1, durationMinutes: 60,
+        policyVersion: "2026-07-29", policyAcceptedAt: new Date(),
+      }).returning();
+      await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
+        bookingId: waitlisted.id, expectedStatus: "waitlisted", toStatus: "confirmed",
         operationId: crypto.randomUUID(), actorUserId: actorId,
       })).rejects.toMatchObject({ code: "CAPACITY_CONFLICT" });
     });

@@ -1,7 +1,7 @@
 import type { BookingStatus, Db } from "@yezz/db";
 import { createHash, randomBytes } from "node:crypto";
 import { AppError } from "../lib/errors.js";
-import { getMelbourneClock, validateBookingWindow } from "../lib/booking-policy.js";
+import { getMelbourneClock, parseCalendarDate, validateBookingWindow } from "../lib/booking-policy.js";
 import { createBookingAvailabilityRepository } from "../repositories/booking-availability.repository.js";
 import { createBookingsRepository } from "../repositories/bookings.repository.js";
 import { createCustomerActionTokensRepository } from "../repositories/customer-action-tokens.repository.js";
@@ -38,12 +38,29 @@ export type PartyCreateInput = {
 type PartyBookingDto = { id: string; status: BookingStatus; createdAt: Date; replayed: boolean };
 
 const PARTY_TRANSITIONS: Partial<Record<BookingStatus, readonly BookingStatus[]>> = {
-  pending_review: ["time_proposed", "awaiting_in_store_payment", "rejected", "cancelled"],
-  time_proposed: ["awaiting_in_store_payment", "cancelled"],
-  awaiting_in_store_payment: ["confirmed_paid", "payment_expired", "cancelled"],
-  confirmed_paid: ["cancellation_requested", "cancelled", "no_show", "completed"],
+  pending_review: ["rejected", "cancelled"],
+  time_proposed: ["cancelled"],
+  awaiting_in_store_payment: ["cancelled"],
+  confirmed_paid: ["cancellation_requested", "no_show", "completed"],
   cancellation_requested: ["confirmed_paid", "cancelled"],
 };
+
+function melbourneLocalInstant(date: string, startTime: string): Date {
+  const target = parseCalendarDate(date).ordinal * 1_440 + minutes(startTime);
+  let instant = new Date(`${date}T${startTime}:00.000Z`);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const observed = getMelbourneClock(instant);
+    const observedMinute = parseCalendarDate(observed.date).ordinal * 1_440 + observed.minuteOfDay;
+    const delta = target - observedMinute;
+    if (delta === 0) return instant;
+    instant = new Date(instant.getTime() + delta * 60_000);
+  }
+  return instant;
+}
+
+function encodePartyOperation(payload: Record<string, unknown>): string {
+  return JSON.stringify({ partyWorkflow: 1, ...payload });
+}
 
 function minutes(value: string): number {
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) throw new AppError(400, "VALIDATION_ERROR", "time must use HH:MM");
@@ -125,11 +142,11 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
     }
   }
 
-  async function recordTransition(input: { bookingId: string; expectedStatus: BookingStatus; toStatus: BookingStatus; operationId: string; actorUserId: string | null; actorKind?: "staff" | "customer" | "system" }, tx: Db) {
+  async function recordTransition(input: { bookingId: string; expectedStatus: BookingStatus; toStatus: BookingStatus; operationId: string; actorUserId: string | null; actorKind?: "staff" | "customer" | "system"; operationPayload: Record<string, unknown> }, tx: Db) {
     await eventsRepo.lockOperation(input.operationId, tx);
     const prior = await eventsRepo.findByOperationId(input.operationId, tx);
     if (prior) {
-      if (prior.bookingId !== input.bookingId || prior.fromStatus !== input.expectedStatus || prior.toStatus !== input.toStatus || prior.actorUserId !== input.actorUserId) throw new AppError(409, "OPERATION_ID_CONFLICT", "The operation ID belongs to a different party action");
+      if (prior.bookingId !== input.bookingId || prior.fromStatus !== input.expectedStatus || prior.toStatus !== input.toStatus || prior.actorUserId !== input.actorUserId || prior.adminNote !== encodePartyOperation(input.operationPayload)) throw new AppError(409, "OPERATION_ID_CONFLICT", "The operation ID belongs to a different party action");
       const replay = await bookingsRepo.findById(input.bookingId, tx);
       if (!replay) throw new AppError(404, "NOT_FOUND", "Booking not found");
       return { booking: replay, replayed: true };
@@ -174,17 +191,40 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
     }, tx);
   }
 
+  async function assertPartyReplay(booking: Awaited<ReturnType<typeof bookingsRepo.findByIdempotencyKey>> & {}, input: PartyCreateInput, packageId: string, tx: Db = db): Promise<void> {
+    if (!booking || booking.requestKind !== "party" || booking.partyPackageId !== packageId) {
+      throw new AppError(409, "IDEMPOTENCY_KEY_CONFLICT", "The idempotency key belongs to a different booking request");
+    }
+    const details = await partyRepo.findDetails(booking.id, tx);
+    const same = Boolean(details) &&
+      booking.name === input.name.trim() && booking.phone === input.phone.trim() && booking.email === input.email.trim().toLowerCase() &&
+      booking.locale === input.locale && booking.policyVersion === input.policyVersion && Boolean(booking.policyAcceptedAt) &&
+      booking.interestedProject === input.projectInterests.map((value) => value.trim()).join(", ") && booking.message === (input.specialRequirements?.trim() || null) &&
+      details!.birthdayChildName === input.birthdayChildName.trim() && details!.birthdayChildAge === input.birthdayChildAge &&
+      details!.participantCount === input.participantCount && details!.parentCount === input.parentCount &&
+      details!.desiredDate === input.desiredDate && details!.desiredStartTime === input.desiredStartTime &&
+      details!.byoCake === input.byoCake && details!.byoDrinks === input.byoDrinks && details!.byoFood === input.byoFood && details!.byoSnacks === input.byoSnacks &&
+      details!.cakeCuttingRequested === input.cakeCuttingRequested && details!.specialRequirements === (input.specialRequirements?.trim() || null);
+    if (!same) throw new AppError(409, "IDEMPOTENCY_KEY_CONFLICT", "The idempotency key belongs to a different booking request");
+  }
+
   return {
     async createPartyRequest(input: PartyCreateInput, idempotencyKey?: string): Promise<PartyBookingDto> {
       assertPartyInput(input);
       const key = assertUuid(idempotencyKey, "Idempotency-Key");
       const packageId = assertUuid(input.partyPackageId, "partyPackageId");
       const existing = await bookingsRepo.findByIdempotencyKey(key);
-      if (existing) return { id: existing.id, status: existing.status, createdAt: existing.createdAt, replayed: true };
+      if (existing) {
+        await assertPartyReplay(existing, input, packageId);
+        return { id: existing.id, status: existing.status, createdAt: existing.createdAt, replayed: true };
+      }
       return db.transaction(async (tx) => {
         await bookingsRepo.lockCreateAttempt(key, tx);
         const replay = await bookingsRepo.findByIdempotencyKey(key, tx);
-        if (replay) return { id: replay.id, status: replay.status, createdAt: replay.createdAt, replayed: true };
+        if (replay) {
+          await assertPartyReplay(replay, input, packageId, tx);
+          return { id: replay.id, status: replay.status, createdAt: replay.createdAt, replayed: true };
+        }
         const partyPackage = await partiesRepo.findById(packageId, tx);
         if (!partyPackage) throw new AppError(404, "PARTY_PACKAGE_NOT_FOUND", "Party package not found");
         if ((partyPackage.guestDurationMinutes !== 90 && partyPackage.guestDurationMinutes !== 150) ||
@@ -220,16 +260,26 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
       const bookingId = assertUuid(input.bookingId, "bookingId");
       const operationId = assertUuid(input.operationId, "operationId");
       const actorUserId = assertUuid(input.actorUserId, "actorUserId");
-      if (!(input.paymentDeadline instanceof Date) || Number.isNaN(input.paymentDeadline.getTime()) || input.paymentDeadline <= now()) throw new AppError(400, "VALIDATION_ERROR", "paymentDeadline must be in the future");
+      if (!(input.paymentDeadline instanceof Date) || Number.isNaN(input.paymentDeadline.getTime())) throw new AppError(400, "VALIDATION_ERROR", "paymentDeadline must be a valid date");
+      const operationPayload = { action: "propose", finalDate: input.finalDate, finalGuestStart: input.finalGuestStart, paymentDeadline: input.paymentDeadline.toISOString() };
       return db.transaction(async (tx) => {
         await eventsRepo.lockOperation(operationId, tx);
         const prior = await eventsRepo.findByOperationId(operationId, tx);
         if (prior) {
-          if (prior.bookingId !== bookingId || prior.fromStatus !== input.expectedStatus || prior.actorUserId !== actorUserId || (prior.toStatus !== "time_proposed" && prior.toStatus !== "awaiting_in_store_payment")) throw new AppError(409, "OPERATION_ID_CONFLICT", "The operation ID belongs to a different party action");
+          if (prior.bookingId !== bookingId || prior.fromStatus !== input.expectedStatus || prior.actorUserId !== actorUserId || prior.adminNote !== encodePartyOperation(operationPayload) || (prior.toStatus !== "time_proposed" && prior.toStatus !== "awaiting_in_store_payment")) throw new AppError(409, "OPERATION_ID_CONFLICT", "The operation ID belongs to a different party action");
           const replay = await bookingsRepo.findById(bookingId, tx);
           if (!replay) throw new AppError(404, "NOT_FOUND", "Booking not found");
+          if (prior.toStatus === "time_proposed") {
+            const details = await partyRepo.findDetails(bookingId, tx);
+            if (!details?.paymentDeadline) throw new AppError(409, "STATUS_CONFLICT", "Party proposal is incomplete");
+            const raw = randomBytes(32).toString("base64url");
+            await tokensRepo.revokeActiveAcceptTimeTokens(bookingId, now(), tx);
+            await tokensRepo.create({ bookingId, tokenDigest: createHash("sha256").update(raw).digest("hex"), scopes: ["accept_time"], expiresAt: details.paymentDeadline }, tx);
+            return { id: replay.id, status: replay.status, createdAt: replay.createdAt, replayed: true, acceptTimeToken: raw };
+          }
           return { id: replay.id, status: replay.status, createdAt: replay.createdAt, replayed: true };
         }
+        if (input.paymentDeadline <= now()) throw new AppError(400, "VALIDATION_ERROR", "paymentDeadline must be in the future");
         const booking = await bookingsRepo.findById(bookingId, tx);
         if (!booking || booking.requestKind !== "party") throw new AppError(404, "NOT_FOUND", "Party booking not found");
         if (booking.status !== input.expectedStatus) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
@@ -244,9 +294,10 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
         if (sameDesired) await assertCanHold(bookingId, interval, tx);
         const updated = await partyRepo.setProposal({ bookingId, expectedStatus: input.expectedStatus, date: input.finalDate, setupStart: interval.setupStart, guestStart: interval.guestStart, guestEnd: interval.guestEnd, cleanupEnd: interval.cleanupEnd, paymentDeadline: input.paymentDeadline, status: target }, tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: target, actorUserId }, tx);
+        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: target, adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
         if (target === "awaiting_in_store_payment") return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
         const raw = randomBytes(32).toString("base64url");
+        await tokensRepo.revokeActiveAcceptTimeTokens(bookingId, now(), tx);
         await tokensRepo.create({ bookingId, tokenDigest: createHash("sha256").update(raw).digest("hex"), scopes: ["accept_time"], expiresAt: input.paymentDeadline }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false, acceptTimeToken: raw };
       });
@@ -257,14 +308,15 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
       const operationId = assertUuid(input.operationId, "operationId");
       const actorUserId = input.actorUserId === null ? null : assertUuid(input.actorUserId, "actorUserId");
       return db.transaction(async (tx) => {
-        const transition = await recordTransition({ bookingId, expectedStatus: input.expectedStatus, toStatus: "awaiting_in_store_payment", operationId, actorUserId, actorKind: actorUserId ? "staff" : "customer" }, tx);
+        const operationPayload = { action: "accept" };
+        const transition = await recordTransition({ bookingId, expectedStatus: input.expectedStatus, toStatus: "awaiting_in_store_payment", operationId, actorUserId, actorKind: actorUserId ? "staff" : "customer", operationPayload }, tx);
         if (transition.replayed) return { id: transition.booking.id, status: transition.booking.status, createdAt: transition.booking.createdAt, replayed: true };
         const details = await partyRepo.findDetails(bookingId, tx);
         if (!details?.finalDate || !details.finalSetupStart || !details.finalGuestStart || !details.finalGuestEnd || !details.finalCleanupEnd || !details.paymentDeadline || details.paymentDeadline <= now()) throw new AppError(409, "PARTY_HOLD_EXPIRED", "The proposed party time is no longer available");
         await assertCanHold(bookingId, { date: details.finalDate, setupStart: details.finalSetupStart, cleanupEnd: details.finalCleanupEnd }, tx);
         const updated = await partyRepo.setStatus(bookingId, "time_proposed", "awaiting_in_store_payment", tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "time_proposed", toStatus: "awaiting_in_store_payment", actorUserId, actorKind: actorUserId ? "staff" : "customer" }, tx);
+        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "time_proposed", toStatus: "awaiting_in_store_payment", adminNote: encodePartyOperation(operationPayload), actorUserId, actorKind: actorUserId ? "staff" : "customer" }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },
@@ -282,7 +334,8 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
       const actorUserId = assertUuid(input.actorUserId, "actorUserId");
       if (!(input.paidAt instanceof Date) || Number.isNaN(input.paidAt.getTime())) throw new AppError(400, "VALIDATION_ERROR", "paidAt must be a valid date");
       return db.transaction(async (tx) => {
-        const transition = await recordTransition({ bookingId, expectedStatus: input.expectedStatus, toStatus: "confirmed_paid", operationId, actorUserId }, tx);
+        const operationPayload = { action: "payment", amountCents: input.amountCents, paidAt: input.paidAt.toISOString() };
+        const transition = await recordTransition({ bookingId, expectedStatus: input.expectedStatus, toStatus: "confirmed_paid", operationId, actorUserId, operationPayload }, tx);
         if (transition.replayed) return { id: transition.booking.id, status: transition.booking.status, createdAt: transition.booking.createdAt, replayed: true };
         const details = await partyRepo.findDetails(bookingId, tx);
         if (!details || details.venueFeeCents !== input.amountCents) throw new AppError(400, "PARTY_PAYMENT_AMOUNT_INVALID", "The in-store payment must equal the venue fee");
@@ -291,7 +344,7 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
         await partyRepo.recordPayment(bookingId, input.paidAt, input.amountCents, tx);
         await partyRepo.addCharge({ bookingId, type: "venue_fee", amountCents: input.amountCents, recordedByUserId: actorUserId }, tx);
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "awaiting_in_store_payment", toStatus: "confirmed_paid", actorUserId }, tx);
+        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "awaiting_in_store_payment", toStatus: "confirmed_paid", adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },
@@ -300,13 +353,14 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
       const bookingId = assertUuid(input.bookingId, "bookingId");
       const operationId = assertUuid(input.operationId, "operationId");
       const actorUserId = assertUuid(input.actorUserId, "actorUserId");
-      if (!PARTY_TRANSITIONS[input.expectedStatus]?.includes(input.toStatus)) throw new AppError(400, "INVALID_TRANSITION", `Cannot transition from "${input.expectedStatus}" to "${input.toStatus}"`);
+      if (!PARTY_TRANSITIONS[input.expectedStatus]?.includes(input.toStatus)) throw new AppError(400, "PARTY_DEDICATED_ACTION_REQUIRED", "This party transition requires its dedicated operational action");
       return db.transaction(async (tx) => {
-        const transition = await recordTransition({ bookingId, expectedStatus: input.expectedStatus, toStatus: input.toStatus, operationId, actorUserId }, tx);
+        const operationPayload = { action: "transition", note: input.note?.trim() || null };
+        const transition = await recordTransition({ bookingId, expectedStatus: input.expectedStatus, toStatus: input.toStatus, operationId, actorUserId, operationPayload }, tx);
         if (transition.replayed) return { id: transition.booking.id, status: transition.booking.status, createdAt: transition.booking.createdAt, replayed: true };
         const updated = await partyRepo.setStatus(bookingId, input.expectedStatus, input.toStatus, tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: input.toStatus, adminNote: input.note, actorUserId }, tx);
+        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: input.toStatus, adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },
@@ -333,19 +387,23 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
       });
     },
 
-    async expirePartyHold(input: { bookingId: string; now?: Date }): Promise<PartyBookingDto> {
+    async expirePartyHold(input: { bookingId: string; expectedStatus: "awaiting_in_store_payment"; operationId: string; actorUserId: string }): Promise<PartyBookingDto> {
       const bookingId = assertUuid(input.bookingId, "bookingId");
-      const current = input.now ?? now();
+      const operationId = assertUuid(input.operationId, "operationId");
+      const actorUserId = assertUuid(input.actorUserId, "actorUserId");
+      const current = now();
       return db.transaction(async (tx) => {
+        const operationPayload = { action: "expiry" };
+        const transition = await recordTransition({ bookingId, expectedStatus: input.expectedStatus, toStatus: "payment_expired", operationId, actorUserId, operationPayload }, tx);
+        if (transition.replayed) return { id: transition.booking.id, status: transition.booking.status, createdAt: transition.booking.createdAt, replayed: true };
         const booking = await bookingsRepo.findById(bookingId, tx);
         if (!booking || booking.requestKind !== "party") throw new AppError(404, "NOT_FOUND", "Party booking not found");
-        if (booking.status === "payment_expired") return { id: booking.id, status: booking.status, createdAt: booking.createdAt, replayed: true };
-        if (booking.status !== "awaiting_in_store_payment") throw new AppError(409, "STATUS_CONFLICT", "Party hold is not awaiting payment");
+        if (booking.status !== input.expectedStatus) throw new AppError(409, "STATUS_CONFLICT", "Party hold is not awaiting payment");
         const details = await partyRepo.findDetails(bookingId, tx);
         if (!details?.paymentDeadline || details.paymentDeadline > current) throw new AppError(409, "PARTY_HOLD_NOT_EXPIRED", "Party hold has not expired");
-        const updated = await partyRepo.setStatus(bookingId, "awaiting_in_store_payment", "payment_expired", tx);
+        const updated = await partyRepo.setStatus(bookingId, input.expectedStatus, "payment_expired", tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
-        await eventsRepo.createBooking({ bookingId, operationId: crypto.randomUUID(), fromStatus: "awaiting_in_store_payment", toStatus: "payment_expired", actorUserId: null, actorKind: "system" }, tx);
+        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: "payment_expired", adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },
@@ -353,6 +411,9 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
     async recordPartyCharge(input: { bookingId: string; type: "cake_cutting" | "cleaning" | "overtime"; amountCents: number; note?: string; actorUserId: string }): Promise<void> {
       const bookingId = assertUuid(input.bookingId, "bookingId");
       const actorUserId = assertUuid(input.actorUserId, "actorUserId");
+      if (input.type !== "cake_cutting" && input.type !== "cleaning" && input.type !== "overtime") {
+        throw new AppError(400, "PARTY_CHARGE_TYPE_INVALID", "Party charge type is invalid");
+      }
       const validAmount = input.type === "cake_cutting" ? input.amountCents === 1500 : input.amountCents >= 1500 && input.amountCents <= 3500;
       if (!validAmount) throw new AppError(400, "PARTY_CHARGE_AMOUNT_INVALID", "Party charge amount is invalid");
       await db.transaction(async (tx) => {
@@ -368,23 +429,22 @@ export function createPartyWorkflowService(db: Db, dependencies?: { now?: () => 
       const actorUserId = assertUuid(input.actorUserId, "actorUserId");
       if (!(input.refundedAt instanceof Date) || Number.isNaN(input.refundedAt.getTime())) throw new AppError(400, "VALIDATION_ERROR", "refundedAt must be a valid date");
       return db.transaction(async (tx) => {
-        const transition = await recordTransition({ bookingId, expectedStatus: "cancelled", toStatus: "refunded", operationId, actorUserId }, tx);
+        const operationPayload = { action: "refund", refundedAt: input.refundedAt.toISOString() };
+        const transition = await recordTransition({ bookingId, expectedStatus: "cancelled", toStatus: "refunded", operationId, actorUserId, operationPayload }, tx);
         if (transition.replayed) return { id: transition.booking.id, status: transition.booking.status, createdAt: transition.booking.createdAt, replayed: true };
         const details = await partyRepo.findDetails(bookingId, tx);
         const venueFee = await partyRepo.findCharge(bookingId, "venue_fee", tx);
         if (!details || !venueFee || venueFee.amountCents !== details.venueFeeCents) throw new AppError(409, "PARTY_REFUND_PAYMENT_MISSING", "A recorded venue fee is required before refunding");
         if (!details.finalDate || !details.finalGuestStart) throw new AppError(409, "PARTY_REFUND_INELIGIBLE", "Party final time is required before refunding");
         const cancellation = await eventsRepo.findLatestWithStatus(bookingId, "cancellation_requested", tx);
-        const clock = getMelbourneClock(cancellation?.createdAt ?? input.refundedAt);
-        const localOrder = (value: string) => Date.UTC(Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10)));
-        const localRequest = localOrder(clock.date) + clock.minuteOfDay * 60_000;
-        const localStart = localOrder(details.finalDate) + minutes(details.finalGuestStart) * 60_000;
-        if (localStart - localRequest < 48 * 60 * 60 * 1000) throw new AppError(409, "PARTY_REFUND_INELIGIBLE", "Party venue fees are refundable only 48 hours before the guest start");
+        if (!cancellation) throw new AppError(409, "PARTY_REFUND_INELIGIBLE", "A customer cancellation request is required before refunding");
+        const localStart = melbourneLocalInstant(details.finalDate, details.finalGuestStart);
+        if (localStart.getTime() - cancellation.createdAt.getTime() < 48 * 60 * 60 * 1000) throw new AppError(409, "PARTY_REFUND_INELIGIBLE", "Party venue fees are refundable only 48 hours before the guest start");
         const updated = await partyRepo.setStatus(bookingId, "cancelled", "refunded", tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
         await partyRepo.recordRefund(bookingId, input.refundedAt, tx);
         await partyRepo.addCharge({ bookingId, type: "refund", amountCents: details.venueFeeCents, recordedByUserId: actorUserId }, tx);
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "cancelled", toStatus: "refunded", actorUserId }, tx);
+        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "cancelled", toStatus: "refunded", adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },

@@ -3,7 +3,7 @@ import {
   type CustomerActionScope,
   type Db,
 } from "@yezz/db";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 
 export type CustomerActionTokenInsert = {
   bookingId: string;
@@ -42,6 +42,11 @@ export function createCustomerActionTokensRepository(db: Db) {
         .where(and(eq(customerActionTokens.id, id), isNull(customerActionTokens.revokedAt)))
         .returning();
       return row ?? null;
+    },
+
+    async revokeActiveAcceptTimeTokens(bookingId: string, now: Date, tx: Db = db) {
+      await tx.update(customerActionTokens).set({ revokedAt: now })
+        .where(and(eq(customerActionTokens.bookingId, bookingId), isNull(customerActionTokens.revokedAt), sql`${customerActionTokens.scopes} @> ARRAY['accept_time']::text[]`));
     },
 
     // Raw plaintext tokens are intentionally not a storage or lookup key.

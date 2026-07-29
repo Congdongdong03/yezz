@@ -2,7 +2,10 @@ import {
   bookingPartyDetails,
   bookingCharges,
   bookings,
+  customerActionTokens,
+  emailOutbox,
   partyPackages,
+  requestStatusEvents,
   studioWeeklyHours,
   users,
 } from "@yezz/db";
@@ -184,5 +187,135 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       operationId: crypto.randomUUID(),
       actorUserId: staffId,
     })).rejects.toMatchObject({ code: "STATUS_CONFLICT" });
+  });
+
+  it("rejects direct generic transitions that bypass party operational invariants", async () => {
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => new Date("2030-08-10T00:00:00.000Z"),
+    });
+    const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+
+    await expect(service.transitionPartyStatus({
+      bookingId: created.id,
+      expectedStatus: "pending_review",
+      toStatus: "awaiting_in_store_payment",
+      operationId: crypto.randomUUID(),
+      actorUserId: staffId,
+    })).rejects.toMatchObject({ code: "PARTY_DEDICATED_ACTION_REQUIRED" });
+  });
+
+  it("replays an identical proposal with a replacement accept token and rejects a changed proposal payload", async () => {
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => new Date("2030-08-10T00:00:00.000Z"),
+    });
+    const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+    const operationId = crypto.randomUUID();
+    const proposal = {
+      bookingId: created.id,
+      expectedStatus: "pending_review" as const,
+      finalDate: "2030-08-12",
+      finalGuestStart: "12:30",
+      paymentDeadline: new Date("2030-08-11T00:00:00.000Z"),
+      operationId,
+      actorUserId: staffId,
+    };
+    const first = await service.proposePartyTime(proposal);
+    const replay = await service.proposePartyTime(proposal);
+
+    expect(first.acceptTimeToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(replay).toMatchObject({ id: created.id, replayed: true });
+    expect(replay.acceptTimeToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(replay.acceptTimeToken).not.toBe(first.acceptTimeToken);
+    await expect(service.proposePartyTime({ ...proposal, finalGuestStart: "13:00" }))
+      .rejects.toMatchObject({ code: "OPERATION_ID_CONFLICT" });
+  });
+
+  it("rejects a changed party request that reuses an idempotency key", async () => {
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => new Date("2030-08-10T00:00:00.000Z"),
+    });
+    const key = crypto.randomUUID();
+    const created = await service.createPartyRequest(validParty(), key);
+
+    await expect(service.createPartyRequest(validParty({ participantCount: 5 }), key))
+      .rejects.toMatchObject({ code: "IDEMPOTENCY_KEY_CONFLICT" });
+    await expect(service.createPartyRequest(validParty(), key))
+      .resolves.toMatchObject({ id: created.id, replayed: true });
+  });
+
+  it("keeps pending and proposed parties non-blocking but blocks a second active hold across setup", async () => {
+    const service = createPartyWorkflowService(database.connection.db, { now: () => new Date("2030-08-10T00:00:00.000Z") });
+    const availability = createBookingAvailabilityRepository(database.connection.db);
+    const first = await service.createPartyRequest(validParty(), crypto.randomUUID());
+    await expect(availability.hasExclusivePartyOverlap({ date: "2030-08-12", startTime: "11:30", endTime: "14:00" })).resolves.toBe(false);
+    await service.proposePartyTime({ bookingId: first.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "12:30", paymentDeadline: new Date("2030-08-11T00:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
+    await expect(availability.hasExclusivePartyOverlap({ date: "2030-08-12", startTime: "12:00", endTime: "14:30" })).resolves.toBe(false);
+    const second = await service.createPartyRequest(validParty({ email: "second@example.com", desiredStartTime: "13:30" }), crypto.randomUUID());
+    await service.proposePartyTime({ bookingId: second.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "14:00", paymentDeadline: new Date("2030-08-11T00:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
+    await service.acceptPartyTime({ bookingId: first.id, expectedStatus: "time_proposed", operationId: crypto.randomUUID(), actorUserId: staffId });
+    await expect(service.acceptPartyTime({ bookingId: second.id, expectedStatus: "time_proposed", operationId: crypto.randomUUID(), actorUserId: staffId })).rejects.toMatchObject({ code: "CAPACITY_CONFLICT" });
+  });
+
+  it("expires an overdue hold with the trusted service clock and releases its interval", async () => {
+    let current = new Date("2030-08-10T00:00:00.000Z");
+    const service = createPartyWorkflowService(database.connection.db, { now: () => current });
+    const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+    await service.proposePartyTime({ bookingId: created.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "12:00", paymentDeadline: new Date("2030-08-10T01:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
+    const interval = { date: "2030-08-12", startTime: "11:30", endTime: "14:00" };
+    await expect(createBookingAvailabilityRepository(database.connection.db).hasExclusivePartyOverlap(interval)).resolves.toBe(true);
+    current = new Date("2030-08-10T02:00:00.000Z");
+    await expect(service.expirePartyHold({ bookingId: created.id, expectedStatus: "awaiting_in_store_payment", operationId: crypto.randomUUID(), actorUserId: staffId })).resolves.toMatchObject({ status: "payment_expired" });
+    await expect(createBookingAvailabilityRepository(database.connection.db).hasExclusivePartyOverlap(interval)).resolves.toBe(false);
+    await expect(service.recordPartyPayment({ bookingId: created.id, expectedStatus: "awaiting_in_store_payment", amountCents: 9500, paidAt: current, operationId: crypto.randomUUID(), actorUserId: staffId })).rejects.toMatchObject({ code: "STATUS_CONFLICT" });
+  });
+
+  it("consumes a valid accept token with one status event and two deduplicated emails", async () => {
+    const previousOwnerEmail = process.env.OWNER_EMAIL;
+    process.env.OWNER_EMAIL = "owner@example.com";
+    try {
+      const service = createPartyWorkflowService(database.connection.db, { now: () => new Date("2030-08-10T00:00:00.000Z") });
+      const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+      const proposal = await service.proposePartyTime({ bookingId: created.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "12:30", paymentDeadline: new Date("2030-08-11T00:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
+      await expect(service.acceptPartyTimeByToken(proposal.acceptTimeToken!)).resolves.toMatchObject({ status: "awaiting_in_store_payment" });
+      const tokens = await database.connection.db.select().from(customerActionTokens).where(eq(customerActionTokens.bookingId, created.id));
+      const events = await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.bookingId, created.id));
+      const emails = await database.connection.db.select().from(emailOutbox).where(eq(emailOutbox.bookingId, created.id));
+      expect(tokens).toHaveLength(1);
+      expect(tokens[0]?.revokedAt).not.toBeNull();
+      expect(events.filter((event) => event.toStatus === "awaiting_in_store_payment")).toHaveLength(1);
+      expect(emails).toHaveLength(2);
+      await expect(service.acceptPartyTimeByToken(proposal.acceptTimeToken!)).rejects.toMatchObject({ code: "LINK_INVALID_OR_EXPIRED" });
+      await expect(service.acceptPartyTimeByToken("x".repeat(43))).rejects.toMatchObject({ code: "LINK_INVALID_OR_EXPIRED" });
+    } finally {
+      if (previousOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
+      else process.env.OWNER_EMAIL = previousOwnerEmail;
+    }
+  });
+
+  it("accepts only the configured variable party charge types and ranges", async () => {
+    const service = createPartyWorkflowService(database.connection.db, { now: () => new Date("2030-08-10T00:00:00.000Z") });
+    const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+    await service.proposePartyTime({ bookingId: created.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "12:00", paymentDeadline: new Date("2030-08-11T00:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
+    await service.recordPartyPayment({ bookingId: created.id, expectedStatus: "awaiting_in_store_payment", amountCents: 9500, paidAt: new Date("2030-08-10T01:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
+    await expect(service.recordPartyCharge({ bookingId: created.id, type: "cake_cutting", amountCents: 1500, actorUserId: staffId })).resolves.toBeUndefined();
+    await expect(service.recordPartyCharge({ bookingId: created.id, type: "cleaning", amountCents: 1500, actorUserId: staffId })).resolves.toBeUndefined();
+    await expect(service.recordPartyCharge({ bookingId: created.id, type: "overtime", amountCents: 3500, actorUserId: staffId })).resolves.toBeUndefined();
+    await expect(service.recordPartyCharge({ bookingId: created.id, type: "cleaning", amountCents: 1499, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_AMOUNT_INVALID" });
+    await expect(service.recordPartyCharge({ bookingId: created.id, type: "overtime", amountCents: 3501, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_AMOUNT_INVALID" });
+    await expect(service.recordPartyCharge({ bookingId: created.id, type: "venue_fee" as never, amountCents: 1500, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
+    await expect(service.recordPartyCharge({ bookingId: created.id, type: "refund" as never, amountCents: 1500, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
+    await expect(service.recordPartyCharge({ bookingId: created.id, type: "invented" as never, amountCents: 1500, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
+  });
+
+  it("keeps a legacy confirmed party blocking until reconciliation", async () => {
+    await database.connection.db.insert(bookings).values({
+      id: crypto.randomUUID(), name: "Legacy", phone: "0430000099", requestKind: "party",
+      partyPackageId: packageId, status: "confirmed", slotDate: "2030-08-12",
+      slotStartTime: "11:30", slotEndTime: "14:00",
+    });
+    const service = createPartyWorkflowService(database.connection.db, { now: () => new Date("2030-08-10T00:00:00.000Z") });
+    const created = await service.createPartyRequest(validParty({ email: "new@example.com", desiredStartTime: "12:00" }), crypto.randomUUID());
+    await service.proposePartyTime({ bookingId: created.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "12:30", paymentDeadline: new Date("2030-08-11T00:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
+    await expect(service.acceptPartyTime({ bookingId: created.id, expectedStatus: "time_proposed", operationId: crypto.randomUUID(), actorUserId: staffId })).rejects.toMatchObject({ code: "CAPACITY_CONFLICT" });
   });
 });

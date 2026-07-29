@@ -84,6 +84,14 @@ export default async function adminBookingsRoutes(app: FastifyInstance) {
     }, request.user.sub));
   });
 
+  app.post<{ Params: { id: string }; Body: { expectedStatus: "time_proposed"; operationId: string } }>("/:id/accept-party-time", async (request) => {
+    return success(await app.services.adminBookings.acceptPartyTime(request.params.id, request.body, request.user.sub));
+  });
+
+  app.post<{ Params: { id: string }; Body: { expectedStatus: "awaiting_in_store_payment"; operationId: string } }>("/:id/expire-party-hold", async (request) => {
+    return success(await app.services.adminBookings.expirePartyHold(request.params.id, request.body, request.user.sub));
+  });
+
   app.post<{ Params: { id: string }; Body: { type: "cake_cutting" | "cleaning" | "overtime"; amountCents: number; note?: string } }>("/:id/record-party-charge", async (request) => {
     await app.services.adminBookings.recordPartyCharge(request.params.id, request.body, request.user.sub);
     return success({ recorded: true });
