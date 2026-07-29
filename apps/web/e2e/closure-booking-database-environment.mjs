@@ -37,6 +37,25 @@ export function buildClosureMigrationDatabaseEnvironment(
 }
 
 /**
+ * Build the child environment for the real live-catalogue seed and production
+ * bootstrap commands. The runner owns the supplied URL and gives the commands
+ * only the explicit, test-only confirmations they require.
+ *
+ * @param {Record<string, string | undefined>} ambient
+ * @param {string} testDatabaseUrl
+ * @returns {Record<string, string | undefined>}
+ */
+export function buildClosureLiveInitializationEnvironment(
+  ambient,
+  testDatabaseUrl,
+) {
+  return buildClosureDatabaseEnvironment(ambient, testDatabaseUrl, {
+    ALLOW_PRODUCTION_BOOTSTRAP: "YezYY",
+    CONFIRM_LIVE_CATALOGUE_SEED: "YezYY",
+  });
+}
+
+/**
  * @param {Record<string, string | undefined>} ambient
  * @param {string} testDatabaseUrl
  * @param {Record<string, string | undefined>} overrides

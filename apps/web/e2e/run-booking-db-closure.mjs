@@ -5,6 +5,7 @@ import path from "node:path";
 import { buildClosureEnvironment } from "./closure-environment.mjs";
 import {
   buildClosureBookingDatabaseEnvironment,
+  buildClosureLiveInitializationEnvironment,
   buildClosureMigrationDatabaseEnvironment,
 } from "./closure-booking-database-environment.mjs";
 
@@ -55,6 +56,35 @@ function stopServices() {
   });
 }
 
+function assertInitializedData() {
+  const output = run(
+    "docker",
+    [
+      ...compose,
+      "exec",
+      "-T",
+      "postgres",
+      "psql",
+      "-U",
+      "closure_test",
+      "-d",
+      "yezyy_closure_test",
+      "-tAc",
+      "SELECT (SELECT count(*) FROM site_settings), (SELECT count(*) FROM users WHERE role = 'owner' AND email = 'congdongdong03@gmail.com'), (SELECT count(*) FROM project_categories), (SELECT count(*) FROM diy_projects), (SELECT count(*) FROM party_packages)",
+    ],
+    { capture: true },
+  );
+  const counts = output.split("|").map(Number);
+  if (
+    counts.length !== 5 ||
+    counts[0] !== 1 ||
+    counts[1] !== 1 ||
+    counts.slice(2).some((count) => !Number.isInteger(count) || count < 1)
+  ) {
+    throw new Error(`Live initialization verification failed: ${output}`);
+  }
+}
+
 try {
   stopServices();
   run("docker", [...compose, "up", "--detach", "--wait", "postgres"]);
@@ -68,6 +98,17 @@ try {
       YEZZY_CLOSURE_E2E: "1",
     },
   });
+  const liveInitializationEnvironment = buildClosureLiveInitializationEnvironment(
+    process.env,
+    databaseUrl,
+  );
+  run("corepack", ["pnpm", "--filter", "@yezz/db", "seed:live-booking"], {
+    env: liveInitializationEnvironment,
+  });
+  run("corepack", ["pnpm", "--filter", "@yezz/db", "bootstrap:production"], {
+    env: liveInitializationEnvironment,
+  });
+  assertInitializedData();
   run("corepack", ["pnpm", "--filter", "@yezz/db", "test:integration"], {
     env: buildClosureMigrationDatabaseEnvironment(process.env, databaseUrl),
   });
