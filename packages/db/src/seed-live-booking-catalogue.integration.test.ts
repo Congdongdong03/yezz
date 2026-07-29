@@ -57,6 +57,9 @@ async function applyCurrentMigrations(client: Sql, schemaName: string) {
   await applyMigration(client, schemaName, "0001_nice_ezekiel.sql");
   await applyMigration(client, schemaName, "0002_yezyy_flow_closure.sql");
   await applyMigration(client, schemaName, "0003_yezyy_live_booking_operations.sql");
+  await applyMigration(client, schemaName, "0004_slippery_kree.sql");
+  await applyMigration(client, schemaName, "0005_secure_owner_password_setup.sql");
+  await applyMigration(client, schemaName, "0006_capability_gate_linearization.sql");
 }
 
 function formatAudCents(cents: number): string {

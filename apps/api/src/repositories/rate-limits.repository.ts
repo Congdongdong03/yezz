@@ -22,7 +22,10 @@ export type RateLimitPurgeInput = {
 };
 
 export type RateLimitsRepository = {
-  consume(input: RateLimitBucketInput): Promise<RateLimitBucketResult>;
+  consume(
+    input: RateLimitBucketInput,
+    connection?: Db,
+  ): Promise<RateLimitBucketResult>;
   purgeExpired(input: RateLimitPurgeInput): Promise<number>;
 };
 
@@ -43,11 +46,11 @@ function resolveTestReferenceTime(referenceTime: Date | undefined) {
 
 export function createRateLimitsRepository(db: Db): RateLimitsRepository {
   return {
-    async consume(input) {
+    async consume(input, connection = db) {
       const testReferenceTime = resolveTestReferenceTime(
         input.testReferenceTime,
       );
-      const rows = await db.execute<RateLimitRow>(sql`
+      const rows = await connection.execute<RateLimitRow>(sql`
         WITH bucket_input AS (
           SELECT
             ${input.scope}::varchar(64) AS scope,

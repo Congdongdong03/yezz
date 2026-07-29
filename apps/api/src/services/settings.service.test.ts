@@ -29,7 +29,9 @@ function settingsDatabase(
     ...switches,
   };
   const limit = vi.fn(async () => [row]);
-  const from = vi.fn(() => ({ limit }));
+  const orderBy = vi.fn(() => ({ limit }));
+  const where = vi.fn(() => ({ orderBy }));
+  const from = vi.fn(() => ({ where }));
   const select = vi.fn(() => ({ from }));
   return { select } as never;
 }

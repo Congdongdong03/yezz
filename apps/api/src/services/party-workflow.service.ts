@@ -137,6 +137,7 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
   customerActionTokenSecret?: string;
   customerManageBaseUrl?: string;
   requirePublicRequestCapability?: (tx: Db) => Promise<void>;
+  beforePublicRequestPersist?: (tx: Db) => Promise<void>;
 }) {
   const bookingsRepo = createBookingsRepository(db);
   const partiesRepo = createPartiesRepository(db);
@@ -394,15 +395,18 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
       const canonicalInput = { ...input, projectInterests: canonicalProjectInterests(input.projectInterests) };
       const key = assertUuid(idempotencyKey, "Idempotency-Key");
       const packageId = assertUuid(canonicalInput.partyPackageId, "partyPackageId");
-      const existing = await bookingsRepo.findByIdempotencyKey(key);
-      if (existing) {
-        await assertPartyReplay(existing, canonicalInput, packageId);
-        return { id: existing.id, status: existing.status, createdAt: existing.createdAt, replayed: true };
+      if (!dependencies?.beforePublicRequestPersist) {
+        const existing = await bookingsRepo.findByIdempotencyKey(key);
+        if (existing) {
+          await assertPartyReplay(existing, canonicalInput, packageId);
+          return { id: existing.id, status: existing.status, createdAt: existing.createdAt, replayed: true };
+        }
       }
       return db.transaction(async (tx) => {
         if (dependencies?.requirePublicRequestCapability) {
           await dependencies.requirePublicRequestCapability(tx);
         }
+        await dependencies?.beforePublicRequestPersist?.(tx);
         await bookingsRepo.lockCreateAttempt(key, tx);
         const replay = await bookingsRepo.findByIdempotencyKey(key, tx);
         if (replay) {

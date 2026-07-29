@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import type { Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
 import type { RateLimitsRepository } from "../repositories/rate-limits.repository.js";
 
@@ -20,6 +21,7 @@ export type RateLimitsService = {
     subject: string,
     limit: number,
     windowSeconds: number,
+    connection?: Db,
   ): Promise<RateLimitResult>;
   purgeExpired(): Promise<void>;
 };
@@ -80,7 +82,7 @@ export function createRateLimitsService(
   options: RateLimitsServiceOptions,
 ): RateLimitsService {
   return {
-    async consume(scope, subject, limit, windowSeconds) {
+    async consume(scope, subject, limit, windowSeconds, connection) {
       try {
         const secret = validateSecret(options.hashSecret);
         const normalized = validateConsumption(
@@ -92,12 +94,15 @@ export function createRateLimitsService(
         const subjectHash = createHmac("sha256", secret)
           .update(`${normalized.scope}\n${normalized.subject}`)
           .digest("hex");
-        const bucket = await repository.consume({
-          scope: normalized.scope,
-          subjectHash,
-          limit,
-          windowSeconds,
-        });
+        const bucket = await repository.consume(
+          {
+            scope: normalized.scope,
+            subjectHash,
+            limit,
+            windowSeconds,
+          },
+          connection,
+        );
         const remaining = Math.max(0, limit - bucket.requestCount);
         const resetAfter = Math.max(
           1,

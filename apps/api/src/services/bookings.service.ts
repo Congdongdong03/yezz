@@ -51,6 +51,7 @@ export type BookingDto = {
 
 export type BookingsService = ReturnType<typeof createBookingsService>;
 export type { OrdinaryBookingCreateInput } from "../lib/booking-workflow.js";
+export type BeforePublicBookingPersist = (tx: Db) => Promise<void>;
 
 export function normalizeBookingPeople(
   value: number | null | undefined,
@@ -285,8 +286,11 @@ export function createBookingsService(
   async function requirePublicCreateCapability(
     kind: "experience" | "party" | "product",
     tx: Db = db,
+    lockThroughCommit = false,
   ): Promise<void> {
-    const settings = await createSettingsRepository(tx).findSingleton();
+    const settings = await createSettingsRepository(tx).findSingleton(
+      lockThroughCommit ? { lock: "share" } : undefined,
+    );
     if (!settings) {
       throw new AppError(
         503,
@@ -307,9 +311,14 @@ export function createBookingsService(
     async create(
       input: BookingCreateInput | OrdinaryBookingCreateInput,
       idempotencyKey?: string,
+      beforePersist?: BeforePublicBookingPersist,
     ): Promise<BookingDto> {
       if (isOrdinaryBookingCreateInput(input)) {
-        return this.createOrdinaryRequest(input, idempotencyKey) as Promise<BookingDto>;
+        return this.createOrdinaryRequest(
+          input,
+          idempotencyKey,
+          beforePersist,
+        ) as Promise<BookingDto>;
       }
       const requestedKind = input.kind ?? "experience";
       if (!requestCapabilities[requestedKind]) {
@@ -353,23 +362,30 @@ export function createBookingsService(
       } as const;
 
       await requirePublicCreateCapability(kind);
-      const replay = await repo.findByIdempotencyKey(normalizedKey);
-      if (replay) {
-        assertReplayMatches(replay, normalizedInput, replayIdentity);
-        return {
-          id: replay.id,
-          status: legacyStatusFromBookingStatus(replay.status),
-          createdAt: replay.createdAt,
-          replayed: true,
-          notification: "queued",
-        };
+      if (!beforePersist) {
+        const replay = await repo.findByIdempotencyKey(normalizedKey);
+        if (replay) {
+          assertReplayMatches(replay, normalizedInput, replayIdentity);
+          return {
+            id: replay.id,
+            status: legacyStatusFromBookingStatus(replay.status),
+            createdAt: replay.createdAt,
+            replayed: true,
+            notification: "queued",
+          };
+        }
       }
 
       const ownerEmail = CANONICAL_BOOKING_EMAIL_IDENTITY.contactEmail;
 
       try {
         const result = await db.transaction(async (tx) => {
-          await requirePublicCreateCapability(kind, tx);
+          // Linearization point: this shared singleton-row lock conflicts with
+          // the admin capability UPDATE and is held through booking/outbox
+          // commit. A closure therefore commits either before this read (and
+          // this request fails) or after this entire create commits.
+          await requirePublicCreateCapability(kind, tx, true);
+          await beforePersist?.(tx);
           await repo.lockCreateAttempt(normalizedKey, tx);
           const existing = await repo.findByIdempotencyKey(normalizedKey, tx);
           if (existing) {
@@ -589,6 +605,7 @@ export function createBookingsService(
     async createOrdinaryRequest(
       input: OrdinaryBookingCreateInput,
       idempotencyKey?: string,
+      beforePersist?: BeforePublicBookingPersist,
     ): Promise<{
       id: string;
       status: BookingStatus;
@@ -602,7 +619,6 @@ export function createBookingsService(
       assertOrdinaryInput(input);
       const normalizedKey = assertUuid(idempotencyKey, "Idempotency-Key");
       await requirePublicCreateCapability("experience");
-      const existing = await repo.findByIdempotencyKey(normalizedKey);
       const assertReplay = async (row: Awaited<ReturnType<typeof repo.findByIdempotencyKey>>) => {
         if (!row) return false;
         const items = await repo.findItems(row.id);
@@ -610,12 +626,16 @@ export function createBookingsService(
         if (!same) throw new AppError(409, "IDEMPOTENCY_KEY_CONFLICT", "The idempotency key belongs to a different booking request");
         return true;
       };
-      if (await assertReplay(existing)) {
-        return { id: existing!.id, status: existing!.status, createdAt: existing!.createdAt, replayed: true, notification: "queued" };
+      if (!beforePersist) {
+        const existing = await repo.findByIdempotencyKey(normalizedKey);
+        if (await assertReplay(existing)) {
+          return { id: existing!.id, status: existing!.status, createdAt: existing!.createdAt, replayed: true, notification: "queued" };
+        }
       }
 
       const result = await db.transaction(async (tx) => {
-        await requirePublicCreateCapability("experience", tx);
+        await requirePublicCreateCapability("experience", tx, true);
+        await beforePersist?.(tx);
         await repo.lockCreateAttempt(normalizedKey, tx);
         const replay = await repo.findByIdempotencyKey(normalizedKey, tx);
         if (replay) {
@@ -763,7 +783,11 @@ export function createBookingsService(
       return { id: result.row.id, status: result.row.status, createdAt: result.row.createdAt, replayed: result.replayed, notification: "queued" };
     },
 
-    async createPartyRequest(input: PartyCreateInput, idempotencyKey?: string) {
+    async createPartyRequest(
+      input: PartyCreateInput,
+      idempotencyKey?: string,
+      beforePersist?: BeforePublicBookingPersist,
+    ) {
       if (!requestCapabilities.party) {
         throw new AppError(
           503,
@@ -774,7 +798,8 @@ export function createBookingsService(
       return createPartyWorkflowService(db, {
         now,
         requirePublicRequestCapability: (tx) =>
-          requirePublicCreateCapability("party", tx),
+          requirePublicCreateCapability("party", tx, true),
+        beforePublicRequestPersist: beforePersist,
       }).createPartyRequest(input, idempotencyKey);
     },
   };

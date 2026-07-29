@@ -1,4 +1,5 @@
 import type { FastifyReply } from "fastify";
+import type { Db } from "@yezz/db";
 import { isIP } from "node:net";
 import { AppError } from "./errors.js";
 import type { VerifiedClientIdentity } from "./internal-request.js";
@@ -78,8 +79,15 @@ export async function enforceRequestLimit(
   limit: number,
   windowSeconds: number,
   reply: Pick<FastifyReply, "header">,
+  connection?: Db,
 ): Promise<void> {
-  const result = await service.consume(scope, subject, limit, windowSeconds);
+  const result = await service.consume(
+    scope,
+    subject,
+    limit,
+    windowSeconds,
+    connection,
+  );
   enforceRateLimitResult(result, reply);
 }
 

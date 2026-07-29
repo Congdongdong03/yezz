@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { Db } from "@yezz/db";
 import {
   enforceRequestLimit,
   resolvePublicRateLimitSubject,
@@ -17,21 +18,31 @@ export default async function bookingsRoutes(app: FastifyInstance) {
     const capability = request.body?.kind ?? "experience";
     await app.services.settings.requirePublicRequestCapability(capability);
 
-    await enforceRequestLimit(
-      app.services.rateLimits,
-      "booking",
-      resolvePublicRateLimitSubject(request),
-      BOOKING_RATE_LIMIT,
-      BOOKING_RATE_WINDOW_SECONDS,
-      reply,
-    );
-
     const idempotencyKey = requireIdempotencyKey(
       request.headers["idempotency-key"],
     );
+    const rateLimitSubject = resolvePublicRateLimitSubject(request);
+    const consumeRequestLimit = (tx: Db) =>
+      enforceRequestLimit(
+        app.services.rateLimits,
+        "booking",
+        rateLimitSubject,
+        BOOKING_RATE_LIMIT,
+        BOOKING_RATE_WINDOW_SECONDS,
+        reply,
+        tx,
+      );
     const data = request.body?.kind === "party" && "birthdayChildName" in request.body
-      ? await app.services.bookings.createPartyRequest(request.body, idempotencyKey)
-      : await app.services.bookings.create(request.body as BookingCreateInput | OrdinaryBookingCreateInput, idempotencyKey);
+      ? await app.services.bookings.createPartyRequest(
+          request.body,
+          idempotencyKey,
+          consumeRequestLimit,
+        )
+      : await app.services.bookings.create(
+          request.body as BookingCreateInput | OrdinaryBookingCreateInput,
+          idempotencyKey,
+          consumeRequestLimit,
+        );
     return reply.status(201).send(success(data));
   });
 }

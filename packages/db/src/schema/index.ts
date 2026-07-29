@@ -732,24 +732,47 @@ export const adminRequestReads = pgTable(
   ],
 );
 
-export const siteSettings = pgTable("site_settings", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  storeName: varchar("store_name", { length: 255 }).notNull(),
-  address: text("address"),
-  businessHours: varchar("business_hours", { length: 255 }),
-  phone: varchar("phone", { length: 64 }),
-  email: varchar("email", { length: 255 }),
-  wechatId: varchar("wechat_id", { length: 128 }),
-  wechatQrUrl: text("wechat_qr_url"),
-  heroImageUrl: text("hero_image_url"),
-  instagram: text("instagram"),
-  xiaohongshu: text("xiaohongshu"),
-  googleMapUrl: text("google_map_url"),
-  seoTitle: varchar("seo_title", { length: 255 }),
-  seoDescription: text("seo_description"),
-  experienceRequestsEnabled: boolean("experience_requests_enabled").notNull().default(false),
-  partyRequestsEnabled: boolean("party_requests_enabled").notNull().default(false),
-  productRequestsEnabled: boolean("product_requests_enabled").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const siteSettings = pgTable(
+  "site_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    singletonKey: boolean("singleton_key").notNull().default(true),
+    storeName: varchar("store_name", { length: 255 }).notNull(),
+    address: text("address"),
+    businessHours: varchar("business_hours", { length: 255 }),
+    phone: varchar("phone", { length: 64 }),
+    email: varchar("email", { length: 255 }),
+    wechatId: varchar("wechat_id", { length: 128 }),
+    wechatQrUrl: text("wechat_qr_url"),
+    heroImageUrl: text("hero_image_url"),
+    instagram: text("instagram"),
+    xiaohongshu: text("xiaohongshu"),
+    googleMapUrl: text("google_map_url"),
+    seoTitle: varchar("seo_title", { length: 255 }),
+    seoDescription: text("seo_description"),
+    experienceRequestsEnabled: boolean("experience_requests_enabled")
+      .notNull()
+      .default(false),
+    partyRequestsEnabled: boolean("party_requests_enabled")
+      .notNull()
+      .default(false),
+    productRequestsEnabled: boolean("product_requests_enabled")
+      .notNull()
+      .default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "site_settings_singleton_key_true",
+      sql`${table.singletonKey} = true`,
+    ),
+    uniqueIndex("site_settings_singleton_key_unique").on(
+      table.singletonKey,
+    ),
+  ],
+);

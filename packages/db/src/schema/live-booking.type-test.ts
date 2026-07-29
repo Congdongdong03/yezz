@@ -31,4 +31,5 @@ void passwordSetupTokens.userId;
 void users.sessionVersion;
 void diyProjects.durationMinutes;
 void partyPackages.guestDurationMinutes;
+void siteSettings.singletonKey;
 void siteSettings.experienceRequestsEnabled;

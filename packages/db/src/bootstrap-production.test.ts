@@ -153,6 +153,11 @@ async function applyCurrentMigrations(client: Sql, schemaName: string) {
     schemaName,
     "0005_secure_owner_password_setup.sql",
   );
+  await applyMigration(
+    client,
+    schemaName,
+    "0006_capability_gate_linearization.sql",
+  );
 }
 
 afterEach(async () => {

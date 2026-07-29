@@ -24,9 +24,16 @@ export function requireSafeRequestFlowTestUrl(): string {
   return configuredTestUrl;
 }
 
-function withSearchPath(url: string, schema: string): string {
+function withSearchPath(
+  url: string,
+  schema: string,
+  applicationName?: string,
+): string {
   const parsed = new URL(url);
   parsed.searchParams.set("options", `-csearch_path=${schema}`);
+  if (applicationName) {
+    parsed.searchParams.set("application_name", applicationName);
+  }
   return parsed.toString();
 }
 
@@ -34,6 +41,7 @@ export type RequestFlowTestDatabase = {
   schema: string;
   bootstrap: ReturnType<typeof createDb>;
   connection: ReturnType<typeof createDb>;
+  openConnection(applicationName: string): ReturnType<typeof createDb>;
   close(): Promise<void>;
 };
 
@@ -41,6 +49,7 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
   const url = requireSafeRequestFlowTestUrl();
   const schema = `yezyy_booking_test_${crypto.randomUUID().replaceAll("-", "")}`;
   const bootstrap = createDb(url);
+  const auxiliaryConnections = new Set<ReturnType<typeof createDb>>();
   await bootstrap.client.unsafe(`CREATE SCHEMA "${schema}"`);
   await bootstrap.client.unsafe(`
     CREATE TABLE "${schema}".users (
@@ -288,6 +297,8 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
     );
     CREATE TABLE "${schema}".site_settings (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      singleton_key boolean NOT NULL DEFAULT true
+        CONSTRAINT site_settings_singleton_key_true CHECK (singleton_key = true),
       store_name varchar(255) NOT NULL DEFAULT '',
       address text,
       business_hours text,
@@ -307,6 +318,8 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE UNIQUE INDEX site_settings_singleton_key_unique
+      ON "${schema}".site_settings (singleton_key);
     CREATE TABLE "${schema}".request_status_events (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       booking_id uuid REFERENCES "${schema}".bookings(id) ON DELETE RESTRICT,
@@ -380,7 +393,17 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
     schema,
     bootstrap,
     connection,
+    openConnection(applicationName) {
+      const auxiliary = createDb(
+        withSearchPath(url, schema, applicationName),
+      );
+      auxiliaryConnections.add(auxiliary);
+      return auxiliary;
+    },
     async close() {
+      await Promise.all(
+        [...auxiliaryConnections].map(({ client }) => client.end()),
+      );
       await connection.client.end();
       await bootstrap.client.unsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
       await bootstrap.client.end();

@@ -1,5 +1,5 @@
 import { siteSettings, type Db } from "@yezz/db";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 export type SiteSettingsUpdateInput = Partial<{
   storeName: string;
@@ -19,27 +19,28 @@ export type SiteSettingsUpdateInput = Partial<{
 
 export function createSettingsRepository(db: Db) {
   return {
-    async findSingleton() {
-      const [row] = await db.select().from(siteSettings).limit(1);
+    async findSingleton(options?: { lock?: "share" | "update" }) {
+      const query = db
+        .select()
+        .from(siteSettings)
+        .where(eq(siteSettings.singletonKey, true))
+        .orderBy(
+          desc(siteSettings.updatedAt),
+          desc(siteSettings.createdAt),
+          desc(siteSettings.id),
+        )
+        .limit(1);
+      const [row] = options?.lock
+        ? await query.for(options.lock)
+        : await query;
       return row ?? null;
     },
 
     async upsertSingleton(data: SiteSettingsUpdateInput) {
-      const existing = await this.findSingleton();
-      if (existing) {
-        const [row] = await db
-          .update(siteSettings)
-          .set({
-            ...data,
-            updatedAt: new Date(),
-          })
-          .where(eq(siteSettings.id, existing.id))
-          .returning();
-        return row ?? null;
-      }
       const [row] = await db
         .insert(siteSettings)
         .values({
+          singletonKey: true,
           storeName: data.storeName ?? "",
           address: data.address ?? null,
           businessHours: data.businessHours ?? null,
@@ -55,21 +56,25 @@ export function createSettingsRepository(db: Db) {
           seoDescription: data.seoDescription ?? null,
           updatedAt: new Date(),
         })
+        .onConflictDoUpdate({
+          target: siteSettings.singletonKey,
+          set: {
+            ...data,
+            updatedAt: new Date(),
+          },
+        })
         .returning();
       return row ?? null;
     },
 
     async updateSingleton(data: SiteSettingsUpdateInput) {
-      const existing = await this.findSingleton();
-      if (!existing) return null;
-
       const [row] = await db
         .update(siteSettings)
         .set({
           ...data,
           updatedAt: new Date(),
         })
-        .where(eq(siteSettings.id, existing.id))
+        .where(eq(siteSettings.singletonKey, true))
         .returning();
       return row ?? null;
     },

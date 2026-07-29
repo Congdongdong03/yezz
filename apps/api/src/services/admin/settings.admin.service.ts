@@ -178,10 +178,19 @@ export function createAdminSettingsService(
   const availabilityRepo = createBookingAvailabilityRepository(db);
   const now = dependencies?.now ?? (() => new Date());
 
-  async function settingsRow(): Promise<SettingsRow> {
-    let row = await repo.findSingleton();
+  async function settingsRow(
+    connection: Db = db,
+    lock?: "share" | "update",
+  ): Promise<SettingsRow> {
+    const connectionRepo =
+      connection === db ? repo : createSettingsRepository(connection);
+    let row = await connectionRepo.findSingleton(
+      lock ? { lock } : undefined,
+    );
     if (!row) {
-      row = await repo.upsertSingleton(DEFAULT_YEZYY_SITE_SETTINGS);
+      row = await connectionRepo.upsertSingleton(
+        DEFAULT_YEZYY_SITE_SETTINGS,
+      );
     }
     if (!row) {
       throw new AppError(
@@ -570,24 +579,27 @@ export function createAdminSettingsService(
           "request switches must be boolean",
         );
       }
-      const row = await settingsRow();
-      const [updated] = await db
-        .update(siteSettings)
-        .set({
-          ...(input.experience === undefined
-            ? {}
-            : { experienceRequestsEnabled: input.experience }),
-          ...(input.party === undefined
-            ? {}
-            : { partyRequestsEnabled: input.party }),
-          // Ignore attempts to turn product on and also repair stale true data.
-          productRequestsEnabled: false,
-          updatedAt: new Date(),
-        })
-        .where(eq(siteSettings.id, row.id))
-        .returning();
+      const switches = await db.transaction(async (tx) => {
+        const row = await settingsRow(tx, "update");
+        const [updated] = await tx
+          .update(siteSettings)
+          .set({
+            ...(input.experience === undefined
+              ? {}
+              : { experienceRequestsEnabled: input.experience }),
+            ...(input.party === undefined
+              ? {}
+              : { partyRequestsEnabled: input.party }),
+            // Ignore attempts to turn product on and also repair stale true data.
+            productRequestsEnabled: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(siteSettings.id, row.id))
+          .returning();
+        return readEffectiveAdminSwitches(updated!, env);
+      });
       await cacheDel(redis, CACHE_KEYS.settings);
-      return readEffectiveAdminSwitches(updated!, env);
+      return switches;
     },
   };
 }
