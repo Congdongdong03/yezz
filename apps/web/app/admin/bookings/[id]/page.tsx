@@ -466,7 +466,10 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
                       <p className="text-sm text-muted-foreground">{charge.recordedBy.name} · {formatDate(charge.createdAt)}</p>
                       {charge.note && <p className="mt-1 whitespace-pre-wrap text-sm">{charge.note}</p>}
                     </div>
-                    <span className="font-medium">{formatAudCents(charge.amountCents)}</span>
+                    <span className="font-medium">
+                      {charge.type === "refund" ? "-" : ""}
+                      {formatAudCents(charge.amountCents)}
+                    </span>
                   </li>
                 ))}
               </ul>

@@ -94,6 +94,14 @@ const booking = {
         createdAt: "2030-08-09T03:05:00.000Z",
         recordedBy: { id: "staff-1", name: "收费员工" },
       },
+      {
+        id: "00000000-0000-4000-8000-000000000012",
+        type: "refund",
+        amountCents: 9500,
+        note: "Customer cancellation",
+        createdAt: "2030-08-10T03:00:00.000Z",
+        recordedBy: { id: "staff-2", name: "退款员工" },
+      },
     ],
   },
   createdAt: "2030-08-01T00:00:00.000Z",
@@ -129,6 +137,7 @@ describe("AdminBookingDetailPage", () => {
     expect(container.textContent).toContain("切蛋糕服务");
     expect(container.textContent).toContain("A$95.00");
     expect(container.textContent).toContain("A$15.00");
+    expect(container.textContent).toContain("-A$95.00");
     expect(container.textContent).toContain("Birthday cake");
   });
 });
