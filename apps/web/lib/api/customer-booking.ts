@@ -110,11 +110,15 @@ function parseCustomerBookingView(value: unknown): CustomerBookingView {
 
 export async function getCustomerBooking(
   token: string,
+  trustedClientIp?: string | null,
 ): Promise<CustomerBookingView> {
   const response = await fetch(
     `${customerBookingBffOrigin()}${customerPath(token)}`,
     {
-    cache: "no-store",
+      cache: "no-store",
+      ...(trustedClientIp
+        ? { headers: { "x-vercel-forwarded-for": trustedClientIp } }
+        : {}),
     },
   );
   return parseCustomerBookingView(

@@ -60,13 +60,23 @@ const DEFAULT_MAX_SIGNED_BODY_BYTES = 6 * 1024 * 1024;
 function protectedPath(method: string, url: string): boolean {
   const path = url.split("?", 1)[0]?.replace(/\/+$/, "") || "/";
   const normalizedMethod = method.toUpperCase();
+  const customerBookingPath =
+    /^\/api\/v1\/customer-bookings\/[A-Za-z0-9_-]{43}(?:\/(?:accept-time|request-cancellation|request-reschedule))?$/.test(
+      path,
+    );
   return (
     (normalizedMethod === "POST" &&
-      ["/api/v1/auth/login", "/api/v1/auth/logout"].includes(path)) ||
+      [
+        "/api/v1/auth/login",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/setup-password",
+      ].includes(path)) ||
     path === "/api/v1/admin" ||
     path.startsWith("/api/v1/admin/") ||
     (path === "/api/v1/cart" &&
       ["GET", "PUT"].includes(normalizedMethod)) ||
+    (customerBookingPath &&
+      ["GET", "POST"].includes(normalizedMethod)) ||
     (normalizedMethod === "POST" &&
       ["/api/v1/bookings", "/api/v1/cart-orders"].includes(path))
   );

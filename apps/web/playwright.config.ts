@@ -18,13 +18,22 @@ const repositoryRoot = path.resolve(
   "../..",
 );
 const closureSpecs =
-  /(?:experience-closure|product-closure|party-closure|rate-limit-identity|email-retry)\.spec\.ts/;
+  /(?:experience-closure|rate-limit-identity|email-retry|live-ordinary-booking|live-waitlist|live-party-booking|live-customer-actions)\.spec\.ts/;
+const liveClosureSpecs =
+  /(?:live-ordinary-booking|live-waitlist|live-party-booking|live-customer-actions)\.spec\.ts/;
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required for closure E2E`);
   return value;
 }
+
+const apiUrl = closure
+  ? requiredEnvironment("NEXT_PUBLIC_API_URL")
+  : "http://localhost:4000";
+const siteUrl = closure
+  ? requiredEnvironment("NEXT_PUBLIC_SITE_URL")
+  : "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -35,9 +44,7 @@ export default defineConfig({
   reporter: [["html", { open: "never" }], ["list"]],
 
   use: {
-    baseURL: closure
-      ? requiredEnvironment("NEXT_PUBLIC_SITE_URL")
-      : "http://localhost:3000",
+    baseURL: siteUrl,
     ...(closure
       ? {
           extraHTTPHeaders: {
@@ -66,6 +73,19 @@ export default defineConfig({
       },
       dependencies: ["setup"],
     },
+    ...(closure
+      ? [
+          {
+            name: "mobile-chromium",
+            testMatch: liveClosureSpecs,
+            use: {
+              ...devices["iPhone 13"],
+              storageState: "e2e/.auth/admin.json",
+            },
+            dependencies: ["setup"],
+          },
+        ]
+      : []),
   ],
 
   // Optional: auto-start services if not already running (local dev convenience)
@@ -73,11 +93,11 @@ export default defineConfig({
     {
       command: "pnpm --filter @yezz/api build && node apps/api/dist/index.js",
       cwd: repositoryRoot,
-      url: "http://localhost:4000/health",
+      url: `${apiUrl}/health`,
       timeout: 60_000,
       reuseExistingServer: closure ? false : !process.env.CI,
       env: {
-        PORT: "4000",
+        PORT: new URL(apiUrl).port || "4000",
         NODE_ENV: "test",
         DATABASE_URL:
           closure
@@ -88,10 +108,20 @@ export default defineConfig({
           ? ""
           : process.env.REDIS_URL ?? "redis://localhost:6379",
         JWT_SECRET: process.env.JWT_SECRET ?? "test-secret",
-        CORS_ORIGIN: "http://localhost:3000",
+        CORS_ORIGIN: siteUrl,
         ...(closure
           ? {
               EMAIL_FROM: requiredEnvironment("EMAIL_FROM"),
+              BOOKING_MAINTENANCE_POLL_MILLISECONDS:
+                requiredEnvironment(
+                  "BOOKING_MAINTENANCE_POLL_MILLISECONDS",
+                ),
+              BOOKING_MAINTENANCE_WORKER_ENABLED: requiredEnvironment(
+                "BOOKING_MAINTENANCE_WORKER_ENABLED",
+              ),
+              CUSTOMER_ACTION_TOKEN_SECRET: requiredEnvironment(
+                "CUSTOMER_ACTION_TOKEN_SECRET",
+              ),
               EMAIL_OUTBOX_POLL_MILLISECONDS: requiredEnvironment(
                 "EMAIL_OUTBOX_POLL_MILLISECONDS",
               ),
@@ -103,9 +133,15 @@ export default defineConfig({
               RATE_LIMIT_HASH_SECRET: requiredEnvironment(
                 "RATE_LIMIT_HASH_SECRET",
               ),
-              REQUEST_FLOW_EXPERIENCE_ENABLED: "true",
-              REQUEST_FLOW_PARTY_ENABLED: "true",
-              REQUEST_FLOW_PRODUCT_ENABLED: "true",
+              REQUEST_FLOW_EXPERIENCE_ENABLED: requiredEnvironment(
+                "REQUEST_FLOW_EXPERIENCE_ENABLED",
+              ),
+              REQUEST_FLOW_PARTY_ENABLED: requiredEnvironment(
+                "REQUEST_FLOW_PARTY_ENABLED",
+              ),
+              REQUEST_FLOW_PRODUCT_ENABLED: requiredEnvironment(
+                "REQUEST_FLOW_PRODUCT_ENABLED",
+              ),
               SMTP_HOST: "127.0.0.1",
               SMTP_PORT: requiredEnvironment("SMTP_PORT"),
               WEB_API_SHARED_SECRET: requiredEnvironment(
@@ -119,21 +155,24 @@ export default defineConfig({
     {
       command: "pnpm --filter @yezz/web build && pnpm --filter @yezz/web start",
       cwd: repositoryRoot,
-      url: "http://localhost:3000",
+      url: siteUrl,
       timeout: 120_000,
       reuseExistingServer: closure ? false : !process.env.CI,
       env: {
         API_URL: closure
           ? requiredEnvironment("API_URL")
-          : "http://localhost:4000",
+          : apiUrl,
         NEXT_PUBLIC_API_URL: closure
           ? requiredEnvironment("NEXT_PUBLIC_API_URL")
-          : "http://localhost:4000",
+          : apiUrl,
+        ...(closure
+          ? { NEXT_PUBLIC_GA_ID: requiredEnvironment("NEXT_PUBLIC_GA_ID") }
+          : {}),
         NEXT_PUBLIC_SITE_URL: closure
           ? requiredEnvironment("NEXT_PUBLIC_SITE_URL")
-          : "http://localhost:3000",
+          : siteUrl,
         NEXT_PUBLIC_USE_API: "true",
-        PORT: "3000",
+        PORT: new URL(siteUrl).port || "3000",
         ...(closure
           ? {
               VERCEL: "1",

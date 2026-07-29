@@ -49,6 +49,38 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
     await database.close();
   });
 
+  it("accepts the current toStatus field when transitioning a legacy booking", async () => {
+    const actorUserId = crypto.randomUUID();
+    const bookingId = crypto.randomUUID();
+    await database.connection.db.insert(users).values({
+      id: actorUserId,
+      email: "legacy-staff@example.com",
+      passwordHash: "not-used",
+      name: "Legacy staff",
+      role: "staff",
+    });
+    await database.connection.db.insert(bookings).values({
+      id: bookingId,
+      name: "Legacy customer",
+      phone: "0430000011",
+      email: "legacy@example.com",
+      preferredDate: "2030-08-13",
+      status: "pending_review",
+    });
+
+    await expect(
+      createAdminBookingsService(database.connection.db).updateStatus(
+        bookingId,
+        {
+          expectedStatus: "new",
+          toStatus: "confirmed",
+          operationId: crypto.randomUUID(),
+        },
+        actorUserId,
+      ),
+    ).resolves.toMatchObject({ id: bookingId, status: "confirmed" });
+  });
+
   it("requires staff to record customer contact before converting a waitlist request", async () => {
     const bookingId = crypto.randomUUID();
     await database.connection.db.insert(bookings).values({

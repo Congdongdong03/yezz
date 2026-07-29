@@ -57,7 +57,7 @@ describe("customer booking routes", () => {
       expect(response.json()).toEqual({ success: true, data: safeView });
       expect(resolve).toHaveBeenCalledWith(TOKEN);
       expect(consume).toHaveBeenCalledWith(
-        "customer_booking_action",
+        "customer-booking-action",
         `203.0.113.10:${createHash("sha256").update(TOKEN).digest("hex").slice(0, 16)}`,
         12,
         3600,
@@ -121,7 +121,7 @@ describe("customer booking routes", () => {
         error: { code: "LINK_INVALID_OR_EXPIRED" },
       });
       expect(consume).toHaveBeenCalledWith(
-        "customer_booking_action",
+        "customer-booking-action",
         `203.0.113.10:${createHash("sha256").update(MALFORMED_TOKEN).digest("hex").slice(0, 16)}`,
         12,
         3600,

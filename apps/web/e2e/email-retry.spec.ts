@@ -67,7 +67,7 @@ test("failed customer email is visible in Chinese admin and can be retried", asy
       page,
       kind: "bookings",
       requestId: bookingId,
-      actionName: "标记为已联系",
+      actionName: "确认预约",
     });
 
     const loadStatusEmail = async () => {
@@ -149,7 +149,7 @@ test("failed customer email is visible in Chinese admin and can be retried", asy
     expect(sent.providerMessageId).toBeTruthy();
     await waitForMailpitMessage({
       recipient: contact.email,
-      subjectIncludes: "booking update",
+      subjectIncludes: "booking confirmed",
     });
 
     await page.reload();

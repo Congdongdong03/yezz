@@ -10,6 +10,11 @@ export type MailpitMessage = {
   To: MailpitAddress[];
 };
 
+export type MailpitMessageBody = MailpitMessage & {
+  HTML: string;
+  Text: string;
+};
+
 type MailpitSearch = {
   messages?: MailpitMessage[];
   Messages?: MailpitMessage[];
@@ -75,6 +80,47 @@ export async function waitForMailpitMessage(options: {
   throw new Error(
     `Timed out waiting for Mailpit message to ${options.recipient}`,
   );
+}
+
+export async function readMailpitMessage(
+  message: Pick<MailpitMessage, "ID">,
+): Promise<MailpitMessageBody> {
+  const response = await mailpitRequest(`/api/v1/message/${message.ID}`);
+  const body = (await response.json()) as Partial<MailpitMessageBody>;
+  if (
+    typeof body.ID !== "string" ||
+    typeof body.Subject !== "string" ||
+    typeof body.HTML !== "string" ||
+    typeof body.Text !== "string" ||
+    !Array.isArray(body.To)
+  ) {
+    throw new Error("Mailpit returned an invalid message body");
+  }
+  return body as MailpitMessageBody;
+}
+
+export function extractSetupToken(message: MailpitMessageBody): string {
+  const source = `${message.HTML}\n${message.Text}`;
+  const match = source.match(
+    /\/admin\/setup-password\?token=([A-Za-z0-9_-]{43})/,
+  );
+  if (!match?.[1]) {
+    throw new Error("Mailpit setup email did not contain a valid setup token");
+  }
+  return match[1];
+}
+
+export function extractManagementToken(message: MailpitMessageBody): string {
+  const source = `${message.HTML}\n${message.Text}`;
+  const match = source.match(
+    /\/(?:en|zh)\/manage-booking\/([A-Za-z0-9_-]{43})/,
+  );
+  if (!match?.[1]) {
+    throw new Error(
+      "Mailpit booking email did not contain a valid management token",
+    );
+  }
+  return match[1];
 }
 
 export async function deleteMailpitMessagesFor(

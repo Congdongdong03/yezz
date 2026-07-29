@@ -24,6 +24,11 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({ locale: "en", token: TOKEN }),
 }));
 
+vi.mock("next/headers", () => ({
+  headers: async () =>
+    new Headers({ "x-vercel-forwarded-for": "203.0.113.4" }),
+}));
+
 vi.mock("next-intl/server", () => ({
   getTranslations: async ({ locale }: { locale: string }) => {
     const messages: Record<string, Record<string, string>> = {
@@ -110,7 +115,10 @@ describe("ManageBookingPage", () => {
     });
     await renderPage("en");
 
-    expect(api.getCustomerBooking).toHaveBeenCalledWith(TOKEN);
+    expect(api.getCustomerBooking).toHaveBeenCalledWith(
+      TOKEN,
+      "203.0.113.4",
+    );
     expect(container.textContent).toContain("管理你的 YezYY 申请");
     expect(container.textContent).toContain("奶油胶手作");
     expect(container.textContent).toContain("申请取消");

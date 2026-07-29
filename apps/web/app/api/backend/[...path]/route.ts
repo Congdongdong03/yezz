@@ -104,7 +104,11 @@ function assertAllowedTarget(method: string, apiPath: string): void {
     );
   const allowed =
     (normalizedMethod === "POST" &&
-      ["/api/v1/auth/login", "/api/v1/auth/logout"].includes(apiPath)) ||
+      [
+        "/api/v1/auth/login",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/setup-password",
+      ].includes(apiPath)) ||
     (normalizedMethod === "POST" &&
       ["/api/v1/bookings", "/api/v1/cart-orders"].includes(apiPath)) ||
     (apiPath === "/api/v1/cart" &&
@@ -201,7 +205,7 @@ function errorResponse(error: unknown): Response {
   );
 }
 
-export async function handleBackendRequest(
+async function handleBackendRequest(
   request: Request,
   context: RouteContext,
 ): Promise<Response> {

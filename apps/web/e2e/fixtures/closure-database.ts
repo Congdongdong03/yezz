@@ -3,6 +3,62 @@ import postgres, { type Sql } from "postgres";
 
 export type ClosureFlow = "experience" | "product" | "party";
 
+export const APPROVED_WEEKLY_HOURS = [
+  { weekday: 0, opensAt: "10:00", closesAt: "17:00", isClosed: false },
+  { weekday: 1, opensAt: "09:30", closesAt: "17:00", isClosed: false },
+  { weekday: 2, opensAt: "09:30", closesAt: "17:00", isClosed: false },
+  { weekday: 3, opensAt: "09:30", closesAt: "17:00", isClosed: false },
+  { weekday: 4, opensAt: "09:30", closesAt: "20:30", isClosed: false },
+  { weekday: 5, opensAt: "09:30", closesAt: "20:30", isClosed: false },
+  { weekday: 6, opensAt: "09:30", closesAt: "17:30", isClosed: false },
+] as const;
+
+type LiveProjectSeedInput = {
+  categorySlug: string;
+  slug: string;
+  name: { en: string; zh: string };
+  priceMinCents: number;
+  priceMaxCents: number;
+  durationMinutes: number;
+  variantSelectedInStore: boolean;
+  extraTimeMinutes?: number;
+  extraTimePriceCents?: number;
+};
+
+type LivePartySeedInput = {
+  slug: string;
+  name: { en: string; zh: string };
+  guestDurationMinutes: number;
+  setupMinutes: number;
+  cleanupMinutes: number;
+  venueFeeCents: number;
+  minPeople: number;
+  maxPeople: number;
+  minSpendPerPersonCents: number;
+  minParents: number;
+  maxParents: number;
+};
+
+export type LiveBookingFixture = {
+  sql: Sql;
+  runId: string;
+  bookingDate: string;
+  ownerEmail: string;
+  projects: {
+    short: { id: string; seed: LiveProjectSeedInput };
+    long: { id: string; seed: LiveProjectSeedInput };
+    bySlug: Map<string, { id: string; seed: LiveProjectSeedInput }>;
+  };
+  parties: {
+    short: { id: string; seed: LivePartySeedInput };
+    long: { id: string; seed: LivePartySeedInput };
+    bySlug: Map<string, { id: string; seed: LivePartySeedInput }>;
+  };
+  requestIds: Set<string>;
+  makeReminderEligible(bookingId: string): Promise<void>;
+  cleanup(): Promise<void>;
+};
+
 export type ClosureFixture = {
   sql: Sql;
   flow: ClosureFlow;
@@ -62,6 +118,331 @@ function futureWednesday(): string {
   throw new Error("Unable to choose a future Wednesday");
 }
 
+function futureBookingDate(): string {
+  const now = new Date();
+  const candidate = new Date(now.getTime() + 3 * 86_400_000);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Melbourne",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(candidate);
+}
+
+function melbourneDateTime(value: Date): {
+  date: string;
+  startTime: string;
+  endTime: string;
+} {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Australia/Melbourne",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(value)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  const end = new Date(value.getTime() + 60 * 60 * 1000);
+  const endParts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Australia/Melbourne",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(end)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    startTime: `${parts.hour}:${parts.minute}`,
+    endTime: `${endParts.hour}:${endParts.minute}`,
+  };
+}
+
+export async function seedLiveBookingFixture(input: {
+  weeklyHours: readonly {
+    weekday: number;
+    opensAt: string;
+    closesAt: string;
+    isClosed: boolean;
+  }[];
+  projects: readonly LiveProjectSeedInput[];
+  parties: readonly LivePartySeedInput[];
+  capabilities: {
+    experience: boolean;
+    party: boolean;
+    product: boolean;
+  };
+}): Promise<LiveBookingFixture> {
+  const sql = postgres(testDatabaseUrl(), { max: 1 });
+  const runId = crypto.randomUUID();
+  const requestIds = new Set<string>();
+  const categoryIds = new Map<string, string>();
+  const projects = new Map<
+    string,
+    { id: string; seed: LiveProjectSeedInput }
+  >();
+  const parties = new Map<
+    string,
+    { id: string; seed: LivePartySeedInput }
+  >();
+  const rateLimitSecret = process.env.RATE_LIMIT_HASH_SECRET?.trim();
+  if (!rateLimitSecret) {
+    await sql.end();
+    throw new Error(
+      "RATE_LIMIT_HASH_SECRET is required for live closure cleanup",
+    );
+  }
+
+  try {
+    await sql.begin(async (transaction) => {
+      const settings = await transaction<{ id: string }[]>`
+        select id from site_settings order by created_at limit 2
+      `;
+      if (settings.length !== 1) {
+        throw new Error(
+          "Live closure requires exactly one isolated site_settings row",
+        );
+      }
+      await transaction`
+        update site_settings
+        set
+          experience_requests_enabled = ${input.capabilities.experience},
+          party_requests_enabled = ${input.capabilities.party},
+          product_requests_enabled = ${input.capabilities.product},
+          updated_at = now()
+        where id = ${settings[0]!.id}
+      `;
+
+      for (const hours of input.weeklyHours) {
+        await transaction`
+          insert into studio_weekly_hours (
+            weekday, opens_at, closes_at, is_closed
+          )
+          values (
+            ${hours.weekday},
+            ${hours.opensAt},
+            ${hours.closesAt},
+            ${hours.isClosed}
+          )
+          on conflict (weekday) do update set
+            opens_at = excluded.opens_at,
+            closes_at = excluded.closes_at,
+            is_closed = excluded.is_closed
+        `;
+      }
+
+      for (const categorySlug of [
+        ...new Set(input.projects.map((project) => project.categorySlug)),
+      ]) {
+        const id = crypto.randomUUID();
+        categoryIds.set(categorySlug, id);
+        await transaction`
+          insert into project_categories (
+            id, name, slug, sort_order
+          )
+          values (
+            ${id},
+            ${transaction.json({
+              en: `Closure ${categorySlug}`,
+              zh: `闭环测试 ${categorySlug}`,
+            })},
+            ${`closure-live-${runId}-${categorySlug}`},
+            9000
+          )
+        `;
+      }
+
+      for (const [sortOrder, project] of input.projects.entries()) {
+        const id = crypto.randomUUID();
+        const categoryId = categoryIds.get(project.categorySlug);
+        if (!categoryId) {
+          throw new Error(`Missing live closure category ${project.categorySlug}`);
+        }
+        projects.set(project.slug, { id, seed: project });
+        await transaction`
+          insert into diy_projects (
+            id, category_id, name, slug, project_type, description,
+            price_range, price_min, price_max, price_currency, duration,
+            duration_minutes, bookable, variant_selected_in_store,
+            extra_time_minutes, extra_time_price_cents, tags, sort_order
+          )
+          values (
+            ${id},
+            ${categoryId},
+            ${transaction.json(project.name)},
+            ${`closure-live-${runId}-${project.slug}`},
+            'experience',
+            ${transaction.json({
+              en: `Isolated closure fixture ${runId}`,
+              zh: `隔离闭环测试 ${runId}`,
+            })},
+            ${`A$${(project.priceMinCents / 100).toFixed(2)}`},
+            ${project.priceMinCents},
+            ${project.priceMaxCents},
+            'AUD',
+            ${`${project.durationMinutes} minutes`},
+            ${project.durationMinutes},
+            true,
+            ${project.variantSelectedInStore},
+            ${project.extraTimeMinutes ?? null},
+            ${project.extraTimePriceCents ?? null},
+            ${[]},
+            ${9000 + sortOrder}
+          )
+        `;
+      }
+
+      for (const [sortOrder, party] of input.parties.entries()) {
+        const id = crypto.randomUUID();
+        parties.set(party.slug, { id, seed: party });
+        await transaction`
+          insert into party_packages (
+            id, name, slug, description, includes, image_urls,
+            min_people, max_people, guest_duration_minutes, setup_minutes,
+            cleanup_minutes, venue_fee_cents, min_spend_per_person_cents,
+            min_parents, max_parents, tags, sort_order
+          )
+          values (
+            ${id},
+            ${transaction.json(party.name)},
+            ${`closure-live-${runId}-${party.slug}`},
+            ${transaction.json({
+              en: `Isolated closure fixture ${runId}`,
+              zh: `隔离闭环测试 ${runId}`,
+            })},
+            ${transaction.json([])},
+            ${[]},
+            ${party.minPeople},
+            ${party.maxPeople},
+            ${party.guestDurationMinutes},
+            ${party.setupMinutes},
+            ${party.cleanupMinutes},
+            ${party.venueFeeCents},
+            ${party.minSpendPerPersonCents},
+            ${party.minParents},
+            ${party.maxParents},
+            ${[]},
+            ${9000 + sortOrder}
+          )
+        `;
+      }
+    });
+  } catch (error) {
+    await sql.end();
+    throw error;
+  }
+
+  const shortProject = [...projects.values()].find(
+    ({ seed }) => seed.durationMinutes === 30,
+  );
+  const longProject = [...projects.values()].find(
+    ({ seed }) => seed.durationMinutes === 60,
+  );
+  const shortParty = [...parties.values()].find(
+    ({ seed }) => seed.venueFeeCents === 9500,
+  );
+  const longParty = [...parties.values()].find(
+    ({ seed }) => seed.venueFeeCents === 14500,
+  );
+  if (!shortProject || !longProject || !shortParty || !longParty) {
+    await sql.end();
+    throw new Error("Live closure fixture is missing approved offerings");
+  }
+
+  return {
+    sql,
+    runId,
+    bookingDate: futureBookingDate(),
+    ownerEmail: "congdongdong03@gmail.com",
+    projects: {
+      short: shortProject,
+      long: longProject,
+      bySlug: projects,
+    },
+    parties: {
+      short: shortParty,
+      long: longParty,
+      bySlug: parties,
+    },
+    requestIds,
+    async makeReminderEligible(bookingId: string) {
+      if (!requestIds.has(bookingId)) {
+        throw new Error("Cannot modify an untracked closure booking");
+      }
+      const appointment = melbourneDateTime(
+        new Date(Date.now() + 24 * 60 * 60 * 1000),
+      );
+      await sql.begin(async (transaction) => {
+        await transaction`
+          update bookings
+          set
+            slot_date = ${appointment.date},
+            slot_start_time = ${appointment.startTime},
+            slot_end_time = ${appointment.endTime},
+            updated_at = now()
+          where id = ${bookingId}
+        `;
+        await transaction`
+          update request_status_events
+          set created_at = now() - interval '5 minutes'
+          where booking_id = ${bookingId}
+            and to_status = 'confirmed'
+        `;
+      });
+    },
+    async cleanup() {
+      try {
+        await sql.begin(async (transaction) => {
+          for (const requestId of requestIds) {
+            await transaction`
+              delete from email_outbox where booking_id = ${requestId}
+            `;
+            await transaction`
+              delete from admin_request_reads where booking_id = ${requestId}
+            `;
+            await transaction`
+              delete from request_status_events where booking_id = ${requestId}
+            `;
+            await transaction`delete from bookings where id = ${requestId}`;
+          }
+          const subjectHash = crypto
+            .createHmac("sha256", rateLimitSecret)
+            .update("booking\n203.0.113.10")
+            .digest("hex");
+          await transaction`
+            delete from request_rate_limits
+            where scope = 'booking'
+              and subject_hash = ${subjectHash}
+          `;
+          await transaction`
+            delete from diy_projects
+            where slug like ${`closure-live-${runId}-%`}
+          `;
+          await transaction`
+            delete from project_categories
+            where slug like ${`closure-live-${runId}-%`}
+          `;
+          await transaction`
+            delete from party_packages
+            where slug like ${`closure-live-${runId}-%`}
+          `;
+        });
+      } finally {
+        await sql.end();
+      }
+    },
+  };
+}
+
 export async function createClosureFixture(
   flow: ClosureFlow,
   options: { capacity?: number } = {},
@@ -100,6 +481,14 @@ export async function createClosureFixture(
   );
 
   await sql.begin(async (transaction) => {
+    await transaction`
+      update site_settings
+      set
+        experience_requests_enabled = ${flow === "experience"},
+        party_requests_enabled = ${flow === "party"},
+        product_requests_enabled = ${flow === "product"},
+        updated_at = now()
+    `;
     if (categoryId) {
       await transaction`
         insert into project_categories (id, name, slug, sort_order)

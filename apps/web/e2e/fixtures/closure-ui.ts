@@ -79,7 +79,11 @@ export async function transitionFromAdmin(options: {
   note?: string;
 }): Promise<StatusTransitionBody> {
   const { page, kind, requestId, actionName, note } = options;
-  const path = `/api/backend/v1/admin/${kind}/${requestId}/status`;
+  const path =
+    kind === "bookings"
+      ? `/api/backend/v1/admin/bookings/${requestId}/transitions`
+      : `/api/backend/v1/admin/orders/${requestId}/status`;
+  const method = kind === "bookings" ? "POST" : "PATCH";
   await page.goto(`/admin/${kind}/${requestId}`);
   await expect(
     page.getByRole("heading", {
@@ -90,18 +94,18 @@ export async function transitionFromAdmin(options: {
   await page.getByRole("button", { name: actionName, exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  if (note) {
-    await dialog.getByRole("textbox").fill(note);
+  if (note && (await dialog.getByLabel("处理说明").count()) > 0) {
+    await dialog.getByLabel("处理说明").fill(note);
   }
 
   const requestPromise = page.waitForRequest(
     (request) =>
-      request.method() === "PATCH" &&
+      request.method() === method &&
       new URL(request.url()).pathname === path,
   );
   const responsePromise = page.waitForResponse(
     (response) =>
-      response.request().method() === "PATCH" &&
+      response.request().method() === method &&
       new URL(response.url()).pathname === path,
   );
   await dialog.getByRole("button", { name: actionName, exact: true }).click();
@@ -110,7 +114,13 @@ export async function transitionFromAdmin(options: {
     responsePromise,
   ]);
   expect(response.status()).toBe(200);
-  const body = request.postDataJSON() as StatusTransitionBody;
+  const rawBody = request.postDataJSON() as StatusTransitionBody & {
+    toStatus?: StatusTransitionBody["status"];
+  };
+  const body: StatusTransitionBody = {
+    ...rawBody,
+    status: rawBody.status ?? rawBody.toStatus!,
+  };
   expect(body.operationId).toMatch(
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
   );

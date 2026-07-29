@@ -49,7 +49,7 @@ export default async function customerBookingsRoutes(app: FastifyInstance) {
     const subject = `${resolvePublicRateLimitSubject(request as never)}:${tokenDigestPrefix(request.params.token)}`;
     await enforceRequestLimit(
       app.services.rateLimits,
-      "customer_booking_action",
+      "customer-booking-action",
       subject,
       CUSTOMER_ACTION_RATE_LIMIT,
       CUSTOMER_ACTION_RATE_WINDOW_SECONDS,

@@ -6,7 +6,13 @@ import { GA_ID } from "@/lib/analytics/gtag";
 
 export default function GoogleAnalytics() {
   const pathname = usePathname();
-  if (!GA_ID || pathname === "/admin/setup-password") return null;
+  if (
+    !GA_ID ||
+    pathname === "/admin/setup-password" ||
+    /^\/(?:en|zh)\/manage-booking\/[^/]+$/.test(pathname)
+  ) {
+    return null;
+  }
 
   return (
     <>

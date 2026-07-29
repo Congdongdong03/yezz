@@ -420,7 +420,7 @@ export function createAdminBookingsService(db: Db) {
         : await transitionService.transitionBooking({
             bookingId: id,
             expectedStatus: input.expectedStatus as OrderStatus,
-            status: input.status as OrderStatus,
+            status: (input.status ?? input.toStatus) as OrderStatus,
             operationId: input.operationId,
             actorUserId,
             note: input.note,

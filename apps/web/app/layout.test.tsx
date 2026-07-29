@@ -4,6 +4,10 @@ import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const navigation = vi.hoisted(() => ({
+  pathname: "/admin/setup-password",
+}));
+
 vi.mock("next/font/google", () => ({
   Inter: () => ({ variable: "inter-variable" }),
   Noto_Serif_SC: () => ({ variable: "noto-serif-variable" }),
@@ -14,7 +18,7 @@ vi.mock("@/i18n/routing", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/setup-password",
+  usePathname: () => navigation.pathname,
 }));
 
 vi.mock("next/script", () => ({
@@ -28,6 +32,7 @@ vi.mock("next/script", () => ({
 
 describe("root layout on the password setup route", () => {
   beforeEach(() => {
+    navigation.pathname = "/admin/setup-password";
     vi.resetModules();
     vi.stubEnv("NEXT_PUBLIC_GA_ID", "G-SECURITY-REGRESSION");
     window.history.replaceState(
@@ -51,6 +56,26 @@ describe("root layout on the password setup route", () => {
     expect(markup).not.toContain("G-SECURITY-REGRESSION");
     expect(markup).not.toContain("gtag(");
     expect(markup).not.toContain("token=");
+    expect(window.dataLayer).toBeUndefined();
+    expect(window.gtag).toBeUndefined();
+  });
+
+  it("renders no analytics script or customer management token transmission", async () => {
+    const token = "M".repeat(43);
+    navigation.pathname = `/en/manage-booking/${token}`;
+    window.history.replaceState({}, "", navigation.pathname);
+
+    const { default: RootLayout } = await import("./layout");
+    const markup = renderToStaticMarkup(
+      <RootLayout>
+        <main>Manage booking</main>
+      </RootLayout>,
+    );
+
+    expect(markup).not.toContain("googletagmanager");
+    expect(markup).not.toContain("G-SECURITY-REGRESSION");
+    expect(markup).not.toContain("gtag(");
+    expect(markup).not.toContain(token);
     expect(window.dataLayer).toBeUndefined();
     expect(window.gtag).toBeUndefined();
   });

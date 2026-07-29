@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import CustomerBookingActions from "@/components/book/CustomerBookingActions";
 import {
@@ -52,7 +53,15 @@ export default async function ManageBookingPage({
   let booking: CustomerBookingView | null = null;
 
   try {
-    booking = await getCustomerBooking(token);
+    const requestHeaders = await headers();
+    const trustedClientIp =
+      requestHeaders.get("x-vercel-forwarded-for") ??
+      requestHeaders.get("x-forwarded-for")?.split(",", 1)[0]?.trim() ??
+      (process.env.YEZYY_CLOSURE_E2E === "1" ? "127.0.0.1" : null);
+    booking = await getCustomerBooking(
+      token,
+      trustedClientIp,
+    );
   } catch {
     booking = null;
   }

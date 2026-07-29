@@ -5,6 +5,29 @@
 
 ---
 
+## 初始部署固定值（仅准备，不授权上线）
+
+以下是初始部署的精确门控值。此清单不授权部署、发信、开启 Worker 或创建真实
+预约：
+
+```bash
+EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>"
+EMAIL_REPLY_TO="congdongdong03@gmail.com"
+OWNER_EMAIL="congdongdong03@gmail.com"
+STORE_TIMEZONE="Australia/Melbourne"
+EMAIL_OUTBOX_WORKER_ENABLED=false
+BOOKING_MAINTENANCE_WORKER_ENABLED=false
+REQUEST_FLOW_EXPERIENCE_ENABLED=false
+REQUEST_FLOW_PARTY_ENABLED=false
+REQUEST_FLOW_PRODUCT_ENABLED=false
+```
+
+`BOOKING_MAINTENANCE_WORKER_ENABLED=false`，直到普通手作或派对正式开放。
+普通手作或派对只有在本地闭环验证完成后，收到新的负责人明确指示，才可逐项
+准备开启；`REQUEST_FLOW_PRODUCT_ENABLED=false` 始终保持关闭。
+
+---
+
 ## 一、必须配置项（不配置无法上线）
 
 ### 1. 数据库 `DATABASE_URL`
@@ -168,7 +191,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 **计划发件人地址（仅在 Resend 完成域名验证后配置）：**
 ```
-YezYY <bookings@yezyy.com>
+YezYY Bookings <bookings@yezyy.com>
 ```
 > API 在生产环境启动时会检查 `EMAIL_FROM`：缺少时将拒绝启动，避免从旧域名或未配置的地址发送邮件。`EMAIL_REPLY_TO` 可以配置为 `congdongdong03@gmail.com`，它是顾客回复地址，不代表 Gmail 已被验证为 Resend 的交易邮件发件人。
 
@@ -176,7 +199,7 @@ YezYY <bookings@yezyy.com>
 ```bash
 RESEND_API_KEY=re_...
 OWNER_EMAIL=congdongdong03@gmail.com
-EMAIL_FROM="YezYY <bookings@yezyy.com>"
+EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>"
 EMAIL_REPLY_TO=congdongdong03@gmail.com
 ```
 
@@ -258,17 +281,16 @@ pnpm db:migrate
 生产初始化只会在缺失时创建真实的 YezYY 网站设置和第一个管理员。它不会删除数据，也不会插入示例分类、项目、派对或 Gallery 内容。
 
 ```bash
-# 必须输入精确保护口令；首次创建管理员时还要提供真实账号和强密码
+# 必须输入精确保护口令；首次创建 Owner 时只提供真实账号
 export ALLOW_PRODUCTION_BOOTSTRAP=YezYY
 export ADMIN_EMAIL=congdongdong03@gmail.com
-export ADMIN_PASSWORD='使用密码管理器生成的至少12位强密码'
 
 # 执行幂等生产初始化
 pnpm --filter @yezz/db bootstrap:production
 ```
 
 **生产初始化会创建：**
-- 1 个管理员账号（仅数据库里还没有管理员时）
+- 1 个 Owner 账号和一封一次性设置密码邮件（仅数据库里还没有用户时）
 - 1 行真实 YezYY 网站设置（仅设置不存在时）
 - 0 个示例分类、项目、派对或 Gallery 内容
 
@@ -319,10 +341,11 @@ S3_BUCKET=...
 S3_PUBLIC_URL=...
 RESEND_API_KEY=...
 OWNER_EMAIL=...
-EMAIL_FROM="YezYY <bookings@yezyy.com>"
+EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>"
 EMAIL_REPLY_TO=congdongdong03@gmail.com
 STORE_TIMEZONE=Australia/Melbourne
 EMAIL_OUTBOX_WORKER_ENABLED=false
+BOOKING_MAINTENANCE_WORKER_ENABLED=false
 REQUEST_FLOW_EXPERIENCE_ENABLED=false
 REQUEST_FLOW_PRODUCT_ENABLED=false
 REQUEST_FLOW_PARTY_ENABLED=false
@@ -523,7 +546,8 @@ fly secrets set INTERNAL_REQUEST_ENFORCEMENT=require
 ### 7. 验证邮件 Outbox 后再启动 Worker
 
 先确认 Resend 域名、`EMAIL_FROM`、`EMAIL_REPLY_TO`、`OWNER_EMAIL` 和失败告警，
-再由获授权人员执行：
+再由获授权人员执行。初始部署仍保持两个 Worker 为 `false`；只有新的负责人
+明确指示后才可启动邮件 Worker：
 
 ```bash
 fly secrets set EMAIL_OUTBOX_WORKER_ENABLED=true
@@ -531,34 +555,39 @@ fly secrets set EMAIL_OUTBOX_WORKER_ENABLED=true
 
 观察一条获授权测试邮件的 `pending → processing → sent` 记录；失败必须在中文
 后台可见且可人工重试。若 Resend 域名或发件人尚未验证，保持 Worker 关闭并
-暂停发布。
+暂停发布。`BOOKING_MAINTENANCE_WORKER_ENABLED=false`，直到普通手作或派对
+正式开放；届时必须与对应能力在同一获授权变更中启用并观察提醒和派对过期任务。
 
 ### 8. 单独启用体验请求
 
+只有收到新的负责人明确指示后才可执行：
+
 ```bash
-fly secrets set REQUEST_FLOW_EXPERIENCE_ENABLED=true
+fly secrets set \
+  REQUEST_FLOW_EXPERIENCE_ENABLED=true \
+  BOOKING_MAINTENANCE_WORKER_ENABLED=true
 ```
 
 重新部署/刷新 Web 设置后，仅在负责人明确授权下创建一条受控体验请求，
 核对同一 ID 的项目、档期、名额、状态事件和邮件，再决定是否保留开启。
 
-### 9. 单独启用产品请求
+### 9. 产品请求继续关闭
 
-```bash
-fly secrets set REQUEST_FLOW_PRODUCT_ENABLED=true
-```
-
-执行获授权的产品请求烟测，核对服务端商品/款式快照、取消幂等性、名额只释放
-一次以及客户邮件。体验开关的状态不得因本步骤意外改变。
+`REQUEST_FLOW_PRODUCT_ENABLED=false` 始终保持关闭。本阶段没有产品能力
+启用步骤；任何后续讨论都需要新的范围、独立实现审计和负责人明确指示。
 
 ### 10. 单独启用派对请求
 
+只有收到新的负责人明确指示后才可执行：
+
 ```bash
-fly secrets set REQUEST_FLOW_PARTY_ENABLED=true
+fly secrets set \
+  REQUEST_FLOW_PARTY_ENABLED=true \
+  BOOKING_MAINTENANCE_WORKER_ENABLED=true
 ```
 
 执行获授权的派对请求烟测，核对服务端套餐、人数范围、档期、状态事件和邮件。
-三个能力必须逐个审批，禁止一次性全开。
+普通手作与派对必须逐个审批，禁止一次性全开；产品始终关闭。
 
 ### 11. 记录结果和可恢复回滚命令
 
@@ -595,7 +624,40 @@ vercel rollback <LAST_KNOWN_GOOD_GATE_AWARE_VERCEL_DEPLOYMENT_URL>
 
 ---
 
-## 九、上线前最终检查清单
+## 九、最终门控部署准备顺序
+
+以下步骤只供获授权的生产操作者执行；本地 Task 12 验证不执行其中任何一步。
+
+1. 记录应用提交、API/Web 部署候选 ID 和数据库恢复点。
+2. 运行 `corepack pnpm db:migrate`，保存迁移输出和迁移后不变量查询。
+3. 在命令调用环境中显式确认并只 upsert 已批准服务目录：
+
+   ```bash
+   CONFIRM_LIVE_CATALOGUE_SEED=YezYY \
+     corepack pnpm --filter @yezz/db seed:live-booking
+   ```
+
+   不得把 `CONFIRM_LIVE_CATALOGUE_SEED` 保存在 `.env` 或部署平台。核对项目仍为
+   `bookable=false`，三个能力开关仍为 `false`，且没有写入图片或删除既有内容。
+4. 验证 Resend 中 `yezyy.com` 的 SPF、DKIM、DMARC 和
+   `YezYY Bookings <bookings@yezyy.com>` 发件身份；未全部通过时停止。
+5. 使用本文开头的九个精确初始值部署 API 和 Web。部署后只运行 health、settings
+   和 capability 的只读检查，确认普通手作、派对和产品均为联系回退。
+6. 用只读 SQL 确认没有 `closure-live-%` slug、`@example.test` 收件人、
+   `Closure capacity blocker` 或本地测试预约/邮件记录。任何命中都停止并调查，
+   不得自动删除生产数据。
+7. DNS、发件人、Owner 地址和失败告警全部验证后，取得负责人明确授权，仅把
+   `EMAIL_OUTBOX_WORKER_ENABLED` 改为 `true`。保持维护 Worker 和三个公开请求
+   开关为 `false`。
+8. 运行幂等生产初始化以创建唯一 Owner 和一次性设置密码邮件（如果尚不存在），
+   观察该邮件 `pending → processing → sent`，由 Owner 完成一次性密码设置并验证
+   登录；不得在命令行或工单中提供初始密码。
+9. 报告数据库、目录、邮件、Owner 登录、Web/API 健康和所有关闭开关的就绪状态。
+   等待新的负责人明确指示后，才可逐项讨论普通手作或派对；产品保持关闭。
+
+---
+
+## 十、上线前最终检查清单
 
 - [ ] `DATABASE_URL` 已设置为生产数据库
 - [ ] `JWT_SECRET` 已更换为强随机字符串（不是 `dev-secret-key-change-in-production`）
@@ -660,7 +722,7 @@ S3_PUBLIC_URL=https://media.yezyy.com
 # -------- 邮件服务（生产必须） --------
 RESEND_API_KEY=re_xxx
 OWNER_EMAIL=congdongdong03@gmail.com
-EMAIL_FROM="YezYY <bookings@yezyy.com>"
+EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>"
 EMAIL_REPLY_TO=congdongdong03@gmail.com
 STORE_TIMEZONE=Australia/Melbourne
 
@@ -670,10 +732,9 @@ REDIS_URL=redis://localhost:6379
 # -------- 分析（可选） --------
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
 
-# -------- 安全生产初始化（仅首次部署；已有管理员时可不再提供账号密码） --------
+# -------- 安全生产初始化（仅首次部署；已有用户时可不再提供账号） --------
 ALLOW_PRODUCTION_BOOTSTRAP=YezYY
 ADMIN_EMAIL=congdongdong03@gmail.com
-ADMIN_PASSWORD=使用密码管理器生成的至少12位强密码
 ```
 
 ---

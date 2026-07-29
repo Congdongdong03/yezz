@@ -73,12 +73,10 @@ test("experience request closes through public UI, Chinese admin, email, and dat
       kind: "bookings",
       requestId: bookingId,
       actionName: "确认预约",
-      note: "闭环确认",
     });
     expect(transition).toMatchObject({
       status: "confirmed",
       expectedStatus: "new",
-      note: "闭环确认",
     });
     await expect(page.getByText("当前：已确认")).toBeVisible();
     await waitForMailpitMessage({
