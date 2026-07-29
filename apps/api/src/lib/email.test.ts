@@ -385,6 +385,16 @@ describe("live booking notification templates", () => {
       extra: { amountCents: 9500 },
     },
     {
+      template: "party_rejected",
+      en: /party request update/i,
+      zh: /派对申请更新/,
+    },
+    {
+      template: "party_cancelled",
+      en: /party cancellation update/i,
+      zh: /派对取消处理更新/,
+    },
+    {
       template: "cancellation_request",
       en: /cancellation request.*received/i,
       zh: /取消申请已收到/,

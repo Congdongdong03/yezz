@@ -273,6 +273,119 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     })).rejects.toMatchObject({ code: "PARTY_DEDICATED_ACTION_REQUIRED" });
   });
 
+  it("enqueues one English rejection update with an event-bound management link", async () => {
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => new Date("2030-08-10T00:00:00.000Z"),
+      customerManageBaseUrl: "https://yezyy.com",
+    });
+    const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+    const operationId = crypto.randomUUID();
+    const input = {
+      bookingId: created.id,
+      expectedStatus: "pending_review" as const,
+      toStatus: "rejected" as const,
+      operationId,
+      actorUserId: staffId,
+    };
+
+    await expect(service.transitionPartyStatus(input)).resolves.toMatchObject({
+      status: "rejected",
+      replayed: false,
+    });
+    await expect(service.transitionPartyStatus(input)).resolves.toMatchObject({
+      status: "rejected",
+      replayed: true,
+    });
+
+    const deliveries = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id));
+    const rejectionUpdates = deliveries.filter(
+      ({ payload }) => payload.template === "party_rejected",
+    );
+    expect(rejectionUpdates).toHaveLength(1);
+    expect(rejectionUpdates[0]).toMatchObject({
+      locale: "en",
+      messageType: "booking_notification_customer",
+      payload: {
+        template: "party_rejected",
+        manageUrl: expect.stringMatching(
+          /^https:\/\/yezyy\.com\/en\/manage-booking\/[A-Za-z0-9_-]+$/,
+        ),
+      },
+    });
+    expect(rejectionUpdates[0]?.statusEventId).toBeTruthy();
+  });
+
+  it("enqueues one Chinese cancellation-resolution update and rolls back if it cannot enqueue", async () => {
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => new Date("2030-08-10T00:00:00.000Z"),
+      customerManageBaseUrl: "https://yezyy.com",
+    });
+    const created = await service.createPartyRequest(
+      validParty({ email: "cancelled@example.com", locale: "zh" }),
+      crypto.randomUUID(),
+    );
+    await database.connection.db
+      .update(bookings)
+      .set({ status: "cancellation_requested" })
+      .where(eq(bookings.id, created.id));
+    const input = {
+      bookingId: created.id,
+      expectedStatus: "cancellation_requested" as const,
+      toStatus: "cancelled" as const,
+      operationId: crypto.randomUUID(),
+      actorUserId: staffId,
+    };
+
+    await service.transitionPartyStatus(input);
+    await expect(service.transitionPartyStatus(input)).resolves.toMatchObject({
+      replayed: true,
+    });
+    const deliveries = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id));
+    expect(
+      deliveries.filter(({ payload }) => payload.template === "party_cancelled"),
+    ).toMatchObject([
+      {
+        locale: "zh",
+        payload: {
+          template: "party_cancelled",
+          manageUrl: expect.stringMatching(
+            /^https:\/\/yezyy\.com\/zh\/manage-booking\/[A-Za-z0-9_-]+$/,
+          ),
+        },
+      },
+    ]);
+
+    const rollback = await service.createPartyRequest(
+      validParty({ email: "rollback@example.com" }),
+      crypto.randomUUID(),
+    );
+    await database.connection.db
+      .update(bookings)
+      .set({ email: null })
+      .where(eq(bookings.id, rollback.id));
+    await expect(
+      service.transitionPartyStatus({
+        bookingId: rollback.id,
+        expectedStatus: "pending_review",
+        toStatus: "rejected",
+        operationId: crypto.randomUUID(),
+        actorUserId: staffId,
+      }),
+    ).rejects.toMatchObject({ code: "PARTY_EMAIL_MISSING" });
+    await expect(
+      database.connection.db
+        .select({ status: bookings.status })
+        .from(bookings)
+        .where(eq(bookings.id, rollback.id)),
+    ).resolves.toEqual([{ status: "pending_review" }]);
+  });
+
   it("replays an identical proposal with the same accept token and rejects a changed proposal payload", async () => {
     const service = createPartyWorkflowService(database.connection.db, {
       now: () => new Date("2030-08-10T00:00:00.000Z"),

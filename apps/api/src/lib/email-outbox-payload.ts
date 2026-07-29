@@ -89,6 +89,8 @@ export type BookingNotificationTemplate =
   | "party_payment_due"
   | "party_payment_recorded"
   | "party_payment_expired"
+  | "party_rejected"
+  | "party_cancelled"
   | "cancellation_request"
   | "reschedule_request"
   | "booking_reminder"
@@ -102,6 +104,8 @@ export const LIFECYCLE_TEMPLATE_STATUS = {
   party_payment_due: "awaiting_in_store_payment",
   party_payment_recorded: "confirmed_paid",
   party_payment_expired: "payment_expired",
+  party_rejected: "rejected",
+  party_cancelled: "cancelled",
   cancellation_request: "cancellation_requested",
   reschedule_request: "reschedule_requested",
 } as const;
@@ -336,6 +340,8 @@ const BOOKING_NOTIFICATION_TEMPLATES = new Set<BookingNotificationTemplate>([
   "party_payment_due",
   "party_payment_recorded",
   "party_payment_expired",
+  "party_rejected",
+  "party_cancelled",
   "cancellation_request",
   "reschedule_request",
   "booking_reminder",

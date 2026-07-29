@@ -407,6 +407,14 @@ function renderBookingNotification(
         "到店付款期限已过，派对时间不再保留。如需其他时间，请联系 YezYY 工作人员。",
       ],
     },
+    party_rejected: {
+      en: ["Party Request Update", "We are unable to accept this party request. Contact YezYY if you would like staff to review another time."],
+      zh: ["派对申请更新", "我们目前无法接受此派对申请。如需工作人员协助安排其他时间，请联系 YezYY。"],
+    },
+    party_cancelled: {
+      en: ["Party Cancellation Update", "Staff have completed the cancellation review for this party request. Contact YezYY if you need further help."],
+      zh: ["派对取消处理更新", "工作人员已完成此派对申请的取消处理。如需进一步协助，请联系 YezYY。"],
+    },
     cancellation_request: {
       en: [
         "Cancellation Request Received",
@@ -532,6 +540,8 @@ export function renderEmail(input: {
     payload.template === "party_payment_due" ||
     payload.template === "party_payment_recorded" ||
     payload.template === "party_payment_expired" ||
+    payload.template === "party_rejected" ||
+    payload.template === "party_cancelled" ||
     payload.template === "cancellation_request" ||
     payload.template === "reschedule_request" ||
     payload.template === "booking_reminder" ||
@@ -800,6 +810,8 @@ function renderOutboxMessage(message: OutboxProviderMessage) {
     template === "party_payment_due" ||
     template === "party_payment_recorded" ||
     template === "party_payment_expired" ||
+    template === "party_rejected" ||
+    template === "party_cancelled" ||
     template === "cancellation_request" ||
     template === "reschedule_request" ||
     template === "booking_reminder" ||

@@ -228,7 +228,9 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
       | "party_time_proposed"
       | "party_payment_due"
       | "party_payment_recorded"
-      | "party_payment_expired";
+      | "party_payment_expired"
+      | "party_rejected"
+      | "party_cancelled";
     date: string;
     startTime: string;
     endTime: string;
@@ -599,7 +601,23 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
         if (transition.replayed) return { id: transition.booking.id, status: transition.booking.status, createdAt: transition.booking.createdAt, replayed: true };
         const updated = await partyRepo.setStatus(bookingId, input.expectedStatus, input.toStatus, tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
-        await eventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: input.toStatus, adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
+        const event = await eventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: input.toStatus, adminNote: encodePartyOperation(operationPayload), actorUserId }, tx);
+        if (input.toStatus === "rejected" || input.toStatus === "cancelled") {
+          const details = await partyRepo.findDetails(bookingId, tx);
+          if (!details) throw new AppError(404, "NOT_FOUND", "Party booking details not found");
+          const startTime = details.finalGuestStart ?? details.desiredStartTime;
+          const endTime = details.finalGuestEnd ?? time(
+            minutes(startTime) + (await packageFor(updated, tx)).guestDurationMinutes!,
+          );
+          await enqueuePartyLifecycle({
+            booking: updated,
+            statusEventId: event.id,
+            template: input.toStatus === "rejected" ? "party_rejected" : "party_cancelled",
+            date: details.finalDate ?? details.desiredDate,
+            startTime,
+            endTime,
+          }, tx);
+        }
         return { id: updated.id, status: updated.status, createdAt: updated.createdAt, replayed: false };
       });
     },
