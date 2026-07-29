@@ -144,7 +144,7 @@ export async function submitLivePartyForm(options: {
   const { page, fixture, email, packageLabel } = options;
   await page.goto("/zh/parties");
   const card = page.locator("article").filter({ hasText: packageLabel });
-  await card.getByRole("button", { name: "申请套餐" }).click();
+  await card.getByRole("button", { name: /^申请.*套餐$/ }).click();
   const form = card.getByRole("form");
   await form.locator('input[name="name"]').fill(`派对 UI ${fixture.runId}`);
   await form.locator('input[name="phone"]').fill("0430787733");
