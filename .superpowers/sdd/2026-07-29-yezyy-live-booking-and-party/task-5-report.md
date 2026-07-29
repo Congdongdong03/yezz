@@ -126,3 +126,13 @@ This resolves the local `TEST_DATABASE_URL` and SMTP `listen EPERM` verification
   corepack pnpm --filter @yezz/api exec vitest run src/routes/v1/customer-bookings.routes.test.ts --config vitest.config.ts
   # 4 passed
   ```
+
+## Review fix round 1 verification resolution
+
+The controller reran the final checks with isolated PostgreSQL and SMTP loopback access:
+
+- DB migration suite: 1 file, 2 tests passed, exit 0.
+- Focused API suite: 4 files, 17 tests passed, exit 0.
+- Full API suite: 43 files passed / 4 skipped; 255 tests passed / 29 skipped, exit 0.
+
+Evidence: `task5-tests.out` and `task5-full-tests.out`. This resolves the remaining local sandbox-only database and SMTP concerns.
