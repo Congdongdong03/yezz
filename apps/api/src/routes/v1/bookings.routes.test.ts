@@ -230,6 +230,7 @@ describe("bookingsRoutes durable rate limits", () => {
         headers: { "idempotency-key": crypto.randomUUID() },
         payload: {
           kind: "experience",
+          mode: "booking",
           name: "Legacy customer",
           phone: "0430000000",
           email: "legacy@example.com",
@@ -615,6 +616,7 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
         headers: { "idempotency-key": crypto.randomUUID() },
         payload: {
           kind: "experience",
+          mode: "booking",
           projectId,
           timeSlotId: slotId,
           preferredDate: "2026-08-02",

@@ -17,7 +17,12 @@ const BOOKING_RATE_WINDOW_SECONDS = 3600;
 function isOrdinaryRequest(
   input: BookingCreateInput | OrdinaryBookingCreateInput | PartyCreateInput | undefined,
 ): input is OrdinaryBookingCreateInput {
-  return input?.kind === "experience" && "mode" in input;
+  return (
+    input?.kind === "experience" &&
+    "mode" in input &&
+    "items" in input &&
+    "participantCount" in input
+  );
 }
 
 function isPartyRequest(
