@@ -494,6 +494,16 @@ export async function createClosureFixture(
         product_requests_enabled = ${flow === "product"},
         updated_at = now()
     `;
+    for (const hours of APPROVED_WEEKLY_HOURS) {
+      await transaction`
+        insert into studio_weekly_hours (weekday, opens_at, closes_at, is_closed)
+        values (${hours.weekday}, ${hours.opensAt}, ${hours.closesAt}, ${hours.isClosed})
+        on conflict (weekday) do update set
+          opens_at = excluded.opens_at,
+          closes_at = excluded.closes_at,
+          is_closed = excluded.is_closed
+      `;
+    }
     if (categoryId) {
       await transaction`
         insert into project_categories (id, name, slug, sort_order)
@@ -509,7 +519,8 @@ export async function createClosureFixture(
       await transaction`
         insert into diy_projects (
           id, category_id, name, slug, project_type, description,
-          price_range, price_currency, duration, sort_order
+          price_range, price_min, price_max, price_currency, duration,
+          duration_minutes, bookable, sort_order
         )
         values (
           ${projectId},
@@ -522,8 +533,8 @@ export async function createClosureFixture(
             zh: "隔离闭环测试数据",
           })},
           ${flow === "product" ? "A$49" : "A$43"},
-          'AUD',
-          '60 min',
+          ${flow === "product" ? 4900 : 4300}, ${flow === "product" ? 4900 : 4300},
+          'AUD', '60 min', 60, ${flow === "experience"},
           9000
         )
       `;

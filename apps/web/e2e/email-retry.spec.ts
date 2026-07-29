@@ -5,9 +5,8 @@ import {
   waitForDatabaseRow,
 } from "./fixtures/closure-database";
 import {
-  captureCreatedRequest,
   closureContact,
-  selectClosureSlot,
+  submitClosureOrdinaryForm,
   transitionFromAdmin,
 } from "./fixtures/closure-ui";
 import {
@@ -27,21 +26,12 @@ test("failed customer email is visible in Chinese admin and can be retried", asy
     const contact = closureContact(fixture.label);
     recipients = [contact.email];
 
-    await page.goto(`/en/projects/${fixture.slug}`);
-    await page.getByLabel("Number of People").fill("1");
-    await selectClosureSlot(page, fixture);
-    await page.getByLabel(/^Name/).fill(contact.name);
-    await page.getByLabel(/^Phone/).fill(contact.phone);
-    await page.getByLabel(/^Email/).fill(contact.email);
-    const bookingId = await captureCreatedRequest(
+    const bookingId = await submitClosureOrdinaryForm({
       page,
-      "bookings",
-      async () => {
-        await page
-          .getByRole("button", { name: "Submit Booking Request" })
-          .click();
-      },
-    );
+      fixture,
+      contact,
+      participantCount: 1,
+    });
     fixture.requestIds.add(bookingId);
     await waitForMailpitMessage({
       recipient: contact.email,
@@ -54,7 +44,7 @@ test("failed customer email is visible in Chinese admin and can be retried", asy
         where booking_id = ${bookingId}
           and message_type in (
             'booking_received_customer',
-            'booking_received_owner'
+            'booking_notification_owner'
           )
           and delivery_status = 'sent'
       `;
@@ -89,7 +79,7 @@ test("failed customer email is visible in Chinese admin and can be retried", asy
             from request_status_events
             where operation_id = ${transition.operationId}
           )
-          and message_type = 'booking_status_customer'
+          and message_type = 'booking_notification_customer'
       `;
       return row ?? null;
     };
@@ -114,7 +104,7 @@ test("failed customer email is visible in Chinese admin and can be retried", asy
     await page.goto(`/admin/bookings/${bookingId}`);
     const failedDelivery = page
       .locator("li")
-      .filter({ hasText: "预约状态更新（客户）" })
+      .filter({ hasText: "预约流程通知（客户）" })
       .filter({ hasText: contact.email });
     await expect(failedDelivery).toContainText("发送失败");
     await expect(failedDelivery).toContainText("尝试 1 次");
@@ -150,7 +140,7 @@ test("failed customer email is visible in Chinese admin and can be retried", asy
     expect(sent.providerMessageId).toBeTruthy();
     await waitForMailpitMessage({
       recipient: contact.email,
-      subjectIncludes: "booking confirmed",
+      subjectIncludes: "Booking Confirmed",
     });
 
     await page.reload();
@@ -159,7 +149,7 @@ test("failed customer email is visible in Chinese admin and can be retried", asy
       page
         .locator("tbody tr")
         .filter({ hasText: contact.email })
-        .filter({ hasText: "预约状态更新（客户）" }),
+        .filter({ hasText: "预约流程通知（客户）" }),
     ).toContainText("已发送");
   } finally {
     if (chaosEnabled) await setMailpitRecipientFailure(false);

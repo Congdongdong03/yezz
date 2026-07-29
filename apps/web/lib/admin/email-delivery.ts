@@ -10,6 +10,8 @@ export const EMAIL_DELIVERY_LABELS: Record<EmailDeliveryStatus, string> = {
 export const EMAIL_MESSAGE_TYPE_LABELS: Record<string, string> = {
   booking_received_customer: "预约已收到（客户）",
   booking_received_owner: "新预约通知（店主）",
+  booking_notification_customer: "预约流程通知（客户）",
+  booking_notification_owner: "预约流程通知（店主）",
   cart_order_received_customer: "订单已收到（客户）",
   cart_order_received_owner: "新订单通知（店主）",
   booking_status_customer: "预约状态更新（客户）",

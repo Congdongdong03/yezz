@@ -41,6 +41,12 @@ describe("email delivery admin presentation", () => {
     expect(EMAIL_MESSAGE_TYPE_LABELS.booking_received_customer).toBe(
       "预约已收到（客户）",
     );
+    expect(EMAIL_MESSAGE_TYPE_LABELS.booking_notification_customer).toBe(
+      "预约流程通知（客户）",
+    );
+    expect(EMAIL_MESSAGE_TYPE_LABELS.booking_notification_owner).toBe(
+      "预约流程通知（店主）",
+    );
     expect(EMAIL_MESSAGE_TYPE_LABELS.cart_order_status_customer).toBe(
       "订单状态更新（客户）",
     );

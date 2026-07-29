@@ -71,6 +71,47 @@ export async function captureCreatedRequest(
   return payload.data!.id!;
 }
 
+export async function submitClosureOrdinaryForm(options: {
+  page: Page;
+  fixture: ClosureFixture;
+  contact: ReturnType<typeof closureContact>;
+  participantCount: number;
+}) {
+  const { page, fixture, contact, participantCount } = options;
+  if (!fixture.projectId || fixture.flow !== "experience") {
+    throw new Error("An experience closure fixture is required");
+  }
+  await page.goto("/en/book");
+  await page.locator('input[name="participantCount"]').fill(String(participantCount));
+  await page.locator('input[name="youngChildCount"]').fill("0");
+  await page.locator('input[name="accompanyingAdultCount"]').fill("0");
+  await page
+    .getByLabel(new RegExp(fixture.offering.en))
+    .fill(String(participantCount));
+  const availabilityResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      url.pathname === "/api/v1/availability/ordinary" &&
+      url.searchParams.get("date") === fixture.slotDate
+    );
+  });
+  await page.getByLabel("Visit date", { exact: true }).fill(fixture.slotDate);
+  expect((await availabilityResponse).status()).toBe(200);
+  await page
+    .getByRole("button", {
+      name: new RegExp(`^Request this time: ${fixture.slotStartTime}\\b`),
+    })
+    .click();
+  await page.locator('input[name="name"]').fill(contact.name);
+  await page.locator('input[name="phone"]').fill(contact.phone);
+  await page.locator('input[name="email"]').fill(contact.email);
+  await page.locator('input[name="policyAccepted"]').check();
+  return captureCreatedRequest(page, "bookings", async () => {
+    await page.getByRole("button", { name: "Send booking request" }).click();
+  });
+}
+
 export async function submitLiveOrdinaryForm(options: {
   page: Page;
   fixture: LiveBookingFixture;

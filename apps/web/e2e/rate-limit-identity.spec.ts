@@ -31,14 +31,19 @@ test("durable request rate limiting separates trusted BFF client identities", as
         },
         data: {
           kind: "experience",
-          projectId: fixture!.projectId,
-          timeSlotId: fixture!.slotId,
-          preferredDate: fixture!.slotDate,
-          numberOfPeople: 1,
+          mode: "booking",
+          date: fixture!.slotDate,
+          startTime: fixture!.slotStartTime,
+          participantCount: 1,
+          youngChildCount: 0,
+          accompanyingAdultCount: 0,
+          items: [{ projectId: fixture!.projectId!, quantity: 1 }],
           name: contact.name,
           phone: contact.phone,
           email: contact.email,
           locale: "en",
+          policyVersion: "2026-07-30",
+          policyAccepted: true,
         },
       });
 
@@ -72,7 +77,6 @@ test("durable request rate limiting separates trusted BFF client identities", as
 
     const [state] = await fixture.sql<{
       requestCount: number;
-      bookedCount: number;
       identityBuckets: number;
     }[]>`
       select
@@ -81,18 +85,14 @@ test("durable request rate limiting separates trusted BFF client identities", as
           from bookings
           where id = any(${[...fixture.requestIds]}::uuid[])
         ) as "requestCount",
-        booked_count as "bookedCount",
         (
           select count(*)::int
           from request_rate_limits
           where scope = 'booking'
         ) as "identityBuckets"
-      from time_slots
-      where id = ${fixture.slotId}
     `;
     expect(state).toMatchObject({
       requestCount: 6,
-      bookedCount: 6,
       identityBuckets: 2,
     });
   } finally {
