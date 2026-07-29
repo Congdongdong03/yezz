@@ -50,37 +50,62 @@ function timeLabel(value: number): string {
   ).padStart(2, "0")}`;
 }
 
-function buildSharedTimeRows(days: BookingCalendarDay[]): string[] {
-  const starts: number[] = [];
-  const ends: number[] = [];
+type SharedTimeAxis = {
+  boundaries: string[];
+  rows: Array<{ startTime: string; endTime: string }>;
+};
+
+function buildSharedTimeAxis(days: BookingCalendarDay[]): SharedTimeAxis {
+  const actualBoundaries = new Set<number>();
   for (const day of days) {
-    if (day.opensAt) starts.push(timeMinutes(day.opensAt));
-    if (day.closesAt) ends.push(timeMinutes(day.closesAt));
+    if (day.opensAt) actualBoundaries.add(timeMinutes(day.opensAt));
+    if (day.closesAt) actualBoundaries.add(timeMinutes(day.closesAt));
     for (const interval of day.intervals) {
-      starts.push(timeMinutes(interval.startTime));
-      ends.push(timeMinutes(interval.endTime));
+      actualBoundaries.add(timeMinutes(interval.startTime));
+      actualBoundaries.add(timeMinutes(interval.endTime));
     }
     for (const party of day.partyBlocks) {
-      starts.push(timeMinutes(party.setupStart));
-      ends.push(timeMinutes(party.cleanupEnd));
+      actualBoundaries.add(timeMinutes(party.setupStart));
+      actualBoundaries.add(timeMinutes(party.guestStart));
+      actualBoundaries.add(timeMinutes(party.guestEnd));
+      actualBoundaries.add(timeMinutes(party.cleanupEnd));
     }
     for (const closure of day.closures) {
-      if (closure.startTime) starts.push(timeMinutes(closure.startTime));
-      if (closure.endTime) ends.push(timeMinutes(closure.endTime));
+      if (closure.startTime) {
+        actualBoundaries.add(timeMinutes(closure.startTime));
+      }
+      if (closure.endTime) actualBoundaries.add(timeMinutes(closure.endTime));
     }
   }
-  const start =
-    Math.floor((starts.length > 0 ? Math.min(...starts) : 9 * 60) / 30) * 30;
-  const end =
-    Math.ceil((ends.length > 0 ? Math.max(...ends) : 17 * 60) / 30) * 30;
-  return Array.from(
-    { length: Math.max(1, (end - start) / 30) },
-    (_, index) => timeLabel(start + index * 30),
-  );
+  if (actualBoundaries.size === 0) {
+    actualBoundaries.add(9 * 60);
+    actualBoundaries.add(17 * 60);
+  }
+  const actual = [...actualBoundaries];
+  const start = Math.min(...actual);
+  const end = Math.max(...actual);
+  for (let cursor = start; cursor < end; cursor += 30) {
+    actualBoundaries.add(cursor);
+  }
+  actualBoundaries.add(end);
+  const boundaries = [...actualBoundaries]
+    .sort((left, right) => left - right)
+    .map(timeLabel);
+  return {
+    boundaries,
+    rows: boundaries.slice(0, -1).map((startTime, index) => ({
+      startTime,
+      endTime: boundaries[index + 1]!,
+    })),
+  };
 }
 
-function gridRowFor(value: string, firstTime: string): number {
-  return (timeMinutes(value) - timeMinutes(firstTime)) / 30 + 2;
+function gridRowFor(value: string, boundaries: string[]): number {
+  const index = boundaries.indexOf(value);
+  if (index < 0) {
+    throw new Error(`Calendar boundary ${value} is missing from the time axis`);
+  }
+  return index + 2;
 }
 
 export default function AdminSchedulePage() {
@@ -88,8 +113,8 @@ export default function AdminSchedulePage() {
   const [calendar, setCalendar] = useState<BookingCalendar | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const to = shiftDate(from, 6);
-  const timeRows = useMemo(
-    () => buildSharedTimeRows(calendar?.days ?? []),
+  const timeAxis = useMemo(
+    () => buildSharedTimeAxis(calendar?.days ?? []),
     [calendar],
   );
 
@@ -161,7 +186,7 @@ export default function AdminSchedulePage() {
             role="grid"
             style={{
               gridTemplateColumns: `5.5rem repeat(${calendar.days.length}, minmax(12.5rem, 1fr))`,
-              gridTemplateRows: `auto repeat(${timeRows.length}, minmax(3.5rem, auto))`,
+              gridTemplateRows: `auto repeat(${timeAxis.rows.length}, minmax(3.5rem, auto))`,
             }}
           >
           <div
@@ -203,7 +228,7 @@ export default function AdminSchedulePage() {
             </header>
           ))}
 
-          {timeRows.map((startTime, rowIndex) => (
+          {timeAxis.rows.map(({ startTime, endTime }, rowIndex) => (
             <div
               className="sticky left-0 z-10 border-b border-r bg-[#F5F3F2] px-2 py-2 text-xs font-semibold tabular-nums text-[#6E6968]"
               data-time-row={startTime}
@@ -211,20 +236,17 @@ export default function AdminSchedulePage() {
               role="rowheader"
               style={{ gridColumn: 1, gridRow: rowIndex + 2 }}
             >
-              {startTime}–
-              {timeLabel(timeMinutes(startTime) + 30)}
+              {startTime}–{endTime}
             </div>
           ))}
 
           {calendar.days.flatMap((day, dayIndex) => {
-            const intervals = new Map(
-              day.intervals.map((interval) => [
-                interval.startTime,
-                interval,
-              ]),
-            );
-            return timeRows.map((startTime, rowIndex) => {
-              const interval = intervals.get(startTime);
+            return timeAxis.rows.map(({ startTime, endTime }, rowIndex) => {
+              const interval = day.intervals.find(
+                (candidate) =>
+                  candidate.startTime <= startTime &&
+                  candidate.endTime >= endTime,
+              );
               return (
                 <div
                   className={`min-w-0 border-b border-r bg-white px-2 py-1.5 ${
@@ -241,13 +263,29 @@ export default function AdminSchedulePage() {
                     gridRow: rowIndex + 2,
                   }}
                 >
-                  {interval && !interval.closed && !interval.partyBlocked && (
-                    <p className="text-xs tabular-nums">
-                      已到 {interval.ordinaryAttendance} / 8 · 剩余{" "}
-                      {interval.remainingOrdinaryCapacity}
-                    </p>
-                  )}
-                  {interval?.ordinaryBookings.map((booking) => (
+                </div>
+              );
+            });
+          })}
+
+          {calendar.days.flatMap((day, dayIndex) =>
+            day.intervals
+              .filter((interval) => !interval.closed && !interval.partyBlocked)
+              .map((interval) => (
+                <div
+                  className="z-[5] m-0.5 min-w-0 bg-white px-2 py-1.5"
+                  data-capacity-start={interval.startTime}
+                  key={`${day.date}-capacity-${interval.startTime}`}
+                  style={{
+                    gridColumn: dayIndex + 2,
+                    gridRow: `${gridRowFor(interval.startTime, timeAxis.boundaries)} / ${gridRowFor(interval.endTime, timeAxis.boundaries)}`,
+                  }}
+                >
+                  <p className="text-xs tabular-nums">
+                    已到 {interval.ordinaryAttendance} / 8 · 剩余{" "}
+                    {interval.remainingOrdinaryCapacity}
+                  </p>
+                  {interval.ordinaryBookings.map((booking) => (
                     <Link
                       className="mt-1 block border-l-2 border-[#D96F9E] pl-2 text-xs hover:underline focus-visible:outline-2"
                       href={`/admin/bookings/${booking.bookingId}`}
@@ -260,16 +298,15 @@ export default function AdminSchedulePage() {
                     </Link>
                   ))}
                 </div>
-              );
-            });
-          })}
+              )),
+          )}
 
           {calendar.days.flatMap((day, dayIndex) =>
             day.closures.map((closure) => {
-              const startTime = closure.startTime ?? timeRows[0]!;
+              const startTime =
+                closure.startTime ?? timeAxis.boundaries[0]!;
               const endTime =
-                closure.endTime ??
-                timeLabel(timeMinutes(timeRows.at(-1)!) + 30);
+                closure.endTime ?? timeAxis.boundaries.at(-1)!;
               return (
                 <div
                   className="pointer-events-none z-10 m-0.5 border border-[#B5473F] bg-[#FFF7F6]/95 px-2 py-1 text-xs text-[#B5473F]"
@@ -277,7 +314,7 @@ export default function AdminSchedulePage() {
                   key={closure.id}
                   style={{
                     gridColumn: dayIndex + 2,
-                    gridRow: `${gridRowFor(startTime, timeRows[0]!)} / ${gridRowFor(endTime, timeRows[0]!)}`,
+                    gridRow: `${gridRowFor(startTime, timeAxis.boundaries)} / ${gridRowFor(endTime, timeAxis.boundaries)}`,
                   }}
                 >
                   闭店 {closure.startTime ?? "全天"}
@@ -321,7 +358,7 @@ export default function AdminSchedulePage() {
                   key={`${party.bookingId}-${phase.key}`}
                   style={{
                     gridColumn: dayIndex + 2,
-                    gridRow: `${gridRowFor(phase.start, timeRows[0]!)} / ${gridRowFor(phase.end, timeRows[0]!)}`,
+                    gridRow: `${gridRowFor(phase.start, timeAxis.boundaries)} / ${gridRowFor(phase.end, timeAxis.boundaries)}`,
                   }}
                 >
                   {phase.label}

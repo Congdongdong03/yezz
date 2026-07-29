@@ -150,6 +150,90 @@ describe("AdminSchedulePage", () => {
     expect(closure?.style.gridRow).toBe("7 / 8");
   });
 
+  it("maps off-cadence capacity, closure, and party boundaries to integer grid rows", async () => {
+    vi.mocked(api.getBookingCalendar).mockResolvedValue({
+      from: "2026-07-30",
+      to: "2026-08-05",
+      timeZone: "Australia/Melbourne",
+      days: [
+        {
+          date: "2026-07-30",
+          timeZone: "Australia/Melbourne",
+          isClosed: false,
+          opensAt: "09:45",
+          closesAt: "12:45",
+          specialHours: null,
+          closures: [
+            {
+              id: "closure-off-cadence",
+              startTime: "10:15",
+              endTime: "10:45",
+              note: "设备维护",
+            },
+          ],
+          intervals: [
+            {
+              startTime: "09:45",
+              endTime: "10:15",
+              ordinaryAttendance: 5,
+              remainingOrdinaryCapacity: 3,
+              partyBlocked: false,
+              closed: false,
+              ordinaryBookings: [],
+              partyBookingIds: [],
+            },
+          ],
+          ordinaryBookings: [],
+          partyBlocks: [
+            {
+              bookingId: "party-off-cadence",
+              bookingNumber: "booking-20260730-OFFC",
+              name: "错峰派对",
+              status: "confirmed",
+              setupStart: "10:45",
+              guestStart: "11:15",
+              guestEnd: "12:15",
+              cleanupEnd: "12:45",
+              paymentDeadline: null,
+              emailFailureCount: 0,
+            },
+          ],
+          paymentDeadlines: [],
+          emailFailures: [],
+        },
+      ],
+    });
+
+    await act(async () => root.render(<AdminSchedulePage />));
+    await act(async () => {});
+
+    const capacity = container.querySelector<HTMLElement>(
+      "[data-capacity-start='09:45']",
+    );
+    const closure = container.querySelector<HTMLElement>(
+      "[data-closure-id='closure-off-cadence']",
+    );
+    const setup = container.querySelector<HTMLElement>(
+      "[data-party-phase='setup']",
+    );
+    const guest = container.querySelector<HTMLElement>(
+      "[data-party-phase='guest']",
+    );
+    const cleanup = container.querySelector<HTMLElement>(
+      "[data-party-phase='cleanup']",
+    );
+
+    expect(capacity?.textContent).toContain("已到 5 / 8 · 剩余 3");
+    expect(capacity?.style.gridRow).toBe("2 / 3");
+    expect(closure?.style.gridRow).toBe("3 / 4");
+    expect(setup?.style.gridRow).toBe("4 / 5");
+    expect(guest?.style.gridRow).toBe("5 / 7");
+    expect(cleanup?.style.gridRow).toBe("7 / 8");
+    for (const block of [capacity, closure, setup, guest, cleanup]) {
+      expect(block?.style.gridRow).toMatch(/^\d+ \/ \d+$/);
+    }
+  });
+
   it("shows special hours, closures, deadlines, failures, and detail links", async () => {
     await act(async () => root.render(<AdminSchedulePage />));
     await act(async () => {});

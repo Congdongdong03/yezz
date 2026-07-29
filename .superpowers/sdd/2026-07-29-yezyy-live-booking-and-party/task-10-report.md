@@ -416,3 +416,76 @@ git diff --check
 All completed with exit code 0 and no diagnostics. The real PostgreSQL tests
 remain opt-in behind `YEZYY_RUN_DB_BOOKING_TESTS=1`; no production data or
 configuration was touched in this fix round.
+
+## Fix round 2 — off-cadence schedule boundaries
+
+### Root cause
+
+The first shared-matrix implementation rounded the axis origin down to a
+half-hour and computed grid lines with elapsed minutes divided by 30. This
+worked only when every day shared that origin. A valid `09:45–10:15` capacity
+interval was absent from a `09:30, 10:00, …` lookup, while a valid `10:15`
+closure boundary produced a fractional CSS grid line.
+
+The API/editor contract deliberately accepts any increasing `HH:MM` pair, so
+the Web grid—not the schedule contract—had to preserve those real boundaries.
+
+### RED evidence
+
+```text
+node_modules/.bin/vitest run app/admin/schedule/page.test.tsx
+
+Test Files  1 failed (1)
+Tests       1 failed | 3 passed (4)
+```
+
+The new regression supplied a `09:45` opening/capacity interval, `10:15`
+partial closure, and off-cadence party phases. The capacity block was missing,
+so its text and row span were `undefined`; the old arithmetic would also have
+produced fractional closure/party grid lines.
+
+### Files and fix
+
+- `apps/web/app/admin/schedule/page.tsx` now builds a shared axis from the
+  sorted union of every actual opening, closing, interval, closure, and party
+  phase boundary plus the 30-minute cadence between the earliest and latest
+  boundaries.
+- Grid placement now looks up each real boundary's integer index. A missing
+  boundary is an explicit programming error; no boundary is silently rounded.
+- Ordinary capacity is rendered as a start/end row-spanning block, so a
+  30-minute interval remains intact even when another day's boundary splits
+  the shared rail into smaller visual segments.
+- `apps/web/app/admin/schedule/page.test.tsx` covers the off-cadence capacity,
+  closure, setup, guest, and cleanup spans and asserts that every emitted
+  `grid-row` consists only of integer grid lines.
+
+### GREEN and final Web verification
+
+Focused regression:
+
+```text
+node_modules/.bin/vitest run app/admin/schedule/page.test.tsx
+
+Test Files  1 passed (1)
+Tests       4 passed (4)
+```
+
+Task 10 Web suite and static checks:
+
+```text
+node_modules/.bin/vitest run \
+  lib/admin/booking-status.test.ts \
+  components/admin/BookingWorkflowDialog.test.tsx \
+  components/admin/BusinessHoursEditor.test.tsx \
+  app/admin/bookings/page.test.tsx \
+  app/admin/schedule/page.test.tsx
+node_modules/.bin/tsc --noEmit
+node_modules/.bin/eslint .
+
+Test Files  5 passed (5)
+Tests       19 passed (19)
+```
+
+Typecheck and ESLint completed with exit code 0 and no diagnostics. No API
+contract, production data, configuration, dependency, or deployment was
+changed in this fix round.
