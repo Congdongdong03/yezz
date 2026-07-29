@@ -331,10 +331,16 @@ export async function getAdminSchedule() {
   return adminFetch<AdminSchedule>("/api/v1/admin/settings/schedule");
 }
 
-export async function updateWeeklyHours(days: WeeklyHours[]) {
+export async function updateWeeklyHours(
+  days: WeeklyHours[],
+  acknowledgeExistingBookings = false,
+) {
   return adminFetch<{ weekly: WeeklyHours[] }>(
     "/api/v1/admin/settings/schedule/weekly",
-    { method: "PUT", body: JSON.stringify({ days }) },
+    {
+      method: "PUT",
+      body: JSON.stringify({ days, acknowledgeExistingBookings }),
+    },
   );
 }
 

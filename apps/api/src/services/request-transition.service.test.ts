@@ -440,6 +440,80 @@ describe.skipIf(!runDatabaseTests)(
       });
     });
 
+    it("serializes a weekly-hours change and ordinary confirmation on their operational date", async () => {
+      await database.connection.db.insert(studioWeeklyHours).values(
+        Array.from({ length: 7 }, (_, weekday) => ({
+          weekday,
+          opensAt: "10:00",
+          closesAt: "18:00",
+          isClosed: false,
+        })),
+      );
+      const [booking] = await database.connection.db
+        .insert(bookings)
+        .values({
+          name: "Concurrent weekly-hours confirmation customer",
+          phone: "0430000008",
+          email: "weekly-hours-race@example.com",
+          requestKind: "experience",
+          status: "pending_review",
+          participantCount: 2,
+          youngChildCount: 0,
+          accompanyingAdultCount: 1,
+          attendanceCount: 3,
+          durationMinutes: 60,
+          slotDate: "2030-08-12",
+          slotStartTime: "17:00",
+          slotEndTime: "18:00",
+          policyVersion: "2026-07-29",
+          policyAcceptedAt: new Date(),
+        })
+        .returning();
+      const now = () => new Date("2030-08-10T00:00:00.000Z");
+      const changedDays = Array.from({ length: 7 }, (_, weekday) => ({
+        weekday,
+        opensAt: "10:00",
+        closesAt: weekday === 1 ? "17:00" : "18:00",
+        isClosed: false,
+      }));
+
+      const results = await Promise.allSettled([
+        createAdminSettingsService(
+          database.connection.db,
+          null,
+          process.env,
+          { now },
+        ).updateWeekly({ days: changedDays }),
+        createRequestTransitionService(database.connection.db, {
+          now,
+        }).transitionOrdinary({
+          bookingId: booking!.id,
+          expectedStatus: "pending_review",
+          toStatus: "confirmed",
+          operationId: crypto.randomUUID(),
+          actorUserId: actorId,
+          newDate: "2030-08-12",
+          newStartTime: "17:00",
+        }),
+      ]);
+
+      expect(
+        results.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      expect(
+        results.filter(({ status }) => status === "rejected"),
+      ).toHaveLength(1);
+      const rejected = results.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      );
+      expect(
+        rejected?.reason.code === "SCHEDULE_CONFLICT" ||
+          (rejected?.reason.code === "VALIDATION_ERROR" &&
+            /closing time/.test(rejected.reason.message)),
+      ).toBe(true);
+    });
+
     it.each([
       ["rejected", "booking_rejected"],
       ["waitlisted", "booking_waitlisted"],

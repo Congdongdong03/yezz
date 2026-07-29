@@ -1,4 +1,5 @@
 import {
+  bookingPartyDetails,
   bookings,
   siteSettings,
   studioClosures,
@@ -10,6 +11,7 @@ import {
   createRequestFlowTestDatabase,
   type RequestFlowTestDatabase,
 } from "../../test-utils/request-flow-postgres.js";
+import { formatBookingOrderId } from "../../lib/email.js";
 import {
   createAdminSettingsService,
   DEFAULT_YEZYY_SITE_SETTINGS,
@@ -67,20 +69,22 @@ describe.skipIf(!runDatabaseTests)(
 
     it("writes and reads structured weekly, special, and closure rows", async () => {
       const service = createAdminSettingsService(database.connection.db);
-      await service.updateWeekly([
-        {
-          weekday: 0,
-          opensAt: "10:00",
-          closesAt: "17:00",
-          isClosed: false,
-        },
-        ...Array.from({ length: 6 }, (_, index) => ({
-          weekday: index + 1,
-          opensAt: "09:30",
-          closesAt: "17:00",
-          isClosed: false,
-        })),
-      ]);
+      await service.updateWeekly({
+        days: [
+          {
+            weekday: 0,
+            opensAt: "10:00",
+            closesAt: "17:00",
+            isClosed: false,
+          },
+          ...Array.from({ length: 6 }, (_, index) => ({
+            weekday: index + 1,
+            opensAt: "09:30",
+            closesAt: "17:00",
+            isClosed: false,
+          })),
+        ],
+      });
       await service.upsertSpecialHours({
         date: "2026-08-01",
         opensAt: "11:00",
@@ -248,6 +252,134 @@ describe.skipIf(!runDatabaseTests)(
         opensAt: "11:30",
         closesAt: "14:00",
       });
+    });
+
+    it("checks changed weekly hours over the Melbourne booking horizon without treating party setup or cleanup as public hours", async () => {
+      const originalDays = Array.from({ length: 7 }, (_, weekday) => ({
+        weekday,
+        opensAt: "10:00",
+        closesAt: "18:00",
+        isClosed: false,
+      }));
+      await database.connection.db.insert(studioWeeklyHours).values(originalDays);
+      const [ordinary, party, beyondHorizon, specialOverride] =
+        await database.connection.db
+          .insert(bookings)
+          .values([
+            {
+              name: "Weekly ordinary conflict",
+              phone: "0400000031",
+              requestKind: "experience",
+              status: "confirmed",
+              attendanceCount: 2,
+              participantCount: 2,
+              slotDate: "2030-08-12",
+              slotStartTime: "17:00",
+              slotEndTime: "18:00",
+            },
+            {
+              name: "Weekly party staff-only boundary",
+              phone: "0400000032",
+              requestKind: "party",
+              status: "awaiting_in_store_payment",
+              participantCount: 4,
+              attendanceCount: 5,
+              slotDate: "2030-08-13",
+              slotStartTime: "12:00",
+              slotEndTime: "14:30",
+            },
+            {
+              name: "Outside authoritative horizon",
+              phone: "0400000033",
+              requestKind: "experience",
+              status: "confirmed",
+              attendanceCount: 2,
+              participantCount: 2,
+              slotDate: "2030-08-19",
+              slotStartTime: "17:00",
+              slotEndTime: "18:00",
+            },
+            {
+              name: "Dated special-hours override",
+              phone: "0400000034",
+              requestKind: "experience",
+              status: "confirmed",
+              attendanceCount: 2,
+              participantCount: 2,
+              slotDate: "2030-08-14",
+              slotStartTime: "17:00",
+              slotEndTime: "18:00",
+            },
+          ])
+          .returning();
+      await database.connection.db.insert(bookingPartyDetails).values({
+        bookingId: party!.id,
+        birthdayChildName: "Kai",
+        birthdayChildAge: 6,
+        participantCount: 4,
+        parentCount: 1,
+        desiredDate: "2030-08-13",
+        desiredStartTime: "12:30",
+        finalDate: "2030-08-13",
+        finalSetupStart: "12:00",
+        finalGuestStart: "12:30",
+        finalGuestEnd: "14:00",
+        finalCleanupEnd: "14:30",
+        venueFeeCents: 9500,
+        minSpendPerPersonCents: 4500,
+      });
+      await database.connection.db.insert(studioSpecialHours).values({
+        date: "2030-08-14",
+        opensAt: "10:00",
+        closesAt: "18:00",
+        isClosed: false,
+      });
+      const service = createAdminSettingsService(
+        database.connection.db,
+        null,
+        process.env,
+        { now: () => new Date("2030-08-10T00:00:00.000Z") },
+      );
+      const changedDays = originalDays.map((day) =>
+        day.weekday === 1
+          ? { ...day, closesAt: "17:00" }
+          : day.weekday === 2
+            ? { ...day, opensAt: "12:30", closesAt: "14:00" }
+            : day.weekday === 3
+              ? { ...day, closesAt: "17:00" }
+              : day,
+      );
+
+      await expect(
+        service.updateWeekly({ days: changedDays }),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+        details: {
+          affectedBookingNumbers: [
+            formatBookingOrderId(ordinary!.id, ordinary!.createdAt),
+          ],
+        },
+      });
+
+      await expect(
+        service.updateWeekly({
+          days: changedDays,
+          acknowledgeExistingBookings: true,
+        }),
+      ).resolves.toEqual({ weekly: changedDays });
+      await expect(
+        database.connection.db
+          .select({ id: bookings.id, status: bookings.status })
+          .from(bookings),
+      ).resolves.toEqual(
+        expect.arrayContaining(
+          [ordinary, party, beyondHorizon, specialOverride].map((booking) => ({
+            id: booking!.id,
+            status: booking!.status,
+          })),
+        ),
+      );
     });
   },
 );

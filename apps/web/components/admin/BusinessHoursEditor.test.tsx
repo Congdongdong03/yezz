@@ -41,6 +41,8 @@ describe("BusinessHoursEditor", () => {
   beforeEach(() => {
     adminApi.saveSpecialHours.mockReset();
     adminApi.saveSpecialHours.mockResolvedValue({});
+    adminApi.updateWeeklyHours.mockReset();
+    adminApi.updateWeeklyHours.mockResolvedValue({});
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -110,6 +112,50 @@ describe("BusinessHoursEditor", () => {
     expect(onChanged).toHaveBeenCalledTimes(1);
     expect(container.querySelector("[role='status']")?.textContent).toContain(
       "特别营业时间已保存",
+    );
+  });
+
+  it("retries a conflicting weekly-hours save only after the operator acknowledges existing bookings", async () => {
+    const onChanged = vi.fn();
+    adminApi.updateWeeklyHours
+      .mockRejectedValueOnce(
+        new ApiClientError("Conflicting bookings", "SCHEDULE_CONFLICT", 409, {
+          affectedBookingNumbers: ["YZZ-20300812-002"],
+        }),
+      )
+      .mockResolvedValueOnce({});
+    await act(async () =>
+      root.render(
+        <BusinessHoursEditor onChanged={onChanged} schedule={schedule} />,
+      ),
+    );
+
+    const saveWeekly = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "保存每周时间",
+    );
+    await act(async () => saveWeekly?.click());
+    expect(adminApi.updateWeeklyHours).toHaveBeenNthCalledWith(
+      1,
+      expect.any(Array),
+      false,
+    );
+    expect(container.querySelector("[role='status']")?.textContent).toContain(
+      "YZZ-20300812-002",
+    );
+
+    const acknowledgement = container.querySelector<HTMLInputElement>(
+      "input[aria-label='已核对未来预约']",
+    );
+    await act(async () => acknowledgement?.click());
+    await act(async () => saveWeekly?.click());
+    expect(adminApi.updateWeeklyHours).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Array),
+      true,
+    );
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(container.querySelector("[role='status']")?.textContent).toContain(
+      "每周营业时间已保存",
     );
   });
 

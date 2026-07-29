@@ -22,6 +22,7 @@ export default function BusinessHoursEditor({
   onChanged: () => void | Promise<void>;
 }) {
   const [weekly, setWeekly] = useState(schedule.weekly);
+  const [weeklyAcknowledged, setWeeklyAcknowledged] = useState(false);
   const [special, setSpecial] = useState({
     date: "",
     opensAt: "09:30",
@@ -90,7 +91,10 @@ export default function BusinessHoursEditor({
           <Button
             disabled={busy}
             onClick={() =>
-              void run(() => updateWeeklyHours(weekly), "每周营业时间已保存")
+              void run(
+                () => updateWeeklyHours(weekly, weeklyAcknowledged),
+                "每周营业时间已保存",
+              )
             }
             size="sm"
           >
@@ -141,6 +145,17 @@ export default function BusinessHoursEditor({
               </div>
             ))}
         </div>
+        <label className="mt-3 flex gap-2 text-sm text-[#6E6968]">
+          <input
+            aria-label="已核对未来预约"
+            checked={weeklyAcknowledged}
+            onChange={(event) =>
+              setWeeklyAcknowledged(event.target.checked)
+            }
+            type="checkbox"
+          />
+          已核对可预约日期范围内的现有预约；即使冲突也保存（不会修改预约）
+        </label>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">

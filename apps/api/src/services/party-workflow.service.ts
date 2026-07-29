@@ -185,8 +185,8 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
         (closure) =>
           closure.startTime === null ||
           closure.endTime === null ||
-          (interval.guestStart < closure.endTime &&
-            interval.guestEnd > closure.startTime),
+          (interval.setupStart < closure.endTime &&
+            interval.cleanupEnd > closure.startTime),
       )
     ) {
       throw new AppError(

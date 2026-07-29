@@ -15,7 +15,7 @@ describe("admin structured schedule routes", () => {
           specialHours: [],
           closures: [],
         })),
-        updateWeekly: vi.fn(async (days) => ({ weekly: days })),
+        updateWeekly: vi.fn(async (input) => ({ weekly: input.days })),
         upsertSpecialHours: vi.fn(async (input) => input),
         createClosure: vi.fn(async (input) => ({
           id: "closure-1",
@@ -54,6 +54,7 @@ describe("admin structured schedule routes", () => {
             closesAt: "17:00",
             isClosed: false,
           })),
+          acknowledgeExistingBookings: true,
         },
       });
       const special = await app.inject({
@@ -84,6 +85,9 @@ describe("admin structured schedule routes", () => {
       expect(schedule.json().data.timeZone).toBe("Australia/Melbourne");
       expect(weekly.statusCode).toBe(200);
       expect(weekly.json().data.weekly).toHaveLength(7);
+      expect(app.services.adminSettings.updateWeekly).toHaveBeenCalledWith(
+        expect.objectContaining({ acknowledgeExistingBookings: true }),
+      );
       expect(special.json().data.date).toBe("2026-08-01");
       expect(closure.json().data.id).toBe("closure-1");
       expect(deleted.json().data).toEqual({ id: "closure-1" });

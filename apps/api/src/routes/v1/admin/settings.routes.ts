@@ -9,6 +9,10 @@ export default async function adminSettingsRoutes(app: FastifyInstance) {
     closesAt: string;
     isClosed: boolean;
   };
+  type WeeklyHoursBody = {
+    days: WeeklyDay[];
+    acknowledgeExistingBookings?: boolean;
+  };
   type SpecialHoursBody = {
     date: string;
     opensAt?: string | null;
@@ -39,11 +43,11 @@ export default async function adminSettingsRoutes(app: FastifyInstance) {
     return success(await app.services.adminSettings.getSchedule());
   });
 
-  app.put<{ Body: { days: WeeklyDay[] } }>(
+  app.put<{ Body: WeeklyHoursBody }>(
     "/schedule/weekly",
     async (request) => {
       return success(
-        await app.services.adminSettings.updateWeekly(request.body.days),
+        await app.services.adminSettings.updateWeekly(request.body),
       );
     },
   );

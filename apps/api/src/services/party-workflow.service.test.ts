@@ -535,6 +535,48 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     });
   });
 
+  it.each([
+    ["setup-only", "12:00", "12:30"],
+    ["cleanup-only", "14:00", "14:30"],
+  ])(
+    "rejects a party hold when a %s closure overlaps its exclusive occupancy",
+    async (_label, startTime, endTime) => {
+      const service = createPartyWorkflowService(database.connection.db, {
+        now: () => new Date("2030-08-10T00:00:00.000Z"),
+      });
+      const created = await service.createPartyRequest(
+        validParty(),
+        crypto.randomUUID(),
+      );
+      await service.proposePartyTime({
+        bookingId: created.id,
+        expectedStatus: "pending_review",
+        finalDate: "2030-08-12",
+        finalGuestStart: "12:30",
+        paymentDeadline: new Date("2030-08-11T00:00:00.000Z"),
+        operationId: crypto.randomUUID(),
+        actorUserId: staffId,
+      });
+      await database.connection.db.insert(studioClosures).values({
+        date: "2030-08-12",
+        startTime,
+        endTime,
+      });
+
+      await expect(
+        service.acceptPartyTime({
+          bookingId: created.id,
+          expectedStatus: "time_proposed",
+          operationId: crypto.randomUUID(),
+          actorUserId: staffId,
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+      });
+    },
+  );
+
   it("serializes a partial closure and party hold acceptance on the operational date", async () => {
     const service = createPartyWorkflowService(database.connection.db, {
       now: () => new Date("2030-08-10T00:00:00.000Z"),
@@ -568,6 +610,114 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     expect(results.filter(({ status }) => status === "rejected")).toHaveLength(1);
     const rejected = results.find(
       (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    expect(rejected?.reason).toMatchObject({
+      statusCode: 409,
+      code: "SCHEDULE_CONFLICT",
+    });
+  });
+
+  it.each([
+    ["setup-only", "12:00", "12:30"],
+    ["cleanup-only", "14:00", "14:30"],
+  ])(
+    "serializes a concurrent %s closure and party hold over exclusive occupancy",
+    async (_label, startTime, endTime) => {
+      const service = createPartyWorkflowService(database.connection.db, {
+        now: () => new Date("2030-08-10T00:00:00.000Z"),
+      });
+      const created = await service.createPartyRequest(
+        validParty(),
+        crypto.randomUUID(),
+      );
+      await service.proposePartyTime({
+        bookingId: created.id,
+        expectedStatus: "pending_review",
+        finalDate: "2030-08-12",
+        finalGuestStart: "12:30",
+        paymentDeadline: new Date("2030-08-11T00:00:00.000Z"),
+        operationId: crypto.randomUUID(),
+        actorUserId: staffId,
+      });
+
+      const results = await Promise.allSettled([
+        createAdminSettingsService(database.connection.db).createClosure({
+          date: "2030-08-12",
+          startTime,
+          endTime,
+        }),
+        service.acceptPartyTime({
+          bookingId: created.id,
+          expectedStatus: "time_proposed",
+          operationId: crypto.randomUUID(),
+          actorUserId: staffId,
+        }),
+      ]);
+
+      expect(
+        results.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      expect(
+        results.filter(({ status }) => status === "rejected"),
+      ).toHaveLength(1);
+      const rejected = results.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      );
+      expect(rejected?.reason).toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+      });
+    },
+  );
+
+  it("serializes a weekly-hours change and party hold on their operational date", async () => {
+    const now = () => new Date("2030-08-10T00:00:00.000Z");
+    const service = createPartyWorkflowService(database.connection.db, { now });
+    const created = await service.createPartyRequest(
+      validParty(),
+      crypto.randomUUID(),
+    );
+    await service.proposePartyTime({
+      bookingId: created.id,
+      expectedStatus: "pending_review",
+      finalDate: "2030-08-12",
+      finalGuestStart: "12:30",
+      paymentDeadline: new Date("2030-08-11T00:00:00.000Z"),
+      operationId: crypto.randomUUID(),
+      actorUserId: staffId,
+    });
+    const changedDays = Array.from({ length: 7 }, (_, weekday) => ({
+      weekday,
+      opensAt: "10:00",
+      closesAt: weekday === 1 ? "13:00" : "18:00",
+      isClosed: false,
+    }));
+
+    const results = await Promise.allSettled([
+      createAdminSettingsService(
+        database.connection.db,
+        null,
+        process.env,
+        { now },
+      ).updateWeekly({ days: changedDays }),
+      service.acceptPartyTime({
+        bookingId: created.id,
+        expectedStatus: "time_proposed",
+        operationId: crypto.randomUUID(),
+        actorUserId: staffId,
+      }),
+    ]);
+
+    expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(
+      1,
+    );
+    expect(results.filter(({ status }) => status === "rejected")).toHaveLength(
+      1,
+    );
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult =>
+        result.status === "rejected",
     );
     expect(rejected?.reason).toMatchObject({
       statusCode: 409,

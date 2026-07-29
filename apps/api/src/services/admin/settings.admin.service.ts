@@ -1,4 +1,5 @@
 import {
+  bookingPartyDetails,
   bookings,
   siteSettings,
   studioClosures,
@@ -11,6 +12,11 @@ import { asc, eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import { CACHE_KEYS, cacheDel } from "../../lib/cache.js";
 import { formatBookingOrderId } from "../../lib/email.js";
+import {
+  BOOKING_HORIZON_CALENDAR_DAYS,
+  getMelbourneClock,
+  parseCalendarDate,
+} from "../../lib/booking-policy.js";
 import {
   createSettingsRepository,
   type SiteSettingsUpdateInput,
@@ -95,6 +101,7 @@ export const DEFAULT_YEZYY_SITE_SETTINGS = {
 } as const;
 
 const HH_MM = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const MILLISECONDS_PER_DAY = 86_400_000;
 const ACTIVE_PARTY_STATUSES = new Set([
   "awaiting_in_store_payment",
   "confirmed_paid",
@@ -126,6 +133,25 @@ function dateValue(value: string | Date): string {
     : value.toISOString().slice(0, 10);
 }
 
+function operationalHorizon(now: Date): Array<{
+  date: string;
+  weekday: number;
+}> {
+  const today = parseCalendarDate(getMelbourneClock(now).date);
+  return Array.from(
+    { length: BOOKING_HORIZON_CALENDAR_DAYS + 1 },
+    (_, offset) => {
+      const instant = new Date(
+        (today.ordinal + offset) * MILLISECONDS_PER_DAY,
+      );
+      return {
+        date: instant.toISOString().slice(0, 10),
+        weekday: instant.getUTCDay(),
+      };
+    },
+  );
+}
+
 function overlaps(
   bookingStart: string | null,
   bookingEnd: string | null,
@@ -146,9 +172,11 @@ export function createAdminSettingsService(
   db: Db,
   redis: Redis | null = null,
   env: RequestSwitchEnvironment = process.env,
+  dependencies?: { now?: () => Date },
 ) {
   const repo = createSettingsRepository(db);
   const availabilityRepo = createBookingAvailabilityRepository(db);
+  const now = dependencies?.now ?? (() => new Date());
 
   async function settingsRow(): Promise<SettingsRow> {
     let row = await repo.findSingleton();
@@ -181,7 +209,8 @@ export function createAdminSettingsService(
         endTime: bookings.slotEndTime,
       })
       .from(bookings)
-      .where(eq(bookings.slotDate, date));
+      .where(eq(bookings.slotDate, date))
+      .orderBy(asc(bookings.createdAt), asc(bookings.id));
     return scheduled
       .filter(
         (booking) =>
@@ -213,19 +242,36 @@ export function createAdminSettingsService(
         status: bookings.status,
         startTime: bookings.slotStartTime,
         endTime: bookings.slotEndTime,
+        partyGuestStart: bookingPartyDetails.finalGuestStart,
+        partyGuestEnd: bookingPartyDetails.finalGuestEnd,
       })
       .from(bookings)
-      .where(eq(bookings.slotDate, date));
+      .leftJoin(
+        bookingPartyDetails,
+        eq(bookingPartyDetails.bookingId, bookings.id),
+      )
+      .where(eq(bookings.slotDate, date))
+      .orderBy(asc(bookings.createdAt), asc(bookings.id));
     return scheduled
-      .filter(
-        (booking) =>
+      .filter((booking) => {
+        const publicStart =
+          booking.requestKind === "party"
+            ? (booking.partyGuestStart ?? booking.startTime)
+            : booking.startTime;
+        const publicEnd =
+          booking.requestKind === "party"
+            ? (booking.partyGuestEnd ?? booking.endTime)
+            : booking.endTime;
+        return (
           ((booking.requestKind === "experience" &&
             booking.status === "confirmed") ||
             (booking.requestKind === "party" &&
               ACTIVE_PARTY_STATUSES.has(booking.status))) &&
-          (!!booking.startTime && !!booking.endTime) &&
-          (booking.startTime < opensAt || booking.endTime > closesAt),
-      )
+          !!publicStart &&
+          !!publicEnd &&
+          (publicStart < opensAt || publicEnd > closesAt)
+        );
+      })
       .map((booking) => formatBookingOrderId(booking.id, booking.createdAt));
   }
 
@@ -233,7 +279,7 @@ export function createAdminSettingsService(
     throw new AppError(
       409,
       "SCHEDULE_CONFLICT",
-      "The closure overlaps active bookings",
+      "The schedule change affects active bookings",
       { affectedBookingNumbers },
     );
   }
@@ -283,14 +329,16 @@ export function createAdminSettingsService(
       };
     },
 
-    async updateWeekly(
+    async updateWeekly(input: {
       days: Array<{
         weekday: number;
         opensAt: string;
         closesAt: string;
         isClosed: boolean;
-      }>,
-    ) {
+      }>;
+      acknowledgeExistingBookings?: boolean;
+    }) {
+      const days = input?.days;
       if (
         !Array.isArray(days) ||
         days.length !== 7 ||
@@ -309,8 +357,65 @@ export function createAdminSettingsService(
       for (const day of days) {
         assertTimePair(day.opensAt, day.closesAt);
       }
+      const horizon = operationalHorizon(now());
       await db.transaction(async (tx) => {
-        for (const day of days) {
+        for (const { date } of horizon) {
+          await availabilityRepo.lockOperationalDate(date, tx);
+        }
+        const current = await tx
+          .select()
+          .from(studioWeeklyHours)
+          .orderBy(asc(studioWeeklyHours.weekday));
+        const currentByWeekday = new Map(
+          current.map((day) => [day.weekday, day]),
+        );
+        const changedWeekdays = new Set(
+          days
+            .filter((day) => {
+              const existing = currentByWeekday.get(day.weekday);
+              return (
+                !existing ||
+                existing.opensAt !== day.opensAt ||
+                existing.closesAt !== day.closesAt ||
+                existing.isClosed !== day.isClosed
+              );
+            })
+            .map(({ weekday }) => weekday),
+        );
+        const nextByWeekday = new Map(
+          days.map((day) => [day.weekday, day]),
+        );
+        const affectedBookingNumbers: string[] = [];
+        for (const { date, weekday } of horizon) {
+          if (!changedWeekdays.has(weekday)) continue;
+          const [special] = await tx
+            .select({ date: studioSpecialHours.date })
+            .from(studioSpecialHours)
+            .where(eq(studioSpecialHours.date, date))
+            .limit(1);
+          if (special) continue;
+          const day = nextByWeekday.get(weekday)!;
+          affectedBookingNumbers.push(
+            ...(day.isClosed
+              ? await findAffectedBookingNumbers(date, null, null, tx)
+              : await findBookingsOutsideSpecialHours(
+                  date,
+                  day.opensAt,
+                  day.closesAt,
+                  tx,
+                )),
+          );
+        }
+        const affected = [...new Set(affectedBookingNumbers)];
+        if (
+          affected.length > 0 &&
+          input.acknowledgeExistingBookings !== true
+        ) {
+          throwScheduleConflict(affected);
+        }
+        for (const day of [...days].sort(
+          (left, right) => left.weekday - right.weekday,
+        )) {
           await tx
             .insert(studioWeeklyHours)
             .values(day)
