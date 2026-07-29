@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import {
+  submitLivePartyForm,
+} from "./fixtures/closure-ui";
+import {
   APPROVED_WEEKLY_HOURS,
   seedLiveBookingFixture,
   type LiveBookingFixture,
@@ -16,6 +19,8 @@ import {
   readMailpitMessage,
   waitForMailpitMessage,
 } from "./fixtures/mailpit";
+
+test.setTimeout(90_000);
 
 function post(page: Page, path: string, body: unknown, idempotencyKey?: string) {
   return page.request.post(path, {
@@ -34,35 +39,13 @@ async function createParty(
   desiredStartTime = "12:00",
   packageKind: "short" | "long" = "short",
 ) {
-  const response = await post(
+  expect(desiredStartTime).toBe("12:00");
+  const id = await submitLivePartyForm({
     page,
-    "/api/backend/v1/bookings",
-    {
-      kind: "party",
-      partyPackageId: fixture.parties[packageKind].id,
-      name: `派对闭环 ${fixture.runId}`,
-      phone: "0430787730",
-      email,
-      birthdayChildName: "小乐",
-      birthdayChildAge: 7,
-      participantCount: 6,
-      parentCount: 2,
-      desiredDate: fixture.bookingDate,
-      desiredStartTime,
-      projectInterests: ["Decoden"],
-      byoCake: true,
-      byoDrinks: false,
-      byoFood: false,
-      byoSnacks: true,
-      cakeCuttingRequested: false,
-      locale: "zh",
-      policyVersion: "2026-07-29",
-      policyAccepted: true,
-    },
-    crypto.randomUUID(),
-  );
-  expect(response.status()).toBe(201);
-  const id = (await response.json()).data.id as string;
+    fixture,
+    email,
+    packageLabel: packageKind === "short" ? "A$95" : "A$145",
+  });
   fixture.requestIds.add(id);
   return id;
 }
@@ -82,6 +65,32 @@ function proposal(
   };
 }
 
+async function proposePartyFromChineseAdmin(
+  page: Page,
+  fixture: LiveBookingFixture,
+  bookingId: string,
+  finalGuestStart: string,
+) {
+  await page.goto(`/admin/bookings/${bookingId}`);
+  await page.getByRole("button", { name: "提出派对时段" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("最终日期").fill(fixture.bookingDate);
+  await dialog.getByLabel("客人开始时间").fill(finalGuestStart);
+  await dialog
+    .getByLabel("到店场地费付款期限（墨尔本时间）")
+    .fill("2035-01-01T12:00");
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname ===
+        `/api/backend/v1/admin/bookings/${bookingId}/transitions`,
+  );
+  await dialog.getByRole("button", { name: "提出派对时段" }).click();
+  const response = await responsePromise;
+  expect(response.status()).toBe(200);
+  return response;
+}
+
 test("Chinese party proposal, customer acceptance, in-store payment, conflict, and completion close once", async ({
   page,
 }) => {
@@ -96,12 +105,12 @@ test("Chinese party proposal, customer acceptance, in-store payment, conflict, a
       capabilities: { experience: true, party: true, product: false },
     });
     const bookingId = await createParty(page, fixture, email);
-    const proposed = await post(
+    const proposed = await proposePartyFromChineseAdmin(
       page,
-      `/api/backend/v1/admin/bookings/${bookingId}/transitions`,
-      proposal(fixture, "12:30"),
+      fixture,
+      bookingId,
+      "12:30",
     );
-    expect(proposed.status()).toBe(200);
     const acceptToken = (await proposed.json()).data.acceptTimeToken as string;
     expect(acceptToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     await waitForMailpitMessage({
@@ -109,11 +118,15 @@ test("Chinese party proposal, customer acceptance, in-store payment, conflict, a
       subjectIncludes: "建议的派对时间",
     });
 
-    const accepted = await post(
-      page,
-      `/api/backend/v1/customer-bookings/${acceptToken}/accept-time`,
-      {},
+    await page.goto(`/zh/manage-booking/${acceptToken}`);
+    const acceptedResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname ===
+          `/api/backend/v1/customer-bookings/${acceptToken}/accept-time`,
     );
+    await page.getByRole("button", { name: "接受建议时段" }).click();
+    const accepted = await acceptedResponse;
     const replay = await post(
       page,
       `/api/backend/v1/customer-bookings/${acceptToken}/accept-time`,
@@ -162,42 +175,46 @@ test("Chinese party proposal, customer acceptance, in-store payment, conflict, a
     expect(conflict.status()).toBe(409);
     expect((await conflict.json()).error.code).toBe("CAPACITY_CONFLICT");
 
-    const paymentOperation = crypto.randomUUID();
-    const paymentBody = {
-      expectedStatus: "awaiting_in_store_payment",
-      amountCents: 9500,
-      paidAt: new Date().toISOString(),
-      operationId: paymentOperation,
-    };
-    const payment = await post(
-      page,
-      `/api/backend/v1/admin/bookings/${bookingId}/payment`,
-      paymentBody,
+    await page.goto(`/admin/bookings/${bookingId}`);
+    await page.getByRole("button", { name: "记录场地费" }).click();
+    const paymentDialog = page.getByRole("dialog");
+    await paymentDialog.getByLabel("场地费金额").selectOption("9500");
+    await paymentDialog
+      .getByLabel("到店支付时间（墨尔本时间）")
+      .fill("2035-01-01T12:00");
+    const paymentPromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname ===
+          `/api/backend/v1/admin/bookings/${bookingId}/payment`,
     );
+    await paymentDialog.getByRole("button", { name: "记录场地费" }).click();
+    const payment = await paymentPromise;
+    expect(payment.status()).toBe(200);
+    const paymentBody = payment.request().postDataJSON();
     const paymentReplay = await post(
       page,
       `/api/backend/v1/admin/bookings/${bookingId}/payment`,
       paymentBody,
     );
-    expect(payment.status()).toBe(200);
     expect((await paymentReplay.json()).data.replayed).toBe(true);
     await waitForMailpitMessage({
       recipient: email,
       subjectIncludes: "派对付款已记录",
     });
 
-    const completed = await post(
-      page,
-      `/api/backend/v1/admin/bookings/${bookingId}/transitions`,
-      {
-        action: "transition",
-        expectedStatus: "confirmed_paid",
-        toStatus: "completed",
-        operationId: crypto.randomUUID(),
-        note: "派对已完成",
-      },
+    await page.goto(`/admin/bookings/${bookingId}`);
+    await page.getByRole("button", { name: "标记已完成" }).click();
+    const completionDialog = page.getByRole("dialog");
+    await completionDialog.getByLabel("处理说明").fill("派对已完成");
+    const completionPromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname ===
+          `/api/backend/v1/admin/bookings/${bookingId}/transitions`,
     );
-    expect(completed.status()).toBe(200);
+    await completionDialog.getByRole("button", { name: "标记已完成" }).click();
+    expect((await completionPromise).status()).toBe(200);
     const [finalState] = await fixture.sql<{
       status: string;
       venueFees: number;

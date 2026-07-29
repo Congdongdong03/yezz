@@ -185,7 +185,6 @@ export async function seedLiveBookingFixture(input: {
   const sql = postgres(testDatabaseUrl(), { max: 1 });
   const runId = crypto.randomUUID();
   const requestIds = new Set<string>();
-  const categoryIds = new Map<string, string>();
   const projects = new Map<
     string,
     { id: string; seed: LiveProjectSeedInput }
@@ -194,6 +193,9 @@ export async function seedLiveBookingFixture(input: {
     string,
     { id: string; seed: LivePartySeedInput }
   >();
+  const createdCategoryIds = new Set<string>();
+  const createdProjectIds = new Set<string>();
+  const createdPartyIds = new Set<string>();
   const rateLimitSecret = process.env.RATE_LIMIT_HASH_SECRET?.trim();
   if (!rateLimitSecret) {
     await sql.end();
@@ -240,34 +242,51 @@ export async function seedLiveBookingFixture(input: {
         `;
       }
 
-      for (const categorySlug of [
-        ...new Set(input.projects.map((project) => project.categorySlug)),
-      ]) {
+      // Reuse the approved catalogue where it exists, and otherwise create it
+      // under its canonical slugs. This lets the browser exercise the exact
+      // public offerings without introducing look-alike duplicates that would
+      // make the party page deliberately fail closed.
+      const categoryIds = new Map<string, string>();
+      for (const categorySlug of new Set(
+        input.projects.map((project) => project.categorySlug),
+      )) {
+        const [existing] = await transaction<{ id: string }[]>`
+          select id from project_categories where slug = ${categorySlug}
+        `;
+        if (existing) {
+          categoryIds.set(categorySlug, existing.id);
+          continue;
+        }
         const id = crypto.randomUUID();
-        categoryIds.set(categorySlug, id);
         await transaction`
-          insert into project_categories (
-            id, name, slug, sort_order
-          )
+          insert into project_categories (id, name, slug, sort_order)
           values (
             ${id},
-            ${transaction.json({
-              en: `Closure ${categorySlug}`,
-              zh: `闭环测试 ${categorySlug}`,
-            })},
-            ${`closure-live-${runId}-${categorySlug}`},
+            ${transaction.json({ en: categorySlug, zh: categorySlug })},
+            ${categorySlug},
             9000
           )
         `;
+        categoryIds.set(categorySlug, id);
+        createdCategoryIds.add(id);
       }
 
-      for (const [sortOrder, project] of input.projects.entries()) {
-        const id = crypto.randomUUID();
-        const categoryId = categoryIds.get(project.categorySlug);
-        if (!categoryId) {
-          throw new Error(`Missing live closure category ${project.categorySlug}`);
+      for (const project of input.projects) {
+        const [row] = await transaction<{ id: string }[]>`
+          select id from diy_projects where slug = ${project.slug}
+        `;
+        if (row) {
+          await transaction`
+            update diy_projects set bookable = true, updated_at = now()
+            where id = ${row.id}
+          `;
+          projects.set(project.slug, { id: row.id, seed: project });
+          continue;
         }
-        projects.set(project.slug, { id, seed: project });
+
+        const categoryId = categoryIds.get(project.categorySlug);
+        if (!categoryId) throw new Error(`Missing category ${project.categorySlug}`);
+        const id = crypto.randomUUID();
         await transaction`
           insert into diy_projects (
             id, category_id, name, slug, project_type, description,
@@ -276,34 +295,28 @@ export async function seedLiveBookingFixture(input: {
             extra_time_minutes, extra_time_price_cents, tags, sort_order
           )
           values (
-            ${id},
-            ${categoryId},
-            ${transaction.json(project.name)},
-            ${`closure-live-${runId}-${project.slug}`},
-            'experience',
-            ${transaction.json({
-              en: `Isolated closure fixture ${runId}`,
-              zh: `隔离闭环测试 ${runId}`,
-            })},
+            ${id}, ${categoryId}, ${transaction.json(project.name)}, ${project.slug},
+            'experience', ${transaction.json({ en: "Closure catalogue", zh: "闭环目录" })},
             ${`A$${(project.priceMinCents / 100).toFixed(2)}`},
-            ${project.priceMinCents},
-            ${project.priceMaxCents},
-            'AUD',
-            ${`${project.durationMinutes} minutes`},
-            ${project.durationMinutes},
-            true,
-            ${project.variantSelectedInStore},
-            ${project.extraTimeMinutes ?? null},
-            ${project.extraTimePriceCents ?? null},
-            ${[]},
-            ${9000 + sortOrder}
+            ${project.priceMinCents}, ${project.priceMaxCents}, 'AUD',
+            ${`${project.durationMinutes} minutes`}, ${project.durationMinutes}, true,
+            ${project.variantSelectedInStore}, ${project.extraTimeMinutes ?? null},
+            ${project.extraTimePriceCents ?? null}, ${[]}, 9000
           )
         `;
+        createdProjectIds.add(id);
+        projects.set(project.slug, { id, seed: project });
       }
 
-      for (const [sortOrder, party] of input.parties.entries()) {
+      for (const party of input.parties) {
+        const [row] = await transaction<{ id: string }[]>`
+          select id from party_packages where slug = ${party.slug}
+        `;
+        if (row) {
+          parties.set(party.slug, { id: row.id, seed: party });
+          continue;
+        }
         const id = crypto.randomUUID();
-        parties.set(party.slug, { id, seed: party });
         await transaction`
           insert into party_packages (
             id, name, slug, description, includes, image_urls,
@@ -312,28 +325,16 @@ export async function seedLiveBookingFixture(input: {
             min_parents, max_parents, tags, sort_order
           )
           values (
-            ${id},
-            ${transaction.json(party.name)},
-            ${`closure-live-${runId}-${party.slug}`},
-            ${transaction.json({
-              en: `Isolated closure fixture ${runId}`,
-              zh: `隔离闭环测试 ${runId}`,
-            })},
-            ${transaction.json([])},
-            ${[]},
-            ${party.minPeople},
-            ${party.maxPeople},
-            ${party.guestDurationMinutes},
-            ${party.setupMinutes},
-            ${party.cleanupMinutes},
-            ${party.venueFeeCents},
-            ${party.minSpendPerPersonCents},
-            ${party.minParents},
-            ${party.maxParents},
-            ${[]},
-            ${9000 + sortOrder}
+            ${id}, ${transaction.json(party.name)}, ${party.slug},
+            ${transaction.json({ en: "Closure catalogue", zh: "闭环目录" })},
+            ${transaction.json([])}, ${[]}, ${party.minPeople}, ${party.maxPeople},
+            ${party.guestDurationMinutes}, ${party.setupMinutes}, ${party.cleanupMinutes},
+            ${party.venueFeeCents}, ${party.minSpendPerPersonCents},
+            ${party.minParents}, ${party.maxParents}, ${[]}, 9000
           )
         `;
+        createdPartyIds.add(id);
+        parties.set(party.slug, { id, seed: party });
       }
     });
   } catch (error) {
@@ -423,18 +424,22 @@ export async function seedLiveBookingFixture(input: {
             where scope = 'booking'
               and subject_hash = ${subjectHash}
           `;
-          await transaction`
-            delete from diy_projects
-            where slug like ${`closure-live-${runId}-%`}
-          `;
-          await transaction`
-            delete from project_categories
-            where slug like ${`closure-live-${runId}-%`}
-          `;
-          await transaction`
-            delete from party_packages
-            where slug like ${`closure-live-${runId}-%`}
-          `;
+          for (const project of input.projects) {
+            if (createdProjectIds.has(projects.get(project.slug)!.id)) continue;
+            await transaction`
+              update diy_projects set bookable = false, updated_at = now()
+              where slug = ${project.slug}
+            `;
+          }
+          for (const projectId of createdProjectIds) {
+            await transaction`delete from diy_projects where id = ${projectId}`;
+          }
+          for (const categoryId of createdCategoryIds) {
+            await transaction`delete from project_categories where id = ${categoryId}`;
+          }
+          for (const partyId of createdPartyIds) {
+            await transaction`delete from party_packages where id = ${partyId}`;
+          }
         });
       } finally {
         await sql.end();

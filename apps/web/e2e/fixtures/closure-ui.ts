@@ -1,5 +1,5 @@
 import { expect, type Page } from "@playwright/test";
-import type { ClosureFixture } from "./closure-database";
+import type { ClosureFixture, LiveBookingFixture } from "./closure-database";
 
 type RequestKind = "bookings" | "cart-orders";
 type AdminKind = "bookings" | "orders";
@@ -71,6 +71,70 @@ export async function captureCreatedRequest(
   return payload.data!.id!;
 }
 
+export async function submitLiveOrdinaryForm(options: {
+  page: Page;
+  fixture: LiveBookingFixture;
+  locale: "en" | "zh";
+  email: string;
+  mode: "booking" | "waitlist";
+}) {
+  const { page, fixture, locale, email, mode } = options;
+  await page.goto(`/${locale}/book`);
+  await page.locator('input[name="participantCount"]').fill("2");
+  await page.locator('input[name="youngChildCount"]').fill("0");
+  await page.locator('input[name="accompanyingAdultCount"]').fill("1");
+  await page
+    .locator(`input[aria-label*="${fixture.projects.short.seed.name[locale]}"]`)
+    .fill("1");
+  await page
+    .locator(`input[aria-label*="${fixture.projects.long.seed.name[locale]}"]`)
+    .fill("1");
+  const dateButton = page.locator(`[data-date="${fixture.bookingDate}"]`);
+  for (let attempt = 0; attempt < 3 && !(await dateButton.count()); attempt += 1) {
+    await page.getByRole("button", { name: /Next month|下个月/ }).click();
+  }
+  await dateButton.click();
+  await page
+    .locator(`button[aria-label*="${mode === "waitlist" ? "Join waitlist" : "Request this time"}"][aria-label*="10:00"]`)
+    .click();
+  await page.locator('input[name="name"]').fill(`UI ${fixture.runId}`);
+  await page.locator('input[name="phone"]').fill("0430787722");
+  await page.locator('input[name="email"]').fill(email);
+  await page.locator('input[name="policyAccepted"]').check();
+  return captureCreatedRequest(page, "bookings", async () => {
+    await page
+      .getByRole("button", {
+        name: mode === "waitlist" ? "Join the waitlist" : "Send booking request",
+      })
+      .click();
+  });
+}
+
+export async function submitLivePartyForm(options: {
+  page: Page;
+  fixture: LiveBookingFixture;
+  email: string;
+  packageLabel: "A$95" | "A$145";
+}) {
+  const { page, fixture, email, packageLabel } = options;
+  await page.goto("/zh/parties");
+  const card = page.locator("article").filter({ hasText: packageLabel });
+  await card.getByRole("button", { name: "申请套餐" }).click();
+  const form = card.getByRole("form");
+  await form.locator('input[name="name"]').fill(`派对 UI ${fixture.runId}`);
+  await form.locator('input[name="phone"]').fill("0430787733");
+  await form.locator('input[name="email"]').fill(email);
+  await form.locator('input[name="birthdayChildName"]').fill("小乐");
+  await form.locator('input[name="birthdayChildAge"]').fill("7");
+  await form.locator('input[name="projectInterests"]').first().check();
+  await form.locator('input[name="desiredDate"]').fill(fixture.bookingDate);
+  await form.getByRole("button", { name: /申请 12:00/ }).click();
+  await form.locator('input[name="policyAccepted"]').check();
+  return captureCreatedRequest(page, "bookings", async () => {
+    await form.getByRole("button", { name: "提交派对申请" }).click();
+  });
+}
+
 export async function transitionFromAdmin(options: {
   page: Page;
   kind: AdminKind;
@@ -96,6 +160,9 @@ export async function transitionFromAdmin(options: {
   await expect(dialog).toBeVisible();
   if (note && (await dialog.getByLabel("处理说明").count()) > 0) {
     await dialog.getByLabel("处理说明").fill(note);
+  }
+  if (await dialog.getByLabel("已联系顾客并确认该时段").count()) {
+    await dialog.getByLabel("已联系顾客并确认该时段").check();
   }
 
   const requestPromise = page.waitForRequest(

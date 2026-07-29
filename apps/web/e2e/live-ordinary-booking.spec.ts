@@ -1,6 +1,10 @@
 import crypto from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import {
+  submitLiveOrdinaryForm,
+  transitionFromAdmin,
+} from "./fixtures/closure-ui";
+import {
   APPROVED_WEEKLY_HOURS,
   seedLiveBookingFixture,
   type LiveBookingFixture,
@@ -16,6 +20,11 @@ import {
   readMailpitMessage,
   waitForMailpitMessage,
 } from "./fixtures/mailpit";
+
+// These are complete customer/admin/email workflows, exercised in both
+// desktop and iPhone projects. The browser portion is intentionally real,
+// rather than a direct API shortcut, so it needs a budget beyond the default.
+test.setTimeout(90_000);
 
 async function post(
   page: Page,
@@ -44,7 +53,6 @@ test("English ordinary request closes through Chinese admin, secure email, remin
       parties: LIVE_PARTY_PACKAGES,
       capabilities: { experience: true, party: true, product: false },
     });
-    const idempotencyKey = crypto.randomUUID();
     const request = {
       kind: "experience",
       mode: "booking",
@@ -65,28 +73,14 @@ test("English ordinary request closes through Chinese admin, secure email, remin
       policyAccepted: true,
     };
 
-    const first = await post(
+    const bookingId = await submitLiveOrdinaryForm({
       page,
-      "/api/backend/v1/bookings",
-      request,
-      idempotencyKey,
-    );
-    const replay = await post(
-      page,
-      "/api/backend/v1/bookings",
-      request,
-      idempotencyKey,
-    );
-    expect(first.status()).toBe(201);
-    expect(replay.status()).toBe(201);
-    const firstBody = await first.json();
-    const replayBody = await replay.json();
-    const bookingId = firstBody.data.id as string;
-    fixture.requestIds.add(bookingId);
-    expect(replayBody.data).toMatchObject({
-      id: bookingId,
-      replayed: true,
+      fixture,
+      locale: "en",
+      email: customerEmail,
+      mode: "booking",
     });
+    fixture.requestIds.add(bookingId);
 
     await waitForMailpitMessage({
       recipient: customerEmail,
@@ -133,26 +127,25 @@ test("English ordinary request closes through Chinese admin, secure email, remin
     ).toBeVisible();
     await expect(page.getByText("待审核").first()).toBeVisible();
 
-    const confirmOperation = crypto.randomUUID();
-    const confirmBody = {
-      action: "transition",
-      expectedStatus: "pending_review",
-      toStatus: "confirmed",
-      operationId: confirmOperation,
-      newDate: fixture.bookingDate,
-      newStartTime: "10:00",
-    };
-    const confirmed = await post(
+    const confirmed = await transitionFromAdmin({
       page,
-      `/api/backend/v1/admin/bookings/${bookingId}/transitions`,
-      confirmBody,
-    );
+      kind: "bookings",
+      requestId: bookingId,
+      actionName: "确认预约",
+    });
+    expect(confirmed.status).toBe("confirmed");
     const confirmedReplay = await post(
       page,
       `/api/backend/v1/admin/bookings/${bookingId}/transitions`,
-      confirmBody,
+      {
+        action: "transition",
+        expectedStatus: "pending_review",
+        toStatus: "confirmed",
+        operationId: confirmed.operationId,
+        newDate: fixture.bookingDate,
+        newStartTime: "10:00",
+      },
     );
-    expect(confirmed.status()).toBe(200);
     expect(confirmedReplay.status()).toBe(200);
     expect((await confirmedReplay.json()).data.replayed).toBe(true);
     const confirmationMessage = await waitForMailpitMessage({

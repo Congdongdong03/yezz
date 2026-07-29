@@ -11,12 +11,15 @@ import {
   LIVE_PARTY_PACKAGES,
 } from "../../../packages/db/src/live-booking-catalogue";
 import {
+  submitLiveOrdinaryForm,
   transitionFromAdmin,
 } from "./fixtures/closure-ui";
 import {
   deleteMailpitMessagesFor,
   waitForMailpitMessage,
 } from "./fixtures/mailpit";
+
+test.setTimeout(90_000);
 
 function post(page: Page, path: string, body: unknown, idempotencyKey?: string) {
   return page.request.post(path, {
@@ -57,29 +60,13 @@ test("waitlist reserves no capacity and converts once only after customer contac
       )
     `;
 
-    const response = await post(
+    const bookingId = await submitLiveOrdinaryForm({
       page,
-      "/api/backend/v1/bookings",
-      {
-        kind: "experience",
-        mode: "waitlist",
-        name: `Waitlist ${fixture.runId}`,
-        phone: "0430787720",
-        email,
-        date: fixture.bookingDate,
-        startTime: "10:00",
-        participantCount: 2,
-        youngChildCount: 0,
-        accompanyingAdultCount: 1,
-        items: [{ projectId: fixture.projects.long.id, quantity: 2 }],
-        locale: "en",
-        policyVersion: "2026-07-29",
-        policyAccepted: true,
-      },
-      crypto.randomUUID(),
-    );
-    expect(response.status()).toBe(201);
-    const bookingId = (await response.json()).data.id as string;
+      fixture,
+      locale: "en",
+      email,
+      mode: "waitlist",
+    });
     fixture.requestIds.add(bookingId);
     await waitForMailpitMessage({
       recipient: email,
@@ -146,19 +133,12 @@ test("waitlist reserves no capacity and converts once only after customer contac
       "WAITLIST_CONTACT_REQUIRED",
     );
 
-    const withContact = await post(
+    const withContact = await transitionFromAdmin({
       page,
-      `/api/backend/v1/admin/bookings/${bookingId}/transitions`,
-      {
-        action: "transition",
-        expectedStatus: "waitlisted",
-        toStatus: "confirmed",
-        operationId,
-        newDate: fixture.bookingDate,
-        newStartTime: "10:00",
-        contactedCustomer: true,
-      },
-    );
+      kind: "bookings",
+      requestId: bookingId,
+      actionName: "确认预约",
+    });
     const replay = await post(
       page,
       `/api/backend/v1/admin/bookings/${bookingId}/transitions`,
@@ -166,13 +146,13 @@ test("waitlist reserves no capacity and converts once only after customer contac
         action: "transition",
         expectedStatus: "waitlisted",
         toStatus: "confirmed",
-        operationId,
+        operationId: withContact.operationId,
         newDate: fixture.bookingDate,
         newStartTime: "10:00",
         contactedCustomer: true,
       },
     );
-    expect(withContact.status()).toBe(200);
+    expect(withContact.status).toBe("confirmed");
     expect(replay.status()).toBe(200);
     expect((await replay.json()).data.replayed).toBe(true);
     await waitForMailpitMessage({

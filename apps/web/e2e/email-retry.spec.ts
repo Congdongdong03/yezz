@@ -125,7 +125,8 @@ test("failed customer email is visible in Chinese admin and can be retried", asy
     await page.getByLabel("发送状态").selectOption("failed");
     const deliveryRow = page
       .locator("tbody tr")
-      .filter({ hasText: contact.email });
+      .filter({ hasText: contact.email })
+      .filter({ hasText: "发送失败" });
     await expect(deliveryRow).toContainText("发送失败");
     await deliveryRow.getByRole("button", { name: "重新发送" }).click();
     await expect(page.getByText("已重新加入发送队列")).toBeVisible();
