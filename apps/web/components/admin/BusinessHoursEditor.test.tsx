@@ -177,6 +177,45 @@ describe("BusinessHoursEditor", () => {
     );
   });
 
+  it("clears a successful acknowledgement and rebases weekly edits from refreshed props", async () => {
+    adminApi.updateWeeklyHours
+      .mockRejectedValueOnce(
+        new ApiClientError("Conflicting bookings", "SCHEDULE_CONFLICT", 409, {
+          affectedBookingNumbers: ["YZZ-20300812-004"],
+          conflictFingerprint: "weekly-reset-1",
+        }),
+      )
+      .mockResolvedValueOnce({});
+    await act(async () =>
+      root.render(<BusinessHoursEditor onChanged={vi.fn()} schedule={schedule} />),
+    );
+    const saveWeekly = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "保存每周时间",
+    );
+    const acknowledgement = container.querySelector<HTMLInputElement>(
+      "input[aria-label='已核对未来预约']",
+    );
+    await act(async () => saveWeekly?.click());
+    await act(async () => acknowledgement?.click());
+    await act(async () => saveWeekly?.click());
+    expect(acknowledgement?.checked).toBe(false);
+    expect(acknowledgement?.disabled).toBe(true);
+
+    const refreshed = {
+      ...schedule,
+      weekly: schedule.weekly.map((day) =>
+        day.weekday === 1 ? { ...day, closesAt: "18:30" } : day,
+      ),
+    };
+    await act(async () =>
+      root.render(<BusinessHoursEditor onChanged={vi.fn()} schedule={refreshed} />),
+    );
+    expect(
+      container.querySelector<HTMLInputElement>("input[aria-label='周一关门']")
+        ?.value,
+    ).toBe("18:30");
+  });
+
   it("distinguishes database, deployment, and effective switches and locks product", async () => {
     await act(async () =>
       root.render(

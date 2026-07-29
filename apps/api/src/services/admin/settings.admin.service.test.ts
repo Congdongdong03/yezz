@@ -207,6 +207,64 @@ describe.skipIf(!runDatabaseTests)(
       ).resolves.toEqual([{ status: booking!.status }]);
     });
 
+    it("rejects tampered and replayed closure acknowledgements after closure state changes", async () => {
+      await database.connection.db.insert(bookings).values({
+        name: "Closure fingerprint conflict",
+        phone: "0400000099",
+        requestKind: "experience",
+        status: "confirmed",
+        attendanceCount: 2,
+        participantCount: 2,
+        slotDate: "2026-08-01",
+        slotStartTime: "12:00",
+        slotEndTime: "13:00",
+      });
+      const service = createAdminSettingsService(database.connection.db);
+      const firstFingerprint = await requireScheduleConflict(() =>
+        service.createClosure({
+          date: "2026-08-01",
+          startTime: "12:00",
+          endTime: "13:00",
+        }),
+      );
+
+      await requireScheduleConflict(() =>
+        service.createClosure({
+          date: "2026-08-01",
+          startTime: "12:00",
+          endTime: "13:00",
+          acknowledgement: { fingerprint: `${firstFingerprint}tampered` },
+        }),
+      );
+
+      const closure = await service.createClosure({
+        date: "2026-08-01",
+        startTime: "12:00",
+        endTime: "13:00",
+        acknowledgement: { fingerprint: firstFingerprint },
+      });
+      const afterAdd = await requireScheduleConflict(() =>
+        service.createClosure({
+          date: "2026-08-01",
+          startTime: "12:00",
+          endTime: "13:00",
+          acknowledgement: { fingerprint: firstFingerprint },
+        }),
+      );
+      expect(afterAdd).not.toBe(firstFingerprint);
+
+      await service.deleteClosure(closure.id);
+      const afterDelete = await requireScheduleConflict(() =>
+        service.createClosure({
+          date: "2026-08-01",
+          startTime: "12:00",
+          endTime: "13:00",
+          acknowledgement: { fingerprint: afterAdd },
+        }),
+      );
+      expect(afterDelete).not.toBe(afterAdd);
+    });
+
     it("requires acknowledgement before special hours shorten active ordinary or party bookings", async () => {
       await database.connection.db.insert(bookings).values([
         {
