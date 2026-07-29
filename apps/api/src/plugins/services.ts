@@ -60,7 +60,7 @@ export type AppServices = {
   categories: CategoriesService;
   projects: ProjectsService;
   parties: PartiesService;
-  partyWorkflow: PartyWorkflowService;
+  partyCustomerActions: Pick<PartyWorkflowService, "acceptPartyTimeByToken">;
   passwordSetup: PasswordSetupService;
   gallery: GalleryService;
   settings: SettingsService;
@@ -114,7 +114,9 @@ export default fp(async (app: FastifyInstance) => {
     categories: createCategoriesService(app.db),
     projects: createProjectsService(app.db, app.redis),
     parties: createPartiesService(app.db),
-    partyWorkflow,
+    partyCustomerActions: {
+      acceptPartyTimeByToken: (token) => partyWorkflow.acceptPartyTimeByToken(token),
+    },
     passwordSetup: createPasswordSetupService(app.db),
     gallery: createGalleryService(app.db),
     settings: createSettingsService(app.db, app.redis),

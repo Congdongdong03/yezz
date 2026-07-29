@@ -8,7 +8,6 @@ import type { OrdinaryBookingCreateInput } from "../../lib/booking-workflow.js";
 import type { PartyCreateInput } from "../../services/party-workflow.service.js";
 import { success } from "../../lib/response.js";
 import { requireIdempotencyKey } from "../../lib/public-create-idempotency.js";
-import { requireRequestCapability } from "../../services/settings.service.js";
 
 const BOOKING_RATE_LIMIT = 5;
 const BOOKING_RATE_WINDOW_SECONDS = 3600;
@@ -16,13 +15,7 @@ const BOOKING_RATE_WINDOW_SECONDS = 3600;
 export default async function bookingsRoutes(app: FastifyInstance) {
   app.post<{ Body: BookingCreateInput | OrdinaryBookingCreateInput | PartyCreateInput }>("/", async (request, reply) => {
     const capability = request.body?.kind ?? "experience";
-    // App services always provide the effective DB+environment guard. The
-    // fallback keeps isolated route unit fixtures exercising the env boundary.
-    if ("settings" in app.services) {
-      await app.services.settings.requirePublicRequestCapability(capability);
-    } else {
-      requireRequestCapability(capability);
-    }
+    await app.services.settings.requirePublicRequestCapability(capability);
 
     await enforceRequestLimit(
       app.services.rateLimits,

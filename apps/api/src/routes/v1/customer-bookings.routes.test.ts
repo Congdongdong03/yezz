@@ -175,7 +175,7 @@ describe("customer booking routes", () => {
     app.decorate("services", {
       rateLimits: { consume: vi.fn(async () => limitResult()) },
       customerActions: { digest: () => "f".repeat(64) },
-      partyWorkflow: { acceptPartyTimeByToken },
+      partyCustomerActions: { acceptPartyTimeByToken },
     } as never);
     await app.register(customerBookingsRoutes, { prefix: "/customer-bookings" });
 

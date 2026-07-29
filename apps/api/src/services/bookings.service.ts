@@ -352,6 +352,7 @@ export function createBookingsService(
         locale,
       } as const;
 
+      await requirePublicCreateCapability(kind);
       const replay = await repo.findByIdempotencyKey(normalizedKey);
       if (replay) {
         assertReplayMatches(replay, normalizedInput, replayIdentity);

@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import {
   bookings,
   diyProjects,
+  partyPackages,
   projectCategories,
   requestRateLimits,
   siteSettings,
@@ -27,6 +28,7 @@ import { createBookingsService } from "../../services/bookings.service.js";
 import { createRateLimitsRepository } from "../../repositories/rate-limits.repository.js";
 import { createRateLimitsService } from "../../services/rate-limits.service.js";
 import { createSettingsService } from "../../services/settings.service.js";
+import { requireRequestCapability } from "../../services/settings.service.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
 
@@ -46,6 +48,12 @@ function allowedResult() {
     resetAfter: 60,
   };
 }
+
+const environmentOnlySettings = {
+  async requirePublicRequestCapability(capability: string) {
+    requireRequestCapability(capability);
+  },
+};
 
 describe("bookingsRoutes durable rate limits", () => {
   beforeEach(() => {
@@ -108,6 +116,7 @@ describe("bookingsRoutes durable rate limits", () => {
         request.verifiedClientIdentity = VERIFIED_IDENTITY;
       });
       app.decorate("services", {
+        settings: environmentOnlySettings,
         rateLimits: { consume },
         bookings: { create },
       } as never);
@@ -141,6 +150,42 @@ describe("bookingsRoutes durable rate limits", () => {
     },
   );
 
+  it("does not let an accidental product environment flag reach the limiter without an effective database gate", async () => {
+    vi.stubEnv("REQUEST_FLOW_PRODUCT_ENABLED", "true");
+    const consume = vi.fn(async () => allowedResult());
+    const create = vi.fn();
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = VERIFIED_IDENTITY;
+    });
+    app.decorate("services", {
+      settings: {
+        async requirePublicRequestCapability() {
+          throw new AppError(503, "REQUEST_FLOW_DISABLED", "product requests are not currently available");
+        },
+      },
+      rateLimits: { consume },
+      bookings: { create },
+    } as never);
+    await app.register(bookingsRoutes, { prefix: "/bookings" });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings",
+        headers: { "idempotency-key": crypto.randomUUID() },
+        payload: { kind: "product", name: "Product", phone: "0430000000" },
+      });
+      expect(response.statusCode).toBe(503);
+      expect(consume).not.toHaveBeenCalled();
+      expect(create).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
   it("keys booking creation by the verified signed client IP", async () => {
     const consume = vi.fn(async () => allowedResult());
     const app = Fastify();
@@ -149,6 +194,7 @@ describe("bookingsRoutes durable rate limits", () => {
       request.verifiedClientIdentity = VERIFIED_IDENTITY;
     });
     app.decorate("services", {
+      settings: environmentOnlySettings,
       rateLimits: { consume },
       bookings: {
         async create() {
@@ -189,6 +235,7 @@ describe("bookingsRoutes durable rate limits", () => {
       request.verifiedClientIdentity = VERIFIED_IDENTITY;
     });
     app.decorate("services", {
+      settings: environmentOnlySettings,
       rateLimits: {
         async consume() {
           return {
@@ -232,6 +279,7 @@ describe("bookingsRoutes durable rate limits", () => {
       request.verifiedClientIdentity = VERIFIED_IDENTITY;
     });
     app.decorate("services", {
+      settings: environmentOnlySettings,
       rateLimits: {
         async consume() {
           throw new AppError(
@@ -274,6 +322,7 @@ describe("bookingsRoutes durable rate limits", () => {
       request.verifiedClientIdentity = VERIFIED_IDENTITY;
     });
     app.decorate("services", {
+      settings: environmentOnlySettings,
       rateLimits: { consume: vi.fn(async () => allowedResult()) },
       bookings: { create },
     } as never);
@@ -311,6 +360,7 @@ describe("bookingsRoutes durable rate limits", () => {
       request.verifiedClientIdentity = VERIFIED_IDENTITY;
     });
     app.decorate("services", {
+      settings: environmentOnlySettings,
       rateLimits: { consume: vi.fn(async () => allowedResult()) },
       bookings: { create },
     } as never);
@@ -345,12 +395,14 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
   let database: RequestFlowTestDatabase;
   let projectId: string;
   let slotId: string;
+  let partyPackageId: string;
 
   beforeEach(async () => {
     database = await createRequestFlowTestDatabase();
     const categoryId = crypto.randomUUID();
     projectId = crypto.randomUUID();
     slotId = crypto.randomUUID();
+    partyPackageId = crypto.randomUUID();
     await database.connection.db.insert(projectCategories).values({ id: categoryId, name: { en: "DIY", zh: "手作" }, slug: `route-diy-${categoryId}` });
     await database.connection.db.insert(diyProjects).values({ id: projectId, categoryId, name: { en: "Clay cup", zh: "陶杯" }, slug: `route-clay-${projectId}`, projectType: "experience", bookable: true, durationMinutes: 60, priceMin: 4300 });
     await database.connection.db.insert(timeSlots).values({
@@ -360,6 +412,18 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
       endTime: "11:00",
       capacity: 8,
       categoryId,
+    });
+    await database.connection.db.insert(partyPackages).values({
+      id: partyPackageId,
+      name: { en: "Party", zh: "派对" },
+      slug: `route-party-${partyPackageId}`,
+      minPeople: 4,
+      maxPeople: 8,
+      guestDurationMinutes: 90,
+      setupMinutes: 30,
+      cleanupMinutes: 30,
+      venueFeeCents: 9500,
+      minSpendPerPersonCents: 4500,
     });
     await database.connection.db.insert(siteSettings).values({ storeName: "YezYY", experienceRequestsEnabled: true, partyRequestsEnabled: true, productRequestsEnabled: true });
     await database.connection.db.insert(studioWeeklyHours).values({ weekday: 0, opensAt: "09:00", closesAt: "17:00", isClosed: false });
@@ -429,6 +493,31 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
     }
   });
 
+  it("keeps product hard-disabled even when both deployment and database flags are true", async () => {
+    const app = await createGatedApp({
+      REQUEST_FLOW_EXPERIENCE_ENABLED: "true",
+      REQUEST_FLOW_PARTY_ENABLED: "true",
+      REQUEST_FLOW_PRODUCT_ENABLED: "true",
+    });
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings",
+        headers: { "idempotency-key": crypto.randomUUID() },
+        payload: { kind: "product", name: "Product", phone: "0430000000" },
+      });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toMatchObject({
+        success: false,
+        error: { code: "REQUEST_FLOW_DISABLED" },
+      });
+      await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
+      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
+    } finally {
+      await app.close();
+    }
+  });
+
   it("rechecks the legacy create gate inside the write transaction", async () => {
     const app = Fastify();
     registerErrorHandler(app);
@@ -477,6 +566,167 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
         error: { code: "REQUEST_FLOW_DISABLED" },
       });
       expect(consume).toHaveBeenCalledTimes(1);
+      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("blocks an existing legacy replay when the gate flips after route dispatch", async () => {
+    const key = crypto.randomUUID();
+    const input = {
+      name: "Legacy replay",
+      phone: "0430000000",
+      email: "legacy-replay@example.com",
+      projectId,
+      timeSlotId: slotId,
+      preferredDate: "2026-08-02",
+      numberOfPeople: 2,
+      locale: "en" as const,
+    };
+    await createBookingsService(database.connection.db, {
+      experience: true,
+      party: true,
+      product: false,
+    }).create(input, key);
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = VERIFIED_IDENTITY;
+    });
+    const consume = vi.fn(async () => {
+      await database.connection.db
+        .update(siteSettings)
+        .set({ experienceRequestsEnabled: false });
+      return allowedResult();
+    });
+    app.decorate("services", {
+      settings: createSettingsService(database.connection.db, null, {
+        REQUEST_FLOW_EXPERIENCE_ENABLED: "true",
+        REQUEST_FLOW_PARTY_ENABLED: "true",
+      }),
+      bookings: createBookingsService(database.connection.db, {
+        experience: true,
+        party: true,
+        product: false,
+      }),
+      rateLimits: { consume },
+    } as never);
+    await app.register(bookingsRoutes, { prefix: "/bookings" });
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings",
+        headers: { "idempotency-key": key },
+        payload: input,
+      });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toMatchObject({
+        success: false,
+        error: { code: "REQUEST_FLOW_DISABLED" },
+      });
+      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(1);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("blocks an existing legacy replay when the deployment gate is disabled", async () => {
+    const key = crypto.randomUUID();
+    const input = {
+      name: "Legacy env replay",
+      phone: "0430000000",
+      email: "legacy-env-replay@example.com",
+      projectId,
+      timeSlotId: slotId,
+      preferredDate: "2026-08-02",
+      numberOfPeople: 2,
+      locale: "en" as const,
+    };
+    await createBookingsService(database.connection.db, {
+      experience: true,
+      party: true,
+      product: false,
+    }).create(input, key);
+    const app = await createGatedApp({
+      REQUEST_FLOW_EXPERIENCE_ENABLED: "false",
+      REQUEST_FLOW_PARTY_ENABLED: "true",
+    });
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings",
+        headers: { "idempotency-key": key },
+        payload: input,
+      });
+      expect(response.statusCode).toBe(503);
+      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(1);
+      await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("blocks a valid dedicated party create when the gate flips during dispatch", async () => {
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = VERIFIED_IDENTITY;
+    });
+    const consume = vi.fn(async () => {
+      await database.connection.db
+        .update(siteSettings)
+        .set({ partyRequestsEnabled: false });
+      return allowedResult();
+    });
+    app.decorate("services", {
+      settings: createSettingsService(database.connection.db, null, {
+        REQUEST_FLOW_EXPERIENCE_ENABLED: "true",
+        REQUEST_FLOW_PARTY_ENABLED: "true",
+      }),
+      bookings: createBookingsService(database.connection.db, {
+        experience: true,
+        party: true,
+        product: false,
+      }),
+      rateLimits: { consume },
+    } as never);
+    await app.register(bookingsRoutes, { prefix: "/bookings" });
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings",
+        headers: { "idempotency-key": crypto.randomUUID() },
+        payload: {
+          kind: "party",
+          partyPackageId,
+          name: "Dedicated party",
+          phone: "0430000000",
+          email: "dedicated-party@example.com",
+          birthdayChildName: "Kai",
+          birthdayChildAge: 6,
+          participantCount: 4,
+          parentCount: 1,
+          desiredDate: "2026-08-02",
+          desiredStartTime: "12:00",
+          projectInterests: ["clay"],
+          byoCake: true,
+          byoDrinks: true,
+          byoFood: false,
+          byoSnacks: true,
+          cakeCuttingRequested: true,
+          locale: "en",
+          policyVersion: "2026-07-29",
+          policyAccepted: true,
+        },
+      });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toMatchObject({
+        success: false,
+        error: { code: "REQUEST_FLOW_DISABLED" },
+      });
       await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
     } finally {
       await app.close();
@@ -565,13 +815,20 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
     app.decorateRequest("verifiedClientIdentity", null);
     app.addHook("onRequest", async (request) => { request.verifiedClientIdentity = VERIFIED_IDENTITY; });
     const consume = vi.fn(async () => allowedResult());
-    app.decorate("services", { bookings, rateLimits: { consume } } as never);
+    app.decorate("services", {
+      settings: createSettingsService(database.connection.db, null, {
+        REQUEST_FLOW_EXPERIENCE_ENABLED: "true",
+        REQUEST_FLOW_PARTY_ENABLED: "true",
+      }),
+      bookings,
+      rateLimits: { consume },
+    } as never);
     await app.register(bookingsRoutes, { prefix: "/bookings" });
     try {
       const response = await app.inject({ method: "POST", url: "/bookings", headers: { "idempotency-key": key }, payload: input });
       expect(response.statusCode).toBe(503);
       expect(response.json()).toMatchObject({ success: false, error: { code: "REQUEST_FLOW_DISABLED" } });
-      expect(consume).toHaveBeenCalledTimes(1);
+      expect(consume).toHaveBeenCalledTimes(0);
     } finally {
       await app.close();
       vi.unstubAllEnvs();
