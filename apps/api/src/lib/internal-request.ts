@@ -3,6 +3,7 @@ import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import type { FastifyInstance } from "fastify";
 import { AppError } from "./errors.js";
+import { safeRequestUrl } from "./request-log-redaction.js";
 
 const SIGNATURE_MAX_AGE_SECONDS = 300;
 const MINIMUM_SHARED_SECRET_LENGTH = 32;
@@ -178,7 +179,7 @@ export function registerInternalRequestProtection(
       options.maxBodyBytes ?? DEFAULT_MAX_SIGNED_BODY_BYTES,
     );
     const replay = replayBody(body);
-    const path = request.url.split("?", 1)[0] ?? request.url;
+    const path = safeRequestUrl(request.url);
 
     try {
       if (configuredSecrets.length === 0) {
