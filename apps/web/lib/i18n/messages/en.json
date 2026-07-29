@@ -361,6 +361,7 @@
     "numberOfPeople": "Number of People",
     "bookSectionTitle": "Submit a booking request",
     "bookSectionHint": "We manually review every request and will contact you to confirm it. No online payment is required; please pay in store.",
+    "bookCurrentFlow": "Start a DIY booking request",
     "pickSchedule": "Choose date & time"
   },
   "footer": {

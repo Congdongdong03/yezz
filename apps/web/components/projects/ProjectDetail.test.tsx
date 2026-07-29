@@ -78,4 +78,24 @@ describe("ProjectDetail capability fallback", () => {
     expect(html).not.toContain('data-testid="style-selector"');
     expect(html).not.toContain(">add<");
   });
+
+  it("sends enabled experience visitors to the current ordinary booking flow", () => {
+    const html = renderToStaticMarkup(
+      <ProjectDetail
+        locale="en"
+        requestEnabled
+        project={{
+          _id: "experience-1",
+          name: { en: "Clay Cup", zh: "陶杯" },
+          projectType: "experience",
+          category: { _id: "category-1" },
+        }}
+      />,
+    );
+
+    expect(html).toContain('href="/book"');
+    expect(html).toContain("bookCurrentFlow");
+    expect(html).not.toContain('data-testid="calendar"');
+    expect(html).not.toContain('data-testid="booking-form"');
+  });
 });

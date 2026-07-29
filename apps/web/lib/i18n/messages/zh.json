@@ -361,6 +361,7 @@
     "numberOfPeople": "人数",
     "bookSectionTitle": "提交预约申请",
     "bookSectionHint": "每一份申请都会由我们人工审核并联系您确认。无需线上付款，请到店付款。",
+    "bookCurrentFlow": "开始 DIY 预约申请",
     "pickSchedule": "选择预约档期"
   },
   "footer": {

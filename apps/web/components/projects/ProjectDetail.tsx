@@ -6,9 +6,6 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useCart } from "@/lib/cart/context";
 import { Link } from "@/i18n/routing";
-import BookingCalendar from "@/components/book/BookingCalendar";
-import BookingForm from "@/components/book/BookingForm";
-import type { TimeSlotOption } from "@/lib/api/time-slots";
 import StyleSelector from "./StyleSelector";
 import { trackViewProject } from "@/lib/analytics/gtag";
 import RequestContactFallback from "@/components/RequestContactFallback";
@@ -68,9 +65,6 @@ export default function ProjectDetail({
 
   type ProjectStyle = NonNullable<ProjectDetailProps["project"]["styles"]>[number];
   const [selectedStyle, setSelectedStyle] = useState<ProjectStyle | null>(null);
-  const [date, setDate] = useState("");
-  const [people, setPeople] = useState(1);
-  const [selectedSlot, setSelectedSlot] = useState<TimeSlotOption | null>(null);
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
@@ -194,60 +188,18 @@ export default function ProjectDetail({
           )}
 
           {requestEnabled && !isProduct && (
-            <>
-              <div className="mt-6">
-                <label htmlFor="project-people" className="block text-sm font-medium text-warm-charcoal">
-                  {t("numberOfPeople")}
-                </label>
-                <input
-                  id="project-people"
-                  type="number"
-                  min={1}
-                  value={people}
-                  onChange={(e) => {
-                    setPeople(parseInt(e.target.value, 10) || 1);
-                    setSelectedSlot(null);
-                  }}
-                  className="mt-1 w-full max-w-xs rounded-lg border border-warm-grey/20 bg-white px-3 py-2 text-sm outline-none focus:border-caramel"
-                />
-              </div>
-
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-warm-charcoal">{t("pickSchedule")}</h3>
-                <div className="mt-3 rounded-xl border border-warm-grey/15 bg-white p-4">
-                  <BookingCalendar
-                    people={people}
-                    categoryId={project.category?._id}
-                    selectedSlotId={selectedSlot?.id ?? null}
-                    onSelectSlot={setSelectedSlot}
-                    onDateChange={setDate}
-                  />
-                </div>
-              </div>
-
-              <section id="booking-form" className="mt-10 scroll-mt-24">
+            <section className="mt-10 rounded-2xl border border-warm-grey/15 bg-white p-6 sm:p-8">
                 <h2 className="font-serif text-xl font-bold text-warm-charcoal">
                   {t("bookSectionTitle")}
                 </h2>
                 <p className="mt-1 text-sm text-warm-grey">{t("bookSectionHint")}</p>
-                <div className="mt-6">
-                  <BookingForm
-                    key={`${date}-${people}`}
-                    embedded
-                    requireTimeSlot
-                    requestEnabled={requestEnabled}
-                    defaults={{
-                      projectId: project._id,
-                      interestedProject: projectLabel,
-                      preferredDate: date,
-                      numberOfPeople: String(people),
-                      timeSlotId: selectedSlot?.id,
-                      locale: pageLocale,
-                    }}
-                  />
-                </div>
+                <Link
+                  href="/book"
+                  className="mt-6 inline-flex rounded-full bg-caramel px-5 py-3 text-sm font-medium text-white transition-transform hover:-translate-y-0.5"
+                >
+                  {t("bookCurrentFlow")}
+                </Link>
               </section>
-            </>
           )}
         </motion.div>
       </div>

@@ -17,6 +17,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import { registerErrorHandler } from "../../plugins/error-handler.js";
 import bookingsRoutes from "./bookings.routes.js";
@@ -46,6 +47,26 @@ function allowedResult() {
     remaining: 4,
     resetAt: new Date("2026-07-28T10:00:00.000Z"),
     resetAfter: 60,
+  };
+}
+
+function ordinaryRequestPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    kind: "experience",
+    mode: "booking",
+    name: "Alice",
+    phone: "0430000000",
+    email: "alice@example.com",
+    date: "2030-08-12",
+    startTime: "10:00",
+    participantCount: 1,
+    youngChildCount: 0,
+    accompanyingAdultCount: 0,
+    items: [{ projectId: "10000000-0000-4000-8000-000000000001", quantity: 1 }],
+    locale: "en",
+    policyVersion: "2026-07-30",
+    policyAccepted: true,
+    ...overrides,
   };
 }
 
@@ -186,6 +207,52 @@ describe("bookingsRoutes durable rate limits", () => {
     }
   });
 
+  it("retires the legacy fixed-slot project booking payload before rate limiting", async () => {
+    const consume = vi.fn(async () => allowedResult());
+    const create = vi.fn();
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = VERIFIED_IDENTITY;
+    });
+    app.decorate("services", {
+      settings: environmentOnlySettings,
+      rateLimits: { consume },
+      bookings: { create },
+    } as never);
+    await app.register(bookingsRoutes, { prefix: "/bookings" });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings",
+        headers: { "idempotency-key": crypto.randomUUID() },
+        payload: {
+          kind: "experience",
+          name: "Legacy customer",
+          phone: "0430000000",
+          email: "legacy@example.com",
+          projectId: "10000000-0000-4000-8000-000000000001",
+          timeSlotId: "10000000-0000-4000-8000-000000000002",
+          preferredDate: "2030-08-12",
+          numberOfPeople: 2,
+          locale: "en",
+        },
+      });
+
+      expect(response.statusCode).toBe(410);
+      expect(response.json()).toMatchObject({
+        success: false,
+        error: { code: "LEGACY_BOOKING_FLOW_RETIRED" },
+      });
+      expect(consume).not.toHaveBeenCalled();
+      expect(create).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
   it("keys booking creation by the verified signed client IP", async () => {
     const consume = vi.fn(async () => allowedResult());
     const app = Fastify();
@@ -221,7 +288,7 @@ describe("bookingsRoutes durable rate limits", () => {
         headers: {
           "idempotency-key": "00000000-0000-4000-8000-000000000010",
         },
-        payload: { name: "Alice", phone: "123" },
+        payload: ordinaryRequestPayload({ phone: "123" }),
       });
 
       expect(response.statusCode).toBe(201);
@@ -280,7 +347,7 @@ describe("bookingsRoutes durable rate limits", () => {
         headers: {
           "idempotency-key": "00000000-0000-4000-8000-000000000011",
         },
-        payload: { name: "Alice", phone: "123" },
+        payload: ordinaryRequestPayload({ phone: "123" }),
       });
 
       expect(response.statusCode).toBe(429);
@@ -332,7 +399,7 @@ describe("bookingsRoutes durable rate limits", () => {
         headers: {
           "idempotency-key": "00000000-0000-4000-8000-000000000012",
         },
-        payload: { name: "Alice", phone: "123" },
+        payload: ordinaryRequestPayload({ phone: "123" }),
       });
 
       expect(response.statusCode).toBe(503);
@@ -366,7 +433,7 @@ describe("bookingsRoutes durable rate limits", () => {
         method: "POST",
         url: "/bookings",
         ...(key ? { headers: { "idempotency-key": key } } : {}),
-        payload: { name: "Alice", phone: "123" },
+        payload: ordinaryRequestPayload({ phone: "123" }),
       });
 
       expect(response.statusCode).toBe(400);
@@ -415,7 +482,7 @@ describe("bookingsRoutes durable rate limits", () => {
         headers: {
           "idempotency-key": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
         },
-        payload: { name: "Alice", phone: "123" },
+        payload: ordinaryRequestPayload({ phone: "123" }),
       });
 
       expect(response.statusCode).toBe(201);
@@ -424,7 +491,7 @@ describe("bookingsRoutes durable rate limits", () => {
         data: { id: "booking-1", replayed: true },
       });
       expect(create).toHaveBeenCalledWith(
-        { name: "Alice", phone: "123" },
+        ordinaryRequestPayload({ phone: "123" }),
         "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         expect.any(Function),
       );
@@ -531,6 +598,46 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
       expect(response.statusCode).toBe(201);
       await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(1);
       await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(1);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("does not reserve a legacy fixed slot when experience requests are enabled", async () => {
+    const app = await createGatedApp({
+      REQUEST_FLOW_EXPERIENCE_ENABLED: "true",
+      REQUEST_FLOW_PARTY_ENABLED: "true",
+    });
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings",
+        headers: { "idempotency-key": crypto.randomUUID() },
+        payload: {
+          kind: "experience",
+          projectId,
+          timeSlotId: slotId,
+          preferredDate: "2026-08-02",
+          numberOfPeople: 2,
+          name: "Legacy slot customer",
+          phone: "0430000000",
+          email: "legacy-slot@example.com",
+          locale: "en",
+        },
+      });
+
+      expect(response.statusCode).toBe(410);
+      expect(response.json()).toMatchObject({
+        success: false,
+        error: { code: "LEGACY_BOOKING_FLOW_RETIRED" },
+      });
+      const [slot] = await database.connection.db
+        .select()
+        .from(timeSlots)
+        .where(eq(timeSlots.id, slotId));
+      expect(slot?.bookedCount).toBe(0);
+      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
+      await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
     } finally {
       await app.close();
     }

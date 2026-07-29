@@ -230,23 +230,6 @@ describe.skipIf(!runDatabaseTests)(
 
     const cases = [
       {
-        label: "legacy experience request",
-        disabledColumn: "experience" as const,
-        payload() {
-          return {
-            kind: "experience" as const,
-            projectId,
-            timeSlotId: slotId,
-            preferredDate: "2030-08-12",
-            numberOfPeople: 2,
-            name: "Legacy capability request",
-            phone: "0430000000",
-            email: "legacy-capability@example.test",
-            locale: "en",
-          };
-        },
-      },
-      {
         label: "ordinary experience request",
         disabledColumn: "experience" as const,
         payload() {
