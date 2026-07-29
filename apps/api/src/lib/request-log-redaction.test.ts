@@ -2,11 +2,16 @@ import { createHash, createHmac } from "node:crypto";
 import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
 import { registerInternalRequestProtection } from "./internal-request.js";
-import { serializeRequestForLog } from "./request-log-redaction.js";
+import {
+  isCustomerBookingRequestPath,
+  safeRequestUrl,
+  serializeRequestForLog,
+} from "./request-log-redaction.js";
 import customerBookingsRoutes from "../routes/v1/customer-bookings.routes.js";
 
 const token = `-${"A".repeat(42)}`;
 const encodedToken = `%2D${"A".repeat(42)}`;
+const malformedToken = `${encodedToken}%ZZ`;
 const SECRET = "0123456789abcdef0123456789abcdef";
 const REQUEST_ID = "00000000-0000-4000-8000-000000000001";
 const TIMESTAMP = 1_785_200_000;
@@ -38,7 +43,251 @@ function signedHeaders(input: {
   };
 }
 
+async function buildCustomerLogApp() {
+  const entries: string[] = [];
+  const app = Fastify({
+    logger: {
+      level: "info",
+      serializers: { req: serializeRequestForLog },
+      stream: { write: (chunk: string) => entries.push(chunk) },
+    },
+  });
+  registerInternalRequestProtection(app, {
+    enforcement: "require",
+    secrets: SECRET,
+    now: () => TIMESTAMP,
+  });
+  app.decorate("services", {
+    rateLimits: {
+      consume: async () => ({
+        allowed: true,
+        limit: 12,
+        remaining: 11,
+        resetAt: new Date("2026-07-28T10:00:00.000Z"),
+        resetAfter: 60,
+      }),
+    },
+    customerActions: {
+      resolve: async () => ({ ok: true }),
+      requestCancellation: async () => ({ ok: true }),
+      requestReschedule: async () => ({ ok: true }),
+    },
+    partyCustomerActions: {
+      acceptPartyTimeByToken: async () => ({ ok: true }),
+    },
+  } as never);
+  await app.register(customerBookingsRoutes, {
+    prefix: "/api/v1/customer-bookings",
+  });
+  return { app, entries };
+}
+
+function requestLogs(entries: string[], start: number) {
+  return entries.slice(start).map(
+    (entry) =>
+      JSON.parse(entry) as {
+        msg?: string;
+        path?: string;
+        req?: { url?: string };
+      },
+  );
+}
+
+function expectNoBearerMaterial(serializedLogs: string) {
+  expect(serializedLogs).not.toContain(token);
+  expect(serializedLogs).not.toContain(encodedToken);
+  expect(serializedLogs).not.toContain(malformedToken);
+}
+
 describe("customer booking request log redaction", () => {
+  it.each([
+    {
+      name: "a malformed customer path segment",
+      url: `/api/v1/customer-bookings/${malformedToken}/request-cancellation`,
+      expected: "/api/v1/customer-bookings/:token/[REDACTED]",
+    },
+    {
+      name: "a malformed query key containing an encoded bearer",
+      url: `/api/v1/customer-bookings/${encodedToken}?${malformedToken}=x`,
+      expected: "/api/v1/customer-bookings/:token?[REDACTED]",
+    },
+    {
+      name: "a malformed query value containing an encoded bearer",
+      url: `/api/v1/customer-bookings/${encodedToken}?source=${malformedToken}`,
+      expected: "/api/v1/customer-bookings/:token?[REDACTED]",
+    },
+    {
+      name: "a literal bearer query key",
+      url: `/api/v1/customer-bookings/${encodedToken}?${token}=x`,
+      expected: "/api/v1/customer-bookings/:token?[REDACTED]",
+    },
+    {
+      name: "an encoded bearer query value",
+      url: `/api/v1/customer-bookings/${encodedToken}?source=${encodedToken}`,
+      expected: "/api/v1/customer-bookings/:token?[REDACTED]",
+    },
+  ])("fails closed for $name", ({ url, expected }) => {
+    const serialized = safeRequestUrl(url);
+
+    expect(serialized).toBe(expected);
+    expect(serialized).not.toContain(token);
+    expect(serialized).not.toContain(encodedToken);
+    expect(serialized).not.toContain(malformedToken);
+  });
+
+  it("recognizes only a strict decoded customer action path for verification", () => {
+    expect(
+      isCustomerBookingRequestPath(
+        `/api/v1/customer-bookings/${encodedToken}/request-cancellation`,
+      ),
+    ).toBe(true);
+    expect(
+      isCustomerBookingRequestPath(
+        `/api/v1/customer-bookings/${malformedToken}/request-cancellation`,
+      ),
+    ).toBe(false);
+  });
+
+  it("redacts a malformed customer path component in the real Fastify request serializer", async () => {
+    const entries: string[] = [];
+    const app = Fastify({
+      logger: {
+        level: "info",
+        serializers: { req: serializeRequestForLog },
+        stream: { write: (chunk: string) => entries.push(chunk) },
+      },
+    });
+    app.get("/probe", async (request) => {
+      request.log.info(
+        {
+          req: {
+            id: request.id,
+            method: request.method,
+            url: `/api/v1/customer-bookings/${malformedToken}`,
+          },
+        },
+        "malformed customer path",
+      );
+      return { ok: true };
+    });
+
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: "/probe",
+      });
+
+      expect(response.statusCode).toBe(200);
+      const serializedLogs = entries.join("");
+      expect(serializedLogs).toContain(
+        "/api/v1/customer-bookings/:token/[REDACTED]",
+      );
+      expectNoBearerMaterial(serializedLogs);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("keeps literal and encoded signed and unsigned action logs safe in both Fastify paths", async () => {
+    const { app, entries } = await buildCustomerLogApp();
+    const actions: Array<{
+      method: "GET" | "POST";
+      path: string;
+      query: string;
+      body?: Uint8Array;
+    }> = [
+      { method: "GET", path: "", query: "?source=mail" },
+      {
+        method: "POST",
+        path: "/request-cancellation",
+        query: "?campaign=win",
+      },
+      { method: "POST", path: "/accept-time", query: "?source=sms" },
+      {
+        method: "POST",
+        path: "/request-reschedule",
+        query: "?ref=reminder",
+        body: new TextEncoder().encode(
+          '{"date":"2030-08-14","startTime":"13:30"}',
+        ),
+      },
+    ];
+
+    try {
+      for (const pathToken of [token, encodedToken]) {
+        for (const signed of [true, false]) {
+          for (const action of actions) {
+            const start = entries.length;
+            const url = `/api/v1/customer-bookings/${pathToken}${action.path}${action.query}`;
+            const body = action.body ?? new Uint8Array();
+            const response = await app.inject({
+              method: action.method,
+              url,
+              headers: {
+                ...(signed
+                  ? signedHeaders({ method: action.method, url, body })
+                  : {}),
+                ...(action.body ? { "content-type": "application/json" } : {}),
+              },
+              ...(action.body ? { payload: Buffer.from(action.body) } : {}),
+            });
+
+            expect(response.statusCode).toBe(signed ? 200 : 401);
+            const logs = requestLogs(entries, start);
+            const expectedPath = `/api/v1/customer-bookings/:token${action.path}${action.query}`;
+            expect(
+              logs.find((entry) => entry.msg === "incoming request")?.req?.url,
+            ).toBe(expectedPath);
+            expect(
+              logs.find(
+                (entry) => entry.msg === "Internal request verification",
+              )?.path,
+            ).toBe(expectedPath);
+            expectNoBearerMaterial(JSON.stringify(logs));
+          }
+        }
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("uses a constant fail-closed query representation in both Fastify log paths", async () => {
+    const { app, entries } = await buildCustomerLogApp();
+    const malformedQueries = [
+      `?${malformedToken}=x`,
+      `?source=${malformedToken}`,
+      `?${token}=x`,
+      `?source=${encodedToken}`,
+    ];
+
+    try {
+      for (const query of malformedQueries) {
+        const start = entries.length;
+        const url = `/api/v1/customer-bookings/${encodedToken}${query}`;
+        const response = await app.inject({
+          method: "GET",
+          url,
+          headers: signedHeaders({ method: "GET", url }),
+        });
+
+        expect(response.statusCode).toBe(200);
+        const logs = requestLogs(entries, start);
+        const expectedPath = "/api/v1/customer-bookings/:token?[REDACTED]";
+        expect(
+          logs.find((entry) => entry.msg === "incoming request")?.req?.url,
+        ).toBe(expectedPath);
+        expect(
+          logs.find((entry) => entry.msg === "Internal request verification")
+            ?.path,
+        ).toBe(expectedPath);
+        expectNoBearerMaterial(JSON.stringify(logs));
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
   it("does not let malformed query-key encoding crash Fastify request logging", async () => {
     const entries: string[] = [];
     const app = Fastify({
@@ -57,7 +306,7 @@ describe("customer booking request log redaction", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(entries.join("")).toContain("/probe?%ZZ=[REDACTED]");
+      expect(entries.join("")).toContain("/probe?[REDACTED]");
     } finally {
       await app.close();
     }
@@ -67,7 +316,11 @@ describe("customer booking request log redaction", () => {
     `/api/v1/customer-bookings/${token}`,
     `/api/v1/customer-bookings/${token}/request-cancellation`,
   ])("does not emit a bearer token for %s", (url) => {
-    const logged = serializeRequestForLog({ id: "request-1", method: "POST", url });
+    const logged = serializeRequestForLog({
+      id: "request-1",
+      method: "POST",
+      url,
+    });
 
     expect(JSON.stringify(logged)).not.toContain(token);
     expect(logged).toEqual({
@@ -136,7 +389,9 @@ describe("customer booking request log redaction", () => {
         requestCancellation: async () => ({ ok: true }),
         requestReschedule: async () => ({ ok: true }),
       },
-      partyCustomerActions: { acceptPartyTimeByToken: async () => ({ ok: true }) },
+      partyCustomerActions: {
+        acceptPartyTimeByToken: async () => ({ ok: true }),
+      },
     } as never);
     await app.register(customerBookingsRoutes, {
       prefix: "/api/v1/customer-bookings",
@@ -163,15 +418,16 @@ describe("customer booking request log redaction", () => {
       {
         method: "POST",
         suffix: "/accept-time?source=sms",
-        expectedPath:
-          "/api/v1/customer-bookings/:token/accept-time?source=sms",
+        expectedPath: "/api/v1/customer-bookings/:token/accept-time?source=sms",
       },
       {
         method: "POST",
         suffix: "/request-reschedule?ref=reminder&secret=query-secret",
         expectedPath:
           "/api/v1/customer-bookings/:token/request-reschedule?ref=reminder&secret=[REDACTED]",
-        body: new TextEncoder().encode('{"date":"2030-08-14","startTime":"13:30"}'),
+        body: new TextEncoder().encode(
+          '{"date":"2030-08-14","startTime":"13:30"}',
+        ),
       },
     ];
 
@@ -190,14 +446,17 @@ describe("customer booking request log redaction", () => {
       });
       expect(response.statusCode).toBe(200);
 
-      const requestLogs = entries
-        .slice(logStart)
-        .map((entry) => JSON.parse(entry) as {
-          msg?: string;
-          path?: string;
-          req?: { url?: string };
-        });
-      const incoming = requestLogs.find((entry) => entry.msg === "incoming request");
+      const requestLogs = entries.slice(logStart).map(
+        (entry) =>
+          JSON.parse(entry) as {
+            msg?: string;
+            path?: string;
+            req?: { url?: string };
+          },
+      );
+      const incoming = requestLogs.find(
+        (entry) => entry.msg === "incoming request",
+      );
       const verification = requestLogs.find(
         (entry) => entry.msg === "Internal request verification",
       );
@@ -219,7 +478,9 @@ describe("customer booking request log redaction", () => {
     expect(logs).not.toContain("raw-signature");
     expect(logs).not.toContain("query-token");
     expect(logs).not.toContain("query-secret");
-    expect(logs).toContain("/api/v1/customer-bookings/:token?source=mail&signature=[REDACTED]");
+    expect(logs).toContain(
+      "/api/v1/customer-bookings/:token?source=mail&signature=[REDACTED]",
+    );
     expect(logs).toContain("campaign=win&token=[REDACTED]");
     expect(logs).toContain("ref=reminder&secret=[REDACTED]");
   });
