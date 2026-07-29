@@ -300,6 +300,16 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
             <p className="font-medium">{formatDate(booking.createdAt)}</p>
           </div>
           <div>
+            <p className="text-xs text-muted-foreground">政策版本</p>
+            <p className="font-medium">
+              {booking.policyVersion ?? "历史记录未记录"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">政策接受时间</p>
+            <p className="font-medium">{formatDate(booking.policyAcceptedAt)}</p>
+          </div>
+          <div>
             <p className="text-xs text-muted-foreground">当前状态</p>
             <p className="font-medium">{STATUS_LABELS[booking.status]}</p>
           </div>

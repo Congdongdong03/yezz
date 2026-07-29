@@ -56,6 +56,8 @@ function booking(status: Booking["status"]): Booking {
     message: null,
     locale: "zh",
     timeSlotId: "00000000-0000-4000-8000-000000000002",
+    policyVersion: "2026-07-29",
+    policyAcceptedAt: "2026-07-29T01:02:03.000Z",
     status,
     offering: {
       id: "00000000-0000-4000-8000-000000000003",
@@ -176,6 +178,13 @@ describe("AdminBookingsPage stale status focus", () => {
     expect(container.querySelector("button[aria-label='确认 Alice']")).not.toBeNull();
     expect(container.querySelector("button[aria-label='转候补 Alice']")).not.toBeNull();
     expect(container.querySelector("button[aria-label='拒绝 Alice']")).not.toBeNull();
+  });
+
+  it("shows the persisted policy version in the booking list", async () => {
+    await act(async () => root.render(<AdminBookingsPage />));
+    await act(async () => {});
+
+    expect(container.textContent).toContain("政策 2026-07-29");
   });
 
   it("focuses the page heading when a stale refresh removes the row", async () => {

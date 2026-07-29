@@ -358,6 +358,78 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
     });
   });
 
+  it("reads stored legacy and current policy acceptance metadata without rewriting it", async () => {
+    const staffId = crypto.randomUUID();
+    const legacyBookingId = crypto.randomUUID();
+    const currentBookingId = crypto.randomUUID();
+    const legacyAcceptedAt = new Date("2026-07-29T01:02:03.000Z");
+    const currentAcceptedAt = new Date("2026-07-30T04:05:06.000Z");
+    await database.connection.db.insert(users).values({
+      id: staffId,
+      email: "policy-audit-staff@example.com",
+      passwordHash: "not-used",
+      name: "Policy audit staff",
+      role: "staff",
+    });
+    await database.connection.db.insert(bookings).values([
+      {
+        id: legacyBookingId,
+        name: "Legacy policy customer",
+        phone: "0430000012",
+        policyVersion: "2026-07-29",
+        policyAcceptedAt: legacyAcceptedAt,
+      },
+      {
+        id: currentBookingId,
+        name: "Current policy customer",
+        phone: "0430000013",
+        policyVersion: "2026-07-30",
+        policyAcceptedAt: currentAcceptedAt,
+      },
+    ]);
+    const service = createAdminBookingsService(database.connection.db);
+
+    const [legacy, current, list] = await Promise.all([
+      service.getById(legacyBookingId, staffId),
+      service.getById(currentBookingId, staffId),
+      service.list({ actorUserId: staffId }),
+    ]);
+
+    expect(legacy).toMatchObject({
+      policyVersion: "2026-07-29",
+      policyAcceptedAt: legacyAcceptedAt,
+    });
+    expect(current).toMatchObject({
+      policyVersion: "2026-07-30",
+      policyAcceptedAt: currentAcceptedAt,
+    });
+    expect(
+      list.data
+        .filter(
+          (booking) =>
+            booking.id === legacyBookingId || booking.id === currentBookingId,
+        )
+        .map((booking) => ({
+          id: booking.id,
+          policyVersion: booking.policyVersion,
+          policyAcceptedAt: booking.policyAcceptedAt,
+        })),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          id: legacyBookingId,
+          policyVersion: "2026-07-29",
+          policyAcceptedAt: legacyAcceptedAt,
+        },
+        {
+          id: currentBookingId,
+          policyVersion: "2026-07-30",
+          policyAcceptedAt: currentAcceptedAt,
+        },
+      ]),
+    );
+  });
+
   it("returns fixed 25-row unresolved-first pages and applies status and search filters", async () => {
     const staffId = crypto.randomUUID();
     await database.connection.db.insert(users).values({

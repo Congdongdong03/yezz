@@ -92,6 +92,8 @@ export type BookingDto = {
   message: string | null;
   locale: string | null;
   timeSlotId: string | null;
+  policyVersion: string | null;
+  policyAcceptedAt: Date | null;
   status: OrderStatus | BookingStatus;
   offering: {
     id: string | null;
@@ -211,6 +213,8 @@ export function mapBookingRow(
     message: row.message ?? null,
     locale: row.locale ?? null,
     timeSlotId: row.timeSlotId ?? null,
+    policyVersion: row.policyVersion ?? null,
+    policyAcceptedAt: row.policyAcceptedAt ?? null,
     status: row.participantCount !== null
       ? row.status
       : legacyStatusFromBookingEvidence(

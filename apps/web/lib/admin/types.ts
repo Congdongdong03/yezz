@@ -164,6 +164,8 @@ export type Booking = {
   message: string | null;
   locale: string | null;
   timeSlotId: string | null;
+  policyVersion: string | null;
+  policyAcceptedAt: string | null;
   status: BookingStatus;
   offering: {
     id: string | null;

@@ -57,6 +57,53 @@ describe("admin party workflow routes", () => {
     }
   });
 
+  it("returns persisted policy acceptance metadata in list and detail payloads", async () => {
+    const legacyAcceptance = new Date("2026-07-29T01:02:03.000Z");
+    const currentAcceptance = new Date("2026-07-30T04:05:06.000Z");
+    const list = vi.fn(async () => ({
+      data: [
+        {
+          id: "legacy-booking",
+          policyVersion: "2026-07-29",
+          policyAcceptedAt: legacyAcceptance,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 25,
+    }));
+    const getById = vi.fn(async () => ({
+      id: "current-booking",
+      policyVersion: "2026-07-30",
+      policyAcceptedAt: currentAcceptance,
+    }));
+    const app = await appWith({ list, getById });
+    try {
+      const listResponse = await app.inject({ method: "GET", url: "/bookings" });
+      const detailResponse = await app.inject({
+        method: "GET",
+        url: "/bookings/current-booking",
+      });
+
+      expect(listResponse.statusCode).toBe(200);
+      expect(listResponse.json().data.data).toEqual([
+        {
+          id: "legacy-booking",
+          policyVersion: "2026-07-29",
+          policyAcceptedAt: legacyAcceptance.toISOString(),
+        },
+      ]);
+      expect(detailResponse.statusCode).toBe(200);
+      expect(detailResponse.json().data).toEqual({
+        id: "current-booking",
+        policyVersion: "2026-07-30",
+        policyAcceptedAt: currentAcceptance.toISOString(),
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("exposes canonical transition, charge, payment, and refund actions", async () => {
     const updateStatus = vi.fn(async () => ({ status: "confirmed" }));
     const recordPartyCharge = vi.fn(async () => ({ replayed: false }));

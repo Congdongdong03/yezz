@@ -431,6 +431,9 @@ export default function AdminBookingsPage() {
                         {booking.offering.price}
                       </span>
                     )}
+                    <span className="block text-xs text-muted-foreground">
+                      政策 {booking.policyVersion ?? "历史记录未记录"}
+                    </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {booking.slot ? (
