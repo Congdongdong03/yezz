@@ -75,6 +75,8 @@ export function mapProjectRow(
     description: project.description ?? null,
     priceRange: project.priceRange ?? null,
     ...pricing,
+    priceMin: project.priceMin ?? null,
+    priceMax: project.priceMax ?? null,
     priceCurrency: "AUD",
     duration: project.duration ?? null,
     durationMinutes: project.durationMinutes ?? null,

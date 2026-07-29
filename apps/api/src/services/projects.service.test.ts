@@ -43,4 +43,42 @@ describe("project operational DTO", () => {
       extraTimePriceCents: 1650,
     });
   });
+
+  it("keeps missing cents snapshots null even when a legacy display price exists", () => {
+    const result = mapProjectRow(
+      {
+        id: "legacy-project",
+        name: { en: "Legacy", zh: "旧项目" },
+        slug: "legacy-project",
+        projectType: "experience",
+        description: null,
+        priceRange: "$49.50",
+        priceMin: null,
+        priceMax: null,
+        priceCurrency: "AUD",
+        duration: null,
+        durationMinutes: null,
+        bookable: false,
+        variantSelectedInStore: false,
+        extraTimeMinutes: null,
+        extraTimePriceCents: null,
+        tags: [],
+        sortOrder: 0,
+        coverImageUrl: null,
+      } as never,
+      {
+        id: "category-1",
+        name: { en: "Legacy", zh: "旧分类" },
+        slug: "legacy",
+        icon: null,
+      } as never,
+    );
+
+    expect(result).toMatchObject({
+      priceMin: null,
+      priceMax: null,
+      priceDisplay: "$49.50",
+      priceCurrency: "AUD",
+    });
+  });
 });

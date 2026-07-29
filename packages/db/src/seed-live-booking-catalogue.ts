@@ -19,6 +19,10 @@ export type LiveCatalogueSeedStore = {
   upsertParty(party: LivePartySeed & { sortOrder: number }): Promise<void>;
 };
 
+export type LiveBookingCatalogueSeedRunOptions = {
+  loadEnvironment?: () => unknown;
+};
+
 export function assertLiveCatalogueSeedConfirmation(
   env: Record<string, string | undefined>,
 ): void {
@@ -151,10 +155,14 @@ export function createLiveCatalogueSeedStore(db: Db): LiveCatalogueSeedStore {
   };
 }
 
-async function main() {
-  loadEnv();
-  assertLiveCatalogueSeedConfirmation(process.env);
-  const databaseUrl = process.env.DATABASE_URL;
+export async function runLiveBookingCatalogueSeed(
+  env: Record<string, string | undefined> = process.env,
+  options: LiveBookingCatalogueSeedRunOptions = {},
+): Promise<void> {
+  assertLiveCatalogueSeedConfirmation(env);
+  const loadEnvironment = options.loadEnvironment ?? (() => loadEnv({ env }));
+  loadEnvironment();
+  const databaseUrl = env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
 
   const { db, client } = createDb(databaseUrl);
@@ -167,7 +175,7 @@ async function main() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  main().catch((error) => {
+  runLiveBookingCatalogueSeed().catch((error) => {
     console.error(error);
     process.exit(1);
   });
