@@ -29,6 +29,22 @@ describe("ordinary transition input validation", () => {
       actorUserId: "10000000-0000-4000-8000-000000000003",
     })).rejects.toMatchObject({ statusCode: 400, code: "VALIDATION_ERROR" });
   });
+
+  it("requires a final date and start time for every ordinary confirmation before opening a transaction", async () => {
+    await expect(
+      createRequestTransitionService({} as never).transitionOrdinary({
+        bookingId: "10000000-0000-4000-8000-000000000001",
+        expectedStatus: "pending_review",
+        toStatus: "confirmed",
+        operationId: "10000000-0000-4000-8000-000000000002",
+        actorUserId: "10000000-0000-4000-8000-000000000003",
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "VALIDATION_ERROR",
+      message: "newDate and newStartTime are required when confirming an ordinary booking",
+    });
+  });
 });
 
 describe.skipIf(!runDatabaseTests)(
@@ -287,6 +303,8 @@ describe.skipIf(!runDatabaseTests)(
         toStatus: "confirmed" as const,
         operationId: crypto.randomUUID(),
         actorUserId: actorId,
+        newDate: "2026-08-02",
+        newStartTime: "10:00",
       };
       const [first, second] = await Promise.all([
         createRequestTransitionService(database.connection.db).transitionOrdinary(input),
@@ -431,6 +449,7 @@ describe.skipIf(!runDatabaseTests)(
       await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
         bookingId: ordinary.id, expectedStatus: "pending_review", toStatus: "confirmed",
         operationId: crypto.randomUUID(), actorUserId: actorId,
+        newDate: "2026-08-02", newStartTime: "10:00",
       })).rejects.toMatchObject({ code: "CAPACITY_CONFLICT" });
     });
 
@@ -449,6 +468,7 @@ describe.skipIf(!runDatabaseTests)(
       await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
         bookingId: waitlisted.id, expectedStatus: "waitlisted", toStatus: "confirmed",
         operationId: crypto.randomUUID(), actorUserId: actorId,
+        newDate: "2026-08-02", newStartTime: "10:00",
       })).rejects.toMatchObject({ code: "CAPACITY_CONFLICT" });
     });
 
@@ -462,6 +482,7 @@ describe.skipIf(!runDatabaseTests)(
       await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
         bookingId: ordinary.id, expectedStatus: "pending_review", toStatus: "confirmed",
         operationId: crypto.randomUUID(), actorUserId: actorId,
+        newDate: "2026-08-02", newStartTime: "10:00",
       })).rejects.toMatchObject({ code: "STATUS_CONFLICT" });
       expect(await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.bookingId, ordinary.id))).toHaveLength(0);
     });

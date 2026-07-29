@@ -150,4 +150,114 @@ describe("admin party workflow routes", () => {
       await app.close();
     }
   });
+
+  it.each([
+    {
+      method: "PATCH" as const,
+      path: "/bookings/booking-1/status",
+      service: "updateStatus",
+      payload: {
+        expectedStatus: "pending_review",
+        toStatus: "confirmed",
+        operationId: "operation-1",
+      },
+    },
+    {
+      method: "PATCH" as const,
+      path: "/bookings/booking-1",
+      service: "updateStatus",
+      payload: {
+        expectedStatus: "pending_review",
+        toStatus: "confirmed",
+        operationId: "operation-1",
+      },
+    },
+    {
+      method: "POST" as const,
+      path: "/bookings/booking-1/propose-party-time",
+      service: "proposePartyTime",
+      payload: {
+        expectedStatus: "pending_review",
+        finalDate: "2026-08-01",
+        finalGuestStart: "10:00",
+        paymentDeadline: "2026-07-31T00:00:00.000Z",
+        operationId: "operation-1",
+      },
+    },
+    {
+      method: "POST" as const,
+      path: "/bookings/booking-1/record-party-payment",
+      service: "recordPartyPayment",
+      payload: {
+        expectedStatus: "awaiting_in_store_payment",
+        amountCents: 9500,
+        paidAt: "2026-08-01T00:00:00.000Z",
+        operationId: "operation-1",
+      },
+    },
+    {
+      method: "POST" as const,
+      path: "/bookings/booking-1/accept-party-time",
+      service: "acceptPartyTime",
+      payload: {
+        expectedStatus: "time_proposed",
+        operationId: "operation-1",
+      },
+    },
+    {
+      method: "POST" as const,
+      path: "/bookings/booking-1/expire-party-hold",
+      service: "expirePartyHold",
+      payload: {
+        expectedStatus: "awaiting_in_store_payment",
+        operationId: "operation-1",
+      },
+    },
+    {
+      method: "POST" as const,
+      path: "/bookings/booking-1/record-party-charge",
+      service: "recordPartyCharge",
+      payload: {
+        expectedStatus: "confirmed_paid",
+        operationId: "operation-1",
+        type: "cleaning",
+        amountCents: 1500,
+      },
+    },
+    {
+      method: "POST" as const,
+      path: "/bookings/booking-1/record-party-refund",
+      service: "recordPartyRefund",
+      payload: {
+        expectedStatus: "cancelled",
+        refundedAt: "2026-08-01T00:00:00.000Z",
+        operationId: "operation-1",
+      },
+    },
+  ])(
+    "normalizes stale conflicts from legacy $path",
+    async ({ method, path, service, payload }) => {
+      const workflow = {
+        [service]: vi.fn(async () => {
+          throw new AppError(409, "STATUS_CONFLICT", "The booking changed");
+        }),
+        getById: vi.fn(async () => ({ status: "cancelled" })),
+      };
+      const app = await appWith(workflow);
+      try {
+        const response = await app.inject({
+          method,
+          url: path,
+          payload,
+        });
+        expect(response.statusCode).toBe(409);
+        expect(response.json().error).toMatchObject({
+          code: "STALE_STATUS",
+          details: { currentStatus: "cancelled" },
+        });
+      } finally {
+        await app.close();
+      }
+    },
+  );
 });

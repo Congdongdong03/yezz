@@ -118,6 +118,38 @@ describe("AdminSchedulePage", () => {
     expect(container.textContent).toContain("收尾 16:00–16:30");
   });
 
+  it("uses one shared time rail and aligns party and closure spans to its half-hour rows", async () => {
+    await act(async () => root.render(<AdminSchedulePage />));
+    await act(async () => {});
+
+    expect(container.querySelector("[role='grid']")).not.toBeNull();
+    expect(
+      container.querySelectorAll("[data-time-row='10:00']"),
+    ).toHaveLength(1);
+    expect(
+      container.querySelector(
+        "[data-date='2026-07-30'][data-time='10:00']",
+      ),
+    ).not.toBeNull();
+
+    const setup = container.querySelector<HTMLElement>(
+      "[data-party-phase='setup']",
+    );
+    const guest = container.querySelector<HTMLElement>(
+      "[data-party-phase='guest']",
+    );
+    const cleanup = container.querySelector<HTMLElement>(
+      "[data-party-phase='cleanup']",
+    );
+    const closure = container.querySelector<HTMLElement>(
+      "[data-closure-id='closure-1']",
+    );
+    expect(setup?.style.gridRow).toBe("10 / 11");
+    expect(guest?.style.gridRow).toBe("11 / 15");
+    expect(cleanup?.style.gridRow).toBe("15 / 16");
+    expect(closure?.style.gridRow).toBe("7 / 8");
+  });
+
   it("shows special hours, closures, deadlines, failures, and detail links", async () => {
     await act(async () => root.render(<AdminSchedulePage />));
     await act(async () => {});

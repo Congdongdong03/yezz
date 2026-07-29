@@ -208,6 +208,20 @@ export function createRequestTransitionService(
       const note = normalizeNote(input.note);
       const newDate = normalizedOptionalValue(input.newDate);
       const newStartTime = normalizedOptionalValue(input.newStartTime);
+      if (input.toStatus === "confirmed" && (!newDate || !newStartTime)) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          "newDate and newStartTime are required when confirming an ordinary booking",
+        );
+      }
+      if (input.toStatus !== "confirmed" && (newDate || newStartTime)) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          "newDate and newStartTime are valid only for an ordinary confirmation",
+        );
+      }
       return db.transaction(async (tx) => {
         await statusEventsRepo.lockOperation(operationId, tx);
         const prior = await statusEventsRepo.findByOperationId(operationId, tx);
@@ -226,12 +240,9 @@ export function createRequestTransitionService(
         if (existing.status !== input.expectedStatus) throw new AppError(409, "STATUS_CONFLICT", "The request changed. Refresh and try again.", { currentStatus: existing.status });
 
         let interval = { date: existing.slotDate!, startTime: existing.slotStartTime!, endTime: existing.slotEndTime!, durationMinutes: existing.durationMinutes! };
-        if (input.expectedStatus === "reschedule_requested" && input.toStatus === "confirmed") {
-          if (!newDate || !newStartTime) throw new AppError(400, "VALIDATION_ERROR", "newDate and newStartTime are required when confirming a reschedule");
-          const built = buildOrdinaryInterval({ date: newDate, startTime: newStartTime, participantCount: existing.participantCount, accompanyingAdultCount: existing.accompanyingAdultCount ?? 0, itemDurations: [existing.durationMinutes!] });
+        if (input.toStatus === "confirmed") {
+          const built = buildOrdinaryInterval({ date: newDate!, startTime: newStartTime!, participantCount: existing.participantCount, accompanyingAdultCount: existing.accompanyingAdultCount ?? 0, itemDurations: [existing.durationMinutes!] });
           interval = { date: built.date, startTime: built.startTime, endTime: built.endTime, durationMinutes: built.durationMinutes };
-        } else if (newDate || newStartTime) {
-          throw new AppError(400, "VALIDATION_ERROR", "newDate and newStartTime are valid only for a reschedule confirmation");
         }
 
         if (input.toStatus === "confirmed") {

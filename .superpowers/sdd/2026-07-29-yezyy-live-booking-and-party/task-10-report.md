@@ -275,3 +275,144 @@ behind the required isolated flag and their initial missing-module RED was
 observed, but their database GREEN cannot be truthfully claimed in this
 environment. No production data, deployment, credential, secret, install,
 public-gate value, or product-sale value was touched.
+
+## Fix round 1 — independent review
+
+### Findings and root causes
+
+1. The workflow dialog always returned `finalDate` and `finalStartTime`, but
+   both booking pages only mapped them to canonical `newDate` and
+   `newStartTime` when the old status was `reschedule_requested`. The ordinary
+   service repeated that restriction, so pending-review and waitlisted
+   confirmations could silently keep the old slot.
+2. The schedule page used grid-flow columns containing separate per-day lists,
+   then appended party cards after each list. There was no shared row
+   coordinate for cross-day comparison or party/closure placement.
+3. The canonical mutation routes called `safeWrite`, while every retained
+   legacy alias directly called the underlying service. Their `409` contracts
+   therefore diverged.
+4. The list and detail success handlers fetched a calendar day without storing
+   or rendering it. There was no client calendar cache shared with the schedule
+   page, so the successful response had no observable consumer.
+
+### RED evidence
+
+API command:
+
+```text
+node_modules/.bin/vitest run \
+  src/services/request-transition.service.test.ts \
+  src/routes/v1/admin/bookings.routes.test.ts
+
+Test Files  2 failed (2)
+Tests       9 failed | 6 passed | 15 skipped (30)
+```
+
+The ordinary confirmation test received
+`TypeError: db.transaction is not a function` instead of the required
+pre-transaction `VALIDATION_ERROR`. All eight legacy-alias cases returned
+`STATUS_CONFLICT` without `details.currentStatus` instead of
+`STALE_STATUS`.
+
+Web command:
+
+```text
+node_modules/.bin/vitest run \
+  app/admin/bookings/page.test.tsx \
+  app/admin/schedule/page.test.tsx
+
+Test Files  2 failed (2)
+Tests       2 failed | 5 passed (7)
+```
+
+The pending-review confirmation call omitted `newDate` and `newStartTime`.
+The schedule had no `role="grid"`, shared time row, or time-aligned phase and
+closure spans.
+
+The cache regression then began with a missing-module RED:
+
+```text
+Failed to resolve import "@/lib/admin/calendar-store"
+Test Files  1 failed (1)
+Tests       no tests
+```
+
+### Fixes and files
+
+- `apps/api/src/services/request-transition.service.ts` now requires a final
+  date/start for every ordinary transition to `confirmed`, builds and
+  validates the selected interval for pending-review, waitlisted, and
+  reschedule confirmations, and persists the interval before its CAS status
+  change.
+- `apps/api/src/services/request-transition.service.test.ts` adds the runnable
+  pre-transaction validation regression and updates real-PostgreSQL
+  confirmation cases with explicit final slots.
+- `apps/web/app/admin/bookings/page.tsx` and
+  `apps/web/app/admin/bookings/[id]/page.tsx` always forward the selected final
+  slot for an ordinary confirm, replace their local booking from the
+  authoritative detail response, refresh the affected calendar day, and write
+  that response to the shared calendar cache.
+- `apps/web/app/admin/bookings/page.test.tsx` proves a pending-review
+  confirmation forwards the changed final slot, replaces the rendered booking
+  with the authoritative response, and stores the refreshed calendar day.
+- `apps/web/lib/admin/calendar-store.ts` provides the shared day cache,
+  subscription, and range-merge boundary. The schedule subscribes to that
+  cache, so a refreshed day updates any rendered matching week instead of
+  being discarded.
+- `apps/web/app/admin/schedule/page.tsx` now renders one shared half-hour time
+  rail and seven day columns in a single horizontally scrollable CSS grid.
+  Ordinary capacity cells share row coordinates across days; closures and
+  party setup/guest/cleanup phases occupy their actual start/end row spans.
+- `apps/web/app/admin/schedule/page.test.tsx` proves the unique shared time row
+  and exact grid spans for the closure and all three party phases.
+- `apps/api/src/routes/v1/admin/bookings.routes.ts` retains compatibility
+  aliases but routes every mutation through the same operation validation and
+  `safeWrite` stale-response normalization as canonical mutations.
+- `apps/api/src/routes/v1/admin/bookings.routes.test.ts` covers both legacy
+  status aliases and all six legacy party actions, requiring
+  `409 STALE_STATUS` plus the authoritative `currentStatus`.
+
+### GREEN evidence
+
+API:
+
+```text
+node_modules/.bin/vitest run \
+  src/services/request-transition.service.test.ts \
+  src/routes/v1/admin/bookings.routes.test.ts \
+  src/services/admin/bookings.admin.service.test.ts
+
+Test Files  3 passed (3)
+Tests       23 passed | 22 skipped (45)
+```
+
+Web:
+
+```text
+node_modules/.bin/vitest run \
+  app/admin/bookings/page.test.tsx \
+  app/admin/schedule/page.test.tsx \
+  components/admin/BookingWorkflowDialog.test.tsx
+
+Test Files  3 passed (3)
+Tests       10 passed (10)
+```
+
+Static verification:
+
+```text
+apps/api/node_modules/.bin/tsc --noEmit
+apps/web/node_modules/.bin/tsc --noEmit
+apps/web/node_modules/.bin/eslint \
+  app/admin/bookings/page.tsx \
+  'app/admin/bookings/[id]/page.tsx' \
+  app/admin/bookings/page.test.tsx \
+  app/admin/schedule/page.tsx \
+  app/admin/schedule/page.test.tsx \
+  lib/admin/calendar-store.ts
+git diff --check
+```
+
+All completed with exit code 0 and no diagnostics. The real PostgreSQL tests
+remain opt-in behind `YEZYY_RUN_DB_BOOKING_TESTS=1`; no production data or
+configuration was touched in this fix round.

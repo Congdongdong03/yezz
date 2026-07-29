@@ -14,6 +14,7 @@ import {
   recordBookingRefund,
   runBookingTransition,
 } from "@/lib/admin/api";
+import { cacheBookingCalendar } from "@/lib/admin/calendar-store";
 import {
   bookingActionsFor,
   formatBookingActionError,
@@ -158,7 +159,7 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
                   toStatus: targets[result.action],
                   contactedCustomer: result.contactedCustomer,
                   note: result.note,
-                  ...(result.expectedStatus === "reschedule_requested"
+                  ...(result.action === "confirm"
                     ? {
                         newDate: result.finalDate,
                         newStartTime: result.finalStartTime,
@@ -169,7 +170,9 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
       }
       const updated = await getAdminBooking(id);
       if (updated.slot?.date) {
-        await getBookingCalendar(updated.slot.date, updated.slot.date);
+        cacheBookingCalendar(
+          await getBookingCalendar(updated.slot.date, updated.slot.date),
+        );
       }
       setBooking(updated);
       setMessage({ type: "success", text: "预约记录已更新" });

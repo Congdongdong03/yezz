@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiClientError } from "@/lib/api/base";
 import type { Booking } from "@/lib/admin/types";
+import { readCachedBookingCalendarDay } from "@/lib/admin/calendar-store";
 import AdminBookingsPage from "./page";
 
 const api = vi.hoisted(() => ({
@@ -225,5 +226,93 @@ describe("AdminBookingsPage stale status focus", () => {
     expect(container.textContent).toContain("12:00–13:30");
     expect(container.textContent).toContain("已确认");
     expect(container.textContent).toContain("等待发送");
+  });
+
+  it("submits the selected final slot and stores the refreshed calendar day after confirmation", async () => {
+    api.runBookingTransition.mockReset().mockResolvedValue(booking("confirmed"));
+    const updated = {
+      ...booking("confirmed"),
+      slot: {
+        ...booking("confirmed").slot!,
+        date: "2030-08-13",
+        startTime: "11:30",
+        endTime: "12:30",
+      },
+    };
+    api.getAdminBooking.mockReset().mockResolvedValue(updated);
+    api.getBookingCalendar.mockReset().mockResolvedValue({
+      from: "2030-08-13",
+      to: "2030-08-13",
+      timeZone: "Australia/Melbourne",
+      days: [
+        {
+          date: "2030-08-13",
+          timeZone: "Australia/Melbourne",
+          isClosed: false,
+          opensAt: "09:30",
+          closesAt: "17:00",
+          specialHours: null,
+          closures: [],
+          intervals: [],
+          ordinaryBookings: [],
+          partyBlocks: [],
+          paymentDeadlines: [],
+          emailFailures: [],
+        },
+      ],
+    });
+
+    await act(async () => root.render(<AdminBookingsPage />));
+    await act(async () => {});
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>("button[aria-label='确认 Alice']")
+        ?.click(),
+    );
+
+    const date = container.querySelector<HTMLInputElement>(
+      "input[name='finalDate']",
+    );
+    const start = container.querySelector<HTMLInputElement>(
+      "input[name='finalStartTime']",
+    );
+    expect(date).not.toBeNull();
+    expect(start).not.toBeNull();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set?.call(date, "2030-08-13");
+      date?.dispatchEvent(new Event("input", { bubbles: true }));
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set?.call(start, "11:30");
+      start?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const confirm = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((candidate) => candidate.textContent === "确认预约");
+    await act(async () => confirm?.click());
+    await act(async () => {});
+
+    expect(api.runBookingTransition).toHaveBeenCalledWith(
+      booking("pending_review").id,
+      expect.objectContaining({
+        expectedStatus: "pending_review",
+        toStatus: "confirmed",
+        newDate: "2030-08-13",
+        newStartTime: "11:30",
+      }),
+    );
+    expect(api.getBookingCalendar).toHaveBeenCalledWith(
+      "2030-08-13",
+      "2030-08-13",
+    );
+    expect(readCachedBookingCalendarDay("2030-08-13")).toMatchObject({
+      date: "2030-08-13",
+    });
+    expect(container.textContent).toContain("2030-08-13");
+    expect(container.textContent).toContain("11:30–12:30");
   });
 });

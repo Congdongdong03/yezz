@@ -232,10 +232,16 @@ export default async function adminBookingsRoutes(app: FastifyInstance) {
       user: { sub: string };
     },
   ) => {
-    const data = await app.services.adminBookings.updateStatus(
+    requireOperation(request.body);
+    const data = await safeWrite(
       request.params.id,
-      request.body,
       request.user.sub,
+      () =>
+        app.services.adminBookings.updateStatus(
+          request.params.id,
+          request.body,
+          request.user.sub,
+        ),
     );
     return success(data);
   };
@@ -255,39 +261,56 @@ export default async function adminBookingsRoutes(app: FastifyInstance) {
   );
 
   app.post<{ Params: { id: string }; Body: { expectedStatus: "pending_review"; finalDate: string; finalGuestStart: string; paymentDeadline: string; operationId: string } }>("/:id/propose-party-time", async (request) => {
-    return success(await app.services.adminBookings.proposePartyTime(request.params.id, {
-      ...request.body,
-      paymentDeadline: new Date(request.body.paymentDeadline),
-    }, request.user.sub));
+    requireOperation(request.body);
+    return success(await safeWrite(request.params.id, request.user.sub, () =>
+      app.services.adminBookings.proposePartyTime(request.params.id, {
+        ...request.body,
+        paymentDeadline: new Date(request.body.paymentDeadline),
+      }, request.user.sub),
+    ));
   });
 
   app.post<{ Params: { id: string }; Body: { expectedStatus: "awaiting_in_store_payment"; amountCents: 9500 | 14500; paidAt: string; operationId: string } }>("/:id/record-party-payment", async (request) => {
-    return success(await app.services.adminBookings.recordPartyPayment(request.params.id, {
-      ...request.body,
-      paidAt: new Date(request.body.paidAt),
-    }, request.user.sub));
+    requireOperation(request.body);
+    return success(await safeWrite(request.params.id, request.user.sub, () =>
+      app.services.adminBookings.recordPartyPayment(request.params.id, {
+        ...request.body,
+        paidAt: new Date(request.body.paidAt),
+      }, request.user.sub),
+    ));
   });
 
   app.post<{ Params: { id: string }; Body: { expectedStatus: "time_proposed"; operationId: string } }>("/:id/accept-party-time", async (request) => {
-    return success(await app.services.adminBookings.acceptPartyTime(request.params.id, request.body, request.user.sub));
+    requireOperation(request.body);
+    return success(await safeWrite(request.params.id, request.user.sub, () =>
+      app.services.adminBookings.acceptPartyTime(request.params.id, request.body, request.user.sub),
+    ));
   });
 
   app.post<{ Params: { id: string }; Body: { expectedStatus: "awaiting_in_store_payment"; operationId: string } }>("/:id/expire-party-hold", async (request) => {
+    requireOperation(request.body);
     if (request.body.expectedStatus !== "awaiting_in_store_payment") {
       throw new AppError(400, "VALIDATION_ERROR", "expectedStatus must be awaiting_in_store_payment");
     }
-    return success(await app.services.adminBookings.expirePartyHold(request.params.id, request.body, request.user.sub));
+    return success(await safeWrite(request.params.id, request.user.sub, () =>
+      app.services.adminBookings.expirePartyHold(request.params.id, request.body, request.user.sub),
+    ));
   });
 
   app.post<{ Params: { id: string }; Body: { expectedStatus: "confirmed_paid"; operationId: string; type: "cake_cutting" | "cleaning" | "overtime"; amountCents: number; note?: string } }>("/:id/record-party-charge", async (request) => {
     requireOperation(request.body);
-    return success(await app.services.adminBookings.recordPartyCharge(request.params.id, request.body, request.user.sub));
+    return success(await safeWrite(request.params.id, request.user.sub, () =>
+      app.services.adminBookings.recordPartyCharge(request.params.id, request.body, request.user.sub),
+    ));
   });
 
   app.post<{ Params: { id: string }; Body: { expectedStatus: "cancelled"; refundedAt: string; operationId: string } }>("/:id/record-party-refund", async (request) => {
-    return success(await app.services.adminBookings.recordPartyRefund(request.params.id, {
-      ...request.body,
-      refundedAt: new Date(request.body.refundedAt),
-    }, request.user.sub));
+    requireOperation(request.body);
+    return success(await safeWrite(request.params.id, request.user.sub, () =>
+      app.services.adminBookings.recordPartyRefund(request.params.id, {
+        ...request.body,
+        refundedAt: new Date(request.body.refundedAt),
+      }, request.user.sub),
+    ));
   });
 }
