@@ -647,7 +647,7 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
     return {
       kind: "experience" as const, mode: "booking" as const, name: "Customer", email: "customer@example.com", phone: "0430000000",
       date: "2026-08-02", startTime: "10:00", participantCount: 2, youngChildCount: 1, accompanyingAdultCount: 1,
-      items: [{ projectId, quantity: 2 }], locale: "en" as const, policyVersion: "2026-07-29" as const, policyAccepted: true as const,
+      items: [{ projectId, quantity: 2 }], locale: "en" as const, policyVersion: "2026-07-30" as const, policyAccepted: true as const,
       ...overrides,
     };
   }
@@ -660,6 +660,8 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
     const [row] = await database.connection.db.select().from(bookings).where(eq(bookings.id, result.id));
     expect(row.attendanceCount).toBe(3);
     expect(row.slotEndTime).toBe("11:00");
+    expect(row.policyVersion).toBe("2026-07-30");
+    expect(row.policyAcceptedAt).toBeInstanceOf(Date);
     expect(await database.connection.db.select().from(bookingItems).where(eq(bookingItems.bookingId, result.id))).toMatchObject([
       { projectId, durationMinutesSnapshot: 60, unitPriceCentsSnapshot: 4300, quantity: 2 },
     ]);
@@ -721,6 +723,7 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
   it.each([
     ["quantity mismatch", { items: [{ projectId: "placeholder", quantity: 1 }] }],
     ["missing policy acceptance", { policyAccepted: false }],
+    ["outdated policy acceptance", { policyVersion: "2026-07-29" }],
     ["after close", { startTime: "16:30" }],
   ])("rejects ordinary creation with %s", async (_label, overrides) => {
     const input = ordinaryInput(overrides);

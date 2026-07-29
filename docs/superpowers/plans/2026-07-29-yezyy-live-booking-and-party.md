@@ -23,8 +23,10 @@
 - Ordinary DIY physical occupancy, including non-participating adults, never exceeds eight.
 - Pending ordinary requests and waitlist requests do not reserve capacity.
 - Staff confirmation performs one transactional overlap check before reserving ordinary capacity.
-- Minimum customer age is four; children aged four through eight require adult supervision.
+- Ordinary DIY minimum age is five; children aged five through eight require an accompanying adult.
 - A party has four to eight participants plus one or two accompanying parents.
+- The party birthday child must be at least five years old.
+- New ordinary DIY and party submissions accept policy version `2026-07-30`; historical booking rows retain their original accepted version for audit.
 - Every party participant chooses at least one DIY project and has a $45 minimum DIY spend.
 - Party packages are $95 for 1.5 guest hours and $145 for 2.5 guest hours.
 - Party setup and cleanup default to 30 minutes each and may fall outside public hours only after staff approval.
@@ -797,7 +799,7 @@ it("creates a pending request without reserving capacity", async () => {
     accompanyingAdultCount: 1,
     items: [{ projectId: project.id, quantity: 2 }],
     locale: "en",
-    policyVersion: "2026-07-29",
+    policyVersion: "2026-07-30",
     policyAccepted: true,
   }, IDEMPOTENCY_KEY);
 
@@ -809,7 +811,7 @@ it("creates a pending request without reserving capacity", async () => {
 Add failures for:
 
 - total physical attendance above eight;
-- a four-to-eight-year-old count without an accompanying adult;
+- a five-to-eight-year-old count without an accompanying adult;
 - project quantity not equal to participant count;
 - start less than two hours away;
 - end after close;
@@ -847,7 +849,7 @@ export type OrdinaryBookingCreateInput = {
   items: OrdinaryBookingItemInput[];
   message?: string;
   locale: "en" | "zh";
-  policyVersion: "2026-07-29";
+  policyVersion: "2026-07-30";
   policyAccepted: true;
 };
 ```
@@ -1133,7 +1135,7 @@ type PartyCreateInput = {
   cakeCuttingRequested: boolean;
   specialRequirements?: string;
   locale: "en" | "zh";
-  policyVersion: "2026-07-29";
+  policyVersion: "2026-07-30";
   policyAccepted: true;
 };
 ```
@@ -1451,7 +1453,7 @@ Extend `submitBooking` to send the exact Task 4 body and `mode`. Reuse `createRe
 
 - [ ] **Step 6: Add complete bilingual copy**
 
-English and Chinese messages cover prices, duration, age four minimum, four-to-eight supervision, eight-person physical limit, two-hour lead time, seven-day horizon, pay in store, 20-minute late policy, cancellation/rescheduling, and truthful pending status.
+English and Chinese messages cover prices, duration, ordinary DIY age-five minimum, five-to-eight supervision, eight-person physical limit, two-hour lead time, seven-day horizon, pay in store, 20-minute late policy, cancellation/rescheduling, and truthful pending status.
 
 The contact fallback and booking confirmation surfaces use the exact canonical address, phone, operational email, Xiaohongshu ID, and AUD currency from Global Constraints.
 

@@ -37,7 +37,7 @@ describe.skipIf(!runDatabaseTests)("party workflow repository", () => {
       desiredDate: "2030-08-12", desiredStartTime: "12:00",
       projectInterests: ["beads"],
       byoCake: true, byoDrinks: false, byoFood: false, byoSnacks: false,
-      cakeCuttingRequested: false, locale: "en", policyVersion: "2026-07-29",
+      cakeCuttingRequested: false, locale: "en", policyVersion: "2026-07-30",
       idempotencyKey: crypto.randomUUID(),
       offeringNameSnapshot: { en: "Party", zh: "派对" },
       venueFeeCents: 9500, minSpendPerPersonCents: 4500,

@@ -281,7 +281,7 @@ describe("PartyBookingForm", () => {
     expect(formData.get("byoFood")).toBe("true");
     expect(formData.get("byoSnacks")).toBe("false");
     expect(formData.get("cakeCuttingRequested")).toBe("true");
-    expect(formData.get("policyVersion")).toBe("2026-07-29");
+    expect(formData.get("policyVersion")).toBe("2026-07-30");
     expect(formData.get("policyAccepted")).toBe("true");
     expect(container.textContent).toContain("Party request received");
     expect(container.textContent).toContain(

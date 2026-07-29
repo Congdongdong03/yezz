@@ -8,6 +8,7 @@ import {
   type FormEvent,
 } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { CURRENT_BOOKING_POLICY_VERSION } from "@/lib/booking/policy-version";
 import {
   createBookingAttempt,
   submitPartyBooking,
@@ -200,7 +201,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
       formData.has("cakeCuttingRequested") ? "true" : "false",
     );
     formData.set("locale", locale);
-    formData.set("policyVersion", "2026-07-29");
+    formData.set("policyVersion", CURRENT_BOOKING_POLICY_VERSION);
     formData.set("policyAccepted", "true");
 
     const result = await submitPartyBooking(formData, attempt);

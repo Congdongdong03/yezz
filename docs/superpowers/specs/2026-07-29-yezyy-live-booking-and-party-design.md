@@ -68,10 +68,11 @@ All availability, deadlines, reminders, and date calculations use Melbourne loca
 - The requested start must be at least two hours in the future.
 - Customer-facing start times use 30-minute increments.
 - An activity must finish no later than the day's closing time.
-- Minimum customer age is four.
-- Children aged four through eight require adult supervision.
+- Ordinary DIY minimum age is five.
+- Ordinary DIY children aged five through eight require an accompanying adult.
 - Customers aged nine or older may attend ordinary DIY without an accompanying adult.
 - The customer must accept the bilingual booking, age/supervision, cancellation, and privacy terms before submission.
+- New ordinary DIY and party submissions must accept policy version `2026-07-30`. The stored policy version and acceptance time remain an immutable audit record; historical rows retain their original version.
 - Submission creates a request, not a confirmed booking.
 - Staff confirmation is always required.
 - There is no online payment.
@@ -156,7 +157,7 @@ A group may choose different projects and quantities. Its capacity interval runs
    - email;
    - phone;
    - participating people;
-   - children aged four through eight;
+   - ordinary DIY children aged five through eight;
    - accompanying adults;
    - selected project quantities or `Decide in store`.
 3. The client displays an availability preview, but the server remains authoritative.
@@ -199,8 +200,7 @@ A group may choose different projects and quantities. Its capacity interval runs
 - One or two accompanying parents are required for the party as a whole.
 - Accompanying parents do not count toward the four-to-eight participant limit and are not required to spend.
 - A party may therefore contain up to eight participants plus two accompanying parents.
-- Minimum participant age is four.
-- Participants aged four through eight require parent supervision.
+- The birthday child must be at least five years old.
 
 ### Packages
 
@@ -377,7 +377,7 @@ Ordinary DIY collects:
 - email;
 - phone;
 - participating count;
-- count of children aged four through eight;
+- count of ordinary DIY children aged five through eight;
 - accompanying-adult count;
 - selected project quantities or `Decide in store`;
 - desired date and start;

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CURRENT_BOOKING_POLICY_VERSION } from "../booking/policy-version";
 import {
   createRequestAttempt,
   type RequestAttempt,
@@ -128,7 +129,7 @@ function ordinarySchema(locale?: string) {
       }, z.array(itemSchema).min(1, messages.items)),
       message: z.string().trim().optional(),
       locale: z.enum(["en", "zh"]),
-      policyVersion: z.literal("2026-07-29"),
+      policyVersion: z.literal(CURRENT_BOOKING_POLICY_VERSION),
       policyAccepted: z
         .string()
         .refine((value) => value === "true", messages.policy),
@@ -442,7 +443,7 @@ export async function submitPartyBooking(
     cakeCuttingRequested: booleanField,
     specialRequirements: z.string().trim().optional(),
     locale: z.enum(["en", "zh"]),
-    policyVersion: z.literal("2026-07-29"),
+    policyVersion: z.literal(CURRENT_BOOKING_POLICY_VERSION),
     policyAccepted: z
       .string()
       .refine(

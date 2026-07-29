@@ -313,7 +313,7 @@ describe("OrdinaryBookingForm", () => {
         },
       ]),
     );
-    expect(formData.get("policyVersion")).toBe("2026-07-29");
+    expect(formData.get("policyVersion")).toBe("2026-07-30");
     expect(container.textContent).toContain("awaits manual staff confirmation");
     expect(container.textContent).toContain("Pay in store");
     expect(container.textContent).not.toContain("Booking confirmed");

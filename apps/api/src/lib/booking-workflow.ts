@@ -1,4 +1,5 @@
 import type { BookingStatus } from "@yezz/db";
+import { CURRENT_BOOKING_POLICY_VERSION } from "./booking-policy-version.js";
 import { AppError } from "./errors.js";
 
 export type OrdinaryBookingItemInput =
@@ -19,7 +20,7 @@ export type OrdinaryBookingCreateInput = {
   items: OrdinaryBookingItemInput[];
   message?: string;
   locale: "en" | "zh";
-  policyVersion: "2026-07-29";
+  policyVersion: typeof CURRENT_BOOKING_POLICY_VERSION;
   policyAccepted: true;
 };
 

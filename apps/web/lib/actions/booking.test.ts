@@ -48,7 +48,7 @@ function validPartyFormData() {
   form.set("cakeCuttingRequested", "true");
   form.set("specialRequirements", "Window table");
   form.set("locale", "zh");
-  form.set("policyVersion", "2026-07-29");
+  form.set("policyVersion", "2026-07-30");
   form.set("policyAccepted", "true");
   return form;
 }
@@ -77,7 +77,7 @@ function validOrdinaryFormData() {
   );
   form.set("message", "Window seat if possible");
   form.set("locale", "en");
-  form.set("policyVersion", "2026-07-29");
+  form.set("policyVersion", "2026-07-30");
   form.set("policyAccepted", "true");
   return form;
 }
@@ -232,9 +232,24 @@ describe("submitBooking", () => {
       ],
       message: "Window seat if possible",
       locale: "en",
-      policyVersion: "2026-07-29",
+      policyVersion: "2026-07-30",
       policyAccepted: true,
     });
+  });
+
+  it("rejects an outdated ordinary policy acceptance before transport", async () => {
+    const request = vi.fn(async () =>
+      Response.json({ success: true, data: { id: "ordinary-1" } }),
+    );
+    vi.stubGlobal("fetch", request);
+    const form = validOrdinaryFormData();
+    form.set("policyVersion", "2026-07-29");
+
+    await expect(submitBooking(form)).resolves.toMatchObject({
+      success: false,
+      errors: { policyVersion: expect.any(Array) },
+    });
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("validates ordinary attendance, supervision, item parity, and policy before transport", async () => {
@@ -397,9 +412,24 @@ describe("submitPartyBooking", () => {
       cakeCuttingRequested: true,
       specialRequirements: "Window table",
       locale: "zh",
-      policyVersion: "2026-07-29",
+      policyVersion: "2026-07-30",
       policyAccepted: true,
     });
+  });
+
+  it("rejects an outdated party policy acceptance before transport", async () => {
+    const request = vi.fn(async () =>
+      Response.json({ success: true, data: { id: "party-booking-1" } }),
+    );
+    vi.stubGlobal("fetch", request);
+    const form = validPartyFormData();
+    form.set("policyVersion", "2026-07-29");
+
+    await expect(submitPartyBooking(form)).resolves.toMatchObject({
+      success: false,
+      errors: { policyVersion: expect.any(Array) },
+    });
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("validates attendance, parents, birthday age, projects, and policy before transport", async () => {

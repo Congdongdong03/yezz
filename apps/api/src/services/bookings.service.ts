@@ -1,5 +1,6 @@
 import type { BookingStatus, Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
+import { CURRENT_BOOKING_POLICY_VERSION } from "../lib/booking-policy-version.js";
 import {
   buildOrdinaryInterval,
   type OrdinaryBookingCreateInput,
@@ -162,7 +163,7 @@ function assertOrdinaryInput(input: OrdinaryBookingCreateInput): void {
   if (!input.name.trim() || !input.phone.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
     throw new AppError(400, "VALIDATION_ERROR", "name, phone, and a valid email are required");
   }
-  if (!input.policyAccepted || input.policyVersion !== "2026-07-29") {
+  if (!input.policyAccepted || input.policyVersion !== CURRENT_BOOKING_POLICY_VERSION) {
     throw new AppError(400, "VALIDATION_ERROR", "The current booking policy must be accepted");
   }
   if (input.mode !== "booking" && input.mode !== "waitlist") {

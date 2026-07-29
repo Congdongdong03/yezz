@@ -8,6 +8,7 @@ import {
   type FormEvent,
 } from "react";
 import { useTranslations } from "next-intl";
+import { CURRENT_BOOKING_POLICY_VERSION } from "@/lib/booking/policy-version";
 import AttendanceFields, {
   validateOrdinaryAttendance,
   type OrdinaryAttendance,
@@ -245,7 +246,7 @@ export default function OrdinaryBookingForm({
       );
       formData.set("items", JSON.stringify(items));
       formData.set("locale", locale);
-      formData.set("policyVersion", "2026-07-29");
+      formData.set("policyVersion", CURRENT_BOOKING_POLICY_VERSION);
       formData.set("policyAccepted", "true");
 
       const result = await submitBooking(formData, attempt);

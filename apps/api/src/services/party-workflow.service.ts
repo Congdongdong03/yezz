@@ -2,6 +2,7 @@ import type { BookingStatus, Db } from "@yezz/db";
 import { PARTY_MINIMUM_BIRTHDAY_AGE } from "@yezz/db/party-policy";
 import { createHash, createHmac } from "node:crypto";
 import { AppError } from "../lib/errors.js";
+import { CURRENT_BOOKING_POLICY_VERSION } from "../lib/booking-policy-version.js";
 import { getMelbourneClock, parseCalendarDate, validateBookingWindow } from "../lib/booking-policy.js";
 import {
   bookingLocale,
@@ -42,7 +43,7 @@ export type PartyCreateInput = {
   cakeCuttingRequested: boolean;
   specialRequirements?: string;
   locale: "en" | "zh";
-  policyVersion: "2026-07-29";
+  policyVersion: typeof CURRENT_BOOKING_POLICY_VERSION;
   policyAccepted: true;
 };
 
@@ -118,7 +119,7 @@ function assertPartyInput(input: PartyCreateInput): void {
   if (!input.name.trim() || !input.phone.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
     throw new AppError(400, "VALIDATION_ERROR", "name, phone, and a valid email are required");
   }
-  if (!input.policyAccepted || input.policyVersion !== "2026-07-29") throw new AppError(400, "VALIDATION_ERROR", "The current booking policy must be accepted");
+  if (!input.policyAccepted || input.policyVersion !== CURRENT_BOOKING_POLICY_VERSION) throw new AppError(400, "VALIDATION_ERROR", "The current booking policy must be accepted");
   if (!Number.isInteger(input.participantCount) || input.participantCount < 4 || input.participantCount > 8 || !Number.isInteger(input.parentCount) || input.parentCount < 1 || input.parentCount > 2) {
     throw new AppError(400, "PARTY_ATTENDANCE_INVALID", "Party guests must be 4–8 and parents must be 1–2");
   }

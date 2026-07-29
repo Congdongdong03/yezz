@@ -95,7 +95,7 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       byoSnacks: true,
       cakeCuttingRequested: true,
       locale: "en" as const,
-      policyVersion: "2026-07-29" as const,
+      policyVersion: "2026-07-30" as const,
       policyAccepted: true as const,
       ...overrides,
     };
@@ -113,6 +113,19 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
 
     await expect(service.createPartyRequest(validParty(input as never), crypto.randomUUID()))
       .rejects.toMatchObject({ code: "PARTY_ATTENDANCE_INVALID" });
+  });
+
+  it("rejects an outdated policy acceptance before creating a party request", async () => {
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => new Date("2030-08-10T00:00:00.000Z"),
+    });
+
+    await expect(
+      service.createPartyRequest(
+        validParty({ policyVersion: "2026-07-29" } as never),
+        crypto.randomUUID(),
+      ),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
   it("uses the shared five-year birthday minimum without changing party attendance limits", async () => {
@@ -146,7 +159,14 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       .where(eq(emailOutbox.bookingId, created.id));
 
     expect(created).toMatchObject({ status: "pending_review", replayed: false });
-    expect(booking).toMatchObject({ status: "pending_review", slotDate: null, slotStartTime: null, slotEndTime: null });
+    expect(booking).toMatchObject({
+      status: "pending_review",
+      slotDate: null,
+      slotStartTime: null,
+      slotEndTime: null,
+      policyVersion: "2026-07-30",
+      policyAcceptedAt: expect.any(Date),
+    });
     expect(details).toMatchObject({ desiredDate: "2030-08-12", desiredStartTime: "12:00", venueFeeCents: 9500 });
     expect(deliveries.map(({ payload }) => payload.template).sort()).toEqual([
       "booking_received",

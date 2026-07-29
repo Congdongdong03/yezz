@@ -69,7 +69,7 @@ test("English ordinary request closes through Chinese admin, secure email, remin
         { projectId: fixture.projects.long.id, quantity: 1 },
       ],
       locale: "en",
-      policyVersion: "2026-07-29",
+      policyVersion: "2026-07-30",
       policyAccepted: true,
     };
 
