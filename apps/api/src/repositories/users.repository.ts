@@ -1,7 +1,11 @@
 import { users, type Db } from "@yezz/db";
 import { eq } from "drizzle-orm";
+import {
+  legacyUserRoleFromDatabaseRole,
+  type LegacyUserRole,
+} from "../lib/legacy-user-role.js";
 
-export type UserRole = "admin" | "staff";
+export type UserRole = LegacyUserRole;
 
 export function createUsersRepository(db: Db) {
   return {
@@ -17,7 +21,7 @@ export function createUsersRepository(db: Db) {
         .from(users)
         .where(eq(users.email, email))
         .limit(1);
-      return row ?? null;
+      return row ? { ...row, role: legacyUserRoleFromDatabaseRole(row.role) } : null;
     },
 
     async findById(id: string) {
@@ -31,7 +35,7 @@ export function createUsersRepository(db: Db) {
         .from(users)
         .where(eq(users.id, id))
         .limit(1);
-      return row ?? null;
+      return row ? { ...row, role: legacyUserRoleFromDatabaseRole(row.role) } : null;
     },
 
     async findByIdWithPasswordHash(id: string) {
@@ -46,11 +50,11 @@ export function createUsersRepository(db: Db) {
         .from(users)
         .where(eq(users.id, id))
         .limit(1);
-      return row ?? null;
+      return row ? { ...row, role: legacyUserRoleFromDatabaseRole(row.role) } : null;
     },
 
-    findAllOrdered() {
-      return db
+    async findAllOrdered() {
+      const rows = await db
         .select({
           id: users.id,
           email: users.email,
@@ -60,6 +64,10 @@ export function createUsersRepository(db: Db) {
         })
         .from(users)
         .orderBy(users.createdAt);
+      return rows.map((row) => ({
+        ...row,
+        role: legacyUserRoleFromDatabaseRole(row.role),
+      }));
     },
 
     async create(data: {
@@ -84,7 +92,7 @@ export function createUsersRepository(db: Db) {
           role: users.role,
           createdAt: users.createdAt,
         });
-      return row;
+      return { ...row, role: legacyUserRoleFromDatabaseRole(row.role) };
     },
 
     async update(id: string, data: { email?: string; name?: string; role?: UserRole; passwordHash?: string }) {
@@ -104,7 +112,7 @@ export function createUsersRepository(db: Db) {
           role: users.role,
           createdAt: users.createdAt,
         });
-      return row ?? null;
+      return row ? { ...row, role: legacyUserRoleFromDatabaseRole(row.role) } : null;
     },
 
     async delete(id: string) {

@@ -2,6 +2,10 @@ import { bookings, emailOutbox, type Db } from "@yezz/db";
 import { desc, eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import {
+  legacyStatusFromBookingStatus,
+  legacyStatusFromStoredValue,
+} from "../../lib/legacy-booking-status.js";
+import {
   createBookingsRepository,
   type OrderStatus,
 } from "../../repositories/bookings.repository.js";
@@ -133,7 +137,7 @@ export function mapBookingRow(
     message: row.message ?? null,
     locale: row.locale ?? null,
     timeSlotId: row.timeSlotId ?? null,
-    status: row.status,
+    status: legacyStatusFromBookingStatus(row.status),
     offering,
     slot,
     notificationSummary: extras.notificationSummary,
@@ -188,8 +192,8 @@ export function createAdminBookingsService(db: Db) {
       statusHistory: history.map((event) => ({
         id: event.id,
         operationId: event.operationId,
-        fromStatus: event.fromStatus as OrderStatus,
-        toStatus: event.toStatus as OrderStatus,
+        fromStatus: legacyStatusFromStoredValue(event.fromStatus),
+        toStatus: legacyStatusFromStoredValue(event.toStatus),
         note: event.note,
         createdAt: event.createdAt,
         actor: {

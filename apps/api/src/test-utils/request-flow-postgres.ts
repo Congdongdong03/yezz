@@ -49,6 +49,7 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       password_hash varchar(255) NOT NULL,
       name varchar(255) NOT NULL,
       role varchar(32) NOT NULL DEFAULT 'staff',
+      session_version integer NOT NULL DEFAULT 0,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
@@ -74,6 +75,11 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       price_max integer,
       price_currency varchar(10) DEFAULT 'AUD',
       duration varchar(64),
+      duration_minutes integer,
+      bookable boolean NOT NULL DEFAULT false,
+      variant_selected_in_store boolean NOT NULL DEFAULT false,
+      extra_time_minutes integer,
+      extra_time_price_cents integer,
       tags text[],
       sort_order integer NOT NULL DEFAULT 0,
       cover_image_url text,
@@ -100,6 +106,13 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       min_people integer NOT NULL,
       max_people integer NOT NULL,
       price_indicator varchar(128),
+      guest_duration_minutes integer,
+      setup_minutes integer,
+      cleanup_minutes integer,
+      venue_fee_cents integer,
+      min_spend_per_person_cents integer,
+      min_parents integer NOT NULL DEFAULT 1,
+      max_parents integer NOT NULL DEFAULT 2,
       tags text[],
       sort_order integer NOT NULL DEFAULT 0,
       created_at timestamptz NOT NULL DEFAULT now(),
@@ -143,7 +156,14 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       slot_timezone varchar(64) NOT NULL DEFAULT 'Australia/Melbourne',
       idempotency_key uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
       is_read boolean NOT NULL DEFAULT false,
-      status varchar(32) NOT NULL DEFAULT 'new',
+      status varchar(32) NOT NULL DEFAULT 'pending_review',
+      participant_count integer,
+      young_child_count integer,
+      accompanying_adult_count integer,
+      attendance_count integer,
+      duration_minutes integer,
+      policy_version varchar(32),
+      policy_accepted_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
@@ -197,6 +217,9 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       google_map_url text,
       seo_title text,
       seo_description text,
+      experience_requests_enabled boolean NOT NULL DEFAULT false,
+      party_requests_enabled boolean NOT NULL DEFAULT false,
+      product_requests_enabled boolean NOT NULL DEFAULT false,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
@@ -208,7 +231,8 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       from_status varchar(32) NOT NULL,
       to_status varchar(32) NOT NULL,
       admin_note text,
-      actor_user_id uuid NOT NULL REFERENCES "${schema}".users(id) ON DELETE RESTRICT,
+      actor_user_id uuid REFERENCES "${schema}".users(id) ON DELETE RESTRICT,
+      actor_kind varchar(16) NOT NULL DEFAULT 'staff',
       created_at timestamptz NOT NULL DEFAULT now(),
       CHECK (num_nonnulls(booking_id, cart_order_id) = 1)
     );

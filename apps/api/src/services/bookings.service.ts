@@ -1,5 +1,6 @@
 import type { Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
+import { legacyStatusFromBookingStatus } from "../lib/legacy-booking-status.js";
 import {
   escapeHtml,
   formatBookingOrderId,
@@ -21,7 +22,7 @@ import {
 
 export type BookingDto = {
   id: string;
-  status: string;
+  status: "new" | "contacted" | "confirmed" | "cancelled";
   createdAt: Date;
   replayed: boolean;
   notification: "queued";
@@ -280,7 +281,7 @@ export function createBookingsService(
         assertReplayMatches(replay, normalizedInput, replayIdentity);
         return {
           id: replay.id,
-          status: replay.status,
+          status: legacyStatusFromBookingStatus(replay.status),
           createdAt: replay.createdAt,
           replayed: true,
           notification: "queued",
@@ -489,7 +490,7 @@ export function createBookingsService(
 
         return {
           id: result.row.id,
-          status: result.row.status,
+          status: legacyStatusFromBookingStatus(result.row.status),
           createdAt: result.row.createdAt,
           replayed: result.replayed,
           notification: "queued",
@@ -507,7 +508,7 @@ export function createBookingsService(
           );
           return {
             id: concurrentReplay.id,
-            status: concurrentReplay.status,
+            status: legacyStatusFromBookingStatus(concurrentReplay.status),
             createdAt: concurrentReplay.createdAt,
             replayed: true,
             notification: "queued",

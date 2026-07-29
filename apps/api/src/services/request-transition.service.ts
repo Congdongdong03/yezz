@@ -1,6 +1,10 @@
 import type { Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
 import {
+  bookingStatusFromLegacyStatus,
+  legacyStatusFromBookingStatus,
+} from "../lib/legacy-booking-status.js";
+import {
   formatBookingOrderId,
   formatCartOrderId,
   type StoreContact,
@@ -155,12 +159,15 @@ export function createRequestTransitionService(db: Db) {
         if (!existing) {
           throw new AppError(404, "NOT_FOUND", "Booking not found");
         }
-        if (existing.status !== input.expectedStatus) {
+        if (
+          existing.status !==
+          bookingStatusFromLegacyStatus(input.expectedStatus)
+        ) {
           throw new AppError(
             409,
             "STATUS_CONFLICT",
             "The request changed. Refresh and try again.",
-            { currentStatus: existing.status },
+            { currentStatus: legacyStatusFromBookingStatus(existing.status) },
           );
         }
 
@@ -176,7 +183,11 @@ export function createRequestTransitionService(db: Db) {
             409,
             "STATUS_CONFLICT",
             "The request changed. Refresh and try again.",
-            { currentStatus: current?.status ?? null },
+            {
+              currentStatus: current
+                ? legacyStatusFromBookingStatus(current.status)
+                : null,
+            },
           );
         }
 

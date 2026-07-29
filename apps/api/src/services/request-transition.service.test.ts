@@ -59,7 +59,7 @@ describe.skipIf(!runDatabaseTests)(
     });
 
     async function insertBooking(
-      status: "new" | "confirmed",
+      status: "pending_review" | "confirmed",
       kind: "experience" | "party" = "experience",
     ) {
       const [booking] = await database.connection.db
@@ -162,7 +162,7 @@ describe.skipIf(!runDatabaseTests)(
     });
 
     it("replays one operation without changing capacity or enqueueing twice", async () => {
-      const booking = await insertBooking("new");
+      const booking = await insertBooking("pending_review");
       const operationId = crypto.randomUUID();
       const transition = createRequestTransitionService(database.connection.db);
       const input = {

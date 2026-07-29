@@ -37,7 +37,7 @@ describe.skipIf(!runDatabaseTests)("admin queue summary PostgreSQL", () => {
         id: readBookingId,
         name: "已读超时预约",
         phone: "0430000000",
-        status: "new",
+        status: "pending_review",
         createdAt: new Date("2030-01-14T23:00:00.000Z"),
         updatedAt: new Date("2030-01-14T23:00:00.000Z"),
       },

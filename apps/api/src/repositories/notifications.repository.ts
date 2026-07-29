@@ -6,6 +6,7 @@ import {
   type Db,
 } from "@yezz/db";
 import { and, count, eq, isNull, lt, sql } from "drizzle-orm";
+import { bookingStatusFromLegacyStatus } from "../lib/legacy-booking-status.js";
 import { getMelbourneDate } from "../lib/slot-policy.js";
 
 export function createNotificationsRepository(db: Db) {
@@ -44,24 +45,36 @@ export function createNotificationsRepository(db: Db) {
       const cutoff = new Date(now.getTime() - 2 * 60 * 60 * 1000);
       const melbourneToday = getMelbourneDate(now);
       const countByStatus = async (status: "new" | "contacted") => {
-        const [[booking], [order]] = await Promise.all([
-          db
-            .select({ count: count() })
-            .from(bookings)
-            .where(eq(bookings.status, status)),
+        const [bookingCount, [order]] = await Promise.all([
+          status === "new"
+            ? db
+                .select({ count: count() })
+                .from(bookings)
+                .where(
+                  eq(
+                    bookings.status,
+                    bookingStatusFromLegacyStatus(status),
+                  ),
+                )
+            : Promise.resolve([{ count: 0 }]),
           db
             .select({ count: count() })
             .from(cartOrders)
             .where(eq(cartOrders.status, status)),
         ]);
-        return Number(booking?.count ?? 0) + Number(order?.count ?? 0);
+        return Number(bookingCount[0]?.count ?? 0) + Number(order?.count ?? 0);
       };
       const [[overdueBookings], [overdueOrders], [confirmedBookings], [confirmedOrders], [failedEmails]] =
         await Promise.all([
           db
             .select({ count: count() })
             .from(bookings)
-            .where(and(eq(bookings.status, "new"), lt(bookings.createdAt, cutoff))),
+            .where(
+              and(
+                eq(bookings.status, "pending_review"),
+                lt(bookings.createdAt, cutoff),
+              ),
+            ),
           db
             .select({ count: count() })
             .from(cartOrders)
