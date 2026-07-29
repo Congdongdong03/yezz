@@ -11,6 +11,10 @@ import {
   type CustomerBookingAction,
   type CustomerBookingView,
 } from "@/lib/api/customer-booking";
+import {
+  getCustomerRescheduleDateBounds,
+  validateCustomerRescheduleRequest,
+} from "@/lib/booking/customer-reschedule-policy";
 
 type CustomerBookingActionsProps = {
   booking: CustomerBookingView;
@@ -39,6 +43,7 @@ export default function CustomerBookingActions({
   const tokenParam = params.token;
   const token = Array.isArray(tokenParam) ? tokenParam[0] ?? "" : tokenParam ?? "";
   const allowed = new Set(booking.allowedActions);
+  const rescheduleDateBounds = getCustomerRescheduleDateBounds();
   const dateErrorId = `${id}-date-error`;
   const timeErrorId = `${id}-time-error`;
 
@@ -59,7 +64,7 @@ export default function CustomerBookingActions({
   };
 
   const requestReschedule = async () => {
-    const nextErrors = {
+    const nextErrors: { date?: string; time?: string } = {
       ...(!/^\d{4}-\d{2}-\d{2}$/.test(rescheduleDate)
         ? { date: copy.rescheduleDateRequired }
         : {}),
@@ -67,6 +72,15 @@ export default function CustomerBookingActions({
         ? { time: copy.rescheduleTimeRequired }
         : {}),
     };
+    if (
+      Object.keys(nextErrors).length === 0 &&
+      !validateCustomerRescheduleRequest({
+        date: rescheduleDate,
+        startTime: rescheduleStartTime,
+      }).valid
+    ) {
+      nextErrors.date = copy.rescheduleWindowInvalid;
+    }
     setRescheduleErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       queueMicrotask(() => {
@@ -212,6 +226,8 @@ export default function CustomerBookingActions({
                 aria-invalid={Boolean(rescheduleErrors.date)}
                 className={inputClass}
                 id={`${id}-rescheduleDate`}
+                max={rescheduleDateBounds.max}
+                min={rescheduleDateBounds.min}
                 name="rescheduleDate"
                 onChange={(event) => {
                   setRescheduleDate(event.target.value);

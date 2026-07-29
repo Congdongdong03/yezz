@@ -16,6 +16,7 @@ describe("same-origin backend transport", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -274,6 +275,8 @@ describe("same-origin backend transport", () => {
   });
 
   it("allows only scoped customer-booking reads and actions through path segments", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-08-12T00:00:00.000Z"));
     const upstream = vi.fn(
       async (target: string | URL | Request, init?: RequestInit) => {
         void target;
@@ -321,6 +324,52 @@ describe("same-origin backend transport", () => {
       `https://api.example.test/api/v1/customer-bookings/${token}/request-reschedule`,
     ]);
   });
+
+  it.each([
+    ["a past Melbourne date", "2030-08-11", "13:30"],
+    ["the eighth Melbourne calendar day", "2030-08-20", "13:30"],
+    ["less than two hours lead", "2030-08-12", "11:30"],
+  ])(
+    "rejects customer reschedules with %s before contacting the API",
+    async (_case, date, startTime) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2030-08-12T00:00:00.000Z"));
+      const upstream = vi.fn();
+      vi.stubGlobal("fetch", upstream);
+      const token = "A".repeat(43);
+
+      const response = await POST(
+        new Request(
+          `https://yezyy.com/api/backend/v1/customer-bookings/${token}/request-reschedule`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              origin: "https://yezyy.com",
+              "x-vercel-forwarded-for": "203.0.113.4",
+            },
+            body: JSON.stringify({ date, startTime }),
+          },
+        ),
+        context([
+          "v1",
+          "customer-bookings",
+          token,
+          "request-reschedule",
+        ]),
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "The requested reschedule time is not available",
+        },
+      });
+      expect(upstream).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects a cross-origin cart-session update", async () => {
     const upstream = vi.fn();

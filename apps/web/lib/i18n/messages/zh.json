@@ -207,6 +207,7 @@
     "preferredTime": "首选开始时段",
     "rescheduleDateRequired": "请选择首选日期。",
     "rescheduleTimeRequired": "请选择 30 分钟间隔的开始时段。",
+    "rescheduleWindowInvalid": "请选择至少两小时后、且在未来七个墨尔本日历日内的时间。",
     "requestReschedule": "申请改期",
     "working": "正在提交申请…",
     "pendingTitle": "申请已记录",

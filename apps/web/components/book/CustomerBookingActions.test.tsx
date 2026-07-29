@@ -50,6 +50,8 @@ describe("CustomerBookingActions", () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-08-12T00:00:00.000Z"));
     api.acceptProposedTime.mockReset().mockResolvedValue({
       status: "awaiting_in_store_payment",
     });
@@ -66,6 +68,7 @@ describe("CustomerBookingActions", () => {
 
   afterEach(async () => {
     await act(async () => root.unmount());
+    vi.useRealTimers();
     document.body.replaceChildren();
   });
 
@@ -149,6 +152,8 @@ describe("CustomerBookingActions", () => {
       '[name="rescheduleStartTime"]',
     );
     expect(date?.type).toBe("date");
+    expect(date?.min).toBe("2030-08-12");
+    expect(date?.max).toBe("2030-08-19");
     expect(time?.type).toBe("time");
     expect(time?.step).toBe("1800");
     expect(date?.getAttribute("aria-invalid")).toBe("true");
@@ -164,6 +169,18 @@ describe("CustomerBookingActions", () => {
     });
     expect(container.textContent).toContain(
       "Your request was recorded and awaits staff review",
+    );
+  });
+
+  it("rejects an out-of-policy reschedule before calling the API", async () => {
+    await renderActions(booking(["request_reschedule"]));
+    await setInput("rescheduleDate", "2030-08-12");
+    await setInput("rescheduleStartTime", "11:30");
+    await act(async () => findButton("Request reschedule")?.click());
+
+    expect(api.requestCustomerReschedule).not.toHaveBeenCalled();
+    expect(container.textContent).toContain(
+      "Choose a time at least two hours from now and within the next seven Melbourne calendar days.",
     );
   });
 

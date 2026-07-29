@@ -5,6 +5,7 @@ import {
   readTrustedPlatformIp,
   signInternalRequest,
 } from "@/lib/internal-api/signature";
+import { validateCustomerRescheduleRequest } from "@/lib/booking/customer-reschedule-policy";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -120,6 +121,47 @@ function assertAllowedTarget(method: string, apiPath: string): void {
   }
 }
 
+function assertValidCustomerReschedule(
+  method: string,
+  apiPath: string,
+  body: Uint8Array,
+): void {
+  if (
+    method !== "POST" ||
+    !/^\/api\/v1\/customer-bookings\/[A-Za-z0-9_-]{43}\/request-reschedule$/.test(
+      apiPath,
+    )
+  ) {
+    return;
+  }
+
+  let input: unknown;
+  try {
+    input = JSON.parse(new TextDecoder().decode(body));
+  } catch {
+    input = null;
+  }
+  const candidate =
+    input && typeof input === "object"
+      ? (input as { date?: unknown; startTime?: unknown })
+      : null;
+  if (
+    !candidate ||
+    typeof candidate.date !== "string" ||
+    typeof candidate.startTime !== "string" ||
+    !validateCustomerRescheduleRequest({
+      date: candidate.date,
+      startTime: candidate.startTime,
+    }).valid
+  ) {
+    throw new InternalTransportError(
+      400,
+      "VALIDATION_ERROR",
+      "The requested reschedule time is not available",
+    );
+  }
+}
+
 function sanitizeSetCookie(cookie: string): string {
   const attributes = cookie
     .split(";")
@@ -188,6 +230,7 @@ export async function handleBackendRequest(
     }
 
     const body = new Uint8Array(await request.arrayBuffer());
+    assertValidCustomerReschedule(method, apiPath, body);
     const url = new URL(request.url);
     const pathAndQuery = `${apiPath}${url.search}`;
     const idempotencyKey = request.headers.get("idempotency-key");

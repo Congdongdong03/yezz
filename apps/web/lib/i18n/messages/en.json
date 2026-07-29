@@ -207,6 +207,7 @@
     "preferredTime": "Preferred start",
     "rescheduleDateRequired": "Choose a preferred date.",
     "rescheduleTimeRequired": "Choose a 30-minute start.",
+    "rescheduleWindowInvalid": "Choose a time at least two hours from now and within the next seven Melbourne calendar days.",
     "requestReschedule": "Request reschedule",
     "working": "Sending request…",
     "pendingTitle": "Request recorded",
