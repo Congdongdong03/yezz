@@ -30,13 +30,26 @@ function validPartyFormData() {
   form.set("name", "Mei");
   form.set("phone", "0430000001");
   form.set("email", "mei@example.com");
-  form.set("numberOfPeople", "8");
   form.set("partyPackageId", "00000000-0000-4000-8000-000000000003");
-  form.set("timeSlotId", "00000000-0000-4000-8000-000000000004");
-  form.set("preferredDate", "2030-08-12");
+  form.set("birthdayChildName", "Lina");
+  form.set("birthdayChildAge", "7");
+  form.set("participantCount", "8");
+  form.set("parentCount", "2");
+  form.set("desiredDate", "2030-08-12");
+  form.set("desiredStartTime", "12:00");
+  form.set(
+    "projectInterests",
+    JSON.stringify(["Air-dry cream piping", "Melty bead craft"]),
+  );
+  form.set("byoCake", "true");
+  form.set("byoDrinks", "false");
+  form.set("byoFood", "true");
+  form.set("byoSnacks", "false");
+  form.set("cakeCuttingRequested", "true");
+  form.set("specialRequirements", "Window table");
   form.set("locale", "zh");
-  form.set("minPeople", "4");
-  form.set("maxPeople", "12");
+  form.set("policyVersion", "2026-07-29");
+  form.set("policyAccepted", "true");
   return form;
 }
 
@@ -318,14 +331,14 @@ describe("submitBooking", () => {
 });
 
 describe("submitPartyBooking", () => {
-  it("submits authoritative package/slot IDs with required contact and people", async () => {
+  it("submits the exact request-only Task 6 party body", async () => {
     const request = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) => {
         void _input;
         void _init;
         return Response.json({
           success: true,
-          data: { id: "party-booking-1", status: "new" },
+          data: { id: "party-booking-1", status: "pending_review" },
         });
       },
     );
@@ -344,26 +357,46 @@ describe("submitPartyBooking", () => {
     expect(body).toEqual({
       kind: "party",
       partyPackageId: "00000000-0000-4000-8000-000000000003",
-      timeSlotId: "00000000-0000-4000-8000-000000000004",
-      preferredDate: "2030-08-12",
-      numberOfPeople: 8,
       name: "Mei",
       phone: "0430000001",
       email: "mei@example.com",
+      birthdayChildName: "Lina",
+      birthdayChildAge: 7,
+      participantCount: 8,
+      parentCount: 2,
+      desiredDate: "2030-08-12",
+      desiredStartTime: "12:00",
+      projectInterests: ["Air-dry cream piping", "Melty bead craft"],
+      byoCake: true,
+      byoDrinks: false,
+      byoFood: true,
+      byoSnacks: false,
+      cakeCuttingRequested: true,
+      specialRequirements: "Window table",
       locale: "zh",
+      policyVersion: "2026-07-29",
+      policyAccepted: true,
     });
   });
 
-  it("validates the package range before transport with localized errors", async () => {
+  it("validates attendance, parents, birthday age, projects, and policy before transport", async () => {
     const request = vi.fn();
     vi.stubGlobal("fetch", request);
     const form = validPartyFormData();
-    form.set("numberOfPeople", "13");
+    form.set("participantCount", "3");
+    form.set("parentCount", "0");
+    form.set("birthdayChildAge", "4");
+    form.set("projectInterests", "[]");
+    form.set("policyAccepted", "false");
 
     await expect(submitPartyBooking(form)).resolves.toMatchObject({
       success: false,
       errors: {
-        numberOfPeople: ["派对人数须为 4 至 12 人"],
+        participantCount: ["手作参与者须为 4 至 8 人"],
+        parentCount: ["须有 1 或 2 位陪同家长"],
+        birthdayChildAge: ["生日小朋友须年满 5 岁"],
+        projectInterests: ["请至少选择一个手作项目"],
+        policyAccepted: ["请接受派对预约政策后继续"],
       },
     });
     expect(request).not.toHaveBeenCalled();
@@ -376,7 +409,7 @@ describe("submitPartyBooking", () => {
       succeeded: vi.fn(),
     };
     const invalidForm = validPartyFormData();
-    invalidForm.set("numberOfPeople", "13");
+    invalidForm.set("participantCount", "3");
     await submitPartyBooking(invalidForm, attempt);
     expect(attempt.failed).toHaveBeenCalledTimes(1);
     expect(attempt.current).not.toHaveBeenCalled();
@@ -429,7 +462,7 @@ describe("submitPartyBooking", () => {
     const originalKey = attempt.current();
 
     const invalidForm = validPartyFormData();
-    invalidForm.set("numberOfPeople", "13");
+    invalidForm.set("participantCount", "3");
     await submitPartyBooking(invalidForm, attempt);
     expect(attempt.current()).toBe(originalKey);
 

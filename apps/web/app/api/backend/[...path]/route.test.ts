@@ -273,6 +273,55 @@ describe("same-origin backend transport", () => {
     expect(getResponse.headers.get("set-cookie")).not.toMatch(/domain=/i);
   });
 
+  it("allows only scoped customer-booking reads and actions through path segments", async () => {
+    const upstream = vi.fn(
+      async (target: string | URL | Request, init?: RequestInit) => {
+        void target;
+        void init;
+        return Response.json({ success: true, data: { status: "confirmed" } });
+      },
+    );
+    vi.stubGlobal("fetch", upstream);
+    const token = "A".repeat(43);
+
+    const readResponse = await GET(
+      new Request(
+        `https://yezyy.com/api/backend/v1/customer-bookings/${token}`,
+        {
+          headers: { "x-vercel-forwarded-for": "203.0.113.4" },
+        },
+      ),
+      context(["v1", "customer-bookings", token]),
+    );
+    const actionResponse = await POST(
+      new Request(
+        `https://yezyy.com/api/backend/v1/customer-bookings/${token}/request-reschedule`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: "https://yezyy.com",
+            "x-vercel-forwarded-for": "203.0.113.4",
+          },
+          body: '{"date":"2030-08-14","startTime":"13:30"}',
+        },
+      ),
+      context([
+        "v1",
+        "customer-bookings",
+        token,
+        "request-reschedule",
+      ]),
+    );
+
+    expect(readResponse.status).toBe(200);
+    expect(actionResponse.status).toBe(200);
+    expect(upstream.mock.calls.map(([target]) => String(target))).toEqual([
+      `https://api.example.test/api/v1/customer-bookings/${token}`,
+      `https://api.example.test/api/v1/customer-bookings/${token}/request-reschedule`,
+    ]);
+  });
+
   it("rejects a cross-origin cart-session update", async () => {
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);

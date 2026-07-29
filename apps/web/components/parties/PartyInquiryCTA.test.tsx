@@ -64,8 +64,15 @@ describe("PartyInquiryCTA", () => {
             id: "party-1",
             name: { en: "Studio Party", zh: "工作室派对" },
             minPeople: 4,
-            maxPeople: 12,
+            maxPeople: 8,
             priceIndicator: "A$ test fixture",
+            guestDurationMinutes: 90,
+            setupMinutes: 30,
+            cleanupMinutes: 30,
+            venueFeeCents: 9500,
+            minSpendPerPersonCents: 4500,
+            minParents: 1,
+            maxParents: 2,
           }}
         />,
       );
@@ -93,7 +100,14 @@ describe("PartyInquiryCTA", () => {
             id: "party-disabled",
             name: { en: "Studio Party", zh: "工作室派对" },
             minPeople: 4,
-            maxPeople: 12,
+            maxPeople: 8,
+            guestDurationMinutes: 90,
+            setupMinutes: 30,
+            cleanupMinutes: 30,
+            venueFeeCents: 9500,
+            minSpendPerPersonCents: 4500,
+            minParents: 1,
+            maxParents: 2,
           }}
         />,
       );

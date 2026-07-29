@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getOrdinaryAvailability } from "./availability";
+import {
+  getOrdinaryAvailability,
+  getPartyAvailability,
+} from "./availability";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -75,5 +78,45 @@ describe("getOrdinaryAvailability", () => {
       code: "STUDIO_CLOSED",
       message: "The studio is closed on this date",
     });
+  });
+});
+
+describe("getPartyAvailability", () => {
+  it("requests generated candidate starts for the selected package duration", async () => {
+    const request = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        void input;
+        void init;
+        return Response.json({
+          success: true,
+          data: [
+            {
+              date: "2030-08-12",
+              startTime: "12:00",
+              endTime: "13:30",
+              request_only: true,
+            },
+          ],
+        });
+      },
+    );
+    vi.stubGlobal("fetch", request);
+
+    await expect(
+      getPartyAvailability({
+        date: "2030-08-12",
+        guestDurationMinutes: 90,
+      }),
+    ).resolves.toEqual([
+      {
+        date: "2030-08-12",
+        startTime: "12:00",
+        endTime: "13:30",
+        request_only: true,
+      },
+    ]);
+    expect(String(request.mock.calls[0]?.[0])).toBe(
+      "http://localhost:4000/api/v1/availability/party?date=2030-08-12&guestDurationMinutes=90",
+    );
   });
 });

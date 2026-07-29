@@ -25,6 +25,18 @@ export type OrdinaryAvailabilitySlot = {
   remaining: number;
 };
 
+export type PartyAvailabilityQuery = {
+  date: string;
+  guestDurationMinutes: 90 | 150;
+};
+
+export type PartyAvailabilitySlot = {
+  date: string;
+  startTime: string;
+  endTime: string;
+  request_only: true;
+};
+
 export async function getOrdinaryAvailability(
   query: OrdinaryAvailabilityQuery,
 ): Promise<OrdinaryAvailabilitySlot[]> {
@@ -47,6 +59,47 @@ export async function getOrdinaryAvailability(
   }
 
   let body: ApiSuccess<OrdinaryAvailabilitySlot[]> | ApiError;
+  try {
+    body = (await response.json()) as typeof body;
+  } catch {
+    throw new ApiClientError(
+      "Invalid availability response",
+      "PARSE_ERROR",
+      response.status,
+    );
+  }
+  if (!body.success) {
+    throw new ApiClientError(
+      body.error.message,
+      body.error.code,
+      response.status,
+      body.error.details,
+    );
+  }
+  return body.data;
+}
+
+export async function getPartyAvailability(
+  query: PartyAvailabilityQuery,
+): Promise<PartyAvailabilitySlot[]> {
+  const params = new URLSearchParams({
+    date: query.date,
+    guestDurationMinutes: String(query.guestDurationMinutes),
+  });
+  let response: Response;
+  try {
+    response = await fetch(
+      `${getApiBaseUrl()}/api/v1/availability/party?${params}`,
+      { cache: "no-store" },
+    );
+  } catch (cause) {
+    throw new ApiClientError(
+      cause instanceof Error ? cause.message : "Could not reach availability",
+      "NETWORK_ERROR",
+    );
+  }
+
+  let body: ApiSuccess<PartyAvailabilitySlot[]> | ApiError;
   try {
     body = (await response.json()) as typeof body;
   } catch {

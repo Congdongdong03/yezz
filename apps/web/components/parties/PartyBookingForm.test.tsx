@@ -3,78 +3,72 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import PartyBookingForm from "./PartyBookingForm";
+import PartyBookingForm, {
+  type PartyBookingFormParty,
+} from "./PartyBookingForm";
 
 const testState = vi.hoisted(() => ({
   submitPartyBooking: vi.fn(),
+  getPartyAvailability: vi.fn(),
 }));
+
+const messages: Record<string, string> = {
+  title: "Request the Standard party",
+  requestOnly:
+    "Choose a preferred guest start. This is a request only; YezYY staff must manually confirm it and may propose another time.",
+  manualPayment:
+    "The A$95 venue fee/deposit is paid in store after staff confirmation. There is no online payment.",
+  peopleRangeError: "Choose 4 to 8 DIY participants.",
+  parentsRangeError: "Choose 1 or 2 accompanying parents.",
+  birthdayAgeError: "The birthday child must be at least 5.",
+  projectRequired: "Choose at least one DIY project.",
+  policyRequired: "Accept the party booking policies to continue.",
+  nameRequired: "Name is required.",
+  phoneRequired: "Phone is required.",
+  emailRequired: "Email is required.",
+  emailInvalid: "Enter a valid email.",
+  selectDate: "Choose a preferred date.",
+  selectSlot: "Choose a preferred guest start.",
+  name: "Contact name",
+  phone: "Phone",
+  email: "Email",
+  birthdayChildName: "Birthday child's name",
+  birthdayChildAge: "Birthday child's age",
+  participants: "DIY participants",
+  parents: "Accompanying parents",
+  projects: "Project interests",
+  projectCream: "Air-dry cream piping",
+  projectMelty: "Melty bead craft",
+  projectClay: "Paint clay figurine",
+  projectBeading: "Beading",
+  byoTitle: "What will you bring?",
+  byoCake: "Cake",
+  byoDrinks: "Drinks",
+  byoFood: "Food",
+  byoSnacks: "Snacks",
+  cakeCutting: "Add staff cake cutting for A$15",
+  specialRequirements: "Special requirements",
+  desiredDate: "Preferred date",
+  checking: "Checking party request times…",
+  noTimes: "No candidate starts on this date.",
+  availabilityError: "Could not check party times.",
+  retryAvailability: "Check party times again",
+  guestTime: "Guest time",
+  requestTime: "Request 12:00–13:30",
+  policyConsent:
+    "I accept the party, age, supervision, payment, cancellation, refund, and privacy policies.",
+  policySummary:
+    "A full venue-fee refund is available when cancellation is requested at least 48 hours before the final guest start. Later cancellation is non-refundable.",
+  submit: "Submit party request",
+  submitting: "Sending request…",
+  successTitle: "Party request received",
+  successBody:
+    "Your request awaits manual staff confirmation. We may propose another time. Pay the venue fee/deposit in store; no online payment was taken.",
+};
 
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
-  useTranslations: () => (key: string, values?: Record<string, unknown>) =>
-    ({
-      title: "Request this party package",
-      manualPayment:
-        "We manually confirm every request. No online payment is required; pay in store.",
-      peopleRange: `${values?.min}–${values?.max} people`,
-      name: "Name",
-      phone: "Phone",
-      email: "Email",
-      people: "Number of people",
-      message: "Message",
-      chooseSchedule: "Choose date and time",
-      selectSlot: "Choose an available time slot first",
-      submit: "Send party request",
-      submitting: "Sending…",
-      successTitle: "Party request received",
-      successBody:
-        "We will contact you to confirm. No online payment is required; pay in store.",
-      error: "Could not send your request. Try again or contact us.",
-      nameRequired: "Name is required",
-      phoneRequired: "Phone is required",
-      emailRequired: "Email is required",
-      emailInvalid: "Enter a valid email",
-      peopleRequired: "Number of people is required",
-      peopleRangeError: `${values?.min}–${values?.max} people required`,
-    })[key] ?? key,
-}));
-
-vi.mock("@/components/book/BookingCalendar", () => ({
-  default: ({
-    onDateChange,
-    onSelectSlot,
-  }: {
-    onDateChange: (date: string) => void;
-    onSelectSlot: (slot: {
-      id: string;
-      date: string;
-      startTime: string;
-      endTime: string;
-      capacity: number;
-      bookedCount: number;
-      remaining: number;
-      almostFull: boolean;
-    }) => void;
-  }) => (
-    <button
-      type="button"
-      onClick={() => {
-        onDateChange("2030-08-12");
-        onSelectSlot({
-          id: "00000000-0000-4000-8000-000000000004",
-          date: "2030-08-12",
-          startTime: "12:00",
-          endTime: "13:30",
-          capacity: 12,
-          bookedCount: 0,
-          remaining: 12,
-          almostFull: false,
-        });
-      }}
-    >
-      Choose test slot
-    </button>
-  ),
+  useTranslations: () => (key: string) => messages[key] ?? key,
 }));
 
 vi.mock("@/lib/actions/booking", async (importOriginal) => {
@@ -86,21 +80,47 @@ vi.mock("@/lib/actions/booking", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/api/availability", () => ({
+  getPartyAvailability: testState.getPartyAvailability,
+}));
+
 const testEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT: boolean;
 };
 testEnvironment.IS_REACT_ACT_ENVIRONMENT = true;
+
+const party: PartyBookingFormParty = {
+  id: "00000000-0000-4000-8000-000000000003",
+  name: { en: "Standard party", zh: "标准派对" },
+  minPeople: 4,
+  maxPeople: 8,
+  priceIndicator: "A$95",
+  guestDurationMinutes: 90,
+  setupMinutes: 30,
+  cleanupMinutes: 30,
+  venueFeeCents: 9500,
+  minSpendPerPersonCents: 4500,
+  minParents: 1,
+  maxParents: 2,
+};
 
 describe("PartyBookingForm", () => {
   let container: HTMLDivElement;
   let root: Root;
 
   beforeEach(() => {
-    testState.submitPartyBooking.mockReset();
-    testState.submitPartyBooking.mockResolvedValue({
+    testState.submitPartyBooking.mockReset().mockResolvedValue({
       success: true,
       bookingId: "party-booking-1",
     });
+    testState.getPartyAvailability.mockReset().mockResolvedValue([
+      {
+        date: "2030-08-12",
+        startTime: "12:00",
+        endTime: "13:30",
+        request_only: true,
+      },
+    ]);
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -113,125 +133,160 @@ describe("PartyBookingForm", () => {
 
   async function renderForm() {
     await act(async () => {
-      root.render(
-        <PartyBookingForm
-          party={{
-            id: "00000000-0000-4000-8000-000000000003",
-            name: { en: "Studio Party", zh: "工作室派对" },
-            minPeople: 4,
-            maxPeople: 12,
-            priceIndicator: "A$ test fixture",
-          }}
-        />,
-      );
+      root.render(<PartyBookingForm party={party} />);
     });
   }
 
-  function setInput(name: string, value: string) {
-    const input = container.querySelector<HTMLInputElement>(`[name="${name}"]`);
+  async function setInput(name: string, value: string) {
+    const input = container.querySelector<HTMLInputElement>(
+      `[name="${name}"]`,
+    );
     expect(input).not.toBeNull();
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       "value",
     )?.set;
-    setter?.call(input, value);
-    input?.dispatchEvent(new Event("input", { bubbles: true }));
+    await act(async () => {
+      setter?.call(input, value);
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+      input?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
   }
 
-  it("presents required contact, authoritative people range, and payment wording", async () => {
+  async function setCheckbox(name: string, checked = true) {
+    const input = container.querySelector<HTMLInputElement>(
+      `[name="${name}"]`,
+    );
+    expect(input).not.toBeNull();
+    await act(async () => {
+      if (input && input.checked !== checked) input.click();
+    });
+  }
+
+  async function submitForm() {
+    const form = container.querySelector("form");
+    await act(async () => {
+      form?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    });
+  }
+
+  it("shows request-only timing, exact package policy, and mobile semantic controls", async () => {
     await renderForm();
 
-    expect(container.textContent).toContain("4–12 people");
+    expect(container.textContent).toContain("request only");
     expect(container.textContent).toContain("manually confirm");
-    expect(container.textContent).toContain("No online payment");
-    expect(container.textContent).toContain("pay in store");
+    expect(container.textContent).toContain("may propose another time");
+    expect(container.textContent).toContain("A$95");
+    expect(container.textContent).toContain("paid in store");
+    expect(container.textContent).toContain("There is no online payment");
+    expect(container.textContent).toContain("at least 48 hours");
+    expect(container.textContent).toContain("non-refundable");
     expect(
-      container.querySelector<HTMLInputElement>('[name="numberOfPeople"]')?.min,
+      container.querySelector<HTMLInputElement>('[name="participantCount"]')
+        ?.min,
     ).toBe("4");
     expect(
-      container.querySelector<HTMLInputElement>('[name="numberOfPeople"]')?.max,
-    ).toBe("12");
-    for (const name of ["name", "phone", "email", "numberOfPeople"]) {
-      expect(
-        container.querySelector<HTMLInputElement>(`[name="${name}"]`)?.required,
-      ).toBe(true);
-    }
+      container.querySelector<HTMLInputElement>('[name="participantCount"]')
+        ?.max,
+    ).toBe("8");
+    expect(
+      container.querySelector<HTMLInputElement>('[name="parentCount"]')?.min,
+    ).toBe("1");
+    expect(
+      container.querySelector<HTMLInputElement>('[name="parentCount"]')?.max,
+    ).toBe("2");
+    expect(
+      container.querySelector<HTMLInputElement>('[name="desiredDate"]')?.type,
+    ).toBe("date");
+    expect(
+      container.querySelector<HTMLInputElement>('[name="policyAccepted"]')
+        ?.type,
+    ).toBe("checkbox");
   });
 
-  it("submits the selected package and exact slot through one retained attempt", async () => {
+  it("requires 4–8 participants, 1–2 parents, age 5, a project, and policy acceptance", async () => {
     await renderForm();
-    setInput("name", "Mei");
-    setInput("phone", "0430000001");
-    setInput("email", "mei@example.com");
-    setInput("numberOfPeople", "8");
-    const slotButton = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("button"),
-    ).find(({ textContent }) => textContent === "Choose test slot");
-    await act(async () => slotButton?.click());
-    const form = container.querySelector("form");
-    await act(async () =>
-      form?.dispatchEvent(
-        new Event("submit", { bubbles: true, cancelable: true }),
-      ),
-    );
-
-    expect(testState.submitPartyBooking).toHaveBeenCalledOnce();
-    const formData = testState.submitPartyBooking.mock
-      .calls[0]?.[0] as FormData;
-    expect(formData.get("partyPackageId")).toBe(
-      "00000000-0000-4000-8000-000000000003",
-    );
-    expect(formData.get("timeSlotId")).toBe(
-      "00000000-0000-4000-8000-000000000004",
-    );
-    expect(formData.get("name")).toBe("Mei");
-    expect(container.textContent).toContain("Party request received");
-    expect(container.textContent).toContain("pay in store");
-  });
-
-  it("associates inline field errors and the error summary with their relevant form controls", async () => {
-    testState.submitPartyBooking.mockResolvedValue({
-      success: false,
-      errors: {
-        name: ["Name needs review"],
-        phone: ["Phone needs review"],
-        email: ["Email needs review"],
-        numberOfPeople: ["People needs review"],
-        server: ["The request could not be sent"],
-      },
-    });
-    await renderForm();
-    setInput("name", "Mei");
-    setInput("phone", "0430000001");
-    setInput("email", "mei@example.com");
-    setInput("numberOfPeople", "8");
-    const slotButton = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("button"),
-    ).find(({ textContent }) => textContent === "Choose test slot");
-    await act(async () => slotButton?.click());
-    const form = container.querySelector("form");
-    await act(async () =>
-      form?.dispatchEvent(
-        new Event("submit", { bubbles: true, cancelable: true }),
-      ),
-    );
+    await setInput("participantCount", "3");
+    await setInput("parentCount", "0");
+    await setInput("birthdayChildAge", "4");
+    await submitForm();
 
     for (const [name, message] of [
-      ["name", "Name needs review"],
-      ["phone", "Phone needs review"],
-      ["email", "Email needs review"],
-      ["numberOfPeople", "People needs review"],
+      ["participantCount", "Choose 4 to 8 DIY participants."],
+      ["parentCount", "Choose 1 or 2 accompanying parents."],
+      ["birthdayChildAge", "The birthday child must be at least 5."],
     ]) {
       const input = container.querySelector<HTMLInputElement>(
         `[name="${name}"]`,
       );
-      const errorId = input?.getAttribute("aria-describedby");
-      expect(errorId).toBeTruthy();
-      expect(container.querySelector(`#${errorId}`)?.textContent).toBe(message);
+      const describedBy = input?.getAttribute("aria-describedby");
+      expect(describedBy).toBeTruthy();
+      expect(container.querySelector(`#${describedBy}`)?.textContent).toBe(
+        message,
+      );
+      expect(input?.getAttribute("aria-invalid")).toBe("true");
     }
+    expect(container.textContent).toContain("Choose at least one DIY project.");
+    expect(container.textContent).toContain(
+      "Accept the party booking policies to continue.",
+    );
+    expect(testState.submitPartyBooking).not.toHaveBeenCalled();
+  });
 
-    const summary = container.querySelector('[role="alert"]');
-    expect(summary?.id).toBeTruthy();
-    expect(form?.getAttribute("aria-describedby")).toContain(summary?.id);
+  it("loads candidate starts by package duration and submits all party details", async () => {
+    await renderForm();
+    await setInput("name", "Mei");
+    await setInput("phone", "0430000001");
+    await setInput("email", "mei@example.com");
+    await setInput("birthdayChildName", "Lina");
+    await setInput("birthdayChildAge", "7");
+    await setInput("participantCount", "8");
+    await setInput("parentCount", "2");
+    await setInput("desiredDate", "2030-08-12");
+    await act(async () => {});
+
+    expect(testState.getPartyAvailability).toHaveBeenCalledWith({
+      date: "2030-08-12",
+      guestDurationMinutes: 90,
+    });
+
+    const timeButton = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((button) => button.textContent?.includes("12:00–13:30"));
+    expect(timeButton).toBeDefined();
+    await act(async () => timeButton?.click());
+    expect(timeButton?.getAttribute("aria-pressed")).toBe("true");
+
+    await setCheckbox("projectInterests", true);
+    await setCheckbox("byoCake", true);
+    await setCheckbox("byoFood", true);
+    await setCheckbox("cakeCuttingRequested", true);
+    await setCheckbox("policyAccepted", true);
+    await submitForm();
+
+    expect(testState.submitPartyBooking).toHaveBeenCalledOnce();
+    const formData = testState.submitPartyBooking.mock.calls[0]?.[0] as FormData;
+    expect(formData.get("partyPackageId")).toBe(party.id);
+    expect(formData.get("desiredDate")).toBe("2030-08-12");
+    expect(formData.get("desiredStartTime")).toBe("12:00");
+    expect(formData.get("participantCount")).toBe("8");
+    expect(formData.get("parentCount")).toBe("2");
+    expect(formData.get("projectInterests")).toBe(
+      JSON.stringify(["Air-dry cream piping"]),
+    );
+    expect(formData.get("byoCake")).toBe("true");
+    expect(formData.get("byoDrinks")).toBe("false");
+    expect(formData.get("byoFood")).toBe("true");
+    expect(formData.get("byoSnacks")).toBe("false");
+    expect(formData.get("cakeCuttingRequested")).toBe("true");
+    expect(formData.get("policyVersion")).toBe("2026-07-29");
+    expect(formData.get("policyAccepted")).toBe("true");
+    expect(container.textContent).toContain("Party request received");
+    expect(container.textContent).toContain(
+      "awaits manual staff confirmation",
+    );
+    expect(container.textContent).toContain("no online payment was taken");
   });
 });

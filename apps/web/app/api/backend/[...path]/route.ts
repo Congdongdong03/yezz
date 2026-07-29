@@ -93,6 +93,14 @@ function assertAllowedTarget(method: string, apiPath: string): void {
   const normalizedMethod = method.toUpperCase();
   const adminRoute =
     apiPath === "/api/v1/admin" || apiPath.startsWith("/api/v1/admin/");
+  const customerBookingRead =
+    normalizedMethod === "GET" &&
+    /^\/api\/v1\/customer-bookings\/[A-Za-z0-9_-]{43}$/.test(apiPath);
+  const customerBookingAction =
+    normalizedMethod === "POST" &&
+    /^\/api\/v1\/customer-bookings\/[A-Za-z0-9_-]{43}\/(?:accept-time|request-cancellation|request-reschedule)$/.test(
+      apiPath,
+    );
   const allowed =
     (normalizedMethod === "POST" &&
       ["/api/v1/auth/login", "/api/v1/auth/logout"].includes(apiPath)) ||
@@ -100,6 +108,8 @@ function assertAllowedTarget(method: string, apiPath: string): void {
       ["/api/v1/bookings", "/api/v1/cart-orders"].includes(apiPath)) ||
     (apiPath === "/api/v1/cart" &&
       ["GET", "PUT"].includes(normalizedMethod)) ||
+    customerBookingRead ||
+    customerBookingAction ||
     (adminRoute &&
       ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].includes(
         normalizedMethod,
