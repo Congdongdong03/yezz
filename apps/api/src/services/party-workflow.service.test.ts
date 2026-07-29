@@ -306,6 +306,39 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     })).rejects.toMatchObject({ code: "PARTY_DEDICATED_ACTION_REQUIRED" });
   });
 
+  it("rejects a generic cancellation denial without changing state or recording an event", async () => {
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => new Date("2030-08-10T00:00:00.000Z"),
+    });
+    const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+    await database.connection.db
+      .update(bookings)
+      .set({ status: "cancellation_requested" })
+      .where(eq(bookings.id, created.id));
+    const operationId = crypto.randomUUID();
+
+    await expect(service.transitionPartyStatus({
+      bookingId: created.id,
+      expectedStatus: "cancellation_requested",
+      toStatus: "confirmed_paid",
+      operationId,
+      actorUserId: staffId,
+    })).rejects.toMatchObject({ code: "PARTY_DEDICATED_ACTION_REQUIRED" });
+
+    await expect(
+      database.connection.db
+        .select({ status: bookings.status })
+        .from(bookings)
+        .where(eq(bookings.id, created.id)),
+    ).resolves.toEqual([{ status: "cancellation_requested" }]);
+    await expect(
+      database.connection.db
+        .select()
+        .from(requestStatusEvents)
+        .where(eq(requestStatusEvents.operationId, operationId)),
+    ).resolves.toHaveLength(0);
+  });
+
   it("enqueues one English rejection update without an unusable management link", async () => {
     const service = createPartyWorkflowService(database.connection.db, {
       now: () => new Date("2030-08-10T00:00:00.000Z"),
@@ -960,12 +993,20 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     await expect(service.recordPartyCharge({ ...cakeCharge, type: "venue_fee" as never, operationId: crypto.randomUUID() })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
     await expect(service.recordPartyCharge({ ...cakeCharge, type: "refund" as never, operationId: crypto.randomUUID() })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
     await expect(service.recordPartyCharge({ ...cakeCharge, type: "invented" as never, operationId: crypto.randomUUID() })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
-    await expect(
-      database.connection.db
-        .select()
-        .from(bookingCharges)
-        .where(eq(bookingCharges.bookingId, created.id)),
-    ).resolves.toHaveLength(3);
+    const charges = await database.connection.db
+      .select({
+        type: bookingCharges.type,
+        amountCents: bookingCharges.amountCents,
+      })
+      .from(bookingCharges)
+      .where(eq(bookingCharges.bookingId, created.id))
+      .then((rows) => rows.sort((left, right) => left.type.localeCompare(right.type)));
+    expect(charges).toEqual([
+      { type: "cake_cutting", amountCents: 1500 },
+      { type: "cleaning", amountCents: 1500 },
+      { type: "overtime", amountCents: 3500 },
+      { type: "venue_fee", amountCents: 9500 },
+    ]);
   });
 
   it("keeps a legacy confirmed party blocking until reconciliation", async () => {

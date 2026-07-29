@@ -54,7 +54,7 @@ const PARTY_TRANSITIONS: Partial<Record<BookingStatus, readonly BookingStatus[]>
   time_proposed: ["cancelled"],
   awaiting_in_store_payment: ["cancelled"],
   confirmed_paid: ["cancellation_requested", "no_show", "completed"],
-  cancellation_requested: ["confirmed_paid", "cancelled"],
+  cancellation_requested: ["cancelled"],
 };
 
 function melbourneLocalInstant(date: string, startTime: string): Date {

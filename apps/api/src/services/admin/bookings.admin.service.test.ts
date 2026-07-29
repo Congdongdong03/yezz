@@ -8,6 +8,7 @@ import {
   timeSlots,
   users,
 } from "@yezz/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createRequestFlowTestDatabase,
@@ -109,6 +110,51 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
         crypto.randomUUID(),
       ),
     ).rejects.toMatchObject({ code: "WAITLIST_CONTACT_REQUIRED" });
+  });
+
+  it("rejects cancellation denial through the generic admin party transition", async () => {
+    const actorUserId = crypto.randomUUID();
+    const bookingId = crypto.randomUUID();
+    const operationId = crypto.randomUUID();
+    await database.connection.db.insert(users).values({
+      id: actorUserId,
+      email: "party-resolution-staff@example.com",
+      passwordHash: "not-used",
+      name: "Party resolution staff",
+      role: "staff",
+    });
+    await database.connection.db.insert(bookings).values({
+      id: bookingId,
+      name: "Party customer",
+      phone: "0430000066",
+      email: "party-resolution@example.com",
+      requestKind: "party",
+      status: "cancellation_requested",
+    });
+
+    await expect(
+      createAdminBookingsService(database.connection.db).updateStatus(
+        bookingId,
+        {
+          expectedStatus: "cancellation_requested",
+          toStatus: "confirmed_paid",
+          operationId,
+        },
+        actorUserId,
+      ),
+    ).rejects.toMatchObject({ code: "PARTY_DEDICATED_ACTION_REQUIRED" });
+    await expect(
+      database.connection.db
+        .select({ status: bookings.status })
+        .from(bookings)
+        .where(eq(bookings.id, bookingId)),
+    ).resolves.toEqual([{ status: "cancellation_requested" }]);
+    await expect(
+      database.connection.db
+        .select()
+        .from(requestStatusEvents)
+        .where(eq(requestStatusEvents.operationId, operationId)),
+    ).resolves.toHaveLength(0);
   });
 
   it("renders customer and system history actors from their explicit actor kinds", async () => {
