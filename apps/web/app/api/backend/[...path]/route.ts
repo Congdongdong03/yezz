@@ -142,11 +142,18 @@ function assertValidCustomerReschedule(
     input = null;
   }
   const candidate =
-    input && typeof input === "object"
-      ? (input as { date?: unknown; startTime?: unknown })
+    input !== null &&
+    typeof input === "object" &&
+    !Array.isArray(input) &&
+    Object.getPrototypeOf(input) === Object.prototype
+      ? (input as Record<string, unknown>)
       : null;
+  const keys = candidate ? Object.keys(candidate) : [];
   if (
     !candidate ||
+    keys.length !== 2 ||
+    !keys.includes("date") ||
+    !keys.includes("startTime") ||
     typeof candidate.date !== "string" ||
     typeof candidate.startTime !== "string" ||
     !validateCustomerRescheduleRequest({

@@ -371,6 +371,51 @@ describe("same-origin backend transport", () => {
     },
   );
 
+  it("rejects an otherwise-valid customer reschedule with an unknown property locally", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-08-12T00:00:00.000Z"));
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    const token = "A".repeat(43);
+
+    const response = await POST(
+      new Request(
+        `https://yezyy.com/api/backend/v1/customer-bookings/${token}/request-reschedule`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: "https://yezyy.com",
+            "x-vercel-forwarded-for": "203.0.113.4",
+          },
+          body: JSON.stringify({
+            date: "2030-08-14",
+            startTime: "13:30",
+            extra: true,
+          }),
+        },
+      ),
+      context([
+        "v1",
+        "customer-bookings",
+        token,
+        "request-reschedule",
+      ]),
+    );
+
+    expect(response.status).toBe(400);
+    const responseBody = await response.text();
+    expect(JSON.parse(responseBody)).toEqual({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "The requested reschedule time is not available",
+      },
+    });
+    expect(responseBody).not.toContain(token);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   it("rejects a cross-origin cart-session update", async () => {
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
