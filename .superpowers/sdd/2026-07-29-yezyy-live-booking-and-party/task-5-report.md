@@ -113,3 +113,16 @@ This resolves the local `TEST_DATABASE_URL` and SMTP `listen EPERM` verification
    ```
 
 4. The database-focused suites and migration suite are present but skipped locally without `TEST_DATABASE_URL`. The full API run had 34 files pass and only the two pre-existing SMTP loopback tests fail because this sandbox returns `listen EPERM: operation not permitted 127.0.0.1`. The full DB package run also hits sandbox `EPERM` when `tsx` attempts its IPC pipe. Controller rerun is required for isolated PostgreSQL and SMTP verification.
+
+## Review fix round 1 follow-up
+
+- Controller-local PostgreSQL verification found one fixture-only failure in the customer/system actor-history test. Its booking used the ordinary `cancellation_requested` status without ordinary evidence fields, so the mapper correctly treated it as legacy data.
+- Added `participantCount`, `attendanceCount`, and `durationMinutes` to that fixture. No production mapper behavior changed.
+- Follow-up local checks passed:
+
+  ```bash
+  corepack pnpm --filter @yezz/db build
+  corepack pnpm --filter @yezz/api typecheck
+  corepack pnpm --filter @yezz/api exec vitest run src/routes/v1/customer-bookings.routes.test.ts --config vitest.config.ts
+  # 4 passed
+  ```
