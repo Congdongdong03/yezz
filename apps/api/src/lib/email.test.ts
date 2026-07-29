@@ -416,14 +416,23 @@ describe("live booking notification templates", () => {
   it.each(cases)("renders $template safely in English and Chinese", async (testCase) => {
     const { renderEmail } = await import("./email.js");
     for (const locale of ["en", "zh"] as const) {
-      const payload = {
-        template: testCase.template,
-        ...common,
-        ...("extra" in testCase ? testCase.extra : {}),
-      };
-      if ("noManageUrl" in testCase && testCase.noManageUrl) {
-        delete payload.manageUrl;
-      }
+      const { manageUrl: _manageUrl, ...terminalCommon } = common;
+      const extra =
+        "extra" in testCase && typeof testCase.extra === "object"
+          ? testCase.extra
+          : {};
+      const payload =
+        "noManageUrl" in testCase && testCase.noManageUrl
+          ? {
+              template: testCase.template,
+              ...terminalCommon,
+              ...extra,
+            }
+          : {
+              template: testCase.template,
+              ...common,
+              ...extra,
+            };
       const html = renderEmail({
         locale,
         payload,
