@@ -11,6 +11,7 @@ import customerBookingsRoutes from "../routes/v1/customer-bookings.routes.js";
 
 const token = `-${"A".repeat(42)}`;
 const encodedToken = `%2D${"A".repeat(42)}`;
+const doubleEncodedToken = `%252D${"A".repeat(42)}`;
 const malformedToken = `${encodedToken}%ZZ`;
 const SECRET = "0123456789abcdef0123456789abcdef";
 const REQUEST_ID = "00000000-0000-4000-8000-000000000001";
@@ -96,10 +97,85 @@ function requestLogs(entries: string[], start: number) {
 function expectNoBearerMaterial(serializedLogs: string) {
   expect(serializedLogs).not.toContain(token);
   expect(serializedLogs).not.toContain(encodedToken);
+  expect(serializedLogs).not.toContain(doubleEncodedToken);
   expect(serializedLogs).not.toContain(malformedToken);
 }
 
 describe("customer booking request log redaction", () => {
+  it.each([
+    {
+      name: "a literal bearer embedded in a non-sensitive key",
+      query: `prefix${token}suffix=x`,
+    },
+    {
+      name: "a percent-encoded bearer embedded in a non-sensitive key",
+      query: `prefix${encodedToken}suffix=x`,
+    },
+    {
+      name: "a double-encoded bearer embedded in a non-sensitive key",
+      query: `prefix${doubleEncodedToken}suffix=x`,
+    },
+    {
+      name: "a literal bearer embedded in a non-sensitive value",
+      query: `source=prefix${token}suffix`,
+    },
+    {
+      name: "a percent-encoded bearer embedded in a non-sensitive value",
+      query: `source=prefix${encodedToken}suffix`,
+    },
+    {
+      name: "a double-encoded bearer embedded in a non-sensitive value",
+      query: `source=prefix${doubleEncodedToken}suffix`,
+    },
+    {
+      name: "a sensitive key bearing a literal token",
+      query: `signature-prefix${token}suffix=x`,
+    },
+  ])("redacts $name", ({ query }) => {
+    const serialized = safeRequestUrl(
+      `/api/v1/customer-bookings/${encodedToken}?${query}`,
+    );
+
+    expect(serialized).toBe("/api/v1/customer-bookings/:token?[REDACTED]");
+    expectNoBearerMaterial(serialized);
+  });
+
+  it("redacts prefixed and suffixed bearer forms from both signed Fastify log paths", async () => {
+    const { app, entries } = await buildCustomerLogApp();
+    const queryFragments = [token, encodedToken, doubleEncodedToken];
+    const queries = queryFragments.flatMap((fragment) => [
+      `prefix${fragment}suffix=x`,
+      `source=prefix${fragment}suffix`,
+      `signature-prefix${fragment}suffix=x`,
+    ]);
+
+    try {
+      for (const query of queries) {
+        const start = entries.length;
+        const url = `/api/v1/customer-bookings/${encodedToken}?${query}`;
+        const response = await app.inject({
+          method: "GET",
+          url,
+          headers: signedHeaders({ method: "GET", url }),
+        });
+
+        expect(response.statusCode).toBe(200);
+        const logs = requestLogs(entries, start);
+        const expectedPath = "/api/v1/customer-bookings/:token?[REDACTED]";
+        expect(
+          logs.find((entry) => entry.msg === "incoming request")?.req?.url,
+        ).toBe(expectedPath);
+        expect(
+          logs.find((entry) => entry.msg === "Internal request verification")
+            ?.path,
+        ).toBe(expectedPath);
+        expectNoBearerMaterial(JSON.stringify(logs));
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
   it.each([
     {
       name: "a malformed customer path segment",

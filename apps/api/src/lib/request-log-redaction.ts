@@ -2,6 +2,7 @@ type RequestForLog = { id: string; method: string; url: string };
 
 const customerBookingPrefix = "/api/v1/customer-bookings/";
 const customerBookingToken = /^[A-Za-z0-9_-]{43}$/;
+const customerBookingTokenText = /[A-Za-z0-9_-]{43}/;
 const customerBookingActionPaths = new Set([
   "",
   "/accept-time",
@@ -11,6 +12,7 @@ const customerBookingActionPaths = new Set([
 const sensitiveQueryKey =
   /(?:token|secret|signature|password|authorization|api[_-]?key)/i;
 const redactedComponent = "[REDACTED]";
+const MAX_URL_DECODE_PASSES = 4;
 
 function decodedComponent(value: string): string | null {
   try {
@@ -18,6 +20,23 @@ function decodedComponent(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+function decodedForms(value: string): string[] | null {
+  const forms = [value];
+  let current = value;
+  for (let pass = 0; pass < MAX_URL_DECODE_PASSES; pass += 1) {
+    const decoded = decodedComponent(current);
+    if (decoded === null) return null;
+    if (decoded === current) return forms;
+    forms.push(decoded);
+    current = decoded;
+  }
+  return null;
+}
+
+function containsCustomerBookingToken(forms: readonly string[]): boolean {
+  return forms.some((form) => customerBookingTokenText.test(form));
 }
 
 function customerBookingPathMatch(
@@ -60,18 +79,13 @@ function safeQuery(query: string): string {
     .map((entry) => {
       const [key, value] = entry.split("=", 2);
       if (!key) return "";
-      const decodedKey = decodedComponent(key);
-      const decodedValue =
-        value === undefined ? undefined : decodedComponent(value);
-      if (decodedKey === null || decodedValue === null)
-        return redactedComponent;
-      if (
-        customerBookingToken.test(decodedKey) ||
-        (decodedValue !== undefined && customerBookingToken.test(decodedValue))
-      ) {
+      const keyForms = decodedForms(key);
+      const valueForms = value === undefined ? [] : decodedForms(value);
+      if (keyForms === null || valueForms === null) return redactedComponent;
+      if (containsCustomerBookingToken([...keyForms, ...valueForms])) {
         return redactedComponent;
       }
-      return sensitiveQueryKey.test(decodedKey)
+      return keyForms.some((form) => sensitiveQueryKey.test(form))
         ? `${key}=${redactedComponent}`
         : value === undefined
           ? key
