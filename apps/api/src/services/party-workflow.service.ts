@@ -198,10 +198,10 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
         "The party time is unavailable due to the studio schedule",
       );
     }
-    if (await availabilityRepo.hasExclusivePartyOverlap({ date: interval.date, startTime: interval.setupStart, endTime: interval.cleanupEnd }, tx)) {
+    if (await availabilityRepo.hasExclusivePartyOverlap({ date: interval.date, startTime: interval.setupStart, endTime: interval.cleanupEnd }, tx, { excludeBookingId: bookingId })) {
       throw new AppError(409, "CAPACITY_CONFLICT", "The requested interval is already held");
     }
-    if (await availabilityRepo.sumConfirmedAttendance({ date: interval.date, startTime: interval.setupStart, endTime: interval.cleanupEnd }, tx)) {
+    if (await availabilityRepo.sumConfirmedAttendance({ date: interval.date, startTime: interval.setupStart, endTime: interval.cleanupEnd }, tx, { excludeBookingId: bookingId })) {
       throw new AppError(409, "CAPACITY_CONFLICT", "The requested interval conflicts with a confirmed booking");
     }
   }

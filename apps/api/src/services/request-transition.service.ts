@@ -254,8 +254,8 @@ export function createRequestTransitionService(
             throw new AppError(409, "SCHEDULE_CONFLICT", "The requested interval is unavailable due to the studio schedule");
           }
           validateBookingWindow({ date: interval.date, startTime: interval.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(now()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
-          const occupied = await availabilityRepo.sumConfirmedAttendance(interval, tx);
-          const hasParty = await availabilityRepo.hasExclusivePartyOverlap(interval, tx);
+          const occupied = await availabilityRepo.sumConfirmedAttendance(interval, tx, { excludeBookingId: existing.id });
+          const hasParty = await availabilityRepo.hasExclusivePartyOverlap(interval, tx, { excludeBookingId: existing.id });
           if (hasParty || occupied + existing.attendanceCount > 8) throw new AppError(409, "CAPACITY_CONFLICT", "The requested interval is full");
           if (interval.date !== existing.slotDate || interval.startTime !== existing.slotStartTime) await bookingsRepo.updateOrdinaryInterval(existing.id, interval, tx);
         }

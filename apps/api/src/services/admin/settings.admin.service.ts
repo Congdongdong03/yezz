@@ -709,10 +709,21 @@ export function createAdminSettingsService(
     },
 
     async deleteClosure(id: string) {
-      const [row] = await db
-        .delete(studioClosures)
-        .where(eq(studioClosures.id, id))
-        .returning({ id: studioClosures.id });
+      const row = await db.transaction(async (tx) => {
+        await availabilityRepo.lockScheduleRevision(tx);
+        const [existing] = await tx
+          .select({ date: studioClosures.date })
+          .from(studioClosures)
+          .where(eq(studioClosures.id, id))
+          .limit(1);
+        if (!existing) return null;
+        await availabilityRepo.lockOperationalDate(dateValue(existing.date), tx);
+        const [deleted] = await tx
+          .delete(studioClosures)
+          .where(eq(studioClosures.id, id))
+          .returning({ id: studioClosures.id });
+        return deleted ?? null;
+      });
       if (!row) {
         throw new AppError(404, "NOT_FOUND", "Closure not found");
       }

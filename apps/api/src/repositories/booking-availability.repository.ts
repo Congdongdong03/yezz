@@ -6,6 +6,7 @@ import {
 } from "../lib/schedule-occupancy.js";
 
 export type LocalInterval = { date: string; startTime: string; endTime: string };
+export type AvailabilityQueryOptions = { excludeBookingId?: string };
 
 function overlaps(interval: LocalInterval) {
   return [
@@ -17,7 +18,7 @@ function overlaps(interval: LocalInterval) {
 
 export function createBookingAvailabilityRepository(db: Db) {
   return {
-    async sumConfirmedAttendance(interval: LocalInterval, tx: Db = db): Promise<number> {
+    async sumConfirmedAttendance(interval: LocalInterval, tx: Db = db, options: AvailabilityQueryOptions = {}): Promise<number> {
       const [row] = await tx
         .select({
           attendance: sql<number>`COALESCE(SUM(${bookings.attendanceCount}), 0)::int`,
@@ -27,13 +28,14 @@ export function createBookingAvailabilityRepository(db: Db) {
           and(
             eq(bookings.requestKind, "experience"),
             inArray(bookings.status, OCCUPYING_EXPERIENCE_STATUSES),
+            ...(options.excludeBookingId ? [sql`${bookings.id} <> ${options.excludeBookingId}`] : []),
             ...overlaps(interval),
           ),
         );
       return Number(row?.attendance ?? 0);
     },
 
-    async hasExclusivePartyOverlap(interval: LocalInterval, tx: Db = db): Promise<boolean> {
+    async hasExclusivePartyOverlap(interval: LocalInterval, tx: Db = db, options: AvailabilityQueryOptions = {}): Promise<boolean> {
       const [row] = await tx
         .select({ id: bookings.id })
         .from(bookings)
@@ -41,6 +43,7 @@ export function createBookingAvailabilityRepository(db: Db) {
           and(
             eq(bookings.requestKind, "party"),
             inArray(bookings.status, OCCUPYING_PARTY_STATUSES),
+            ...(options.excludeBookingId ? [sql`${bookings.id} <> ${options.excludeBookingId}`] : []),
             ...overlaps(interval),
           ),
         )

@@ -265,6 +265,44 @@ describe.skipIf(!runDatabaseTests)(
       expect(afterDelete).not.toBe(afterAdd);
     });
 
+    it("invalidates a displayed closure acknowledgement when the referenced closure is deleted", async () => {
+      await database.connection.db.insert(bookings).values({
+        name: "Delete invalidation conflict",
+        phone: "0400000098",
+        requestKind: "experience",
+        status: "confirmed",
+        attendanceCount: 2,
+        participantCount: 2,
+        slotDate: "2026-08-01",
+        slotStartTime: "12:00",
+        slotEndTime: "13:00",
+      });
+      const service = createAdminSettingsService(database.connection.db);
+      const initial = await requireScheduleConflict(() =>
+        service.createClosure({ date: "2026-08-01", startTime: "12:00", endTime: "13:00" }),
+      );
+      const closure = await service.createClosure({
+        date: "2026-08-01",
+        startTime: "12:00",
+        endTime: "13:00",
+        acknowledgement: { fingerprint: initial },
+      });
+      const displayed = await requireScheduleConflict(() =>
+        service.createClosure({ date: "2026-08-01", startTime: "12:00", endTime: "13:00" }),
+      );
+
+      await service.deleteClosure(closure.id);
+      const refreshed = await requireScheduleConflict(() =>
+        service.createClosure({
+          date: "2026-08-01",
+          startTime: "12:00",
+          endTime: "13:00",
+          acknowledgement: { fingerprint: displayed },
+        }),
+      );
+      expect(refreshed).not.toBe(displayed);
+    });
+
     it("requires acknowledgement before special hours shorten active ordinary or party bookings", async () => {
       await database.connection.db.insert(bookings).values([
         {

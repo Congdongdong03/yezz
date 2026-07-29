@@ -74,10 +74,10 @@ describe.skipIf(!runDatabaseTests)("booking availability repository", () => {
     start: string;
     end: string;
     attendance?: number | null;
-  }) {
-    await connection!.client.unsafe(
+  }): Promise<string> {
+    const [row] = await connection!.client.unsafe<{ id: string }[]>(
       `INSERT INTO bookings (request_kind, status, slot_date, slot_start_time, slot_end_time, attendance_count)
-       VALUES ($1, $2, '2026-08-01', $3, $4, $5)`,
+       VALUES ($1, $2, '2026-08-01', $3, $4, $5) RETURNING id`,
       [
         values.requestKind,
         values.status,
@@ -86,6 +86,7 @@ describe.skipIf(!runDatabaseTests)("booking availability repository", () => {
         values.attendance ?? null,
       ],
     );
+    return row!.id;
   }
 
   it("counts only overlapping confirmed ordinary attendance", async () => {
@@ -98,6 +99,13 @@ describe.skipIf(!runDatabaseTests)("booking availability repository", () => {
       .sumConfirmedAttendance({ date: "2026-08-01", startTime: "10:00", endTime: "11:00" });
 
     expect(result).toBe(3);
+  });
+
+  it("excludes the booking being restored while keeping other pending requests occupied", async () => {
+    const self = await insertBooking({ requestKind: "experience", status: "cancellation_requested", start: "10:00", end: "11:00", attendance: 5 });
+    await insertBooking({ requestKind: "experience", status: "reschedule_requested", start: "10:00", end: "11:00", attendance: 2 });
+    const repo = createBookingAvailabilityRepository(connection!.db);
+    await expect(repo.sumConfirmedAttendance({ date: "2026-08-01", startTime: "10:00", endTime: "11:00" }, undefined, { excludeBookingId: self })).resolves.toBe(2);
   });
 
   it("treats active party intervals as exclusive with half-open boundaries", async () => {
