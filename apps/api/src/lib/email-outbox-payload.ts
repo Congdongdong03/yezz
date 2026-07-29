@@ -124,7 +124,7 @@ export type CustomerManagePayload = {
   date: string;
   startTime: string;
   endTime: string;
-  manageUrl: string;
+  manageUrl?: string;
   storeName: "YezYY";
   contactEmail: "congdongdong03@gmail.com";
   contactPhone: "0430 787 712";
@@ -378,7 +378,6 @@ function bookingNotification(value: unknown): CustomerManagePayload {
       "date",
       "startTime",
       "endTime",
-      "manageUrl",
       "storeName",
       "contactEmail",
       "contactPhone",
@@ -401,7 +400,15 @@ function bookingNotification(value: unknown): CustomerManagePayload {
   calendarDate(candidate.date, "payload.date");
   clockTime(candidate.startTime, "payload.startTime");
   clockTime(candidate.endTime, "payload.endTime");
-  httpUrl(candidate.manageUrl, "payload.manageUrl");
+  const terminalPartyTemplate =
+    candidate.template === "party_rejected" ||
+    candidate.template === "party_cancelled";
+  if (terminalPartyTemplate && candidate.manageUrl !== undefined) {
+    invalid("payload.manageUrl is not allowed for terminal party updates");
+  }
+  if (!terminalPartyTemplate) {
+    httpUrl(candidate.manageUrl, "payload.manageUrl");
+  }
   if (candidate.storeName !== "YezYY") {
     invalid("payload.storeName must be YezYY");
   }

@@ -242,17 +242,20 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
       throw new AppError(422, "PARTY_EMAIL_MISSING", "Party booking email is required");
     }
     const messageLocale = bookingLocale(input.booking.locale);
-    const rawToken =
-      input.rawToken ??
-      (await issueDeterministicManagementToken(
-        {
-          bookingId: input.booking.id,
-          identity: `event:${input.statusEventId}:${input.template}`,
-          now: now(),
-          secret: customerActionTokenSecret,
-        },
-        tx,
-      ));
+    const terminalPartyUpdate =
+      input.template === "party_rejected" || input.template === "party_cancelled";
+    const rawToken = terminalPartyUpdate
+      ? undefined
+      : input.rawToken ??
+        (await issueDeterministicManagementToken(
+          {
+            bookingId: input.booking.id,
+            identity: `event:${input.statusEventId}:${input.template}`,
+            now: now(),
+            secret: customerActionTokenSecret,
+          },
+          tx,
+        ));
     await outboxRepo.enqueue(
       {
         dedupeKey: `booking:${input.booking.id}:event:${input.statusEventId}:${input.template}:customer`,
@@ -268,11 +271,15 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
           date: input.date,
           startTime: input.startTime,
           endTime: input.endTime,
-          manageUrl: customerManageUrl(
-            messageLocale,
-            rawToken,
-            dependencies?.customerManageBaseUrl,
-          ),
+          ...(rawToken
+            ? {
+                manageUrl: customerManageUrl(
+                  messageLocale,
+                  rawToken,
+                  dependencies?.customerManageBaseUrl,
+                ),
+              }
+            : {}),
           ...(input.paymentDeadline
             ? { paymentDeadline: input.paymentDeadline.toISOString() }
             : {}),

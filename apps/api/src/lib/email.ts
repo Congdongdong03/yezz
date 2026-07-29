@@ -486,7 +486,7 @@ function renderBookingNotification(
       ${staffContact}
     </table>
     ${note}
-    <p style="margin:24px 0 0;"><a href="${escapeHtml(payload.manageUrl)}" style="display:inline-block;background:#B07D5C;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">${zh ? "管理预约" : "Manage booking"}</a></p>
+    ${payload.manageUrl ? `<p style="margin:24px 0 0;"><a href="${escapeHtml(payload.manageUrl)}" style="display:inline-block;background:#B07D5C;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;">${zh ? "管理预约" : "Manage booking"}</a></p>` : ""}
     <div style="background:#F4EFE9;border-radius:8px;padding:16px;margin-top:24px;">
       <p style="margin:4px 0;"><strong>${zh ? "店铺" : "Store"}:</strong> ${escapeHtml(payload.storeName)}</p>
       <p style="margin:4px 0;"><strong>${zh ? "邮箱" : "Email"}:</strong> ${escapeHtml(payload.contactEmail)}</p>

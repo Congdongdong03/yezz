@@ -388,11 +388,13 @@ describe("live booking notification templates", () => {
       template: "party_rejected",
       en: /party request update/i,
       zh: /派对申请更新/,
+      noManageUrl: true,
     },
     {
       template: "party_cancelled",
       en: /party cancellation update/i,
       zh: /派对取消处理更新/,
+      noManageUrl: true,
     },
     {
       template: "cancellation_request",
@@ -414,19 +416,27 @@ describe("live booking notification templates", () => {
   it.each(cases)("renders $template safely in English and Chinese", async (testCase) => {
     const { renderEmail } = await import("./email.js");
     for (const locale of ["en", "zh"] as const) {
+      const payload = {
+        template: testCase.template,
+        ...common,
+        ...("extra" in testCase ? testCase.extra : {}),
+      };
+      if ("noManageUrl" in testCase && testCase.noManageUrl) {
+        delete payload.manageUrl;
+      }
       const html = renderEmail({
         locale,
-        payload: {
-          template: testCase.template,
-          ...common,
-          ...("extra" in testCase ? testCase.extra : {}),
-        },
+        payload,
       });
       expect(html).toMatch(locale === "zh" ? testCase.zh : testCase.en);
       expect(html).toContain("YezYY");
       expect(html).toContain("congdongdong03@gmail.com");
       expect(html).toContain("0430 787 712");
-      expect(html).toContain("manage-booking");
+      if ("noManageUrl" in testCase && testCase.noManageUrl) {
+        expect(html).not.toContain("manage-booking");
+      } else {
+        expect(html).toContain("manage-booking");
+      }
       expect(html).toContain(`<html lang="${locale}">`);
     }
   });

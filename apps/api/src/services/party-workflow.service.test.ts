@@ -273,7 +273,7 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     })).rejects.toMatchObject({ code: "PARTY_DEDICATED_ACTION_REQUIRED" });
   });
 
-  it("enqueues one English rejection update with an event-bound management link", async () => {
+  it("enqueues one English rejection update without an unusable management link", async () => {
     const service = createPartyWorkflowService(database.connection.db, {
       now: () => new Date("2030-08-10T00:00:00.000Z"),
       customerManageBaseUrl: "https://yezyy.com",
@@ -310,12 +310,16 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       messageType: "booking_notification_customer",
       payload: {
         template: "party_rejected",
-        manageUrl: expect.stringMatching(
-          /^https:\/\/yezyy\.com\/en\/manage-booking\/[A-Za-z0-9_-]+$/,
-        ),
       },
     });
+    expect(rejectionUpdates[0]?.payload).not.toHaveProperty("manageUrl");
     expect(rejectionUpdates[0]?.statusEventId).toBeTruthy();
+    await expect(
+      database.connection.db
+        .select()
+        .from(customerActionTokens)
+        .where(eq(customerActionTokens.bookingId, created.id)),
+    ).resolves.toHaveLength(0);
   });
 
   it("enqueues one Chinese cancellation-resolution update and rolls back if it cannot enqueue", async () => {
@@ -347,19 +351,21 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       .select()
       .from(emailOutbox)
       .where(eq(emailOutbox.bookingId, created.id));
-    expect(
-      deliveries.filter(({ payload }) => payload.template === "party_cancelled"),
-    ).toMatchObject([
-      {
-        locale: "zh",
-        payload: {
-          template: "party_cancelled",
-          manageUrl: expect.stringMatching(
-            /^https:\/\/yezyy\.com\/zh\/manage-booking\/[A-Za-z0-9_-]+$/,
-          ),
-        },
-      },
-    ]);
+    const cancellationUpdates = deliveries.filter(
+      ({ payload }) => payload.template === "party_cancelled",
+    );
+    expect(cancellationUpdates).toHaveLength(1);
+    expect(cancellationUpdates[0]).toMatchObject({
+      locale: "zh",
+      payload: { template: "party_cancelled" },
+    });
+    expect(cancellationUpdates[0]?.payload).not.toHaveProperty("manageUrl");
+    await expect(
+      database.connection.db
+        .select()
+        .from(customerActionTokens)
+        .where(eq(customerActionTokens.bookingId, created.id)),
+    ).resolves.toHaveLength(0);
 
     const rollback = await service.createPartyRequest(
       validParty({ email: "rollback@example.com" }),

@@ -118,7 +118,7 @@ export function notificationPayload(input: {
   date: string;
   startTime: string;
   endTime: string;
-  manageUrl: string;
+  manageUrl?: string;
   paymentDeadline?: string;
   amountCents?: 9500 | 14500;
   note?: string;
@@ -140,7 +140,7 @@ export function notificationPayload(input: {
     date: input.date,
     startTime: input.startTime,
     endTime: input.endTime,
-    manageUrl: input.manageUrl,
+    ...(input.manageUrl ? { manageUrl: input.manageUrl } : {}),
     ...CANONICAL_BOOKING_EMAIL_IDENTITY,
     ...(input.paymentDeadline
       ? { paymentDeadline: input.paymentDeadline }
