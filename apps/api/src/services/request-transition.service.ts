@@ -249,6 +249,9 @@ export function createRequestTransitionService(
           for (const date of [...new Set([existing.slotDate!, interval.date])].sort()) await availabilityRepo.lockOperationalDate(date, tx);
           const schedule = await scheduleRepo.resolveDay(interval.date);
           if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt) throw new AppError(400, "STUDIO_CLOSED", "The studio is closed on this date");
+          if (schedule.closures.some((closure) => closure.startTime === null || closure.endTime === null || (interval.startTime < closure.endTime && interval.endTime > closure.startTime))) {
+            throw new AppError(409, "SCHEDULE_CONFLICT", "The requested interval is unavailable due to the studio schedule");
+          }
           validateBookingWindow({ date: interval.date, startTime: interval.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(now()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
           const occupied = await availabilityRepo.sumConfirmedAttendance(interval, tx);
           const hasParty = await availabilityRepo.hasExclusivePartyOverlap(interval, tx);

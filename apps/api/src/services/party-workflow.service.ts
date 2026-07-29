@@ -171,8 +171,29 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
     }
   }
 
-  async function assertCanHold(bookingId: string, interval: { date: string; setupStart: string; cleanupEnd: string }, tx: Db) {
+  async function assertCanHold(bookingId: string, interval: { date: string; setupStart: string; guestStart: string; guestEnd: string; cleanupEnd: string }, tx: Db) {
     await availabilityRepo.lockOperationalDate(interval.date, tx);
+    const schedule = await scheduleRepo.resolveDay(interval.date);
+    if (
+      schedule.isClosed ||
+      !schedule.opensAt ||
+      !schedule.closesAt ||
+      interval.guestStart < schedule.opensAt ||
+      interval.guestEnd > schedule.closesAt ||
+      schedule.closures.some(
+        (closure) =>
+          closure.startTime === null ||
+          closure.endTime === null ||
+          (interval.guestStart < closure.endTime &&
+            interval.guestEnd > closure.startTime),
+      )
+    ) {
+      throw new AppError(
+        409,
+        "SCHEDULE_CONFLICT",
+        "The party time is unavailable due to the studio schedule",
+      );
+    }
     if (await availabilityRepo.hasExclusivePartyOverlap({ date: interval.date, startTime: interval.setupStart, endTime: interval.cleanupEnd }, tx)) {
       throw new AppError(409, "CAPACITY_CONFLICT", "The requested interval is already held");
     }
@@ -508,7 +529,7 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
         if (transition.replayed) return { id: transition.booking.id, status: transition.booking.status, createdAt: transition.booking.createdAt, replayed: true };
         const details = await partyRepo.findDetails(bookingId, tx);
         if (!details?.finalDate || !details.finalSetupStart || !details.finalGuestStart || !details.finalGuestEnd || !details.finalCleanupEnd || !details.paymentDeadline || details.paymentDeadline <= now()) throw new AppError(409, "PARTY_HOLD_EXPIRED", "The proposed party time is no longer available");
-        await assertCanHold(bookingId, { date: details.finalDate, setupStart: details.finalSetupStart, cleanupEnd: details.finalCleanupEnd }, tx);
+        await assertCanHold(bookingId, { date: details.finalDate, setupStart: details.finalSetupStart, guestStart: details.finalGuestStart, guestEnd: details.finalGuestEnd, cleanupEnd: details.finalCleanupEnd }, tx);
         const updated = await partyRepo.setStatus(bookingId, "time_proposed", "awaiting_in_store_payment", tx);
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The party booking changed. Refresh and try again.");
         const event = await eventsRepo.createBooking({ bookingId, operationId, fromStatus: "time_proposed", toStatus: "awaiting_in_store_payment", adminNote: encodePartyOperation(operationPayload), actorUserId, actorKind: actorUserId ? "staff" : "customer" }, tx);
@@ -592,7 +613,7 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
         if (!booking || booking.requestKind !== "party" || booking.status !== "time_proposed") throw invalidLink();
         const details = await partyRepo.findDetails(booking.id, tx);
         if (!details?.finalDate || !details.finalSetupStart || !details.finalGuestStart || !details.finalGuestEnd || !details.finalCleanupEnd || !details.paymentDeadline || details.paymentDeadline <= now()) throw invalidLink();
-        await assertCanHold(booking.id, { date: details.finalDate, setupStart: details.finalSetupStart, cleanupEnd: details.finalCleanupEnd }, tx);
+        await assertCanHold(booking.id, { date: details.finalDate, setupStart: details.finalSetupStart, guestStart: details.finalGuestStart, guestEnd: details.finalGuestEnd, cleanupEnd: details.finalCleanupEnd }, tx);
         const updated = await partyRepo.setStatus(booking.id, "time_proposed", "awaiting_in_store_payment", tx);
         if (!updated) throw invalidLink();
         const consumed = await tokensRepo.consume(token.id, now(), tx);

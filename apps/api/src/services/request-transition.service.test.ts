@@ -5,6 +5,7 @@ import {
   emailOutbox,
   partyPackages,
   requestStatusEvents,
+  studioClosures,
   studioWeeklyHours,
   timeSlots,
   users,
@@ -16,6 +17,7 @@ import {
   type RequestFlowTestDatabase,
 } from "../test-utils/request-flow-postgres.js";
 import { createRequestTransitionService } from "./request-transition.service.js";
+import { createAdminSettingsService } from "./admin/settings.admin.service.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
 
@@ -337,6 +339,105 @@ describe.skipIf(!runDatabaseTests)(
           .from(customerActionTokens)
           .where(eq(customerActionTokens.bookingId, booking.id)),
       ).toHaveLength(1);
+    });
+
+    it("rejects confirmation when a partial closure covers the final interval", async () => {
+      await database.connection.db.insert(studioWeeklyHours).values({
+        weekday: 0,
+        opensAt: "09:00",
+        closesAt: "17:00",
+        isClosed: false,
+      });
+      await database.connection.db.insert(studioClosures).values({
+        date: "2026-08-02",
+        startTime: "10:30",
+        endTime: "11:30",
+      });
+      const [booking] = await database.connection.db.insert(bookings).values({
+        name: "Closure confirmation customer",
+        phone: "0430000007",
+        email: "closure@example.com",
+        requestKind: "experience",
+        status: "pending_review",
+        participantCount: 2,
+        youngChildCount: 0,
+        accompanyingAdultCount: 1,
+        attendanceCount: 3,
+        durationMinutes: 60,
+        slotDate: "2026-08-02",
+        slotStartTime: "10:00",
+        slotEndTime: "11:00",
+        policyVersion: "2026-07-29",
+        policyAcceptedAt: new Date(),
+      }).returning();
+
+      await expect(
+        createRequestTransitionService(database.connection.db).transitionOrdinary({
+          bookingId: booking!.id,
+          expectedStatus: "pending_review",
+          toStatus: "confirmed",
+          operationId: crypto.randomUUID(),
+          actorUserId: actorId,
+          newDate: "2026-08-02",
+          newStartTime: "10:00",
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+      });
+    });
+
+    it("serializes a partial closure and ordinary confirmation on the operational date", async () => {
+      await database.connection.db.insert(studioWeeklyHours).values({
+        weekday: 0,
+        opensAt: "09:00",
+        closesAt: "17:00",
+        isClosed: false,
+      });
+      const [booking] = await database.connection.db.insert(bookings).values({
+        name: "Concurrent closure confirmation customer",
+        phone: "0430000006",
+        email: "closure-race@example.com",
+        requestKind: "experience",
+        status: "pending_review",
+        participantCount: 2,
+        youngChildCount: 0,
+        accompanyingAdultCount: 1,
+        attendanceCount: 3,
+        durationMinutes: 60,
+        slotDate: "2026-08-02",
+        slotStartTime: "10:00",
+        slotEndTime: "11:00",
+        policyVersion: "2026-07-29",
+        policyAcceptedAt: new Date(),
+      }).returning();
+
+      const results = await Promise.allSettled([
+        createRequestTransitionService(database.connection.db).transitionOrdinary({
+          bookingId: booking!.id,
+          expectedStatus: "pending_review",
+          toStatus: "confirmed",
+          operationId: crypto.randomUUID(),
+          actorUserId: actorId,
+          newDate: "2026-08-02",
+          newStartTime: "10:00",
+        }),
+        createAdminSettingsService(database.connection.db).createClosure({
+          date: "2026-08-02",
+          startTime: "10:30",
+          endTime: "11:30",
+        }),
+      ]);
+
+      expect(results.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+      expect(results.filter(({ status }) => status === "rejected")).toHaveLength(1);
+      const rejected = results.find(
+        (result): result is PromiseRejectedResult => result.status === "rejected",
+      );
+      expect(rejected?.reason).toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+      });
     });
 
     it.each([

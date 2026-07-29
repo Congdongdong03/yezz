@@ -33,6 +33,7 @@ import { createStudioScheduleRepository } from "../repositories/studio-schedule.
 import { createStatusEventsRepository } from "../repositories/status-events.repository.js";
 import {
   readRequestCapabilities,
+  requireEffectiveRequestCapability,
   type RequestCapabilities,
 } from "./settings.service.js";
 import {
@@ -620,6 +621,9 @@ export function createBookingsService(
         const interval = buildOrdinaryInterval({ date: input.date, startTime: input.startTime, participantCount: input.participantCount, accompanyingAdultCount: input.accompanyingAdultCount, itemDurations: snapshots.map((item) => item.durationMinutesSnapshot) });
         const schedule = await scheduleRepo.resolveDay(input.date);
         if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt) throw new AppError(400, "STUDIO_CLOSED", "The studio is closed on this date");
+        if (schedule.closures.some((closure) => closure.startTime === null || closure.endTime === null || (input.startTime < closure.endTime && interval.endTime > closure.startTime))) {
+          throw new AppError(409, "SCHEDULE_CONFLICT", "The requested interval is unavailable due to the studio schedule");
+        }
         validateBookingWindow({ date: input.date, startTime: input.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(now()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
         const created = await repo.createOrdinary({ ...input, email: input.email.trim().toLowerCase(), endTime: interval.endTime, attendanceCount: interval.attendanceCount, durationMinutes: interval.durationMinutes, idempotencyKey: normalizedKey, status: input.mode === "waitlist" ? "waitlisted" : "pending_review", submissionMode: input.mode, items: snapshots }, tx);
         const messageLocale = input.locale;

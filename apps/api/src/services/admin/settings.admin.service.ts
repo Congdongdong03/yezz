@@ -15,6 +15,7 @@ import {
   createSettingsRepository,
   type SiteSettingsUpdateInput,
 } from "../../repositories/settings.repository.js";
+import { createBookingAvailabilityRepository } from "../../repositories/booking-availability.repository.js";
 import {
   effectiveRequestCapabilities,
   readRequestCapabilities,
@@ -147,6 +148,7 @@ export function createAdminSettingsService(
   env: RequestSwitchEnvironment = process.env,
 ) {
   const repo = createSettingsRepository(db);
+  const availabilityRepo = createBookingAvailabilityRepository(db);
 
   async function settingsRow(): Promise<SettingsRow> {
     let row = await repo.findSingleton();
@@ -167,8 +169,9 @@ export function createAdminSettingsService(
     date: string,
     startTime: string | null,
     endTime: string | null,
+    connection: Db = db,
   ): Promise<string[]> {
-    const scheduled = await db
+    const scheduled = await connection
       .select({
         id: bookings.id,
         createdAt: bookings.createdAt,
@@ -192,6 +195,36 @@ export function createAdminSettingsService(
             startTime,
             endTime,
           ),
+      )
+      .map((booking) => formatBookingOrderId(booking.id, booking.createdAt));
+  }
+
+  async function findBookingsOutsideSpecialHours(
+    date: string,
+    opensAt: string,
+    closesAt: string,
+    connection: Db = db,
+  ): Promise<string[]> {
+    const scheduled = await connection
+      .select({
+        id: bookings.id,
+        createdAt: bookings.createdAt,
+        requestKind: bookings.requestKind,
+        status: bookings.status,
+        startTime: bookings.slotStartTime,
+        endTime: bookings.slotEndTime,
+      })
+      .from(bookings)
+      .where(eq(bookings.slotDate, date));
+    return scheduled
+      .filter(
+        (booking) =>
+          ((booking.requestKind === "experience" &&
+            booking.status === "confirmed") ||
+            (booking.requestKind === "party" &&
+              ACTIVE_PARTY_STATUSES.has(booking.status))) &&
+          (!!booking.startTime && !!booking.endTime) &&
+          (booking.startTime < opensAt || booking.endTime > closesAt),
       )
       .map((booking) => formatBookingOrderId(booking.id, booking.createdAt));
   }
@@ -317,36 +350,47 @@ export function createAdminSettingsService(
             "full-day special closures cannot include opening times",
           );
         }
-        const affected = await findAffectedBookingNumbers(input.date, null, null);
+      } else {
+        assertTimePair(input.opensAt, input.closesAt);
+      }
+      const row = await db.transaction(async (tx) => {
+        await availabilityRepo.lockOperationalDate(input.date, tx);
+        const affected = input.isClosed
+          ? await findAffectedBookingNumbers(input.date, null, null, tx)
+          : await findBookingsOutsideSpecialHours(
+              input.date,
+              input.opensAt!,
+              input.closesAt!,
+              tx,
+            );
         if (
           affected.length > 0 &&
           input.acknowledgeExistingBookings !== true
         ) {
           throwScheduleConflict(affected);
         }
-      } else {
-        assertTimePair(input.opensAt, input.closesAt);
-      }
-      const [row] = await db
-        .insert(studioSpecialHours)
-        .values({
-          date: input.date,
-          opensAt: input.isClosed ? null : input.opensAt!,
-          closesAt: input.isClosed ? null : input.closesAt!,
-          isClosed: input.isClosed,
-          note: input.note?.trim() || null,
-        })
-        .onConflictDoUpdate({
-          target: studioSpecialHours.date,
-          set: {
+        const [updated] = await tx
+          .insert(studioSpecialHours)
+          .values({
+            date: input.date,
             opensAt: input.isClosed ? null : input.opensAt!,
             closesAt: input.isClosed ? null : input.closesAt!,
             isClosed: input.isClosed,
             note: input.note?.trim() || null,
-          },
-        })
-        .returning();
-      return { ...row!, date: dateValue(row!.date) };
+          })
+          .onConflictDoUpdate({
+            target: studioSpecialHours.date,
+            set: {
+              opensAt: input.isClosed ? null : input.opensAt!,
+              closesAt: input.isClosed ? null : input.closesAt!,
+              isClosed: input.isClosed,
+              note: input.note?.trim() || null,
+            },
+          })
+          .returning();
+        return updated!;
+      });
+      return { ...row, date: dateValue(row.date) };
     },
 
     async createClosure(input: {
@@ -374,28 +418,26 @@ export function createAdminSettingsService(
       }
       if (startTime !== null) assertTimePair(startTime, endTime);
 
-      const affectedBookingNumbers = await findAffectedBookingNumbers(
-        input.date,
-        startTime,
-        endTime,
-      );
-      if (
-        affectedBookingNumbers.length > 0 &&
-        input.acknowledgeExistingBookings !== true
-      ) {
-        throwScheduleConflict(affectedBookingNumbers);
-      }
-
-      const [row] = await db
-        .insert(studioClosures)
-        .values({
+      const row = await db.transaction(async (tx) => {
+        await availabilityRepo.lockOperationalDate(input.date, tx);
+        const affectedBookingNumbers = await findAffectedBookingNumbers(
+          input.date,
+          startTime,
+          endTime,
+          tx,
+        );
+        if (affectedBookingNumbers.length > 0 && input.acknowledgeExistingBookings !== true) {
+          throwScheduleConflict(affectedBookingNumbers);
+        }
+        const [created] = await tx.insert(studioClosures).values({
           date: input.date,
           startTime,
           endTime,
           note: input.note?.trim() || null,
-        })
-        .returning();
-      return { ...row!, date: dateValue(row!.date) };
+        }).returning();
+        return created!;
+      });
+      return { ...row, date: dateValue(row.date) };
     },
 
     async deleteClosure(id: string) {

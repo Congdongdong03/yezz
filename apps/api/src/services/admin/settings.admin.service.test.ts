@@ -95,26 +95,31 @@ describe.skipIf(!runDatabaseTests)(
         note: "测试清洁",
       });
 
-      await expect(service.getSchedule()).resolves.toMatchObject({
-        weekly: expect.arrayContaining([
-          { weekday: 0, opensAt: "10:00", closesAt: "17:00" },
+      const schedule = await service.getSchedule();
+      expect(schedule.weekly).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            weekday: 0,
+            opensAt: "10:00",
+            closesAt: "17:00",
+          }),
         ]),
-        specialHours: [
-          {
-            date: "2026-08-01",
-            opensAt: "11:00",
-            closesAt: "15:00",
-          },
-        ],
-        closures: [
-          {
-            id: closure.id,
-            date: "2026-08-01",
-            startTime: "12:00",
-            endTime: "12:30",
-          },
-        ],
-      });
+      );
+      expect(schedule.specialHours).toMatchObject([
+        {
+          date: "2026-08-01",
+          opensAt: "11:00",
+          closesAt: "15:00",
+        },
+      ]);
+      expect(schedule.closures).toMatchObject([
+        {
+          id: closure.id,
+          date: "2026-08-01",
+          startTime: "12:00",
+          endTime: "12:30",
+        },
+      ]);
 
       await service.deleteClosure(closure.id);
       await expect(
@@ -183,6 +188,66 @@ describe.skipIf(!runDatabaseTests)(
           .select({ status: bookings.status })
           .from(bookings),
       ).resolves.toEqual([{ status: booking!.status }]);
+    });
+
+    it("requires acknowledgement before special hours shorten active ordinary or party bookings", async () => {
+      await database.connection.db.insert(bookings).values([
+        {
+          name: "Ordinary special-hours conflict",
+          phone: "0400000022",
+          requestKind: "experience",
+          status: "confirmed",
+          attendanceCount: 2,
+          participantCount: 2,
+          slotDate: "2026-08-01",
+          slotStartTime: "11:00",
+          slotEndTime: "12:00",
+        },
+        {
+          name: "Party special-hours conflict",
+          phone: "0400000023",
+          requestKind: "party",
+          status: "awaiting_in_store_payment",
+          participantCount: 4,
+          attendanceCount: 5,
+          slotDate: "2026-08-01",
+          slotStartTime: "13:00",
+          slotEndTime: "15:00",
+        },
+      ]);
+      const service = createAdminSettingsService(database.connection.db);
+
+      await expect(
+        service.upsertSpecialHours({
+          date: "2026-08-01",
+          opensAt: "11:30",
+          closesAt: "14:00",
+          isClosed: false,
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: "SCHEDULE_CONFLICT",
+        details: {
+          affectedBookingNumbers: [
+            expect.stringMatching(/^booking-\d{8}-[A-F0-9]{4}$/),
+            expect.stringMatching(/^booking-\d{8}-[A-F0-9]{4}$/),
+          ],
+        },
+      });
+
+      await expect(
+        service.upsertSpecialHours({
+          date: "2026-08-01",
+          opensAt: "11:30",
+          closesAt: "14:00",
+          isClosed: false,
+          acknowledgeExistingBookings: true,
+        }),
+      ).resolves.toMatchObject({
+        date: "2026-08-01",
+        opensAt: "11:30",
+        closesAt: "14:00",
+      });
     });
   },
 );

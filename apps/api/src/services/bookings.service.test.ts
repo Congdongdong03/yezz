@@ -8,6 +8,7 @@ import {
   bookingItems,
   requestStatusEvents,
   siteSettings,
+  studioClosures,
   studioWeeklyHours,
   timeSlots,
 } from "@yezz/db";
@@ -664,6 +665,24 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
       "booking_received",
       "staff_notification",
     ]);
+  });
+
+  it("rejects an ordinary submission that overlaps a partial closure", async () => {
+    await database.connection.db.insert(studioClosures).values({
+      date: "2026-08-02",
+      startTime: "10:30",
+      endTime: "11:30",
+    });
+
+    await expect(
+      createEnabledBookingsService(database.connection.db).createOrdinaryRequest(
+        ordinaryInput(),
+        crypto.randomUUID(),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: "SCHEDULE_CONFLICT",
+    });
   });
 
   it("rejects an idempotent replay when the database booking gate is disabled", async () => {
