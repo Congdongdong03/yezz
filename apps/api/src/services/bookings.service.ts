@@ -1,5 +1,11 @@
-import type { Db } from "@yezz/db";
+import type { BookingStatus, Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
+import {
+  buildOrdinaryInterval,
+  type OrdinaryBookingCreateInput,
+  validateOrdinaryAttendance,
+} from "../lib/booking-workflow.js";
+import { getMelbourneClock, validateBookingWindow } from "../lib/booking-policy.js";
 import { legacyStatusFromBookingStatus } from "../lib/legacy-booking-status.js";
 import {
   escapeHtml,
@@ -15,6 +21,7 @@ import {
 import { createPartiesRepository } from "../repositories/parties.repository.js";
 import { createProjectsRepository } from "../repositories/projects.repository.js";
 import { createRequestCapacityRepository } from "../repositories/request-capacity.repository.js";
+import { createStudioScheduleRepository } from "../repositories/studio-schedule.repository.js";
 import {
   readRequestCapabilities,
   type RequestCapabilities,
@@ -29,6 +36,7 @@ export type BookingDto = {
 };
 
 export type BookingsService = ReturnType<typeof createBookingsService>;
+export type { OrdinaryBookingCreateInput } from "../lib/booking-workflow.js";
 
 export function normalizeBookingPeople(
   value: number | null | undefined,
@@ -131,6 +139,29 @@ function databaseErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
+function isOrdinaryBookingCreateInput(input: BookingCreateInput | OrdinaryBookingCreateInput): input is OrdinaryBookingCreateInput {
+  return "mode" in input && "items" in input && "participantCount" in input;
+}
+
+function assertOrdinaryInput(input: OrdinaryBookingCreateInput): void {
+  if (!input.name.trim() || !input.phone.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
+    throw new AppError(400, "VALIDATION_ERROR", "name, phone, and a valid email are required");
+  }
+  if (!input.policyAccepted || input.policyVersion !== "2026-07-29") {
+    throw new AppError(400, "VALIDATION_ERROR", "The current booking policy must be accepted");
+  }
+  if (input.mode !== "booking" && input.mode !== "waitlist") {
+    throw new AppError(400, "VALIDATION_ERROR", "mode must be booking or waitlist");
+  }
+  validateOrdinaryAttendance(input);
+  if (!input.items.length || input.items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) {
+    throw new AppError(400, "VALIDATION_ERROR", "items must contain positive quantities");
+  }
+  if (input.items.reduce((total, item) => total + item.quantity, 0) !== input.participantCount) {
+    throw new AppError(400, "VALIDATION_ERROR", "project quantity must equal participantCount");
+  }
+}
+
 type PersistedBookingReplayIdentity = {
   requestKind: string;
   projectId: string | null;
@@ -228,13 +259,18 @@ export function createBookingsService(
   const projectsRepo = createProjectsRepository(db);
   const partiesRepo = createPartiesRepository(db);
   const capacityRepo = createRequestCapacityRepository(db);
+  const scheduleRepo = createStudioScheduleRepository(db);
+  const settingsRepo = createSettingsRepository(db);
   const outboxRepo = createEmailOutboxRepository(db);
 
   return {
     async create(
-      input: BookingCreateInput,
+      input: BookingCreateInput | OrdinaryBookingCreateInput,
       idempotencyKey?: string,
     ): Promise<BookingDto> {
+      if (isOrdinaryBookingCreateInput(input)) {
+        return this.createOrdinaryRequest(input, idempotencyKey) as Promise<BookingDto>;
+      }
       const requestedKind = input.kind ?? "experience";
       if (!requestCapabilities[requestedKind]) {
         throw new AppError(
@@ -516,6 +552,65 @@ export function createBookingsService(
         }
         throw error;
       }
+    },
+
+    async createOrdinaryRequest(
+      input: OrdinaryBookingCreateInput,
+      idempotencyKey?: string,
+    ): Promise<{
+      id: string;
+      status: BookingStatus;
+      createdAt: Date;
+      replayed: boolean;
+      notification: "queued";
+    }> {
+      if (!requestCapabilities.experience) {
+        throw new AppError(503, "REQUEST_FLOW_DISABLED", "experience requests are not currently available");
+      }
+      assertOrdinaryInput(input);
+      const normalizedKey = assertUuid(idempotencyKey, "Idempotency-Key");
+      const existing = await repo.findByIdempotencyKey(normalizedKey);
+      const assertReplay = async (row: Awaited<ReturnType<typeof repo.findByIdempotencyKey>>) => {
+        if (!row) return false;
+        const items = await repo.findItems(row.id);
+        const same = row.requestKind === "experience" && row.status === (input.mode === "waitlist" ? "waitlisted" : "pending_review") && row.participantCount === input.participantCount && row.youngChildCount === input.youngChildCount && row.accompanyingAdultCount === input.accompanyingAdultCount && row.slotDate === input.date && row.slotStartTime === input.startTime && row.name === input.name.trim() && row.phone === input.phone.trim() && row.email === input.email.trim().toLowerCase() && row.message === (input.message?.trim() || null) && row.locale === input.locale && row.policyVersion === input.policyVersion && Boolean(row.policyAcceptedAt) && items.length === input.items.length && items.every((item, index) => item.projectId === (input.items[index]?.decideInStore ? null : input.items[index]?.projectId) && item.quantity === input.items[index]?.quantity && item.decideInStore === Boolean(input.items[index]?.decideInStore));
+        if (!same) throw new AppError(409, "IDEMPOTENCY_KEY_CONFLICT", "The idempotency key belongs to a different booking request");
+        return true;
+      };
+      if (await assertReplay(existing)) {
+        return { id: existing!.id, status: existing!.status, createdAt: existing!.createdAt, replayed: true, notification: "queued" };
+      }
+
+      const result = await db.transaction(async (tx) => {
+        await repo.lockCreateAttempt(normalizedKey, tx);
+        const replay = await repo.findByIdempotencyKey(normalizedKey, tx);
+        if (replay) {
+          if (!(await assertReplay(replay))) throw new Error("unreachable");
+          return { row: replay, replayed: true };
+        }
+        const settings = await settingsRepo.findSingleton();
+        if (!settings?.experienceRequestsEnabled) {
+          throw new AppError(503, "REQUEST_FLOW_DISABLED", "experience requests are not currently available");
+        }
+        const snapshots = [] as Array<{ projectId: string | null; projectNameSnapshot: { en: string; zh: string } | null; unitPriceCentsSnapshot: number | null; durationMinutesSnapshot: number; quantity: number; decideInStore: boolean }>;
+        for (const item of input.items) {
+          if (item.decideInStore) {
+            snapshots.push({ projectId: null, projectNameSnapshot: { en: "Decide in store", zh: "到店决定" }, unitPriceCentsSnapshot: null, durationMinutesSnapshot: 60, quantity: item.quantity, decideInStore: true });
+            continue;
+          }
+          const project = await projectsRepo.findById(assertUuid(item.projectId, "projectId"), tx);
+          if (!project || project.projectType !== "experience" || !project.bookable || !project.durationMinutes) {
+            throw new AppError(422, "PROJECT_NOT_BOOKABLE", "The selected project is not available for booking");
+          }
+          snapshots.push({ projectId: project.id, projectNameSnapshot: project.name, unitPriceCentsSnapshot: project.priceMin ?? null, durationMinutesSnapshot: project.durationMinutes, quantity: item.quantity, decideInStore: false });
+        }
+        const interval = buildOrdinaryInterval({ date: input.date, startTime: input.startTime, participantCount: input.participantCount, accompanyingAdultCount: input.accompanyingAdultCount, itemDurations: snapshots.map((item) => item.durationMinutesSnapshot) });
+        const schedule = await scheduleRepo.resolveDay(input.date);
+        if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt) throw new AppError(400, "STUDIO_CLOSED", "The studio is closed on this date");
+        validateBookingWindow({ date: input.date, startTime: input.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(new Date()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
+        return { row: await repo.createOrdinary({ ...input, email: input.email.trim().toLowerCase(), endTime: interval.endTime, attendanceCount: interval.attendanceCount, durationMinutes: interval.durationMinutes, idempotencyKey: normalizedKey, status: input.mode === "waitlist" ? "waitlisted" : "pending_review", items: snapshots }, tx), replayed: false };
+      });
+      return { id: result.row.id, status: result.row.status, createdAt: result.row.createdAt, replayed: result.replayed, notification: "queued" };
     },
   };
 }

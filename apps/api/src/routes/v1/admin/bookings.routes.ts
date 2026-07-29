@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { BookingStatus } from "@yezz/db";
 import type { OrderStatus } from "../../../services/admin/bookings.admin.service.js";
 import { success } from "../../../lib/response.js";
 import { parseAdminQueueQuery } from "../../../lib/admin-queue-query.js";
@@ -30,10 +31,13 @@ export default async function adminBookingsRoutes(app: FastifyInstance) {
   });
 
   type StatusBody = {
-    status: OrderStatus;
-    expectedStatus: OrderStatus;
+    status?: OrderStatus;
+    toStatus?: BookingStatus;
+    expectedStatus: OrderStatus | BookingStatus;
     operationId: string;
     note?: string;
+    newDate?: string;
+    newStartTime?: string;
   };
 
   const updateStatus = async (

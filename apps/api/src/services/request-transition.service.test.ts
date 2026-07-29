@@ -4,6 +4,7 @@ import {
   emailOutbox,
   partyPackages,
   requestStatusEvents,
+  studioWeeklyHours,
   timeSlots,
   users,
 } from "@yezz/db";
@@ -219,6 +220,49 @@ describe.skipIf(!runDatabaseTests)(
         code: "STATUS_CONFLICT",
         details: { currentStatus: "new" },
       });
+    });
+
+    it("serializes concurrent ordinary confirmations and records one event-bound email", async () => {
+      await database.connection.db.insert(studioWeeklyHours).values({
+        weekday: 0,
+        opensAt: "09:00",
+        closesAt: "17:00",
+        isClosed: false,
+      });
+      const [booking] = await database.connection.db.insert(bookings).values({
+        name: "Ordinary customer",
+        phone: "0430000000",
+        email: "ordinary@example.com",
+        preferredDate: "2026-08-02",
+        numberOfPeople: 2,
+        requestKind: "experience",
+        slotDate: "2026-08-02",
+        slotStartTime: "10:00",
+        slotEndTime: "11:00",
+        locale: "en",
+        status: "pending_review",
+        participantCount: 2,
+        youngChildCount: 0,
+        accompanyingAdultCount: 1,
+        attendanceCount: 3,
+        durationMinutes: 60,
+        policyVersion: "2026-07-29",
+        policyAcceptedAt: new Date(),
+      }).returning();
+      const input = {
+        bookingId: booking.id,
+        expectedStatus: "pending_review" as const,
+        toStatus: "confirmed" as const,
+        operationId: crypto.randomUUID(),
+        actorUserId: actorId,
+      };
+      const [first, second] = await Promise.all([
+        createRequestTransitionService(database.connection.db).transitionOrdinary(input),
+        createRequestTransitionService(database.connection.db).transitionOrdinary(input),
+      ]);
+      expect([first.replayed, second.replayed].sort()).toEqual([false, true]);
+      expect(await database.connection.db.select().from(emailOutbox).where(eq(emailOutbox.bookingId, booking.id))).toHaveLength(1);
+      expect(await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.bookingId, booking.id))).toHaveLength(1);
     });
 
     it("does not let a new expectation update a contacted-effective booking", async () => {

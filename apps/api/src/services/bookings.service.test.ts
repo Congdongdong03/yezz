@@ -4,6 +4,9 @@ import {
   emailOutbox,
   partyPackages,
   projectCategories,
+  bookingItems,
+  siteSettings,
+  studioWeeklyHours,
   timeSlots,
 } from "@yezz/db";
 import { eq } from "drizzle-orm";
@@ -592,6 +595,40 @@ describe.skipIf(!runDatabaseTests)(
     });
   },
 );
+
+describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration", () => {
+  let database: RequestFlowTestDatabase;
+  let projectId: string;
+
+  beforeEach(async () => {
+    database = await createRequestFlowTestDatabase();
+    const categoryId = crypto.randomUUID();
+    projectId = crypto.randomUUID();
+    await database.connection.db.insert(projectCategories).values({ id: categoryId, name: { en: "DIY", zh: "手作" }, slug: `diy-${categoryId}` });
+    await database.connection.db.insert(diyProjects).values({ id: projectId, categoryId, name: { en: "Clay cup", zh: "陶杯" }, slug: `clay-${projectId}`, projectType: "experience", bookable: true, durationMinutes: 60, priceMin: 4300 });
+    await database.connection.db.insert(siteSettings).values({ storeName: "YezYY", experienceRequestsEnabled: true });
+    await database.connection.db.insert(studioWeeklyHours).values({ weekday: 0, opensAt: "09:00", closesAt: "17:00", isClosed: false });
+  });
+
+  afterEach(async () => database.close());
+
+  it("creates a pending request without reserving capacity", async () => {
+    const service = createEnabledBookingsService(database.connection.db);
+    const result = await service.createOrdinaryRequest({
+      kind: "experience", mode: "booking", name: "Customer", email: "customer@example.com", phone: "0430000000",
+      date: "2026-08-02", startTime: "10:00", participantCount: 2, youngChildCount: 1, accompanyingAdultCount: 1,
+      items: [{ projectId, quantity: 2 }], locale: "en", policyVersion: "2026-07-29", policyAccepted: true,
+    }, crypto.randomUUID());
+
+    expect(result.status).toBe("pending_review");
+    const [row] = await database.connection.db.select().from(bookings).where(eq(bookings.id, result.id));
+    expect(row.attendanceCount).toBe(3);
+    expect(row.slotEndTime).toBe("11:00");
+    expect(await database.connection.db.select().from(bookingItems).where(eq(bookingItems.bookingId, result.id))).toMatchObject([
+      { projectId, durationMinutesSnapshot: 60, unitPriceCentsSnapshot: 4300, quantity: 2 },
+    ]);
+  });
+});
 
 describe("mapBookingRow", () => {
   it("maps database row to API DTO", () => {

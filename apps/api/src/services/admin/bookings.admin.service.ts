@@ -1,4 +1,4 @@
-import { bookings, emailOutbox, type Db } from "@yezz/db";
+import { bookings, emailOutbox, type BookingStatus, type Db } from "@yezz/db";
 import { desc, eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import {
@@ -25,8 +25,8 @@ type DeliveryStatus = "pending" | "processing" | "sent" | "failed";
 export type BookingStatusHistoryItem = {
   id: string;
   operationId: string;
-  fromStatus: OrderStatus;
-  toStatus: OrderStatus;
+  fromStatus: OrderStatus | BookingStatus;
+  toStatus: OrderStatus | BookingStatus;
   note: string | null;
   createdAt: Date;
   actor: {
@@ -61,7 +61,7 @@ export type BookingDto = {
   message: string | null;
   locale: string | null;
   timeSlotId: string | null;
-  status: OrderStatus;
+  status: OrderStatus | BookingStatus;
   offering: {
     id: string | null;
     name: { en: string; zh: string } | null;
@@ -99,6 +99,13 @@ const EMPTY_EXTRAS: BookingDtoExtras = {
   statusHistory: [],
   emailDeliveries: [],
 };
+
+function displayBookingEventStatus(status: string): OrderStatus | BookingStatus {
+  if (["pending_review", "waitlisted", "rejected", "reschedule_requested", "cancellation_requested", "no_show", "completed"].includes(status)) {
+    return status as BookingStatus;
+  }
+  return legacyStatusFromStoredValue(status);
+}
 
 export function mapBookingRow(
   row: BookingRow,
@@ -139,10 +146,12 @@ export function mapBookingRow(
     message: row.message ?? null,
     locale: row.locale ?? null,
     timeSlotId: row.timeSlotId ?? null,
-    status: legacyStatusFromBookingEvidence(
-      row.status,
-      latestTransitionStatus ?? extras.statusHistory.at(-1)?.toStatus,
-    ),
+    status: row.participantCount !== null
+      ? row.status
+      : legacyStatusFromBookingEvidence(
+          row.status,
+          latestTransitionStatus ?? extras.statusHistory.at(-1)?.toStatus,
+        ),
     offering,
     slot,
     notificationSummary: extras.notificationSummary,
@@ -197,8 +206,8 @@ export function createAdminBookingsService(db: Db) {
       statusHistory: history.map((event) => ({
         id: event.id,
         operationId: event.operationId,
-        fromStatus: legacyStatusFromStoredValue(event.fromStatus),
-        toStatus: legacyStatusFromStoredValue(event.toStatus),
+        fromStatus: displayBookingEventStatus(event.fromStatus),
+        toStatus: displayBookingEventStatus(event.toStatus),
         note: event.note,
         createdAt: event.createdAt,
         actor: {
@@ -276,28 +285,44 @@ export function createAdminBookingsService(db: Db) {
     async updateStatus(
       id: string,
       input: {
-        status: OrderStatus;
-        expectedStatus: OrderStatus;
+        status?: OrderStatus;
+        toStatus?: BookingStatus;
+        expectedStatus: OrderStatus | BookingStatus;
         operationId: string;
         note?: string | null;
+        newDate?: string;
+        newStartTime?: string;
       },
       actorUserId: string,
     ): Promise<BookingDto> {
-      if (!input?.status || !input.expectedStatus || !input.operationId) {
+      if ((!input?.status && !input?.toStatus) || !input.expectedStatus || !input.operationId) {
         throw new AppError(
           400,
           "VALIDATION_ERROR",
           "status, expectedStatus, and operationId are required",
         );
       }
-      const result = await transitionService.transitionBooking({
-        bookingId: id,
-        expectedStatus: input.expectedStatus,
-        status: input.status,
-        operationId: input.operationId,
-        actorUserId,
-        note: input.note,
-      });
+      const row = await repo.findById(id);
+      if (!row) throw new AppError(404, "NOT_FOUND", "Booking not found");
+      const result = row.participantCount !== null
+        ? await transitionService.transitionOrdinary({
+            bookingId: id,
+            expectedStatus: input.expectedStatus as import("../../lib/booking-workflow.js").OrdinaryStatus,
+            toStatus: (input.toStatus ?? input.status) as BookingStatus,
+            operationId: input.operationId,
+            actorUserId,
+            note: input.note,
+            newDate: input.newDate,
+            newStartTime: input.newStartTime,
+          })
+        : await transitionService.transitionBooking({
+            bookingId: id,
+            expectedStatus: input.expectedStatus as OrderStatus,
+            status: input.status as OrderStatus,
+            operationId: input.operationId,
+            actorUserId,
+            note: input.note,
+          });
       const dto = await getById(result.row.id, actorUserId);
       return { ...dto, replayed: result.replayed };
     },

@@ -8,7 +8,17 @@ type StoreContactPayload = {
   email?: string | null;
 };
 
-export type BookingStatusTemplate = "contacted" | "confirmed" | "cancelled";
+export type BookingStatusTemplate =
+  | "contacted"
+  | "pending_review"
+  | "confirmed"
+  | "waitlisted"
+  | "rejected"
+  | "reschedule_requested"
+  | "cancellation_requested"
+  | "cancelled"
+  | "no_show"
+  | "completed";
 
 export type BookingStatusOutboxPayload = {
   template: "booking_status";
@@ -403,7 +413,7 @@ function validatePayloadForMessage(
     invalid("payload.template must be booking_status");
   }
   if (
-    !["contacted", "confirmed", "cancelled"].includes(String(candidate.status))
+    !["contacted", "pending_review", "confirmed", "waitlisted", "rejected", "reschedule_requested", "cancellation_requested", "cancelled", "no_show", "completed"].includes(String(candidate.status))
   ) {
     invalid("payload.status is invalid");
   }

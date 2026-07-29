@@ -1,8 +1,11 @@
 import {
   adminRequestReads,
+  bookingItems,
   bookings,
   requestStatusEvents,
   type Db,
+  type BookingStatus,
+  type LocalizedString,
 } from "@yezz/db";
 import {
   and,
@@ -97,6 +100,33 @@ export type BookingInsertInput = BookingContactInput & {
   idempotencyKey: string;
 };
 
+export type OrdinaryBookingInsertInput = {
+  name: string;
+  phone: string;
+  email: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  participantCount: number;
+  youngChildCount: number;
+  accompanyingAdultCount: number;
+  attendanceCount: number;
+  durationMinutes: number;
+  message?: string;
+  locale: "en" | "zh";
+  policyVersion: string;
+  idempotencyKey: string;
+  status: "pending_review" | "waitlisted";
+  items: Array<{
+    projectId: string | null;
+    projectNameSnapshot: LocalizedString | null;
+    unitPriceCentsSnapshot: number | null;
+    durationMinutesSnapshot: number;
+    quantity: number;
+    decideInStore: boolean;
+  }>;
+};
+
 export function createBookingsRepository(db: Db) {
   return {
     async lockCreateAttempt(idempotencyKey: string, tx: Db = db) {
@@ -132,6 +162,51 @@ export function createBookingsRepository(db: Db) {
           updatedAt: new Date(),
         })
         .returning();
+      return row;
+    },
+
+    async createOrdinary(input: OrdinaryBookingInsertInput, tx: Db = db) {
+      const [row] = await tx
+        .insert(bookings)
+        .values({
+          name: input.name.trim(),
+          phone: input.phone.trim(),
+          email: input.email.trim().toLowerCase(),
+          preferredDate: input.date,
+          numberOfPeople: input.participantCount,
+          activityType: "experience",
+          message: input.message?.trim() || null,
+          locale: input.locale,
+          requestKind: "experience",
+          slotDate: input.date,
+          slotStartTime: input.startTime,
+          slotEndTime: input.endTime,
+          slotTimezone: "Australia/Melbourne",
+          idempotencyKey: input.idempotencyKey,
+          status: input.status,
+          participantCount: input.participantCount,
+          youngChildCount: input.youngChildCount,
+          accompanyingAdultCount: input.accompanyingAdultCount,
+          attendanceCount: input.attendanceCount,
+          durationMinutes: input.durationMinutes,
+          policyVersion: input.policyVersion,
+          policyAcceptedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      if (!row) throw new Error("Ordinary booking insert did not return a row");
+      await tx.insert(bookingItems).values(
+        input.items.map((item, sortOrder) => ({
+          bookingId: row.id,
+          projectId: item.projectId,
+          projectNameSnapshot: item.projectNameSnapshot,
+          unitPriceCentsSnapshot: item.unitPriceCentsSnapshot,
+          durationMinutesSnapshot: item.durationMinutesSnapshot,
+          quantity: item.quantity,
+          decideInStore: item.decideInStore,
+          sortOrder,
+        })),
+      );
       return row;
     },
 
@@ -230,6 +305,14 @@ export function createBookingsRepository(db: Db) {
       return row ?? null;
     },
 
+    async findItems(bookingId: string, tx: Db = db) {
+      return tx
+        .select()
+        .from(bookingItems)
+        .where(eq(bookingItems.bookingId, bookingId))
+        .orderBy(bookingItems.sortOrder);
+    },
+
     async compareAndSetStatus(
       id: string,
       expectedStatus: OrderStatus,
@@ -248,6 +331,40 @@ export function createBookingsRepository(db: Db) {
             legacyBookingStatusCondition(expectedStatus),
           ),
         )
+        .returning();
+      return row ?? null;
+    },
+
+    async compareAndSetOrdinaryStatus(
+      id: string,
+      expectedStatus: BookingStatus,
+      status: BookingStatus,
+      tx: Db = db,
+    ) {
+      const [row] = await tx
+        .update(bookings)
+        .set({ status, updatedAt: new Date() })
+        .where(and(eq(bookings.id, id), eq(bookings.status, expectedStatus)))
+        .returning();
+      return row ?? null;
+    },
+
+    async updateOrdinaryInterval(
+      id: string,
+      input: { date: string; startTime: string; endTime: string; durationMinutes: number },
+      tx: Db = db,
+    ) {
+      const [row] = await tx
+        .update(bookings)
+        .set({
+          preferredDate: input.date,
+          slotDate: input.date,
+          slotStartTime: input.startTime,
+          slotEndTime: input.endTime,
+          durationMinutes: input.durationMinutes,
+          updatedAt: new Date(),
+        })
+        .where(eq(bookings.id, id))
         .returning();
       return row ?? null;
     },

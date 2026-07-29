@@ -1,7 +1,7 @@
-import { requestStatusEvents, users, type Db } from "@yezz/db";
+import { requestStatusEvents, users, type BookingStatus, type Db } from "@yezz/db";
 import { asc, desc, eq, sql } from "drizzle-orm";
 
-export type RequestStatus = "new" | "contacted" | "confirmed" | "cancelled";
+export type RequestStatus = "new" | "contacted" | BookingStatus;
 
 export type CreateBookingStatusEventInput = {
   bookingId: string;

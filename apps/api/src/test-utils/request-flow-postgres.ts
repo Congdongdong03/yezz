@@ -132,6 +132,26 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE "${schema}".studio_weekly_hours (
+      weekday integer PRIMARY KEY,
+      opens_at varchar(5) NOT NULL,
+      closes_at varchar(5) NOT NULL,
+      is_closed boolean NOT NULL DEFAULT false
+    );
+    CREATE TABLE "${schema}".studio_special_hours (
+      date date PRIMARY KEY,
+      opens_at varchar(5),
+      closes_at varchar(5),
+      is_closed boolean NOT NULL DEFAULT false,
+      note text
+    );
+    CREATE TABLE "${schema}".studio_closures (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      date date NOT NULL,
+      start_time varchar(5),
+      end_time varchar(5),
+      note text
+    );
     CREATE TABLE "${schema}".bookings (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       name varchar(255) NOT NULL,
@@ -166,6 +186,17 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       policy_accepted_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE "${schema}".booking_items (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      booking_id uuid NOT NULL REFERENCES "${schema}".bookings(id) ON DELETE CASCADE,
+      project_id uuid REFERENCES "${schema}".diy_projects(id) ON DELETE RESTRICT,
+      project_name_snapshot jsonb,
+      unit_price_cents_snapshot integer,
+      duration_minutes_snapshot integer NOT NULL,
+      quantity integer NOT NULL,
+      decide_in_store boolean NOT NULL DEFAULT false,
+      sort_order integer NOT NULL DEFAULT 0
     );
     CREATE TABLE "${schema}".cart_orders (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

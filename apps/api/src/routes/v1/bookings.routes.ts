@@ -4,6 +4,7 @@ import {
   resolvePublicRateLimitSubject,
 } from "../../lib/public-request-limit.js";
 import type { BookingCreateInput } from "../../repositories/bookings.repository.js";
+import type { OrdinaryBookingCreateInput } from "../../lib/booking-workflow.js";
 import { success } from "../../lib/response.js";
 import { requireIdempotencyKey } from "../../lib/public-create-idempotency.js";
 import { requireRequestCapability } from "../../services/settings.service.js";
@@ -12,7 +13,7 @@ const BOOKING_RATE_LIMIT = 5;
 const BOOKING_RATE_WINDOW_SECONDS = 3600;
 
 export default async function bookingsRoutes(app: FastifyInstance) {
-  app.post<{ Body: BookingCreateInput }>("/", async (request, reply) => {
+  app.post<{ Body: BookingCreateInput | OrdinaryBookingCreateInput }>("/", async (request, reply) => {
     requireRequestCapability(request.body?.kind ?? "experience");
 
     await enforceRequestLimit(
