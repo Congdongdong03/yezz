@@ -178,7 +178,8 @@
     "waitlistStatus": "Waitlist",
     "ordinaryLoadError": "Could not check sessions. Try another date or contact YezYY.",
     "ordinaryEmpty": "There are no request times on this date. Try another date or contact YezYY.",
-    "melbourneTime": "Australia/Melbourne time"
+    "melbourneTime": "Australia/Melbourne time",
+    "retryAvailability": "Check availability again"
   },
   "ordinaryBooking": {
     "metadataDescription": "Request an ordinary DIY visit to YezYY in Glen Waverley. Choose people, projects, and a start time, then await manual staff confirmation.",
@@ -205,7 +206,7 @@
     "submitting": "Sending request…",
     "successTitle": "Request received",
     "successBooking": "Your request was received and awaits manual staff confirmation. Pay in store.",
-    "successWaitlist": "Your waitlist request was received. Staff will contact you manually if capacity becomes available. Pay in store.",
+    "successWaitlist": "Your waitlist request was received and awaits manual staff confirmation. Staff will contact you manually if capacity becomes available. Pay in store.",
     "staleSlot": "That time just changed. Review the refreshed available and waitlist times.",
     "selectSlot": "Choose an available or waitlist time.",
     "nameRequired": "Name is required",

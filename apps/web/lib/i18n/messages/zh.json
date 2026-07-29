@@ -178,7 +178,8 @@
     "waitlistStatus": "候补",
     "ordinaryLoadError": "无法查询时段，请选择其他日期或联系 YezYY。",
     "ordinaryEmpty": "该日暂无可申请时段，请选择其他日期或联系 YezYY。",
-    "melbourneTime": "澳大利亚／墨尔本时间"
+    "melbourneTime": "澳大利亚／墨尔本时间",
+    "retryAvailability": "重新查询时段"
   },
   "ordinaryBooking": {
     "metadataDescription": "申请到 Glen Waverley 的 YezYY 进行普通手作体验。选择人数、项目和开始时段后，等待员工人工确认。",
@@ -205,7 +206,7 @@
     "submitting": "正在提交申请…",
     "successTitle": "申请已收到",
     "successBooking": "您的申请已收到，正在等待员工人工确认。请到店付款。",
-    "successWaitlist": "您的候补申请已收到。如有空位，员工会人工联系您。请到店付款。",
+    "successWaitlist": "您的候补申请已收到，正在等待员工人工确认。如有空位，员工会人工联系您。请到店付款。",
     "staleSlot": "该时段刚刚发生变化，请重新查看已刷新的可用或候补时段。",
     "selectSlot": "请选择可用或候补时段。",
     "nameRequired": "请填写姓名",

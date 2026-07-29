@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   fetchDaySlots,
@@ -26,6 +26,9 @@ type BookingCalendarProps = {
   selectedOrdinaryStartTime?: string | null;
   onSelectOrdinarySlot?: (slot: OrdinaryAvailabilitySlot | null) => void;
   ordinaryRefreshKey?: number;
+  ordinaryCalendarId?: string;
+  ordinaryScheduleErrorId?: string;
+  ordinaryScheduleInvalid?: boolean;
 };
 
 const WEEKDAYS_ZH = ["日", "一", "二", "三", "四", "五", "六"];
@@ -52,6 +55,9 @@ function OrdinaryBookingCalendar({
   onSelectOrdinarySlot,
   onDateChange,
   ordinaryRefreshKey,
+  ordinaryCalendarId = "ordinary-booking-date",
+  ordinaryScheduleErrorId,
+  ordinaryScheduleInvalid = false,
 }: BookingCalendarProps & {
   ordinaryAvailability: NonNullable<
     BookingCalendarProps["ordinaryAvailability"]
@@ -62,6 +68,7 @@ function OrdinaryBookingCalendar({
   const [slots, setSlots] = useState<OrdinaryAvailabilitySlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestSequence = useRef(0);
   const today = useMemo(() => melbourneDate(), []);
   const lastDate = useMemo(() => addCalendarDays(today, 7), [today]);
   const { attendance, durationMinutes } = ordinaryAvailability;
@@ -69,6 +76,7 @@ function OrdinaryBookingCalendar({
   const load = useCallback(
     async (nextDate: string) => {
       if (!nextDate) return;
+      const requestId = ++requestSequence.current;
       setLoading(true);
       setError(null);
       try {
@@ -77,12 +85,16 @@ function OrdinaryBookingCalendar({
           attendance,
           durationMinutes,
         });
+        if (requestId !== requestSequence.current) return;
         setSlots(result);
       } catch {
+        if (requestId !== requestSequence.current) return;
         setSlots([]);
         setError(t("ordinaryLoadError"));
       } finally {
-        setLoading(false);
+        if (requestId === requestSequence.current) {
+          setLoading(false);
+        }
       }
     },
     [attendance, durationMinutes, t],
@@ -92,6 +104,9 @@ function OrdinaryBookingCalendar({
     if (date) {
       void Promise.resolve().then(() => load(date));
     }
+    return () => {
+      requestSequence.current += 1;
+    };
   }, [
     date,
     attendance,
@@ -111,11 +126,16 @@ function OrdinaryBookingCalendar({
         </label>
         <input
           className="mt-2 min-h-11 w-full rounded-xl border border-warm-grey/25 bg-white px-3 text-base text-warm-charcoal outline-none transition focus-visible:border-caramel focus-visible:ring-2 focus-visible:ring-caramel/25"
-          id="ordinary-booking-date"
+          aria-describedby={
+            ordinaryScheduleInvalid ? ordinaryScheduleErrorId : undefined
+          }
+          aria-invalid={ordinaryScheduleInvalid}
+          id={ordinaryCalendarId}
           max={lastDate}
           min={today}
           onChange={(event) => {
             const nextDate = event.target.value;
+            requestSequence.current += 1;
             setDate(nextDate);
             setSlots([]);
             onDateChange(nextDate);
@@ -134,12 +154,20 @@ function OrdinaryBookingCalendar({
         </p>
       )}
       {error && (
-        <p
+        <div
           className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800"
           role="alert"
         >
-          {error}
-        </p>
+          <p>{error}</p>
+          <button
+            aria-label={t("retryAvailability")}
+            className="mt-2 min-h-11 rounded-full border border-red-300 bg-white px-4 py-2 font-semibold text-red-800 transition hover:border-caramel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2"
+            onClick={() => void load(date)}
+            type="button"
+          >
+            {t("retryAvailability")}
+          </button>
+        </div>
       )}
       {!loading && !error && date && slots.length === 0 && (
         <p className="rounded-xl bg-warm-grey/10 px-4 py-3 text-sm text-warm-grey">
@@ -147,7 +175,14 @@ function OrdinaryBookingCalendar({
         </p>
       )}
       {slots.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div
+          aria-describedby={
+            ordinaryScheduleInvalid ? ordinaryScheduleErrorId : undefined
+          }
+          aria-label={t("pickSlot")}
+          className="grid gap-3 sm:grid-cols-2"
+          role="group"
+        >
           {slots.map((slot) => {
             const waitlist = slot.status === "waitlist";
             const selected = selectedOrdinaryStartTime === slot.startTime;

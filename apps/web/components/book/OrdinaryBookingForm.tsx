@@ -28,7 +28,10 @@ import {
   getOrdinaryAvailability,
   type OrdinaryAvailabilitySlot,
 } from "@/lib/api/availability";
-import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
+import {
+  YEZYY_BUSINESS_PROFILE,
+  formatPhoneHref,
+} from "@/lib/site/business";
 
 type OrdinaryBookingFormProps = {
   locale: "en" | "zh";
@@ -125,6 +128,32 @@ export default function OrdinaryBookingForm({
             ? t("successWaitlist")
             : t("successBooking")}
         </p>
+        <p className="mt-4 rounded-xl border border-sage/40 bg-white/70 px-4 py-3 text-sm leading-6 text-warm-charcoal">
+          <strong>{YEZYY_BUSINESS_PROFILE.currency}</strong> ·{" "}
+          {t("payInStore")}
+        </p>
+        <address className="mt-4 rounded-xl bg-white/70 p-4 text-sm not-italic leading-6 text-warm-grey">
+          <p>{YEZYY_BUSINESS_PROFILE.address}</p>
+          <p>
+            <a
+              className="text-caramel underline-offset-4 hover:underline"
+              href={`tel:${formatPhoneHref(YEZYY_BUSINESS_PROFILE.phone)}`}
+            >
+              {YEZYY_BUSINESS_PROFILE.phone}
+            </a>
+            {" · "}
+            <a
+              className="text-caramel underline-offset-4 hover:underline"
+              href={`mailto:${YEZYY_BUSINESS_PROFILE.email}`}
+            >
+              {YEZYY_BUSINESS_PROFILE.email}
+            </a>
+          </p>
+          <p>
+            {locale === "zh" ? "小红书" : "Xiaohongshu"}:{" "}
+            {YEZYY_BUSINESS_PROFILE.xiaohongshu}
+          </p>
+        </address>
       </section>
     );
   }
@@ -132,6 +161,8 @@ export default function OrdinaryBookingForm({
   const fieldId = (name: string) => `${id}-${name}`;
   const errorId = (name: string) => `${id}-${name}-error`;
   const serverErrorId = `${id}-server-error`;
+  const scheduleDateId = `${id}-schedule-date`;
+  const scheduleErrorId = `${id}-schedule-error`;
   const inputClass =
     "mt-2 min-h-11 w-full rounded-xl border border-warm-grey/25 bg-white px-3 text-base text-warm-charcoal outline-none transition focus-visible:border-caramel focus-visible:ring-2 focus-visible:ring-caramel/25";
 
@@ -168,6 +199,18 @@ export default function OrdinaryBookingForm({
     const localErrors = validateContact(form);
     if (Object.keys(localErrors).length > 0) {
       setErrors(localErrors);
+      if (localErrors.slot?.[0]) {
+        document.getElementById(scheduleDateId)?.focus();
+      } else {
+        const firstInvalidContactField = ["name", "phone", "email"].find(
+          (name) => localErrors[name]?.[0],
+        );
+        if (firstInvalidContactField) {
+          document
+            .getElementById(fieldId(firstInvalidContactField))
+            ?.focus();
+        }
+      }
       return;
     }
     const slot = selectedSlot!;
@@ -209,6 +252,15 @@ export default function OrdinaryBookingForm({
       if (result.success) {
         setSuccessMode(slot.status === "waitlist" ? "waitlist" : "booking");
       } else {
+        if (
+          "code" in result &&
+          ["SLOT_FULL", "SLOT_IN_PAST", "STUDIO_CLOSED"].includes(
+            String(result.code),
+          )
+        ) {
+          setSelectedSlot(null);
+          setCalendarRevision((value) => value + 1);
+        }
         setErrors(result.errors as FormErrors);
       }
     } catch {
@@ -343,7 +395,12 @@ export default function OrdinaryBookingForm({
                 attendance: attendanceCount,
                 durationMinutes: selection.durationMinutes!,
               }}
+              ordinaryCalendarId={scheduleDateId}
               ordinaryRefreshKey={calendarRevision}
+              ordinaryScheduleErrorId={
+                errors.slot?.[0] ? scheduleErrorId : undefined
+              }
+              ordinaryScheduleInvalid={Boolean(errors.slot?.[0])}
               people={attendanceCount}
               selectedOrdinaryStartTime={selectedSlot?.startTime ?? null}
               selectedSlotId={null}
@@ -355,7 +412,11 @@ export default function OrdinaryBookingForm({
           </p>
         )}
         {errors.slot?.[0] && (
-          <p className="mt-3 text-sm text-red-700" role="alert">
+          <p
+            className="mt-3 text-sm text-red-700"
+            id={scheduleErrorId}
+            role="alert"
+          >
             {errors.slot[0]}
           </p>
         )}

@@ -34,7 +34,7 @@ const en: Record<string, string> = {
   successBooking:
     "Your request was received and awaits manual staff confirmation. Pay in store.",
   successWaitlist:
-    "Your waitlist request was received. Staff will contact you manually if capacity becomes available. Pay in store.",
+    "Your waitlist request was received and awaits manual staff confirmation. Staff will contact you manually if capacity becomes available. Pay in store.",
   staleSlot:
     "That time just changed. Review the refreshed available and waitlist times.",
   selectSlot: "Choose an available or waitlist time.",
@@ -68,7 +68,8 @@ const zh: Record<string, string> = {
   submitting: "正在提交申请…",
   successTitle: "申请已收到",
   successBooking: "您的申请已收到，正在等待员工人工确认。请到店付款。",
-  successWaitlist: "您的候补申请已收到。如有空位，员工会人工联系您。请到店付款。",
+  successWaitlist:
+    "您的候补申请已收到，正在等待员工人工确认。如有空位，员工会人工联系您。请到店付款。",
   staleSlot: "该时段刚刚发生变化，请重新查看已刷新的可用或候补时段。",
   selectSlot: "请选择可用或候补时段。",
   nameRequired: "请填写姓名",
@@ -92,6 +93,11 @@ vi.mock("@/components/book/BookingCalendar", () => ({
   default: ({
     onDateChange,
     onSelectOrdinarySlot,
+    ordinaryCalendarId,
+    ordinaryRefreshKey,
+    ordinaryScheduleErrorId,
+    ordinaryScheduleInvalid,
+    selectedOrdinaryStartTime,
   }: {
     onDateChange: (date: string) => void;
     onSelectOrdinarySlot: (slot: {
@@ -101,22 +107,38 @@ vi.mock("@/components/book/BookingCalendar", () => ({
       status: "available" | "waitlist";
       remaining: number;
     }) => void;
+    ordinaryCalendarId?: string;
+    ordinaryRefreshKey?: number;
+    ordinaryScheduleErrorId?: string;
+    ordinaryScheduleInvalid?: boolean;
+    selectedOrdinaryStartTime?: string | null;
   }) => (
-    <button
-      type="button"
-      onClick={() => {
-        onDateChange("2030-08-12");
-        onSelectOrdinarySlot({
-          date: "2030-08-12",
-          startTime: "10:30",
-          endTime: "11:30",
-          status: testState.selectedStatus,
-          remaining: testState.selectedStatus === "available" ? 6 : 0,
-        });
-      }}
+    <div
+      aria-describedby={ordinaryScheduleErrorId}
+      aria-invalid={ordinaryScheduleInvalid}
+      data-refresh-key={ordinaryRefreshKey}
+      data-selected-start={selectedOrdinaryStartTime ?? ""}
+      data-testid="ordinary-calendar"
     >
-      Choose generated test start
-    </button>
+      <button id={ordinaryCalendarId} type="button">
+        Test date control
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onDateChange("2030-08-12");
+          onSelectOrdinarySlot({
+            date: "2030-08-12",
+            startTime: "10:30",
+            endTime: "11:30",
+            status: testState.selectedStatus,
+            remaining: testState.selectedStatus === "available" ? 6 : 0,
+          });
+        }}
+      >
+        Choose generated test start
+      </button>
+    </div>
   ),
 }));
 
@@ -210,7 +232,7 @@ describe("OrdinaryBookingForm", () => {
     input?.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
-  async function completeForm() {
+  async function completeForm({ selectSlot = true } = {}) {
     setInput("name", "Alice");
     setInput("phone", "0430000000");
     setInput("email", "alice@example.com");
@@ -228,10 +250,12 @@ describe("OrdinaryBookingForm", () => {
       projectQuantity?.dispatchEvent(new Event("input", { bubbles: true }));
       projectQuantity?.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    const slot = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("button"),
-    ).find((button) => button.textContent === "Choose generated test start");
-    await act(async () => slot?.click());
+    if (selectSlot) {
+      const slot = Array.from(
+        container.querySelectorAll<HTMLButtonElement>("button"),
+      ).find((button) => button.textContent === "Choose generated test start");
+      await act(async () => slot?.click());
+    }
     const policy = container.querySelector<HTMLInputElement>(
       'input[name="policyAccepted"]',
     );
@@ -321,25 +345,112 @@ describe("OrdinaryBookingForm", () => {
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
   });
 
-  it("submits a waitlist mode and truthfully reports manual staff contact", async () => {
-    testState.selectedStatus = "waitlist";
-    testState.getOrdinaryAvailability.mockResolvedValue([
-      {
-        date: "2030-08-12",
-        startTime: "10:30",
-        endTime: "11:30",
-        status: "waitlist",
-        remaining: 0,
-      },
-    ]);
+  it.each(["SLOT_FULL", "SLOT_IN_PAST", "STUDIO_CLOSED"])(
+    "clears and refreshes a matched slot when POST returns %s",
+    async (code) => {
+      testState.submitBooking.mockResolvedValue({
+        success: false,
+        code,
+        errors: {
+          server: ["That time just changed. Review the available times."],
+        },
+      });
+      await renderForm();
+      await completeForm();
+      await submit();
+
+      expect(testState.getOrdinaryAvailability).toHaveBeenCalledOnce();
+      expect(testState.submitBooking).toHaveBeenCalledOnce();
+      const calendar = container.querySelector(
+        '[data-testid="ordinary-calendar"]',
+      );
+      expect(calendar?.getAttribute("data-selected-start")).toBe("");
+      expect(calendar?.getAttribute("data-refresh-key")).toBe("1");
+      expect(container.textContent).toContain("That time just changed");
+    },
+  );
+
+  it.each([
+    [
+      "en",
+      "waitlist request was received",
+      "awaits manual staff confirmation",
+    ],
+    ["zh", "候补申请已收到", "正在等待员工人工确认"],
+  ] as const)(
+    "submits a %s waitlist and truthfully reports pending manual confirmation",
+    async (locale, receivedCopy, pendingCopy) => {
+      testState.selectedStatus = "waitlist";
+      testState.getOrdinaryAvailability.mockResolvedValue([
+        {
+          date: "2030-08-12",
+          startTime: "10:30",
+          endTime: "11:30",
+          status: "waitlist",
+          remaining: 0,
+        },
+      ]);
+      await renderForm({ locale });
+      await completeForm();
+      await submit();
+
+      const formData = testState.submitBooking.mock.calls[0]?.[0] as FormData;
+      expect(formData.get("mode")).toBe("waitlist");
+      expect(container.textContent).toContain(receivedCopy);
+      expect(container.textContent).toContain(pendingCopy);
+      expect(container.textContent).toContain("AUD");
+      expect(container.textContent).toContain(
+        "G082/235 Springvale Rd, Glen Waverley VIC 3150",
+      );
+      expect(container.innerHTML).toContain('href="tel:0430787712"');
+      expect(container.innerHTML).toContain(
+        'href="mailto:congdongdong03@gmail.com"',
+      );
+      expect(container.textContent).toContain("95848743904");
+    },
+  );
+
+  it.each([
+    ["en", "awaits manual staff confirmation", "Pay in store"],
+    ["zh", "正在等待员工人工确认", "请到店付款"],
+  ] as const)(
+    "keeps canonical contact and payment details on %s booking success",
+    async (locale, pendingCopy, paymentCopy) => {
+      await renderForm({ locale });
+      await completeForm();
+      await submit();
+
+      expect(container.textContent).toContain(pendingCopy);
+      expect(container.textContent).toContain(paymentCopy);
+      expect(container.textContent).toContain("AUD");
+      expect(container.textContent).toContain(
+        "G082/235 Springvale Rd, Glen Waverley VIC 3150",
+      );
+      expect(container.innerHTML).toContain('href="tel:0430787712"');
+      expect(container.innerHTML).toContain(
+        'href="mailto:congdongdong03@gmail.com"',
+      );
+      expect(container.textContent).toContain("95848743904");
+    },
+  );
+
+  it("associates and focuses the schedule error when no start is selected", async () => {
     await renderForm();
-    await completeForm();
+    await completeForm({ selectSlot: false });
     await submit();
 
-    const formData = testState.submitBooking.mock.calls[0]?.[0] as FormData;
-    expect(formData.get("mode")).toBe("waitlist");
-    expect(container.textContent).toContain("waitlist request was received");
-    expect(container.textContent).toContain("Staff will contact you manually");
+    const error = Array.from(
+      container.querySelectorAll<HTMLElement>('[role="alert"]'),
+    ).find((candidate) =>
+      candidate.textContent?.includes("Choose an available or waitlist time"),
+    );
+    const calendar = container.querySelector(
+      '[data-testid="ordinary-calendar"]',
+    );
+    expect(error?.id).toBeTruthy();
+    expect(calendar?.getAttribute("aria-invalid")).toBe("true");
+    expect(calendar?.getAttribute("aria-describedby")).toBe(error?.id);
+    expect(document.activeElement?.textContent).toBe("Test date control");
   });
 
   it("retains one request-attempt object for retry and links returned field errors", async () => {

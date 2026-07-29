@@ -42,6 +42,7 @@ const testState = vi.hoisted(() => {
       ordinaryLoadError: "Could not check sessions. Try another date.",
       ordinaryEmpty: "No request times on this date.",
       melbourneTime: "Melbourne time",
+      retryAvailability: "Check again",
     })[key] ?? key;
   return state;
 });
@@ -208,6 +209,16 @@ describe("BookingCalendar ordinary DIY availability", () => {
     return onSelectOrdinarySlot;
   }
 
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+      resolve = resolvePromise;
+      reject = rejectPromise;
+    });
+    return { promise, reject, resolve };
+  }
+
   it("loads generated starts with the longest duration and total attendance", async () => {
     await chooseDate();
 
@@ -246,5 +257,135 @@ describe("BookingCalendar ordinary DIY availability", () => {
       startTime: "10:30",
       status: "waitlist",
     });
+  });
+
+  it("ignores an older availability response after a newer date resolves", async () => {
+    const first = deferred<
+      Array<{
+        date: string;
+        startTime: string;
+        endTime: string;
+        status: "available";
+        remaining: number;
+      }>
+    >();
+    const second = deferred<
+      Array<{
+        date: string;
+        startTime: string;
+        endTime: string;
+        status: "available";
+        remaining: number;
+      }>
+    >();
+    testState.getOrdinaryAvailability
+      .mockReset()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    await act(async () => {
+      root.render(
+        <BookingCalendar
+          onDateChange={vi.fn()}
+          onSelectOrdinarySlot={vi.fn()}
+          onSelectSlot={vi.fn()}
+          ordinaryAvailability={{ attendance: 3, durationMinutes: 60 }}
+          people={3}
+          selectedOrdinaryStartTime={null}
+          selectedSlotId={null}
+        />,
+      );
+    });
+    const input = container.querySelector<HTMLInputElement>('input[type="date"]');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+
+    setter?.call(input, "2030-08-12");
+    await act(async () => {
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+      input?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    setter?.call(input, "2030-08-13");
+    await act(async () => {
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+      input?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await act(async () =>
+      second.resolve([
+        {
+          date: "2030-08-13",
+          startTime: "13:00",
+          endTime: "14:00",
+          status: "available",
+          remaining: 5,
+        },
+      ]),
+    );
+    expect(container.textContent).toContain("13:00 – 14:00");
+
+    await act(async () =>
+      first.resolve([
+        {
+          date: "2030-08-12",
+          startTime: "09:00",
+          endTime: "10:00",
+          status: "available",
+          remaining: 5,
+        },
+      ]),
+    );
+    expect(container.textContent).toContain("13:00 – 14:00");
+    expect(container.textContent).not.toContain("09:00 – 10:00");
+  });
+
+  it("offers a labelled retry that reloads the current availability query", async () => {
+    testState.getOrdinaryAvailability
+      .mockReset()
+      .mockRejectedValueOnce(new Error("network unavailable"))
+      .mockResolvedValueOnce([
+        {
+          date: "2030-08-12",
+          startTime: "12:00",
+          endTime: "13:00",
+          status: "available",
+          remaining: 5,
+        },
+      ]);
+    await chooseDate();
+
+    const retry = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((button) => button.textContent === "Check again");
+    expect(retry?.getAttribute("aria-label")).toBe("Check again");
+    await act(async () => retry?.click());
+    expect(testState.getOrdinaryAvailability).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain("12:00 – 13:00");
+  });
+
+  it("associates a required schedule error with the date and slot group", async () => {
+    await act(async () => {
+      root.render(
+        <BookingCalendar
+          onDateChange={vi.fn()}
+          onSelectOrdinarySlot={vi.fn()}
+          onSelectSlot={vi.fn()}
+          ordinaryAvailability={{ attendance: 3, durationMinutes: 60 }}
+          ordinaryCalendarId="ordinary-date-test"
+          ordinaryScheduleErrorId="schedule-error-test"
+          ordinaryScheduleInvalid
+          people={3}
+          selectedOrdinaryStartTime={null}
+          selectedSlotId={null}
+        />,
+      );
+    });
+
+    const date = container.querySelector<HTMLInputElement>(
+      "#ordinary-date-test",
+    );
+    expect(date?.getAttribute("aria-invalid")).toBe("true");
+    expect(date?.getAttribute("aria-describedby")).toBe("schedule-error-test");
   });
 });
