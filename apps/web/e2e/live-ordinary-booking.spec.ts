@@ -167,19 +167,14 @@ test("English ordinary request closes through Chinese admin, secure email, remin
       timeoutMilliseconds: 15_000,
     });
 
-    const completionOperation = crypto.randomUUID();
-    const completed = await post(
+    const completed = await transitionFromAdmin({
       page,
-      `/api/backend/v1/admin/bookings/${bookingId}/transitions`,
-      {
-        action: "transition",
-        expectedStatus: "confirmed",
-        toStatus: "completed",
-        operationId: completionOperation,
-        note: "闭环完成",
-      },
-    );
-    expect(completed.status()).toBe(200);
+      kind: "bookings",
+      requestId: bookingId,
+      actionName: "标记已完成",
+      note: "闭环完成",
+    });
+    expect(completed.status).toBe("completed");
 
     const finalState = await waitForDatabaseRow(async () => {
       const [row] = await fixture!.sql<{

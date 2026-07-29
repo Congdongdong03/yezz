@@ -139,7 +139,7 @@ export async function transitionFromAdmin(options: {
   page: Page;
   kind: AdminKind;
   requestId: string;
-  actionName: "标记为已联系" | "确认预约" | "取消预约";
+  actionName: "标记为已联系" | "确认预约" | "取消预约" | "标记已完成";
   note?: string;
 }): Promise<StatusTransitionBody> {
   const { page, kind, requestId, actionName, note } = options;
