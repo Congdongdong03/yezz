@@ -120,7 +120,7 @@ function OrdinaryBookingCalendar({
       <div>
         <label
           className="text-sm font-semibold text-warm-charcoal"
-          htmlFor="ordinary-booking-date"
+          htmlFor={ordinaryCalendarId}
         >
           {t("ordinaryDate")}
         </label>

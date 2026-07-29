@@ -388,4 +388,29 @@ describe("BookingCalendar ordinary DIY availability", () => {
     expect(date?.getAttribute("aria-invalid")).toBe("true");
     expect(date?.getAttribute("aria-describedby")).toBe("schedule-error-test");
   });
+
+  it("associates the visible date label with a caller-provided input id", async () => {
+    await act(async () => {
+      root.render(
+        <BookingCalendar
+          onDateChange={vi.fn()}
+          onSelectOrdinarySlot={vi.fn()}
+          onSelectSlot={vi.fn()}
+          ordinaryAvailability={{ attendance: 3, durationMinutes: 60 }}
+          ordinaryCalendarId="generated-ordinary-date"
+          people={3}
+          selectedOrdinaryStartTime={null}
+          selectedSlotId={null}
+        />,
+      );
+    });
+
+    const date = container.querySelector<HTMLInputElement>(
+      "#generated-ordinary-date",
+    );
+    const label = Array.from(container.querySelectorAll("label")).find(
+      (candidate) => candidate.textContent === "Visit date",
+    );
+    expect(Array.from(date?.labels ?? [])).toContain(label);
+  });
 });
