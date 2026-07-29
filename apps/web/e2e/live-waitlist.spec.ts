@@ -11,6 +11,9 @@ import {
   LIVE_PARTY_PACKAGES,
 } from "../../../packages/db/src/live-booking-catalogue";
 import {
+  transitionFromAdmin,
+} from "./fixtures/closure-ui";
+import {
   deleteMailpitMessagesFor,
   waitForMailpitMessage,
 } from "./fixtures/mailpit";
@@ -82,19 +85,29 @@ test("waitlist reserves no capacity and converts once only after customer contac
       recipient: email,
       subjectIncludes: "Booking Waitlist",
     });
+    await waitForMailpitMessage({
+      recipient: fixture.ownerEmail,
+      subjectIncludes: "Booking Staff Notification",
+    });
 
     const before = await waitForDatabaseRow(async () => {
       const [row] = await fixture!.sql<{
         status: string;
         initialEvents: number;
         waitlistEmails: number;
+        activeIntervalAttendance: number;
       }[]>`
         select
           b.status,
           (select count(*)::int from request_status_events e
             where e.booking_id = b.id and e.to_status = 'waitlisted') as "initialEvents",
           (select count(*)::int from email_outbox o
-            where o.booking_id = b.id and o.payload->>'template' = 'booking_waitlisted') as "waitlistEmails"
+            where o.booking_id = b.id and o.payload->>'template' = 'booking_waitlisted') as "waitlistEmails",
+          (select coalesce(sum(active.attendance_count), 0)::int from bookings active
+            where active.slot_date = b.slot_date
+              and active.slot_start_time < b.slot_end_time
+              and active.slot_end_time > b.slot_start_time
+              and active.status in ('confirmed', 'confirmed_paid', 'completed')) as "activeIntervalAttendance"
         from bookings b where b.id = ${bookingId}
       `;
       return row ?? null;
@@ -103,12 +116,17 @@ test("waitlist reserves no capacity and converts once only after customer contac
       status: "waitlisted",
       initialEvents: 1,
       waitlistEmails: 1,
+      activeIntervalAttendance: 6,
     });
 
-    await fixture.sql`
-      update bookings set status = 'completed', updated_at = now()
-      where id = ${blockerId}
-    `;
+    const released = await transitionFromAdmin({
+      page,
+      kind: "bookings",
+      requestId: blockerId,
+      actionName: "取消预约",
+      note: "释放候补时段",
+    });
+    expect(released.status).toBe("cancelled");
     const operationId = crypto.randomUUID();
     const withoutContact = await post(
       page,
@@ -166,19 +184,26 @@ test("waitlist reserves no capacity and converts once only after customer contac
       status: string;
       confirmationEvents: number;
       confirmationEmails: number;
+      activeIntervalAttendance: number;
     }[]>`
       select
         b.status,
         (select count(*)::int from request_status_events e
           where e.booking_id = b.id and e.to_status = 'confirmed') as "confirmationEvents",
         (select count(*)::int from email_outbox o
-          where o.booking_id = b.id and o.payload->>'template' = 'booking_confirmed') as "confirmationEmails"
+          where o.booking_id = b.id and o.payload->>'template' = 'booking_confirmed') as "confirmationEmails",
+        (select coalesce(sum(active.attendance_count), 0)::int from bookings active
+          where active.slot_date = b.slot_date
+            and active.slot_start_time < b.slot_end_time
+            and active.slot_end_time > b.slot_start_time
+            and active.status in ('confirmed', 'confirmed_paid', 'completed')) as "activeIntervalAttendance"
       from bookings b where b.id = ${bookingId}
     `;
     expect(finalState).toEqual({
       status: "confirmed",
       confirmationEvents: 1,
       confirmationEmails: 1,
+      activeIntervalAttendance: 3,
     });
   } finally {
     await deleteMailpitMessagesFor([email]);

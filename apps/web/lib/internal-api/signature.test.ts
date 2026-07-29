@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertSameOrigin,
   readTrustedPlatformIp,
+  resolveTrustedClientIp,
   signInternalRequest,
 } from "./signature";
 
@@ -75,6 +76,24 @@ describe("internal request signing", () => {
       ),
     ).toBe("2001:db8::1");
     expect(readTrustedPlatformIp(new Headers(), false)).toBe("127.0.0.1");
+  });
+
+  it("permits loopback fallback only for a sentinel-authenticated closure run", () => {
+    expect(() =>
+      resolveTrustedClientIp(new Headers({ "x-forwarded-for": "198.51.100.77" }), {
+        NODE_ENV: "production",
+        VERCEL: "",
+        YEZYY_CLOSURE_E2E: "",
+      }),
+    ).toThrowError(expect.objectContaining({ code: "TRUSTED_PLATFORM_REQUIRED" }));
+    expect(
+      resolveTrustedClientIp(new Headers({ "x-forwarded-for": "198.51.100.77" }), {
+        NODE_ENV: "test",
+        VERCEL: "",
+        YEZYY_CLOSURE_E2E: "1",
+        YEZYY_CLOSURE_RUN_SENTINEL: "a".repeat(64),
+      }),
+    ).toBe("127.0.0.1");
   });
 
   it("rejects missing and cross-origin unsafe requests", () => {

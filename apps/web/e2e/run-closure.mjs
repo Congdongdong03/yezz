@@ -18,6 +18,7 @@ const compose = [
 ];
 const sharedSecret =
   "closure-e2e-shared-secret-2026-only-local";
+const closureRunSentinel = crypto.randomBytes(32).toString("hex");
 const adminEmail = "congdongdong03@gmail.com";
 const adminPassword = "Closure-E2E-Admin-2026!";
 const rawPlaywrightArguments = process.argv.slice(2);
@@ -160,6 +161,7 @@ try {
         SMTP_PORT: String(smtpPort),
         STORE_TIMEZONE: "Australia/Melbourne",
         WEB_API_SHARED_SECRET: sharedSecret,
+        YEZYY_CLOSURE_RUN_SENTINEL: closureRunSentinel,
         YEZYY_CLOSURE_E2E: "1",
       },
     },

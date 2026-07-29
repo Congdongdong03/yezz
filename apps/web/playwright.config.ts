@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertClosureSafety } from "./e2e/closure-safety";
 
 /**
  * E2E Test Configuration for YEZZ
@@ -28,12 +29,9 @@ function requiredEnvironment(name: string): string {
   return value;
 }
 
-const apiUrl = closure
-  ? requiredEnvironment("NEXT_PUBLIC_API_URL")
-  : "http://localhost:4000";
-const siteUrl = closure
-  ? requiredEnvironment("NEXT_PUBLIC_SITE_URL")
-  : "http://localhost:3000";
+const closureSafety = closure ? assertClosureSafety(process.env) : null;
+const apiUrl = closureSafety?.apiUrl ?? "http://localhost:4000";
+const siteUrl = closureSafety?.siteUrl ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -147,6 +145,9 @@ export default defineConfig({
               WEB_API_SHARED_SECRET: requiredEnvironment(
                 "WEB_API_SHARED_SECRET",
               ),
+              YEZYY_CLOSURE_RUN_SENTINEL: requiredEnvironment(
+                "YEZYY_CLOSURE_RUN_SENTINEL",
+              ),
               YEZYY_CLOSURE_E2E: "1",
             }
           : {}),
@@ -178,6 +179,9 @@ export default defineConfig({
               VERCEL: "1",
               WEB_API_SHARED_SECRET: requiredEnvironment(
                 "WEB_API_SHARED_SECRET",
+              ),
+              YEZYY_CLOSURE_RUN_SENTINEL: requiredEnvironment(
+                "YEZYY_CLOSURE_RUN_SENTINEL",
               ),
               YEZYY_CLOSURE_E2E: "1",
             }

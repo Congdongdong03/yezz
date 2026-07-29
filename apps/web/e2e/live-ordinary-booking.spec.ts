@@ -12,6 +12,8 @@ import {
 } from "../../../packages/db/src/live-booking-catalogue";
 import {
   deleteMailpitMessagesFor,
+  extractManagementToken,
+  readMailpitMessage,
   waitForMailpitMessage,
 } from "./fixtures/mailpit";
 
@@ -97,6 +99,7 @@ test("English ordinary request closes through Chinese admin, secure email, remin
         attendanceCount: number;
         itemCount: number;
         eventCount: number;
+        activeIntervalAttendance: number;
       }[]>`
         select
           b.status,
@@ -104,6 +107,12 @@ test("English ordinary request closes through Chinese admin, secure email, remin
           b.attendance_count as "attendanceCount",
           (select count(*)::int from booking_items i where i.booking_id = b.id) as "itemCount",
           (select count(*)::int from request_status_events e where e.booking_id = b.id) as "eventCount"
+          ,(select coalesce(sum(active.attendance_count), 0)::int
+            from bookings active
+            where active.slot_date = b.slot_date
+              and active.slot_start_time < b.slot_end_time
+              and active.slot_end_time > b.slot_start_time
+              and active.status in ('confirmed', 'confirmed_paid', 'completed')) as "activeIntervalAttendance"
         from bookings b
         where b.id = ${bookingId}
       `;
@@ -115,6 +124,7 @@ test("English ordinary request closes through Chinese admin, secure email, remin
       attendanceCount: 3,
       itemCount: 2,
       eventCount: 0,
+      activeIntervalAttendance: 0,
     });
 
     await page.goto(`/admin/bookings/${bookingId}`);
@@ -145,10 +155,17 @@ test("English ordinary request closes through Chinese admin, secure email, remin
     expect(confirmed.status()).toBe(200);
     expect(confirmedReplay.status()).toBe(200);
     expect((await confirmedReplay.json()).data.replayed).toBe(true);
-    await waitForMailpitMessage({
+    const confirmationMessage = await waitForMailpitMessage({
       recipient: customerEmail,
       subjectIncludes: "Booking Confirmed",
     });
+    const managementToken = extractManagementToken(
+      await readMailpitMessage(confirmationMessage),
+    );
+    await page.goto(`/en/manage-booking/${managementToken}`);
+    await expect(
+      page.getByRole("heading", { name: "Manage your YezYY request" }),
+    ).toBeVisible();
 
     await fixture.makeReminderEligible(bookingId);
     await waitForMailpitMessage({
@@ -197,6 +214,24 @@ test("English ordinary request closes through Chinese admin, secure email, remin
       confirmationEmails: 1,
       reminderEmails: 1,
     });
+
+    await fixture.sql`
+      update studio_weekly_hours
+      set is_closed = true
+      where weekday = extract(dow from ${fixture.bookingDate}::date)::int
+    `;
+    const stale = await post(page, "/api/backend/v1/bookings", {
+      ...request,
+      name: `Stale ${fixture.runId}`,
+      email: `stale-${fixture.runId}@example.test`,
+    }, crypto.randomUUID());
+    expect(stale.status()).toBe(400);
+    expect((await stale.json()).error.code).toBe("STUDIO_CLOSED");
+    const [noPartialWrite] = await fixture.sql<{ count: number }[]>`
+      select count(*)::int as count from bookings
+      where email = ${`stale-${fixture.runId}@example.test`}
+    `;
+    expect(noPartialWrite?.count).toBe(0);
   } finally {
     await deleteMailpitMessagesFor([customerEmail]);
     await fixture?.cleanup();

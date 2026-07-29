@@ -410,7 +410,7 @@ WEB_API_SHARED_SECRET=... # 服务端变量，不得添加 NEXT_PUBLIC_ 前缀
 fly secrets set DATABASE_URL="..." JWT_SECRET="..." CORS_ORIGIN="..."
 fly secrets set WEB_API_SHARED_SECRET="..." RATE_LIMIT_HASH_SECRET="..." INTERNAL_REQUEST_ENFORCEMENT="log"
 fly secrets set S3_ENDPOINT="..." S3_ACCESS_KEY="..." S3_SECRET_KEY="..."
-fly secrets set RESEND_API_KEY="..." OWNER_EMAIL="..." EMAIL_FROM="YezYY <bookings@yezyy.com>" EMAIL_REPLY_TO="congdongdong03@gmail.com" STORE_TIMEZONE="Australia/Melbourne"
+fly secrets set RESEND_API_KEY="..." OWNER_EMAIL="..." EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>" EMAIL_REPLY_TO="congdongdong03@gmail.com" STORE_TIMEZONE="Australia/Melbourne"
 
 # Web 构建参数（如用 Docker 部署）
 fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
@@ -505,6 +505,7 @@ where t.booked_count::bigint <> coalesce(e.booked_count, 0);
 fly secrets set \
   INTERNAL_REQUEST_ENFORCEMENT=log \
   EMAIL_OUTBOX_WORKER_ENABLED=false \
+  BOOKING_MAINTENANCE_WORKER_ENABLED=false \
   REQUEST_FLOW_EXPERIENCE_ENABLED=false \
   REQUEST_FLOW_PRODUCT_ENABLED=false \
   REQUEST_FLOW_PARTY_ENABLED=false
@@ -606,7 +607,8 @@ fly secrets set \
   REQUEST_FLOW_EXPERIENCE_ENABLED=false \
   REQUEST_FLOW_PRODUCT_ENABLED=false \
   REQUEST_FLOW_PARTY_ENABLED=false \
-  EMAIL_OUTBOX_WORKER_ENABLED=false
+  EMAIL_OUTBOX_WORKER_ENABLED=false \
+  BOOKING_MAINTENANCE_WORKER_ENABLED=false
 
 fly deploy --image <LAST_KNOWN_GOOD_GATE_AWARE_FLY_IMAGE>
 vercel rollback <LAST_KNOWN_GOOD_GATE_AWARE_VERCEL_DEPLOYMENT_URL>
@@ -725,6 +727,11 @@ OWNER_EMAIL=congdongdong03@gmail.com
 EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>"
 EMAIL_REPLY_TO=congdongdong03@gmail.com
 STORE_TIMEZONE=Australia/Melbourne
+EMAIL_OUTBOX_WORKER_ENABLED=false
+BOOKING_MAINTENANCE_WORKER_ENABLED=false
+REQUEST_FLOW_EXPERIENCE_ENABLED=false
+REQUEST_FLOW_PARTY_ENABLED=false
+REQUEST_FLOW_PRODUCT_ENABLED=false
 
 # -------- Redis（可选） --------
 REDIS_URL=redis://localhost:6379

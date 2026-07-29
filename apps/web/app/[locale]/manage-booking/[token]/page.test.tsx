@@ -13,6 +13,9 @@ const api = vi.hoisted(() => ({
   requestCustomerCancellation: vi.fn(),
   requestCustomerReschedule: vi.fn(),
 }));
+const request = vi.hoisted(() => ({
+  headers: new Headers({ "x-vercel-forwarded-for": "203.0.113.4" }),
+}));
 
 vi.mock("@/lib/api/customer-booking", async (importOriginal) => {
   const original =
@@ -25,8 +28,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next/headers", () => ({
-  headers: async () =>
-    new Headers({ "x-vercel-forwarded-for": "203.0.113.4" }),
+  headers: async () => request.headers,
 }));
 
 vi.mock("next-intl/server", () => ({
@@ -64,6 +66,8 @@ describe("ManageBookingPage", () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.stubEnv("VERCEL", "1");
+    request.headers = new Headers({ "x-vercel-forwarded-for": "203.0.113.4" });
     api.getCustomerBooking.mockReset().mockResolvedValue({
       kind: "experience",
       status: "confirmed",
@@ -87,6 +91,7 @@ describe("ManageBookingPage", () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await act(async () => root.unmount());
     document.body.replaceChildren();
   });
@@ -160,5 +165,16 @@ describe("ManageBookingPage", () => {
       robots: { index: false, follow: false },
       referrer: "no-referrer",
     });
+  });
+
+  it("never turns a generic forwarded header into a trusted Vercel identity", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "1");
+    request.headers = new Headers({ "x-forwarded-for": "198.51.100.77" });
+
+    await renderPage();
+
+    expect(api.getCustomerBooking).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("This booking link is not available");
   });
 });

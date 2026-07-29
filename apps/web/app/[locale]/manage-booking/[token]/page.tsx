@@ -6,6 +6,7 @@ import {
   getCustomerBooking,
   type CustomerBookingView,
 } from "@/lib/api/customer-booking";
+import { resolveTrustedClientIp } from "@/lib/internal-api/signature";
 import {
   YEZYY_BUSINESS_PROFILE,
   formatPhoneHref,
@@ -54,10 +55,7 @@ export default async function ManageBookingPage({
 
   try {
     const requestHeaders = await headers();
-    const trustedClientIp =
-      requestHeaders.get("x-vercel-forwarded-for") ??
-      requestHeaders.get("x-forwarded-for")?.split(",", 1)[0]?.trim() ??
-      (process.env.YEZYY_CLOSURE_E2E === "1" ? "127.0.0.1" : null);
+    const trustedClientIp = resolveTrustedClientIp(requestHeaders);
     booking = await getCustomerBooking(
       token,
       trustedClientIp,

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   assertSameOrigin,
   InternalTransportError,
-  readTrustedPlatformIp,
+  resolveTrustedClientIp,
   signInternalRequest,
 } from "@/lib/internal-api/signature";
 import { validateCustomerRescheduleRequest } from "@/lib/booking/customer-reschedule-policy";
@@ -219,18 +219,7 @@ async function handleBackendRequest(
       assertSameOrigin(request.headers.get("origin"), getCanonicalSiteOrigin());
     }
 
-    const isVercel = process.env.VERCEL === "1";
-    if (process.env.NODE_ENV === "production" && !isVercel) {
-      throw new InternalTransportError(
-        503,
-        "TRUSTED_PLATFORM_REQUIRED",
-        "The trusted request platform is not available",
-      );
-    }
-    const clientIp = readTrustedPlatformIp(
-      request.headers,
-      isVercel,
-    );
+    const clientIp = resolveTrustedClientIp(request.headers);
     const secret = process.env.WEB_API_SHARED_SECRET?.trim();
     if (!secret) {
       throw new InternalTransportError(

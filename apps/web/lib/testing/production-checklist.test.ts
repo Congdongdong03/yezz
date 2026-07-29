@@ -27,9 +27,16 @@ const INITIAL_DEPLOYMENT = {
 
 function dotenvValue(source: string, name: string): string | null {
   const match = source.match(
-    new RegExp(`^${name}=([^\\r\\n]+)$`, "m"),
+    new RegExp(`^\\s*${name}=([^\\r\\n]+)$`, "m"),
   );
-  return match?.[1]?.trim() ?? null;
+  return match?.[1]?.trim().replace(/\\$/, "").trim() ?? null;
+}
+
+function fencedBlockAfter(heading: string): string {
+  const start = checklist.indexOf(heading);
+  const fenceStart = checklist.indexOf("```bash", start);
+  const fenceEnd = checklist.indexOf("```", fenceStart + 3);
+  return checklist.slice(fenceStart, fenceEnd);
 }
 
 describe("production closure checklist", () => {
@@ -62,6 +69,25 @@ describe("production closure checklist", () => {
       expect(dotenvValue(environmentExample, name), name).toBe(value);
       expect(dotenvValue(checklist, name), name).toBe(value);
     }
+  });
+
+  it("keeps every executable initial and rollback assignment closed", () => {
+    const initial = fencedBlockAfter("### 3. 部署 Fly 迁移和 API，能力保持关闭");
+    const rollback = fencedBlockAfter("应用回滚不执行破坏性 down migration");
+    const appendix = checklist.slice(
+      checklist.indexOf("# -------- 邮件服务（生产必须） --------"),
+      checklist.indexOf("# -------- Redis（可选） --------"),
+    );
+    for (const block of [initial, rollback, appendix]) {
+      for (const [name, value] of Object.entries(INITIAL_DEPLOYMENT)) {
+        if (name === "EMAIL_FROM" || name === "EMAIL_REPLY_TO" || name === "OWNER_EMAIL" || name === "STORE_TIMEZONE") continue;
+        expect(dotenvValue(block, name), `${name} in executable block`).toBe(value);
+      }
+    }
+    expect(checklist).not.toContain('EMAIL_FROM="YezYY <bookings@yezyy.com>"');
+    expect(appendix).toContain(
+      'EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>"',
+    );
   });
 
   it("requires a new owner instruction before experience or party opens and keeps product closed", () => {
