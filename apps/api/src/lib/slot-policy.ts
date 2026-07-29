@@ -1,6 +1,11 @@
 import { AppError } from "./errors.js";
+import {
+  MELBOURNE_TIME_ZONE,
+  parseCalendarDate,
+} from "./booking-policy.js";
 
-export const MELBOURNE_TIME_ZONE = "Australia/Melbourne";
+export { MELBOURNE_TIME_ZONE, parseCalendarDate } from "./booking-policy.js";
+
 export const BOOKING_HORIZON_DAYS = 365;
 
 export type SlotPolicyInput = {
@@ -10,9 +15,7 @@ export type SlotPolicyInput = {
   capacity: number;
 };
 
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const HH_MM = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-const MILLISECONDS_PER_DAY = 86_400_000;
 
 const WEEKLY_HOURS: Readonly<
   Record<number, Readonly<{ opens: string; closes: string }>>
@@ -28,31 +31,6 @@ const WEEKLY_HOURS: Readonly<
 
 function validationError(message: string): AppError {
   return new AppError(400, "VALIDATION_ERROR", message);
-}
-
-export function parseCalendarDate(date: string): {
-  ordinal: number;
-  weekday: number;
-} {
-  const match = ISO_DATE.exec(date);
-  if (!match) {
-    throw validationError("date must use YYYY-MM-DD");
-  }
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const instant = new Date(Date.UTC(year, month - 1, day));
-  if (
-    instant.getUTCFullYear() !== year ||
-    instant.getUTCMonth() !== month - 1 ||
-    instant.getUTCDate() !== day
-  ) {
-    throw validationError("date is invalid");
-  }
-  return {
-    ordinal: Math.floor(instant.getTime() / MILLISECONDS_PER_DAY),
-    weekday: instant.getUTCDay(),
-  };
 }
 
 export function getMelbourneDate(now: Date): string {

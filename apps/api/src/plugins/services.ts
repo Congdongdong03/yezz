@@ -14,6 +14,7 @@ import { createNotificationsAdminService, type NotificationsAdminService } from 
 import { createAdminUsersService, type AdminUsersService } from "../services/admin/users.admin.service.js";
 import { createAuthService, type AuthService } from "../services/auth.service.js";
 import { createBookingsService, type BookingsService } from "../services/bookings.service.js";
+import { createAvailabilityService, type AvailabilityService } from "../services/availability.service.js";
 import { createCartOrdersService, type CartOrdersService } from "../services/cart-orders.service.js";
 import { createCartSessionsService, type CartSessionsService } from "../services/cart-sessions.service.js";
 import { createCategoriesService, type CategoriesService } from "../services/categories.service.js";
@@ -38,6 +39,7 @@ import { createTimeSlotsService, type TimeSlotsService } from "../services/time-
 import { createConfiguredOutboxProvider } from "../lib/email.js";
 
 export type AppServices = {
+  availability: AvailabilityService;
   auth: AuthService;
   bookings: BookingsService;
   cartOrders: CartOrdersService;
@@ -77,6 +79,7 @@ export default fp(async (app: FastifyInstance) => {
     },
   );
   app.decorate("services", {
+    availability: createAvailabilityService(app.db),
     auth: createAuthService(app.db),
     bookings: createBookingsService(app.db, requestCapabilities),
     cartOrders: createCartOrdersService(app.db, requestCapabilities),
