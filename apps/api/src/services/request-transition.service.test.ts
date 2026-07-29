@@ -1,6 +1,7 @@
 import {
   bookings,
   cartOrders,
+  customerActionTokens,
   emailOutbox,
   partyPackages,
   requestStatusEvents,
@@ -37,8 +38,16 @@ describe.skipIf(!runDatabaseTests)(
     let actorId: string;
     let partyPackageId: string;
     let slotId: string;
+    let previousCustomerActionTokenSecret: string | undefined;
+    let previousSiteUrl: string | undefined;
 
     beforeEach(async () => {
+      previousCustomerActionTokenSecret =
+        process.env.CUSTOMER_ACTION_TOKEN_SECRET;
+      previousSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+      process.env.CUSTOMER_ACTION_TOKEN_SECRET =
+        "request-transition-test-secret-at-least-32-bytes";
+      process.env.NEXT_PUBLIC_SITE_URL = "https://yezyy.com";
       database = await createRequestFlowTestDatabase();
       actorId = crypto.randomUUID();
       partyPackageId = crypto.randomUUID();
@@ -69,6 +78,17 @@ describe.skipIf(!runDatabaseTests)(
 
     afterEach(async () => {
       await database.close();
+      if (previousCustomerActionTokenSecret === undefined) {
+        delete process.env.CUSTOMER_ACTION_TOKEN_SECRET;
+      } else {
+        process.env.CUSTOMER_ACTION_TOKEN_SECRET =
+          previousCustomerActionTokenSecret;
+      }
+      if (previousSiteUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_SITE_URL;
+      } else {
+        process.env.NEXT_PUBLIC_SITE_URL = previousSiteUrl;
+      }
     });
 
     async function insertBooking(
@@ -273,9 +293,92 @@ describe.skipIf(!runDatabaseTests)(
         createRequestTransitionService(database.connection.db).transitionOrdinary(input),
       ]);
       expect([first.replayed, second.replayed].sort()).toEqual([false, true]);
-      expect(await database.connection.db.select().from(emailOutbox).where(eq(emailOutbox.bookingId, booking.id))).toHaveLength(1);
-      expect(await database.connection.db.select().from(requestStatusEvents).where(eq(requestStatusEvents.bookingId, booking.id))).toHaveLength(1);
+      const deliveries = await database.connection.db
+        .select()
+        .from(emailOutbox)
+        .where(eq(emailOutbox.bookingId, booking.id));
+      const events = await database.connection.db
+        .select()
+        .from(requestStatusEvents)
+        .where(eq(requestStatusEvents.bookingId, booking.id));
+      expect(deliveries).toHaveLength(1);
+      expect(events).toHaveLength(1);
+      expect(deliveries[0]).toMatchObject({
+        messageType: "booking_notification_customer",
+        statusEventId: events[0]?.id,
+        payload: {
+          template: "booking_confirmed",
+        },
+      });
+      expect(deliveries[0]?.payload.manageUrl).toMatch(
+        /^https:\/\/yezyy\.com\/en\/manage-booking\/[^/]+$/,
+      );
+      expect(
+        await database.connection.db
+          .select()
+          .from(customerActionTokens)
+          .where(eq(customerActionTokens.bookingId, booking.id)),
+      ).toHaveLength(1);
     });
+
+    it.each([
+      ["rejected", "booking_rejected"],
+      ["waitlisted", "booking_waitlisted"],
+    ] as const)(
+      "uses one event-bound lifecycle delivery for an ordinary %s transition",
+      async (toStatus, template) => {
+        const [booking] = await database.connection.db
+          .insert(bookings)
+          .values({
+            name: "Ordinary lifecycle customer",
+            phone: "0430000000",
+            email: `${toStatus}@example.com`,
+            preferredDate: "2026-08-02",
+            numberOfPeople: 2,
+            requestKind: "experience",
+            slotDate: "2026-08-02",
+            slotStartTime: "10:00",
+            slotEndTime: "11:00",
+            locale: "en",
+            status: "pending_review",
+            participantCount: 2,
+            youngChildCount: 0,
+            accompanyingAdultCount: 1,
+            attendanceCount: 3,
+            durationMinutes: 60,
+            policyVersion: "2026-07-29",
+            policyAcceptedAt: new Date(),
+          })
+          .returning();
+
+        const result = await createRequestTransitionService(
+          database.connection.db,
+        ).transitionOrdinary({
+          bookingId: booking.id,
+          expectedStatus: "pending_review",
+          toStatus,
+          operationId: crypto.randomUUID(),
+          actorUserId: actorId,
+        });
+
+        const deliveries = await database.connection.db
+          .select()
+          .from(emailOutbox)
+          .where(eq(emailOutbox.bookingId, booking.id));
+        expect(deliveries).toHaveLength(1);
+        expect(deliveries[0]).toMatchObject({
+          messageType: "booking_notification_customer",
+          statusEventId: result.eventId,
+          payload: { template },
+        });
+        expect(
+          await database.connection.db
+            .select()
+            .from(customerActionTokens)
+            .where(eq(customerActionTokens.bookingId, booking.id)),
+        ).toHaveLength(1);
+      },
+    );
 
     it("replays the same reschedule operation but rejects a changed interval", async () => {
       await database.connection.db.insert(studioWeeklyHours).values([

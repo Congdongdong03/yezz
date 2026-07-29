@@ -771,6 +771,29 @@ describe("live booking notification templates", () => {
     ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
   });
 
+  it("rejects a status-specific lifecycle notification without its status event", async () => {
+    const { createResendOutboxProvider } = await import("./email.js");
+    const provider = createResendOutboxProvider();
+
+    await expect(
+      provider.send({
+        id: "00000000-0000-4000-8000-000000000001",
+        dedupeKey: "booking:1:confirmed:missing-event",
+        bookingId: "00000000-0000-4000-8000-000000000002",
+        cartOrderId: null,
+        statusEventId: null,
+        messageType: "booking_notification_customer",
+        recipient: "customer@example.com",
+        locale: "en",
+        payload: {
+          template: "booking_confirmed",
+          ...common,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+    expect(sentEmails).toHaveLength(0);
+  });
+
   it("validates typed payloads before direct rendering", async () => {
     const { renderEmail } = await import("./email.js");
     expect(() =>

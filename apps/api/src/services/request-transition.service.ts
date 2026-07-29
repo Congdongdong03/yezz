@@ -19,6 +19,12 @@ import {
 } from "../lib/email.js";
 import { CANONICAL_BOOKING_EMAIL_IDENTITY } from "../lib/email-outbox-payload.js";
 import {
+  bookingLocale,
+  customerManageUrl,
+  issueDeterministicManagementToken,
+  notificationPayload,
+} from "../lib/booking-notification.js";
+import {
   createBookingsRepository,
   type OrderStatus,
 } from "../repositories/bookings.repository.js";
@@ -72,6 +78,19 @@ export type OrdinaryBookingTransitionInput = {
   note?: string | null;
   newDate?: string;
   newStartTime?: string;
+};
+
+type OrdinaryLifecycleTemplate =
+  | "booking_confirmed"
+  | "booking_rejected"
+  | "booking_waitlisted";
+
+const ORDINARY_LIFECYCLE_TEMPLATES: Partial<
+  Record<BookingStatus, OrdinaryLifecycleTemplate>
+> = {
+  confirmed: "booking_confirmed",
+  rejected: "booking_rejected",
+  waitlisted: "booking_waitlisted",
 };
 
 function assertUuid(value: string, field: string): string {
@@ -163,7 +182,14 @@ async function loadStoreContext(db: Db) {
   };
 }
 
-export function createRequestTransitionService(db: Db) {
+export function createRequestTransitionService(
+  db: Db,
+  dependencies?: {
+    now?: () => Date;
+    customerActionTokenSecret?: string;
+    customerManageBaseUrl?: string;
+  },
+) {
   const bookingsRepo = createBookingsRepository(db);
   const cartOrdersRepo = createCartOrdersRepository(db);
   const statusEventsRepo = createStatusEventsRepository(db);
@@ -171,6 +197,7 @@ export function createRequestTransitionService(db: Db) {
   const outboxRepo = createEmailOutboxRepository(db);
   const availabilityRepo = createBookingAvailabilityRepository(db);
   const scheduleRepo = createStudioScheduleRepository(db);
+  const now = dependencies?.now ?? (() => new Date());
 
   return {
     async transitionOrdinary(input: OrdinaryBookingTransitionInput) {
@@ -211,7 +238,7 @@ export function createRequestTransitionService(db: Db) {
           for (const date of [...new Set([existing.slotDate!, interval.date])].sort()) await availabilityRepo.lockOperationalDate(date, tx);
           const schedule = await scheduleRepo.resolveDay(interval.date);
           if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt) throw new AppError(400, "STUDIO_CLOSED", "The studio is closed on this date");
-          validateBookingWindow({ date: interval.date, startTime: interval.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(new Date()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
+          validateBookingWindow({ date: interval.date, startTime: interval.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(now()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
           const occupied = await availabilityRepo.sumConfirmedAttendance(interval, tx);
           const hasParty = await availabilityRepo.hasExclusivePartyOverlap(interval, tx);
           if (hasParty || occupied + existing.attendanceCount > 8) throw new AppError(409, "CAPACITY_CONFLICT", "The requested interval is full");
@@ -221,8 +248,48 @@ export function createRequestTransitionService(db: Db) {
         if (!updated) throw new AppError(409, "STATUS_CONFLICT", "The request changed. Refresh and try again.");
         const event = await statusEventsRepo.createBooking({ bookingId, operationId, fromStatus: input.expectedStatus, toStatus: input.toStatus, adminNote: encodeOrdinaryOperationNote({ note, newDate, newStartTime }), actorUserId }, tx);
         if (updated.email) {
-          const store = await loadStoreContext(tx);
-          await outboxRepo.enqueue({ dedupeKey: `booking:${bookingId}:status:${event.id}:customer`, bookingId, statusEventId: event.id, messageType: "booking_status_customer", recipient: updated.email, locale: updated.locale?.startsWith("zh") ? "zh" : "en", payload: { template: "booking_status", status: input.toStatus, locale: updated.locale?.startsWith("zh") ? "zh" : "en", customerName: updated.name, orderNumber: formatBookingOrderId(updated.id, updated.createdAt), preferredDate: interval.date, slotLabel: `${interval.date} ${interval.startTime}–${interval.endTime} Australia/Melbourne`, storeName: store.storeName, address: store.address, businessHours: store.businessHours, contact: store.contact, adminNote: note } }, tx);
+          const locale = bookingLocale(updated.locale);
+          const lifecycleTemplate =
+            ORDINARY_LIFECYCLE_TEMPLATES[input.toStatus];
+          if (lifecycleTemplate) {
+            const rawToken = await issueDeterministicManagementToken(
+              {
+                bookingId,
+                identity: `event:${event.id}:${lifecycleTemplate}`,
+                now: now(),
+                secret: dependencies?.customerActionTokenSecret,
+              },
+              tx,
+            );
+            await outboxRepo.enqueue(
+              {
+                dedupeKey: `booking:${bookingId}:event:${event.id}:${lifecycleTemplate}:customer`,
+                bookingId,
+                statusEventId: event.id,
+                messageType: "booking_notification_customer",
+                recipient: updated.email,
+                locale,
+                payload: notificationPayload({
+                  template: lifecycleTemplate,
+                  booking: updated,
+                  locale,
+                  date: interval.date,
+                  startTime: interval.startTime,
+                  endTime: interval.endTime,
+                  manageUrl: customerManageUrl(
+                    locale,
+                    rawToken,
+                    dependencies?.customerManageBaseUrl,
+                  ),
+                  note: note ?? undefined,
+                }),
+              },
+              tx,
+            );
+          } else {
+            const store = await loadStoreContext(tx);
+            await outboxRepo.enqueue({ dedupeKey: `booking:${bookingId}:status:${event.id}:customer`, bookingId, statusEventId: event.id, messageType: "booking_status_customer", recipient: updated.email, locale, payload: { template: "booking_status", status: input.toStatus, locale, customerName: updated.name, orderNumber: formatBookingOrderId(updated.id, updated.createdAt), preferredDate: interval.date, slotLabel: `${interval.date} ${interval.startTime}–${interval.endTime} Australia/Melbourne`, storeName: store.storeName, address: store.address, businessHours: store.businessHours, contact: store.contact, adminNote: note } }, tx);
+          }
         }
         return { row: updated, eventId: event.id, replayed: false };
       });

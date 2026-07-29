@@ -1,6 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 import type { CustomerActionScope, Db, LocalizedString } from "@yezz/db";
 import { AppError } from "./errors.js";
+import { parseBookingManagementBaseUrl } from "./booking-notification-config.js";
 import {
   CANONICAL_BOOKING_EMAIL_IDENTITY,
   type CustomerManagePayload,
@@ -26,18 +27,20 @@ export function bookingOfferingLabel(
 }
 
 function baseUrl(configured?: string): URL {
-  const parsed = new URL(
-    configured ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  const production = process.env.NODE_ENV === "production";
+  const parsed = parseBookingManagementBaseUrl(
+    configured ??
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      (production ? undefined : "http://localhost:3000"),
+    production,
   );
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+  if (!parsed) {
     throw new AppError(
       503,
       "CUSTOMER_MANAGE_URL_UNAVAILABLE",
       "Booking management links are temporarily unavailable",
     );
   }
-  parsed.search = "";
-  parsed.hash = "";
   return parsed;
 }
 

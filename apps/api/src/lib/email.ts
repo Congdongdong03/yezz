@@ -6,6 +6,7 @@ import type {
   OutboxProviderMessage,
 } from "../services/email-outbox.service.js";
 import {
+  isStatusLifecycleTemplate,
   validateEmailOutboxEnvelope,
   type BookingReceivedOutboxPayload,
   type BookingStatusOutboxPayload,
@@ -503,6 +504,9 @@ export function renderEmail(input: {
       : "00000000-0000-4000-8000-000000000001";
   const validated = validateEmailOutboxEnvelope({
     bookingId,
+    statusEventId: isStatusLifecycleTemplate(input.payload.template)
+      ? "00000000-0000-4000-8000-000000000002"
+      : undefined,
     messageType,
     recipient: "render@example.com",
     locale: input.locale,

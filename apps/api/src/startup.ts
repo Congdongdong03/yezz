@@ -1,4 +1,8 @@
 import { loadEnv } from "./env.js";
+import {
+  liveBookingLinksEnabled,
+  parseBookingManagementBaseUrl,
+} from "./lib/booking-notification-config.js";
 
 function validateEmailOutboxConfiguration(): void {
   if (
@@ -21,39 +25,23 @@ function validateEmailOutboxConfiguration(): void {
   }
 }
 
-function validateBookingMaintenanceConfiguration(): void {
+function validateBookingManagementConfiguration(): void {
   if (
     process.env.NODE_ENV !== "production" ||
-    process.env.BOOKING_MAINTENANCE_WORKER_ENABLED !== "true"
+    !liveBookingLinksEnabled()
   ) {
     return;
   }
   const tokenSecret = process.env.CUSTOMER_ACTION_TOKEN_SECRET;
   if (!tokenSecret || Buffer.byteLength(tokenSecret) < 32) {
     throw new Error(
-      "Booking maintenance worker requires CUSTOMER_ACTION_TOKEN_SECRET of at least 32 bytes",
+      "Live booking paths require CUSTOMER_ACTION_TOKEN_SECRET of at least 32 bytes",
     );
   }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  let parsed: URL;
-  try {
-    if (!siteUrl) throw new Error("missing");
-    parsed = new URL(siteUrl);
-  } catch {
+  if (!parseBookingManagementBaseUrl(siteUrl, true)) {
     throw new Error(
-      "Booking maintenance worker requires a safe production NEXT_PUBLIC_SITE_URL",
-    );
-  }
-  const hostname = parsed.hostname.toLowerCase();
-  if (
-    parsed.protocol !== "https:" ||
-    hostname === "localhost" ||
-    hostname === "0.0.0.0" ||
-    hostname === "::1" ||
-    hostname.startsWith("127.")
-  ) {
-    throw new Error(
-      "Booking maintenance worker requires a safe production NEXT_PUBLIC_SITE_URL",
+      "Live booking paths require a safe production NEXT_PUBLIC_SITE_URL",
     );
   }
 }
@@ -67,6 +55,6 @@ export async function loadConfiguredApp<T = typeof import("./app.js")>(
 ): Promise<T> {
   loadEnv();
   validateEmailOutboxConfiguration();
-  validateBookingMaintenanceConfiguration();
+  validateBookingManagementConfiguration();
   return importApp();
 }

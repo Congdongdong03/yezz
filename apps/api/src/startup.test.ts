@@ -12,6 +12,10 @@ const originalResendApiKey = process.env.RESEND_API_KEY;
 const originalCustomerActionTokenSecret =
   process.env.CUSTOMER_ACTION_TOKEN_SECRET;
 const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const originalExperienceFlowEnabled =
+  process.env.REQUEST_FLOW_EXPERIENCE_ENABLED;
+const originalPartyFlowEnabled = process.env.REQUEST_FLOW_PARTY_ENABLED;
+const originalProductFlowEnabled = process.env.REQUEST_FLOW_PRODUCT_ENABLED;
 
 vi.mock("./env.js", () => ({ loadEnv }));
 
@@ -21,6 +25,13 @@ describe("application startup", () => {
     loadEnv.mockReset();
     process.env.NODE_ENV = "production";
     delete process.env.EMAIL_FROM;
+    delete process.env.EMAIL_OUTBOX_WORKER_ENABLED;
+    delete process.env.BOOKING_MAINTENANCE_WORKER_ENABLED;
+    delete process.env.REQUEST_FLOW_EXPERIENCE_ENABLED;
+    delete process.env.REQUEST_FLOW_PARTY_ENABLED;
+    delete process.env.REQUEST_FLOW_PRODUCT_ENABLED;
+    delete process.env.CUSTOMER_ACTION_TOKEN_SECRET;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
     loadEnv.mockImplementation(() => {
       process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
     });
@@ -52,6 +63,17 @@ describe("application startup", () => {
         originalCustomerActionTokenSecret;
     if (originalSiteUrl === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
     else process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl;
+    if (originalExperienceFlowEnabled === undefined)
+      delete process.env.REQUEST_FLOW_EXPERIENCE_ENABLED;
+    else
+      process.env.REQUEST_FLOW_EXPERIENCE_ENABLED =
+        originalExperienceFlowEnabled;
+    if (originalPartyFlowEnabled === undefined)
+      delete process.env.REQUEST_FLOW_PARTY_ENABLED;
+    else process.env.REQUEST_FLOW_PARTY_ENABLED = originalPartyFlowEnabled;
+    if (originalProductFlowEnabled === undefined)
+      delete process.env.REQUEST_FLOW_PRODUCT_ENABLED;
+    else process.env.REQUEST_FLOW_PRODUCT_ENABLED = originalProductFlowEnabled;
   });
 
   it("loads root environment before the app evaluates production email configuration", async () => {
@@ -80,6 +102,75 @@ describe("application startup", () => {
     await expect(
       loadConfiguredApp(async () => ({ buildApp: vi.fn() })),
     ).rejects.toThrow("RESEND_API_KEY");
+  });
+
+  it("requires management-link configuration when the email worker can deliver live booking mail", async () => {
+    loadEnv.mockImplementation(() => {
+      process.env.EMAIL_OUTBOX_WORKER_ENABLED = "true";
+      process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
+      process.env.EMAIL_REPLY_TO = "congdongdong03@gmail.com";
+      process.env.OWNER_EMAIL = "congdongdong03@gmail.com";
+      process.env.RESEND_API_KEY = "resend-key";
+      delete process.env.CUSTOMER_ACTION_TOKEN_SECRET;
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    });
+    const { loadConfiguredApp } = await import("./startup.js");
+
+    await expect(
+      loadConfiguredApp(async () => ({ buildApp: vi.fn() })),
+    ).rejects.toThrow("CUSTOMER_ACTION_TOKEN_SECRET");
+  });
+
+  it.each([
+    "REQUEST_FLOW_EXPERIENCE_ENABLED",
+    "REQUEST_FLOW_PARTY_ENABLED",
+  ] as const)(
+    "requires management-link configuration when %s enables a live booking path",
+    async (flag) => {
+      loadEnv.mockImplementation(() => {
+        process.env.EMAIL_OUTBOX_WORKER_ENABLED = "false";
+        process.env.BOOKING_MAINTENANCE_WORKER_ENABLED = "false";
+        process.env[flag] = "true";
+        process.env.CUSTOMER_ACTION_TOKEN_SECRET = "too-short";
+        process.env.NEXT_PUBLIC_SITE_URL = "https://yezyy.com";
+      });
+      const { loadConfiguredApp } = await import("./startup.js");
+
+      await expect(
+        loadConfiguredApp(async () => ({ buildApp: vi.fn() })),
+      ).rejects.toThrow("CUSTOMER_ACTION_TOKEN_SECRET");
+    },
+  );
+
+  it("requires a safe management origin when the experience request flow is live", async () => {
+    loadEnv.mockImplementation(() => {
+      process.env.EMAIL_OUTBOX_WORKER_ENABLED = "false";
+      process.env.BOOKING_MAINTENANCE_WORKER_ENABLED = "false";
+      process.env.REQUEST_FLOW_EXPERIENCE_ENABLED = "true";
+      process.env.CUSTOMER_ACTION_TOKEN_SECRET =
+        "production-customer-action-secret-32-bytes";
+      process.env.NEXT_PUBLIC_SITE_URL = "http://yezyy.com";
+    });
+    const { loadConfiguredApp } = await import("./startup.js");
+
+    await expect(
+      loadConfiguredApp(async () => ({ buildApp: vi.fn() })),
+    ).rejects.toThrow("NEXT_PUBLIC_SITE_URL");
+  });
+
+  it("does not require management-link configuration for the product-only request flow", async () => {
+    loadEnv.mockImplementation(() => {
+      process.env.EMAIL_OUTBOX_WORKER_ENABLED = "false";
+      process.env.BOOKING_MAINTENANCE_WORKER_ENABLED = "false";
+      process.env.REQUEST_FLOW_PRODUCT_ENABLED = "true";
+      delete process.env.CUSTOMER_ACTION_TOKEN_SECRET;
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    });
+    const { loadConfiguredApp } = await import("./startup.js");
+
+    await expect(
+      loadConfiguredApp(async () => ({ buildApp: vi.fn() })),
+    ).resolves.toMatchObject({ buildApp: expect.any(Function) });
   });
 
   it("requires the same complete production mail configuration when maintenance is enabled", async () => {

@@ -85,6 +85,24 @@ export type BookingNotificationTemplate =
   | "booking_reminder"
   | "staff_notification";
 
+export const LIFECYCLE_TEMPLATE_STATUS = {
+  booking_confirmed: "confirmed",
+  booking_rejected: "rejected",
+  booking_waitlisted: "waitlisted",
+  party_time_proposed: "time_proposed",
+  party_payment_due: "awaiting_in_store_payment",
+  party_payment_recorded: "confirmed_paid",
+  party_payment_expired: "payment_expired",
+  cancellation_request: "cancellation_requested",
+  reschedule_request: "reschedule_requested",
+} as const;
+
+export function isStatusLifecycleTemplate(
+  template: string,
+): template is keyof typeof LIFECYCLE_TEMPLATE_STATUS {
+  return Object.hasOwn(LIFECYCLE_TEMPLATE_STATUS, template);
+}
+
 export type CustomerManagePayload = {
   template: BookingNotificationTemplate;
   customerName: string;
@@ -744,16 +762,6 @@ export function validateEmailOutboxEnvelope(
     input.statusEventId == null
       ? null
       : uuidValue(input.statusEventId, "statusEventId");
-  if (
-    (isStatus && !statusEventId) ||
-    (!isStatus && !isLifecycleNotification && statusEventId)
-  ) {
-    invalid(
-      isStatus
-        ? "statusEventId is required for status messages"
-        : "statusEventId is not allowed for receipt messages",
-    );
-  }
   const recipient = stringValue(input.recipient, "recipient", { max: 255 });
   if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
     invalid("recipient must be a valid email address");
@@ -763,6 +771,18 @@ export function validateEmailOutboxEnvelope(
     invalid("locale is unsupported");
   }
   const payload = validatePayloadForMessage(messageType, input.payload);
+  const requiresStatusEvent =
+    isStatus || isStatusLifecycleTemplate(payload.template);
+  if (
+    (requiresStatusEvent && !statusEventId) ||
+    (!isStatus && !isLifecycleNotification && statusEventId)
+  ) {
+    invalid(
+      requiresStatusEvent
+        ? "statusEventId is required for status lifecycle messages"
+        : "statusEventId is not allowed for receipt messages",
+    );
+  }
   if (
     payload.template === "booking_received" &&
     payload.orderId !== bookingId

@@ -30,6 +30,7 @@ import { createPartiesRepository } from "../repositories/parties.repository.js";
 import { createProjectsRepository } from "../repositories/projects.repository.js";
 import { createRequestCapacityRepository } from "../repositories/request-capacity.repository.js";
 import { createStudioScheduleRepository } from "../repositories/studio-schedule.repository.js";
+import { createStatusEventsRepository } from "../repositories/status-events.repository.js";
 import {
   readRequestCapabilities,
   type RequestCapabilities,
@@ -278,6 +279,7 @@ export function createBookingsService(
   const scheduleRepo = createStudioScheduleRepository(db);
   const settingsRepo = createSettingsRepository(db);
   const outboxRepo = createEmailOutboxRepository(db);
+  const statusEventsRepo = createStatusEventsRepository(db);
   const now = dependencies?.now ?? (() => new Date());
 
   return {
@@ -663,10 +665,21 @@ export function createBookingsService(
             tx,
           );
         } else {
+          const initialWaitlistEvent = await statusEventsRepo.createBooking(
+            {
+              bookingId: created.id,
+              operationId: normalizedKey,
+              fromStatus: "pending_review",
+              toStatus: "waitlisted",
+              actorUserId: null,
+              actorKind: "system",
+            },
+            tx,
+          );
           const rawToken = await issueDeterministicManagementToken(
             {
               bookingId: created.id,
-              identity: `created:waitlist:${input.date}:${input.startTime}`,
+              identity: `event:${initialWaitlistEvent.id}:booking_waitlisted`,
               now: now(),
               secret: dependencies?.customerActionTokenSecret,
             },
@@ -674,8 +687,9 @@ export function createBookingsService(
           );
           await outboxRepo.enqueue(
             {
-              dedupeKey: `booking:${created.id}:created:booking_waitlisted:customer`,
+              dedupeKey: `booking:${created.id}:event:${initialWaitlistEvent.id}:booking_waitlisted:customer`,
               bookingId: created.id,
+              statusEventId: initialWaitlistEvent.id,
               messageType: "booking_notification_customer",
               recipient: customerEmail,
               locale: messageLocale,

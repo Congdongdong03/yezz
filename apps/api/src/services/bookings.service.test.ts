@@ -1,10 +1,12 @@
 import {
   bookings,
+  customerActionTokens,
   diyProjects,
   emailOutbox,
   partyPackages,
   projectCategories,
   bookingItems,
+  requestStatusEvents,
   siteSettings,
   studioWeeklyHours,
   timeSlots,
@@ -729,6 +731,29 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
       "booking_waitlisted",
       "staff_notification",
     ]);
+    const events = await database.connection.db
+      .select()
+      .from(requestStatusEvents)
+      .where(eq(requestStatusEvents.bookingId, result.id));
+    expect(events).toMatchObject([
+      {
+        fromStatus: "pending_review",
+        toStatus: "waitlisted",
+        actorKind: "system",
+        actorUserId: null,
+      },
+    ]);
+    expect(
+      deliveries.find(
+        ({ payload }) => payload.template === "booking_waitlisted",
+      ),
+    ).toMatchObject({ statusEventId: events[0]?.id });
+    expect(
+      await database.connection.db
+        .select()
+        .from(customerActionTokens)
+        .where(eq(customerActionTokens.bookingId, result.id)),
+    ).toHaveLength(1);
     expect(await availability.sumConfirmedAttendance(interval)).toBe(beforeAttendance);
     const [afterSlot] = await database.connection.db.select().from(timeSlots).where(eq(timeSlots.id, legacySlotId));
     expect(afterSlot.bookedCount).toBe(beforeSlot.bookedCount);

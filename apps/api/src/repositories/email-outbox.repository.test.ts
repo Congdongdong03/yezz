@@ -120,6 +120,28 @@ function statusPayload(
   };
 }
 
+function lifecyclePayload(
+  template:
+    | "booking_confirmed"
+    | "booking_rejected"
+    | "booking_waitlisted",
+) {
+  return {
+    template,
+    customerName: "Queue Customer",
+    bookingNumber: "booking-20260728-1234",
+    offeringLabel: "DIY booking",
+    date: "2026-08-02",
+    startTime: "10:00",
+    endTime: "11:00",
+    manageUrl:
+      "https://yezyy.com/en/manage-booking/customer-token-1234567890",
+    storeName: "YezYY",
+    contactEmail: "congdongdong03@gmail.com",
+    contactPhone: "0430 787 712",
+  };
+}
+
 async function insertActor(client: Sql) {
   const [actor] = await client<{ id: string }[]>`
     INSERT INTO users (email, password_hash, name)
@@ -157,7 +179,12 @@ async function insertStatusEvent(
     actorUserId: string;
     bookingId?: string;
     cartOrderId?: string;
-    toStatus: "contacted" | "confirmed" | "cancelled";
+    toStatus:
+      | "contacted"
+      | "confirmed"
+      | "rejected"
+      | "waitlisted"
+      | "cancelled";
   },
 ) {
   const [event] = await client<{ id: string }[]>`
@@ -428,6 +455,74 @@ describe.skipIf(!runDatabaseTests)(
         )
       `;
       expect(count.count).toBe(0);
+      await client.end();
+    });
+
+    it("requires lifecycle templates to reference a matching booking status event", async () => {
+      const { bookingId, client, repo } = await setupRepository();
+      const actorUserId = await insertActor(client);
+      const otherBookingId = await insertBooking(
+        client,
+        "Other lifecycle booking",
+        "0430000012",
+      );
+      const confirmedEventId = await insertStatusEvent(client, {
+        actorUserId,
+        bookingId,
+        toStatus: "confirmed",
+      });
+      const otherConfirmedEventId = await insertStatusEvent(client, {
+        actorUserId,
+        bookingId: otherBookingId,
+        toStatus: "confirmed",
+      });
+
+      await expect(
+        repo.enqueue({
+          dedupeKey: "booking:lifecycle:confirmed",
+          bookingId,
+          statusEventId: confirmedEventId,
+          messageType: "booking_notification_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: lifecyclePayload("booking_confirmed"),
+        }),
+      ).resolves.toMatchObject({
+        bookingId,
+        statusEventId: confirmedEventId,
+      });
+      await expect(
+        repo.enqueue({
+          dedupeKey: "booking:lifecycle:missing-event",
+          bookingId,
+          messageType: "booking_notification_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: lifecyclePayload("booking_confirmed"),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+      await expect(
+        repo.enqueue({
+          dedupeKey: "booking:lifecycle:cross-parent",
+          bookingId,
+          statusEventId: otherConfirmedEventId,
+          messageType: "booking_notification_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: lifecyclePayload("booking_confirmed"),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
+      await expect(
+        repo.enqueue({
+          dedupeKey: "booking:lifecycle:status-mismatch",
+          bookingId,
+          statusEventId: confirmedEventId,
+          messageType: "booking_notification_customer",
+          recipient: "customer@example.test",
+          locale: "en",
+          payload: lifecyclePayload("booking_rejected"),
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_EMAIL_PAYLOAD" });
       await client.end();
     });
 

@@ -3,6 +3,7 @@ import { and, asc, count, eq, inArray, lt, lte, or, sql } from "drizzle-orm";
 import { AppError } from "../lib/errors.js";
 import {
   canonicalEmailPayload,
+  LIFECYCLE_TEMPLATE_STATUS,
   validateEmailOutboxEnvelope,
   type ValidatedEmailOutboxEnvelope,
 } from "../lib/email-outbox-payload.js";
@@ -32,18 +33,6 @@ export type EmailDeliveryListOptions = {
 
 const LEASE_MILLISECONDS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
-const LIFECYCLE_TEMPLATE_STATUS = {
-  booking_confirmed: "confirmed",
-  booking_rejected: "rejected",
-  booking_waitlisted: "waitlisted",
-  party_time_proposed: "time_proposed",
-  party_payment_due: "awaiting_in_store_payment",
-  party_payment_recorded: "confirmed_paid",
-  party_payment_expired: "payment_expired",
-  cancellation_request: "cancellation_requested",
-  reschedule_request: "reschedule_requested",
-} as const;
-
 function normalizeListOptions(options: EmailDeliveryListOptions) {
   return {
     page: Math.max(1, options.page ?? 1),
