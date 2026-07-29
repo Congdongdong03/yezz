@@ -25,14 +25,16 @@ describe("ordinary booking workflow", () => {
     });
   });
 
-  it("requires an accompanying adult when a four-to-eight-year-old attends", () => {
+  it("requires an accompanying adult when a five-to-eight-year-old attends", () => {
     expect(() =>
       validateOrdinaryAttendance({
         participantCount: 2,
         youngChildCount: 1,
         accompanyingAdultCount: 0,
       }),
-    ).toThrow(/accompanying adult/i);
+    ).toThrow(
+      "An accompanying adult is required when a five-to-eight-year-old attends",
+    );
   });
 
   it("limits total physical attendance to eight", () => {

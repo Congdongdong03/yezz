@@ -267,6 +267,29 @@ describe("submitBooking", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["en", "An accompanying adult is required for a child aged 5–8"],
+    ["zh", "有 5 至 8 岁儿童参加时，至少需要一位陪同成人"],
+  ] as const)(
+    "uses the age-five supervision validation in %s",
+    async (locale, expectedMessage) => {
+      const request = vi.fn();
+      vi.stubGlobal("fetch", request);
+      const form = validOrdinaryFormData();
+      form.set("locale", locale);
+      form.set("youngChildCount", "1");
+      form.set("accompanyingAdultCount", "0");
+
+      await expect(submitBooking(form)).resolves.toMatchObject({
+        success: false,
+        errors: {
+          accompanyingAdultCount: [expectedMessage],
+        },
+      });
+      expect(request).not.toHaveBeenCalled();
+    },
+  );
+
   it("localizes authoritative stale-slot errors and retains the attempt key", async () => {
     const request = vi.fn(async () =>
       Response.json(

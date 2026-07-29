@@ -84,7 +84,7 @@ export function validateOrdinaryAttendance(input: {
   }
   if (youngChildCount > 0 && accompanyingAdultCount < 1) {
     throw validationError(
-      "An accompanying adult is required when a four-to-eight-year-old attends",
+      "An accompanying adult is required when a five-to-eight-year-old attends",
     );
   }
   const attendanceCount = participantCount + accompanyingAdultCount;

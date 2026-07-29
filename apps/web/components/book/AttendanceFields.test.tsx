@@ -67,24 +67,24 @@ describe("AttendanceFields", () => {
     );
   });
 
-  it("requires an accompanying adult for any participant aged four through eight", async () => {
+  it("requires an accompanying adult for any participant aged five through eight", async () => {
     await renderFields();
 
     await act(async () => {
-      change("Children aged 4–8", "1");
+      change("Children aged 5–8", "1");
       change("Accompanying adults", "0");
     });
 
     expect(container.textContent).toContain(
-      "An accompanying adult is required",
+      "An accompanying adult is required when a child aged 5–8 attends.",
     );
   });
 
   it("keeps the supervision and minimum-age guidance equivalent in Chinese", async () => {
     await renderFields("zh");
 
-    expect(container.textContent).toContain("最低年龄为 4 岁");
-    expect(container.textContent).toContain("4 至 8 岁");
+    expect(container.textContent).toContain("最低年龄为 5 岁");
+    expect(container.textContent).toContain("5 至 8 岁");
     expect(container.textContent).toContain("9 岁及以上");
   });
 });

@@ -17,32 +17,32 @@ type AttendanceFieldsProps = {
 const COPY = {
   en: {
     participants: "DIY participants",
-    children: "Children aged 4–8",
+    children: "Children aged 5–8",
     adults: "Accompanying adults",
     age:
-      "Minimum age is 4. Children aged 4–8 need an accompanying adult; guests aged 9 or older may attend without one.",
+      "Minimum age is 5. Children aged 5–8 need an accompanying adult; guests aged 9 or older may attend without one.",
     physical: (count: number) => `${count} people in the studio`,
     capacity: "Physical attendance has a maximum of 8 people.",
     supervision:
-      "An accompanying adult is required when a child aged 4–8 attends.",
+      "An accompanying adult is required when a child aged 5–8 attends.",
     participantInvalid: "Choose at least one DIY participant.",
     childInvalid:
-      "Children aged 4–8 cannot exceed the number of DIY participants.",
+      "Children aged 5–8 cannot exceed the number of DIY participants.",
     adultInvalid: "Accompanying adults cannot be negative.",
     countHint:
       "DIY participants and non-participating accompanying adults both count.",
   },
   zh: {
     participants: "手作参与者",
-    children: "4 至 8 岁儿童",
+    children: "5 至 8 岁儿童",
     adults: "陪同成人",
     age:
-      "最低年龄为 4 岁。4 至 8 岁儿童须由成人陪同；9 岁及以上可不由成人陪同。",
+      "最低年龄为 5 岁。5 至 8 岁儿童须由成人陪同；9 岁及以上可不由成人陪同。",
     physical: (count: number) => `到店共 ${count} 人`,
     capacity: "店内实际人数最多 8 人。",
-    supervision: "有 4 至 8 岁儿童参加时，至少需要一位陪同成人。",
+    supervision: "有 5 至 8 岁儿童参加时，至少需要一位陪同成人。",
     participantInvalid: "至少需要一位手作参与者。",
-    childInvalid: "4 至 8 岁儿童人数不能超过手作参与者人数。",
+    childInvalid: "5 至 8 岁儿童人数不能超过手作参与者人数。",
     adultInvalid: "陪同成人不能为负数。",
     countHint: "手作参与者和不参加手作的陪同成人均计入店内人数。",
   },

@@ -343,7 +343,7 @@ test("database and environment gates keep all public request writes closed", asy
     expect(afterDatabaseGates[0]).toEqual({
       bookings: before[0]!.bookings,
       orders: before[0]!.orders,
-      consumptions: before[0]!.consumptions + 2,
+      consumptions: before[0]!.consumptions,
     });
 
     const product = await post(

@@ -488,7 +488,8 @@ describe("OrdinaryBookingForm", () => {
   it("presents equivalent Chinese policy, payment, pending, and contact wording", async () => {
     await renderForm({ locale: "zh" });
 
-    expect(container.textContent).toContain("最低年龄为 4 岁");
+    expect(container.textContent).toContain("最低年龄为 5 岁");
+    expect(container.textContent).toContain("5 至 8 岁");
     expect(container.textContent).toContain("至少提前两小时");
     expect(container.textContent).toContain("未来七个日历日");
     expect(container.textContent).toContain("最多 8 人");
@@ -498,5 +499,12 @@ describe("OrdinaryBookingForm", () => {
     expect(container.textContent).toContain("到店付款");
     expect(container.textContent).toContain("人工确认");
     expect(container.textContent).toContain("0430 787 712");
+  });
+
+  it("presents the age-five supervision policy in English", async () => {
+    await renderForm();
+
+    expect(container.textContent).toContain("Minimum age is 5");
+    expect(container.textContent).toContain("Children aged 5–8");
   });
 });

@@ -74,12 +74,12 @@ function ordinarySchema(locale?: string) {
       ? "至少需要一位手作参与者"
       : "Choose at least one DIY participant",
     children: zh
-      ? "4 至 8 岁儿童人数不能超过手作参与者人数"
-      : "Children aged 4–8 cannot exceed DIY participants",
+      ? "5 至 8 岁儿童人数不能超过手作参与者人数"
+      : "Children aged 5–8 cannot exceed DIY participants",
     adults: zh ? "陪同成人不能为负数" : "Accompanying adults cannot be negative",
     supervision: zh
-      ? "有 4 至 8 岁儿童参加时，至少需要一位陪同成人"
-      : "An accompanying adult is required for a child aged 4–8",
+      ? "有 5 至 8 岁儿童参加时，至少需要一位陪同成人"
+      : "An accompanying adult is required for a child aged 5–8",
     capacity: zh
       ? "店内实际人数不能超过 8 人"
       : "Physical attendance cannot exceed 8 people",

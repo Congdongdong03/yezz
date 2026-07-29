@@ -18,7 +18,7 @@ const COPY = {
     title: "Before you send the request",
     policies: [
       "Request at least two hours ahead and no more than seven calendar days ahead, using Melbourne local time.",
-      "Minimum age is 4. Children aged 4–8 require an accompanying adult; participants and accompanying adults count toward the physical capacity of 8.",
+      "Minimum age is 5. Children aged 5–8 require an accompanying adult; participants and accompanying adults count toward the physical capacity of 8.",
       "Submission is a request only. YezYY staff must manually confirm it before it becomes a booking.",
       "Prices are in AUD. Pay in store; there is no online payment.",
       "If you are more than 20 minutes late, the original time is no longer guaranteed and staff may rearrange your visit.",
@@ -34,7 +34,7 @@ const COPY = {
     title: "提交申请前",
     policies: [
       "请按墨尔本当地时间至少提前两小时申请，且只能申请未来七个日历日内的日期。",
-      "最低年龄为 4 岁。4 至 8 岁儿童须由成人陪同；手作参与者与陪同成人均计入店内最多 8 人的实际容量。",
+      "最低年龄为 5 岁。5 至 8 岁儿童须由成人陪同；手作参与者与陪同成人均计入店内最多 8 人的实际容量。",
       "提交后仅代表提出申请。必须由 YezYY 员工人工确认后，才会成为正式预约。",
       "所有价格均为澳元。请到店付款；网站不提供线上付款。",
       "迟到超过 20 分钟，原时段将不再保证，员工可能重新安排您的到店时间。",
