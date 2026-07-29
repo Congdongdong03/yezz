@@ -3,7 +3,10 @@ import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import type { FastifyInstance } from "fastify";
 import { AppError } from "./errors.js";
-import { safeRequestUrl } from "./request-log-redaction.js";
+import {
+  isCustomerBookingRequestPath,
+  safeRequestUrl,
+} from "./request-log-redaction.js";
 
 const SIGNATURE_MAX_AGE_SECONDS = 300;
 const MINIMUM_SHARED_SECRET_LENGTH = 32;
@@ -61,10 +64,7 @@ const DEFAULT_MAX_SIGNED_BODY_BYTES = 6 * 1024 * 1024;
 function protectedPath(method: string, url: string): boolean {
   const path = url.split("?", 1)[0]?.replace(/\/+$/, "") || "/";
   const normalizedMethod = method.toUpperCase();
-  const customerBookingPath =
-    /^\/api\/v1\/customer-bookings\/[A-Za-z0-9_-]{43}(?:\/(?:accept-time|request-cancellation|request-reschedule))?$/.test(
-      path,
-    );
+  const customerBookingPath = isCustomerBookingRequestPath(url);
   return (
     (normalizedMethod === "POST" &&
       [

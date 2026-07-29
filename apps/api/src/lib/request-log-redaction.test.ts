@@ -6,6 +6,7 @@ import { serializeRequestForLog } from "./request-log-redaction.js";
 import customerBookingsRoutes from "../routes/v1/customer-bookings.routes.js";
 
 const token = `-${"A".repeat(42)}`;
+const encodedToken = `%2D${"A".repeat(42)}`;
 const SECRET = "0123456789abcdef0123456789abcdef";
 const REQUEST_ID = "00000000-0000-4000-8000-000000000001";
 const TIMESTAMP = 1_785_200_000;
@@ -38,6 +39,30 @@ function signedHeaders(input: {
 }
 
 describe("customer booking request log redaction", () => {
+  it("does not let malformed query-key encoding crash Fastify request logging", async () => {
+    const entries: string[] = [];
+    const app = Fastify({
+      logger: {
+        level: "info",
+        serializers: { req: serializeRequestForLog },
+        stream: { write: (chunk: string) => entries.push(chunk) },
+      },
+    });
+    app.get("/probe", async () => ({ ok: true }));
+
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: "/probe?%ZZ=x",
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(entries.join("")).toContain("/probe?%ZZ=[REDACTED]");
+    } finally {
+      await app.close();
+    }
+  });
+
   it.each([
     `/api/v1/customer-bookings/${token}`,
     `/api/v1/customer-bookings/${token}/request-cancellation`,
@@ -72,16 +97,17 @@ describe("customer booking request log redaction", () => {
 
     await app.inject({
       method: "GET",
-      url: `/api/v1/customer-bookings/${token}`,
+      url: `/api/v1/customer-bookings/${encodedToken}`,
     });
     await app.close();
 
     const logs = entries.join("");
     expect(logs).not.toContain(token);
+    expect(logs).not.toContain(encodedToken);
     expect(logs).toContain("/api/v1/customer-bookings/:token");
   });
 
-  it("redacts tokens from the complete Fastify and internal-verification log stream while retaining safe query evidence", async () => {
+  it("redacts an encoded token in each Fastify and internal-verification log while retaining safe query evidence", async () => {
     const entries: string[] = [];
     const app = Fastify({
       logger: {
@@ -119,20 +145,39 @@ describe("customer booking request log redaction", () => {
     const requests: Array<{
       method: "GET" | "POST";
       suffix: string;
+      expectedPath: string;
       body?: Uint8Array;
     }> = [
-      { method: "GET", suffix: "?source=mail&signature=raw-signature" },
-      { method: "POST", suffix: "/request-cancellation?campaign=win&token=query-token" },
-      { method: "POST", suffix: "/accept-time?source=sms" },
+      {
+        method: "GET",
+        suffix: "?source=mail&signature=raw-signature",
+        expectedPath:
+          "/api/v1/customer-bookings/:token?source=mail&signature=[REDACTED]",
+      },
+      {
+        method: "POST",
+        suffix: "/request-cancellation?campaign=win&token=query-token",
+        expectedPath:
+          "/api/v1/customer-bookings/:token/request-cancellation?campaign=win&token=[REDACTED]",
+      },
+      {
+        method: "POST",
+        suffix: "/accept-time?source=sms",
+        expectedPath:
+          "/api/v1/customer-bookings/:token/accept-time?source=sms",
+      },
       {
         method: "POST",
         suffix: "/request-reschedule?ref=reminder&secret=query-secret",
+        expectedPath:
+          "/api/v1/customer-bookings/:token/request-reschedule?ref=reminder&secret=[REDACTED]",
         body: new TextEncoder().encode('{"date":"2030-08-14","startTime":"13:30"}'),
       },
     ];
 
     for (const request of requests) {
-      const url = `/api/v1/customer-bookings/${token}${request.suffix}`;
+      const logStart = entries.length;
+      const url = `/api/v1/customer-bookings/${encodedToken}${request.suffix}`;
       const body = request.body ?? new Uint8Array();
       const response = await app.inject({
         method: request.method,
@@ -144,11 +189,33 @@ describe("customer booking request log redaction", () => {
         ...(request.body ? { payload: Buffer.from(request.body) } : {}),
       });
       expect(response.statusCode).toBe(200);
+
+      const requestLogs = entries
+        .slice(logStart)
+        .map((entry) => JSON.parse(entry) as {
+          msg?: string;
+          path?: string;
+          req?: { url?: string };
+        });
+      const incoming = requestLogs.find((entry) => entry.msg === "incoming request");
+      const verification = requestLogs.find(
+        (entry) => entry.msg === "Internal request verification",
+      );
+      expect(incoming?.req?.url).toBe(request.expectedPath);
+      expect(verification?.path).toBe(request.expectedPath);
+
+      const serializedLogs = JSON.stringify(requestLogs);
+      expect(serializedLogs).not.toContain(token);
+      expect(serializedLogs).not.toContain(encodedToken);
+      expect(serializedLogs).not.toContain("raw-signature");
+      expect(serializedLogs).not.toContain("query-token");
+      expect(serializedLogs).not.toContain("query-secret");
     }
     await app.close();
 
     const logs = entries.join("");
     expect(logs).not.toContain(token);
+    expect(logs).not.toContain(encodedToken);
     expect(logs).not.toContain("raw-signature");
     expect(logs).not.toContain("query-token");
     expect(logs).not.toContain("query-secret");
