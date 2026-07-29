@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getAdminSettings, updateAdminSettings } from "@/lib/admin/api";
-import type { SiteSettings } from "@/lib/admin/types";
+import { getAdminSchedule } from "@/lib/admin/api";
+import type { AdminSchedule, SiteSettings } from "@/lib/admin/types";
+import BusinessHoursEditor from "@/components/admin/BusinessHoursEditor";
 
 export default function AdminSettingsPage() {
   const [form, setForm] = useState<SiteSettings | null>(null);
+  const [schedule, setSchedule] = useState<AdminSchedule | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(
@@ -24,6 +27,18 @@ export default function AdminSettingsPage() {
         setMessage({ type: "error", text: err instanceof Error ? err.message : "加载失败" }),
       )
       .finally(() => setLoading(false));
+  }, []);
+
+  const loadSchedule = async () => {
+    try {
+      setSchedule(await getAdminSchedule());
+    } catch {
+      setMessage({ type: "error", text: "营业安排加载失败，请稍后重试" });
+    }
+  };
+
+  useEffect(() => {
+    void Promise.resolve().then(loadSchedule);
   }, []);
 
   const set = <K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) => {
@@ -99,6 +114,15 @@ export default function AdminSettingsPage() {
           message={message.text}
           onDismiss={() => setMessage(null)}
         />
+      )}
+
+      {schedule && (
+        <div className="rounded-xl border border-[#DED9D7] bg-[#F5F3F2] p-4 sm:p-5">
+          <BusinessHoursEditor
+            onChanged={loadSchedule}
+            schedule={schedule}
+          />
+        </div>
       )}
 
       <form onSubmit={submit} className="max-w-2xl space-y-4">

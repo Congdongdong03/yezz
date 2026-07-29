@@ -26,6 +26,12 @@ import type {
   EmailDelivery,
   EmailDeliveryList,
   EmailDeliveryListOptions,
+  AdminSchedule,
+  BookingCalendar,
+  RequestSwitchState,
+  SpecialHours,
+  StudioClosure,
+  WeeklyHours,
 } from "./types";
 import { buildEmailDeliveryQuery } from "./email-delivery";
 
@@ -247,6 +253,113 @@ export async function updateBookingStatus(
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+
+export async function getBookingCalendar(from: string, to: string) {
+  return adminFetch<BookingCalendar>(
+    `/api/v1/admin/bookings/calendar?${new URLSearchParams({ from, to })}`,
+  );
+}
+
+export async function runBookingTransition(
+  id: string,
+  input: BookingTransitionInput,
+) {
+  return adminFetch<Booking>(`/api/v1/admin/bookings/${id}/transitions`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function recordBookingCharge(
+  id: string,
+  input: {
+    expectedStatus: "confirmed_paid";
+    operationId: string;
+    type: "cake_cutting" | "cleaning" | "overtime";
+    amountCents: number;
+    note?: string;
+  },
+) {
+  return adminFetch<Booking>(`/api/v1/admin/bookings/${id}/charges`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function recordBookingPayment(
+  id: string,
+  input: {
+    expectedStatus: "awaiting_in_store_payment";
+    operationId: string;
+    amountCents: 9500 | 14500;
+    paidAt: string;
+  },
+) {
+  return adminFetch<Booking>(`/api/v1/admin/bookings/${id}/payment`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function recordBookingRefund(
+  id: string,
+  input: {
+    expectedStatus: "cancelled";
+    operationId: string;
+    refundedAt: string;
+  },
+) {
+  return adminFetch<Booking>(`/api/v1/admin/bookings/${id}/refund`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getAdminSchedule() {
+  return adminFetch<AdminSchedule>("/api/v1/admin/settings/schedule");
+}
+
+export async function updateWeeklyHours(days: WeeklyHours[]) {
+  return adminFetch<{ weekly: WeeklyHours[] }>(
+    "/api/v1/admin/settings/schedule/weekly",
+    { method: "PUT", body: JSON.stringify({ days }) },
+  );
+}
+
+export async function saveSpecialHours(input: Omit<SpecialHours, "note"> & {
+  note?: string | null;
+  acknowledgeExistingBookings?: boolean;
+}) {
+  return adminFetch<SpecialHours>(
+    "/api/v1/admin/settings/schedule/special-hours",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export async function createStudioClosure(input: Omit<StudioClosure, "id"> & {
+  acknowledgeExistingBookings?: boolean;
+}) {
+  return adminFetch<StudioClosure>(
+    "/api/v1/admin/settings/schedule/closures",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export async function deleteStudioClosure(id: string) {
+  return adminFetch<{ id: string }>(
+    `/api/v1/admin/settings/schedule/closures/${id}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function updateRequestSwitches(input: Partial<
+  Record<"experience" | "party" | "product", boolean>
+>) {
+  return adminFetch<RequestSwitchState>(
+    "/api/v1/admin/settings/request-switches",
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
 }
 
 export async function getUnreadCounts() {

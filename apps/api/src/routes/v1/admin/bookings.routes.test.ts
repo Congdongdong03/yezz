@@ -1,10 +1,11 @@
 import Fastify from "fastify";
 import { describe, expect, it, vi } from "vitest";
 import { registerErrorHandler } from "../../../plugins/error-handler.js";
+import { AppError } from "../../../lib/errors.js";
 import adminBookingsRoutes from "./bookings.routes.js";
 
 describe("admin party workflow routes", () => {
-  async function appWith(workflow: { acceptPartyTime?: ReturnType<typeof vi.fn>; expirePartyHold?: ReturnType<typeof vi.fn> }) {
+  async function appWith(workflow: Record<string, unknown>) {
     const app = Fastify();
     registerErrorHandler(app);
     app.decorateRequest("user", null as never);
@@ -34,5 +35,119 @@ describe("admin party workflow routes", () => {
       expect(response.statusCode).toBe(400);
       expect(expirePartyHold).not.toHaveBeenCalled();
     } finally { await app.close(); }
+  });
+
+  it("returns the seven-day Melbourne calendar contract", async () => {
+    const getCalendar = vi.fn(async () => ({
+      from: "2026-07-30",
+      to: "2026-08-05",
+      timeZone: "Australia/Melbourne",
+      days: [],
+    }));
+    const app = await appWith({ getCalendar });
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: "/bookings/calendar?from=2026-07-30&to=2026-08-05",
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().data.timeZone).toBe("Australia/Melbourne");
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("exposes canonical transition, charge, payment, and refund actions", async () => {
+    const updateStatus = vi.fn(async () => ({ status: "confirmed" }));
+    const recordPartyCharge = vi.fn(async () => ({ replayed: false }));
+    const recordPartyPayment = vi.fn(async () => ({ status: "confirmed_paid" }));
+    const recordPartyRefund = vi.fn(async () => ({ status: "refunded" }));
+    const app = await appWith({
+      updateStatus,
+      recordPartyCharge,
+      recordPartyPayment,
+      recordPartyRefund,
+    });
+    try {
+      const transition = await app.inject({
+        method: "POST",
+        url: "/bookings/booking-1/transitions",
+        payload: {
+          expectedStatus: "pending_review",
+          toStatus: "confirmed",
+          operationId: "operation-1",
+          finalDate: "2026-08-01",
+          finalStartTime: "10:00",
+        },
+      });
+      const charge = await app.inject({
+        method: "POST",
+        url: "/bookings/booking-1/charges",
+        payload: {
+          expectedStatus: "confirmed_paid",
+          operationId: "operation-2",
+          type: "cake_cutting",
+          amountCents: 1500,
+        },
+      });
+      const payment = await app.inject({
+        method: "POST",
+        url: "/bookings/booking-1/payment",
+        payload: {
+          expectedStatus: "awaiting_in_store_payment",
+          operationId: "operation-3",
+          amountCents: 9500,
+          paidAt: "2026-08-01T00:00:00.000Z",
+        },
+      });
+      const refund = await app.inject({
+        method: "POST",
+        url: "/bookings/booking-1/refund",
+        payload: {
+          expectedStatus: "cancelled",
+          operationId: "operation-4",
+          refundedAt: "2026-08-01T00:00:00.000Z",
+        },
+      });
+
+      expect([
+        transition.statusCode,
+        charge.statusCode,
+        payment.statusCode,
+        refund.statusCode,
+      ]).toEqual([200, 200, 200, 200]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("returns the current status on a stale canonical action", async () => {
+    const updateStatus = vi.fn(async () => {
+      throw new AppError(
+        409,
+        "STATUS_CONFLICT",
+        "The booking changed",
+      );
+    });
+    const getById = vi.fn(async () => ({ status: "cancelled" }));
+    const app = await appWith({ updateStatus, getById });
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings/booking-1/transitions",
+        payload: {
+          expectedStatus: "pending_review",
+          toStatus: "confirmed",
+          operationId: "operation-1",
+        },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().error.code).toBe("STALE_STATUS");
+      expect(response.json().error.details).toEqual({
+        currentStatus: "cancelled",
+      });
+    } finally {
+      await app.close();
+    }
   });
 });

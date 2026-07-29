@@ -81,7 +81,12 @@ declare module "fastify" {
 }
 
 export default fp(async (app: FastifyInstance) => {
-  const requestCapabilities = readRequestCapabilities();
+  const requestCapabilities = {
+    ...readRequestCapabilities(),
+    // Product sales are outside this rollout even if an environment flag is
+    // accidentally enabled.
+    product: false,
+  };
   const rateLimits = createRateLimitsService(
     createRateLimitsRepository(app.db),
     {

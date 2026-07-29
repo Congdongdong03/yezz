@@ -83,6 +83,23 @@ describe("createBookingsService", () => {
     });
   });
 
+  it("rejects the live party request before database work when its hard gate is closed", async () => {
+    const service = createBookingsService({} as never, {
+      experience: false,
+      product: false,
+      party: false,
+    });
+    await expect(
+      service.createPartyRequest(
+        {} as never,
+        "10000000-0000-4000-8000-000000000004",
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 503,
+      code: "REQUEST_FLOW_DISABLED",
+    });
+  });
+
   it("normalizes omitted people to the exact persisted reservation count", () => {
     expect(normalizeBookingPeople(undefined)).toBe(1);
     expect(reservedPeopleForBooking(null, "slot-1")).toBe(1);

@@ -13,11 +13,26 @@ import {
   createRequestFlowTestDatabase,
   type RequestFlowTestDatabase,
 } from "../../test-utils/request-flow-postgres.js";
-import { createAdminBookingsService, displayBookingEventStatus } from "./bookings.admin.service.js";
+import {
+  createAdminBookingsService,
+  displayBookingEventStatus,
+  validateBookingCalendarRange,
+} from "./bookings.admin.service.js";
 
 describe("admin booking status display", () => {
   it.each(["time_proposed", "awaiting_in_store_payment", "confirmed_paid", "payment_expired", "refunded", "waitlisted", "reschedule_requested"] as const)("preserves the live status %s in history", (status) => {
     expect(displayBookingEventStatus(status)).toBe(status);
+  });
+
+  it("accepts at most seven inclusive calendar days", () => {
+    expect(
+      validateBookingCalendarRange("2026-07-30", "2026-08-05"),
+    ).toEqual({ from: "2026-07-30", to: "2026-08-05" });
+    expect(() =>
+      validateBookingCalendarRange("2026-07-30", "2026-08-06"),
+    ).toThrowError(
+      expect.objectContaining({ code: "VALIDATION_ERROR" }),
+    );
   });
 });
 

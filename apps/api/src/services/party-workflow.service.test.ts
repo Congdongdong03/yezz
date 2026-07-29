@@ -561,14 +561,34 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
     await service.proposePartyTime({ bookingId: created.id, expectedStatus: "pending_review", finalDate: "2030-08-12", finalGuestStart: "12:00", paymentDeadline: new Date("2030-08-11T00:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
     await service.recordPartyPayment({ bookingId: created.id, expectedStatus: "awaiting_in_store_payment", amountCents: 9500, paidAt: new Date("2030-08-10T01:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId });
-    await expect(service.recordPartyCharge({ bookingId: created.id, type: "cake_cutting", amountCents: 1500, actorUserId: staffId })).resolves.toBeUndefined();
-    await expect(service.recordPartyCharge({ bookingId: created.id, type: "cleaning", amountCents: 1500, actorUserId: staffId })).resolves.toBeUndefined();
-    await expect(service.recordPartyCharge({ bookingId: created.id, type: "overtime", amountCents: 3500, actorUserId: staffId })).resolves.toBeUndefined();
-    await expect(service.recordPartyCharge({ bookingId: created.id, type: "cleaning", amountCents: 1499, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_AMOUNT_INVALID" });
-    await expect(service.recordPartyCharge({ bookingId: created.id, type: "overtime", amountCents: 3501, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_AMOUNT_INVALID" });
-    await expect(service.recordPartyCharge({ bookingId: created.id, type: "venue_fee" as never, amountCents: 1500, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
-    await expect(service.recordPartyCharge({ bookingId: created.id, type: "refund" as never, amountCents: 1500, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
-    await expect(service.recordPartyCharge({ bookingId: created.id, type: "invented" as never, amountCents: 1500, actorUserId: staffId })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
+    const cakeOperationId = crypto.randomUUID();
+    const cakeCharge = {
+      bookingId: created.id,
+      expectedStatus: "confirmed_paid" as const,
+      type: "cake_cutting" as const,
+      amountCents: 1500,
+      operationId: cakeOperationId,
+      actorUserId: staffId,
+    };
+    await expect(service.recordPartyCharge(cakeCharge)).resolves.toMatchObject({
+      replayed: false,
+    });
+    await expect(service.recordPartyCharge(cakeCharge)).resolves.toMatchObject({
+      replayed: true,
+    });
+    await expect(service.recordPartyCharge({ ...cakeCharge, type: "cleaning", operationId: crypto.randomUUID() })).resolves.toMatchObject({ replayed: false });
+    await expect(service.recordPartyCharge({ ...cakeCharge, type: "overtime", amountCents: 3500, operationId: crypto.randomUUID() })).resolves.toMatchObject({ replayed: false });
+    await expect(service.recordPartyCharge({ ...cakeCharge, type: "cleaning", amountCents: 1499, operationId: crypto.randomUUID() })).rejects.toMatchObject({ code: "PARTY_CHARGE_AMOUNT_INVALID" });
+    await expect(service.recordPartyCharge({ ...cakeCharge, type: "overtime", amountCents: 3501, operationId: crypto.randomUUID() })).rejects.toMatchObject({ code: "PARTY_CHARGE_AMOUNT_INVALID" });
+    await expect(service.recordPartyCharge({ ...cakeCharge, type: "venue_fee" as never, operationId: crypto.randomUUID() })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
+    await expect(service.recordPartyCharge({ ...cakeCharge, type: "refund" as never, operationId: crypto.randomUUID() })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
+    await expect(service.recordPartyCharge({ ...cakeCharge, type: "invented" as never, operationId: crypto.randomUUID() })).rejects.toMatchObject({ code: "PARTY_CHARGE_TYPE_INVALID" });
+    await expect(
+      database.connection.db
+        .select()
+        .from(bookingCharges)
+        .where(eq(bookingCharges.bookingId, created.id)),
+    ).resolves.toHaveLength(3);
   });
 
   it("keeps a legacy confirmed party blocking until reconciliation", async () => {

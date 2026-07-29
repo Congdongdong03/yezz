@@ -18,6 +18,7 @@ import {
 } from "../../repositories/bookings.repository.js";
 import { createAdminRequestReadsRepository } from "../../repositories/admin-request-reads.repository.js";
 import { createStatusEventsRepository } from "../../repositories/status-events.repository.js";
+import { createBookingCalendarRepository } from "../../repositories/booking-calendar.repository.js";
 import {
   createRequestTransitionService,
   decodeOrdinaryOperationNote,
@@ -137,6 +138,33 @@ const LIVE_BOOKING_STATUSES: readonly BookingStatus[] = [
   "no_show", "completed",
 ];
 
+export function validateBookingCalendarRange(from: string, to: string) {
+  const validDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  };
+  if (!validDate(from) || !validDate(to)) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "calendar dates must use YYYY-MM-DD",
+    );
+  }
+  const span =
+    (new Date(`${to}T00:00:00.000Z`).getTime() -
+      new Date(`${from}T00:00:00.000Z`).getTime()) /
+    86_400_000;
+  if (span < 0 || span > 6) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "calendar range must contain one to seven inclusive days",
+    );
+  }
+  return { from, to };
+}
+
 export function displayBookingEventStatus(status: string): OrderStatus | BookingStatus {
   if (LIVE_BOOKING_STATUSES.includes(status as BookingStatus)) {
     return status as BookingStatus;
@@ -210,6 +238,7 @@ export function createAdminBookingsService(db: Db) {
   const eventsRepo = createStatusEventsRepository(db);
   const transitionService = createRequestTransitionService(db);
   const partyWorkflow = createPartyWorkflowService(db);
+  const calendarRepo = createBookingCalendarRepository(db);
 
   async function loadExtras(
     bookingId: string,
@@ -270,6 +299,16 @@ export function createAdminBookingsService(db: Db) {
   }
 
   return {
+    async getCalendar(from: string, to: string) {
+      const range = validateBookingCalendarRange(from, to);
+      return {
+        from: range.from,
+        to: range.to,
+        timeZone: "Australia/Melbourne" as const,
+        days: await calendarRepo.readRange(range.from, range.to),
+      };
+    },
+
     async list(options?: {
       actorUserId: string;
       page?: number;
@@ -424,9 +463,11 @@ export function createAdminBookingsService(db: Db) {
     },
 
     async recordPartyCharge(id: string, input: {
+      expectedStatus: "confirmed_paid";
       type: "cake_cutting" | "cleaning" | "overtime";
       amountCents: number;
       note?: string;
+      operationId: string;
     }, actorUserId: string) {
       return partyWorkflow.recordPartyCharge({ ...input, bookingId: id, actorUserId });
     },

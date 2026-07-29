@@ -11,4 +11,12 @@ export default async function adminNotificationsRoutes(app: FastifyInstance) {
     const data = await app.services.adminNotifications.summary(request.user.sub);
     return success(data);
   });
+
+  app.get("/email-failures", async (request) => {
+    const data = await app.services.adminNotifications.summary(request.user.sub);
+    return success({
+      count: data.emailFailures,
+      href: "/admin/email-deliveries?status=failed",
+    });
+  });
 }

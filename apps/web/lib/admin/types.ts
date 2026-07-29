@@ -135,6 +135,20 @@ export type UploadResult = {
 };
 
 export type OrderStatus = "new" | "contacted" | "confirmed" | "cancelled";
+export type BookingStatus =
+  | OrderStatus
+  | "pending_review"
+  | "waitlisted"
+  | "rejected"
+  | "time_proposed"
+  | "awaiting_in_store_payment"
+  | "confirmed_paid"
+  | "payment_expired"
+  | "reschedule_requested"
+  | "cancellation_requested"
+  | "refunded"
+  | "no_show"
+  | "completed";
 
 export type Booking = {
   id: string;
@@ -150,7 +164,7 @@ export type Booking = {
   message: string | null;
   locale: string | null;
   timeSlotId: string | null;
-  status: OrderStatus;
+  status: BookingStatus;
   offering: {
     id: string | null;
     name: LocalizedString | null;
@@ -170,8 +184,8 @@ export type Booking = {
   statusHistory: Array<{
     id: string;
     operationId: string;
-    fromStatus: OrderStatus;
-    toStatus: OrderStatus;
+    fromStatus: BookingStatus;
+    toStatus: BookingStatus;
     note: string | null;
     createdAt: string;
     actor: {
@@ -197,10 +211,132 @@ export type Booking = {
 };
 
 export type BookingTransitionInput = {
-  status: OrderStatus;
-  expectedStatus: OrderStatus;
+  status?: BookingStatus;
+  toStatus?: BookingStatus;
+  expectedStatus: BookingStatus;
   operationId: string;
   note?: string;
+  action?: "transition" | "propose_party_time" | "accept_party_time";
+  newDate?: string;
+  newStartTime?: string;
+  contactedCustomer?: boolean;
+  finalDate?: string;
+  finalGuestStart?: string;
+  paymentDeadline?: string;
+};
+
+export type CalendarBookingReference = {
+  bookingId: string;
+  bookingNumber: string;
+  name: string;
+  status: BookingStatus;
+  startTime: string;
+  endTime: string;
+  attendance: number;
+  emailFailureCount: number;
+};
+
+export type CalendarPartyBlock = {
+  bookingId: string;
+  bookingNumber: string;
+  name: string;
+  status: BookingStatus;
+  setupStart: string;
+  guestStart: string;
+  guestEnd: string;
+  cleanupEnd: string;
+  paymentDeadline: string | null;
+  emailFailureCount: number;
+};
+
+export type BookingCalendarDay = {
+  date: string;
+  timeZone: "Australia/Melbourne";
+  isClosed: boolean;
+  opensAt: string | null;
+  closesAt: string | null;
+  specialHours: {
+    opensAt: string | null;
+    closesAt: string | null;
+    isClosed: boolean;
+    note: string | null;
+  } | null;
+  closures: Array<{
+    id: string;
+    startTime: string | null;
+    endTime: string | null;
+    note: string | null;
+  }>;
+  intervals: Array<{
+    startTime: string;
+    endTime: string;
+    ordinaryAttendance: number;
+    remainingOrdinaryCapacity: number;
+    partyBlocked: boolean;
+    closed: boolean;
+    ordinaryBookings: CalendarBookingReference[];
+    partyBookingIds: string[];
+  }>;
+  ordinaryBookings: CalendarBookingReference[];
+  partyBlocks: CalendarPartyBlock[];
+  paymentDeadlines: Array<{
+    bookingId: string;
+    bookingNumber: string;
+    deadline: string;
+  }>;
+  emailFailures: Array<{
+    bookingId: string;
+    bookingNumber: string;
+    count: number;
+  }>;
+};
+
+export type BookingCalendar = {
+  from: string;
+  to: string;
+  timeZone: "Australia/Melbourne";
+  days: BookingCalendarDay[];
+};
+
+export type WeeklyHours = {
+  weekday: number;
+  opensAt: string;
+  closesAt: string;
+  isClosed: boolean;
+};
+
+export type SpecialHours = {
+  date: string;
+  opensAt: string | null;
+  closesAt: string | null;
+  isClosed: boolean;
+  note: string | null;
+};
+
+export type StudioClosure = {
+  id: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  note: string | null;
+};
+
+export type RequestSwitchState = {
+  database: { experience: boolean; party: boolean; product: false };
+  deploymentHardGate: {
+    experience: boolean;
+    party: boolean;
+    product: boolean;
+  };
+  effective: { experience: boolean; party: boolean; product: false };
+};
+
+export type AdminSchedule = {
+  timeZone: "Australia/Melbourne";
+  weekly: WeeklyHours[];
+  specialHours: SpecialHours[];
+  closures: StudioClosure[];
+  requestSwitches: RequestSwitchState;
 };
 
 export type AdminUser = {
@@ -327,7 +463,19 @@ export type CartOrder = {
     latestStatus: EmailDeliveryStatus | null;
     failedCount: number;
   };
-  statusHistory: Booking["statusHistory"];
+  statusHistory: Array<{
+    id: string;
+    operationId: string;
+    fromStatus: OrderStatus;
+    toStatus: OrderStatus;
+    note: string | null;
+    createdAt: string;
+    actor: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
   emailDeliveries: Booking["emailDeliveries"];
   createdAt: string;
   updatedAt: string;

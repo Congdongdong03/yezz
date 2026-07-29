@@ -744,7 +744,17 @@ export function createBookingsService(
     },
 
     async createPartyRequest(input: PartyCreateInput, idempotencyKey?: string) {
-      return createPartyWorkflowService(db, { now }).createPartyRequest(input, idempotencyKey);
+      if (!requestCapabilities.party) {
+        throw new AppError(
+          503,
+          "REQUEST_FLOW_DISABLED",
+          "party requests are not currently available",
+        );
+      }
+      return createPartyWorkflowService(db, {
+        now,
+        requireDatabaseGate: true,
+      }).createPartyRequest(input, idempotencyKey);
     },
   };
 }

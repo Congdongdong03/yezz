@@ -53,6 +53,25 @@ export function readRequestCapabilities(
   };
 }
 
+export function effectiveRequestCapabilities(
+  database: {
+    experienceRequestsEnabled: boolean;
+    partyRequestsEnabled: boolean;
+    productRequestsEnabled: boolean;
+  },
+  env: RequestCapabilityEnvironment = process.env,
+): RequestCapabilities {
+  const deployment = readRequestCapabilities(env);
+  return {
+    experience:
+      deployment.experience && database.experienceRequestsEnabled,
+    party: deployment.party && database.partyRequestsEnabled,
+    // Product sales remain disabled for this rollout even if stale data or an
+    // incorrectly configured deployment has both switches enabled.
+    product: false,
+  };
+}
+
 /**
  * Public create routes call this before durable rate limiting. Unknown request
  * kinds and missing or malformed flags all fail closed without touching a
@@ -84,17 +103,18 @@ export function createSettingsService(
 
   return {
     async get(): Promise<SiteSettingsDto> {
-      const cached = await cacheGet<SiteSettingsDto>(redis, CACHE_KEYS.settings);
+      const [cached, row] = await Promise.all([
+        cacheGet<SiteSettingsDto>(redis, CACHE_KEYS.settings),
+        repo.findSingleton(),
+      ]);
+      if (!row) {
+        throw new AppError(404, "NOT_FOUND", "Site settings not configured");
+      }
       if (cached) {
         return {
           ...cached,
-          requestCapabilities: readRequestCapabilities(env),
+          requestCapabilities: effectiveRequestCapabilities(row, env),
         };
-      }
-
-      const row = await repo.findSingleton();
-      if (!row) {
-        throw new AppError(404, "NOT_FOUND", "Site settings not configured");
       }
 
       const result: SiteSettingsDto = {
@@ -112,7 +132,7 @@ export function createSettingsService(
         googleMapUrl: row.googleMapUrl ?? null,
         seoTitle: row.seoTitle ?? null,
         seoDescription: row.seoDescription ?? null,
-        requestCapabilities: readRequestCapabilities(env),
+        requestCapabilities: effectiveRequestCapabilities(row, env),
       };
       await cacheSet(redis, CACHE_KEYS.settings, result);
       return result;

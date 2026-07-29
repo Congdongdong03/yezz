@@ -9,8 +9,12 @@ import AdminBookingsPage from "./page";
 
 const api = vi.hoisted(() => ({
   getAdminBookings: vi.fn(),
-  markNotificationsRead: vi.fn(),
-  updateBookingStatus: vi.fn(),
+  getAdminBooking: vi.fn(),
+  getBookingCalendar: vi.fn(),
+  runBookingTransition: vi.fn(),
+  recordBookingCharge: vi.fn(),
+  recordBookingPayment: vi.fn(),
+  recordBookingRefund: vi.fn(),
 }));
 const navigation = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 
@@ -108,7 +112,7 @@ describe("AdminBookingsPage stale status focus", () => {
     api.getAdminBookings
       .mockReset()
       .mockResolvedValueOnce({
-        data: [booking("new")],
+        data: [booking("pending_review")],
         total: 1,
         page: 1,
         limit: 100,
@@ -119,8 +123,9 @@ describe("AdminBookingsPage stale status focus", () => {
         page: 1,
         limit: 100,
       });
-    api.markNotificationsRead.mockReset().mockResolvedValue({ type: "bookings" });
-    api.updateBookingStatus
+    api.getAdminBooking.mockReset();
+    api.getBookingCalendar.mockReset();
+    api.runBookingTransition
       .mockReset()
       .mockRejectedValue(
         new ApiClientError(
@@ -144,21 +149,13 @@ describe("AdminBookingsPage stale status focus", () => {
     await act(async () => root.render(<AdminBookingsPage />));
     await act(async () => {});
 
-    const originalStatus = container.querySelector<HTMLSelectElement>(
-      "select[aria-label='更新 Alice 的预约状态']",
+    const originalStatus = container.querySelector<HTMLButtonElement>(
+      "button[aria-label='确认 Alice']",
     );
     expect(originalStatus).not.toBeNull();
     originalStatus?.focus();
 
-    await act(async () => {
-      if (!originalStatus) return;
-      const setValue = Object.getOwnPropertyDescriptor(
-        HTMLSelectElement.prototype,
-        "value",
-      )?.set;
-      setValue?.call(originalStatus, "confirmed");
-      originalStatus.dispatchEvent(new Event("change", { bubbles: true }));
-    });
+    await act(async () => originalStatus?.click());
 
     const confirmButton = Array.from(
       container.querySelectorAll<HTMLButtonElement>("button"),
@@ -168,43 +165,16 @@ describe("AdminBookingsPage stale status focus", () => {
     await act(async () => {});
   }
 
-  it("restores focus to the surviving status control after a stale refresh", async () => {
-    await submitStaleStatusChange();
+  it("replaces the four-state dropdown with valid action-specific controls", async () => {
+    await act(async () => root.render(<AdminBookingsPage />));
+    await act(async () => {});
 
-    const refreshedStatus = container.querySelector<HTMLSelectElement>(
-      "select[aria-label='更新 Alice 的预约状态']",
-    );
-    expect(api.getAdminBookings).toHaveBeenCalledTimes(2);
-    expect(container.querySelector("[role='dialog']")).toBeNull();
-    expect(refreshedStatus?.value).toBe("cancelled");
-    expect(document.activeElement?.isConnected).toBe(true);
-    expect(document.activeElement).toBe(refreshedStatus);
-  });
-
-  it("waits until the existing control is re-enabled when stale refresh fails", async () => {
-    api.getAdminBookings
-      .mockReset()
-      .mockResolvedValueOnce({
-        data: [booking("new")],
-        total: 1,
-        page: 1,
-        limit: 100,
-      })
-      .mockRejectedValueOnce(new Error("raw transport failure"));
-
-    await submitStaleStatusChange();
-
-    const statusControl = container.querySelector<HTMLSelectElement>(
-      "select[aria-label='更新 Alice 的预约状态']",
-    );
-    expect(statusControl?.disabled).toBe(false);
-    expect(document.activeElement?.isConnected).toBe(true);
-    expect(document.activeElement).not.toBe(document.body);
-    expect(document.activeElement).toBe(statusControl);
-    expect(container.querySelector("[role='alert']")?.textContent).toContain(
-      "预约记录加载失败，请稍后重试",
-    );
-    expect(container.textContent).not.toContain("raw transport failure");
+    expect(
+      container.querySelector("select[aria-label*='预约状态']"),
+    ).toBeNull();
+    expect(container.querySelector("button[aria-label='确认 Alice']")).not.toBeNull();
+    expect(container.querySelector("button[aria-label='转候补 Alice']")).not.toBeNull();
+    expect(container.querySelector("button[aria-label='拒绝 Alice']")).not.toBeNull();
   });
 
   it("focuses the page heading when a stale refresh removes the row", async () => {
@@ -227,7 +197,7 @@ describe("AdminBookingsPage stale status focus", () => {
 
     const heading = container.querySelector<HTMLHeadingElement>("h1");
     expect(container.textContent).toContain(
-      "预约状态已变化，列表已刷新，请重新选择操作",
+      "记录已被其他操作更新，请查看最新状态",
     );
     expect(heading?.tabIndex).toBe(-1);
     expect(document.activeElement?.isConnected).toBe(true);

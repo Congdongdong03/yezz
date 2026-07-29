@@ -3,15 +3,25 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
-import BookingStatusDialog, {
-  type BookingStatusDialogResult,
-} from "@/components/admin/BookingStatusDialog";
-import { getAdminBooking, updateBookingStatus } from "@/lib/admin/api";
+import BookingWorkflowDialog, {
+  type BookingWorkflowPayload,
+} from "@/components/admin/BookingWorkflowDialog";
 import {
+  getAdminBooking,
+  getBookingCalendar,
+  recordBookingCharge,
+  recordBookingPayment,
+  recordBookingRefund,
+  runBookingTransition,
+} from "@/lib/admin/api";
+import {
+  bookingActionsFor,
   formatBookingActionError,
   isStaleBookingStatus,
+  melbourneLocalToIso,
+  type BookingWorkflowAction,
 } from "@/lib/admin/booking-status";
-import type { Booking, OrderStatus } from "@/lib/admin/types";
+import type { Booking, BookingStatus } from "@/lib/admin/types";
 import { Button } from "@/components/ui/button";
 import {
   EMAIL_DELIVERY_LABELS,
@@ -19,11 +29,37 @@ import {
   formatDeliveryErrorForAdmin,
 } from "@/lib/admin/email-delivery";
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
+const STATUS_LABELS: Record<BookingStatus, string> = {
   new: "新预约",
   contacted: "已联系",
   confirmed: "已确认",
   cancelled: "已取消",
+  pending_review: "待审核",
+  waitlisted: "候补中",
+  rejected: "已拒绝",
+  time_proposed: "已提议时段",
+  awaiting_in_store_payment: "等待到店支付",
+  confirmed_paid: "已付场地费",
+  payment_expired: "付款期限已过",
+  reschedule_requested: "申请改期",
+  cancellation_requested: "申请取消",
+  refunded: "已退款",
+  no_show: "未到店",
+  completed: "已完成",
+};
+
+const ACTION_LABELS: Record<BookingWorkflowAction, string> = {
+  confirm: "确认预约",
+  waitlist: "转入候补",
+  reject: "拒绝申请",
+  propose_time: "提出派对时段",
+  accept_time: "接受派对时段",
+  record_payment: "记录场地费",
+  add_charge: "记录额外费用",
+  cancel: "取消预约",
+  refund: "记录退款",
+  complete: "标记已完成",
+  no_show: "标记未到店",
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -55,10 +91,8 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [updating, setUpdating] = useState(false);
-  const [pendingStatusChange, setPendingStatusChange] = useState<{
-    status: OrderStatus;
-    expectedStatus: OrderStatus;
-  } | null>(null);
+  const [pendingAction, setPendingAction] =
+    useState<BookingWorkflowAction | null>(null);
 
   useEffect(() => {
     getAdminBooking(id)
@@ -72,18 +106,79 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleStatusChange = async (result: BookingStatusDialogResult) => {
+  const handleWorkflow = async (result: BookingWorkflowPayload) => {
     setUpdating(true);
     try {
-      const updated = await updateBookingStatus(id, result);
+      const targets: Partial<Record<BookingWorkflowAction, BookingStatus>> = {
+        confirm: "confirmed",
+        waitlist: "waitlisted",
+        reject: "rejected",
+        cancel: "cancelled",
+        complete: "completed",
+        no_show: "no_show",
+      };
+      if (result.action === "record_payment") {
+        await recordBookingPayment(id, {
+          expectedStatus: "awaiting_in_store_payment",
+          operationId: result.operationId,
+          amountCents: result.amountCents as 9500 | 14500,
+          paidAt: melbourneLocalToIso(result.recordedAt!),
+        });
+      } else if (result.action === "add_charge") {
+        await recordBookingCharge(id, {
+          expectedStatus: "confirmed_paid",
+          operationId: result.operationId,
+          type: result.chargeType!,
+          amountCents: result.amountCents!,
+          note: result.note,
+        });
+      } else if (result.action === "refund") {
+        await recordBookingRefund(id, {
+          expectedStatus: "cancelled",
+          operationId: result.operationId,
+          refundedAt: melbourneLocalToIso(result.recordedAt!),
+        });
+      } else {
+        await runBookingTransition(id, {
+          expectedStatus: result.expectedStatus,
+          operationId: result.operationId,
+          ...(result.action === "propose_time"
+            ? {
+                action: "propose_party_time",
+                finalDate: result.finalDate,
+                finalGuestStart: result.finalStartTime,
+                paymentDeadline: melbourneLocalToIso(
+                  result.paymentDeadline!,
+                ),
+              }
+            : result.action === "accept_time"
+              ? { action: "accept_party_time" }
+              : {
+                  action: "transition",
+                  toStatus: targets[result.action],
+                  contactedCustomer: result.contactedCustomer,
+                  note: result.note,
+                  ...(result.expectedStatus === "reschedule_requested"
+                    ? {
+                        newDate: result.finalDate,
+                        newStartTime: result.finalStartTime,
+                      }
+                    : {}),
+                }),
+        });
+      }
+      const updated = await getAdminBooking(id);
+      if (updated.slot?.date) {
+        await getBookingCalendar(updated.slot.date, updated.slot.date);
+      }
       setBooking(updated);
-      setMessage({ type: "success", text: "状态已更新" });
+      setMessage({ type: "success", text: "预约记录已更新" });
     } catch (err) {
       const stale = isStaleBookingStatus(err);
       const localized = formatBookingActionError(err);
       setMessage({ type: "error", text: localized });
       if (stale) {
-        setPendingStatusChange(null);
+        setPendingAction(null);
         try {
           setBooking(await getAdminBooking(id));
         } catch {
@@ -99,17 +194,9 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
     }
   };
 
-  const handleRequestedStatusChange = (status: OrderStatus) => {
-    if (!booking || booking.status === status) return;
-    setPendingStatusChange({
-      status,
-      expectedStatus: booking.status,
-    });
-  };
-
-  const handleDialogConfirm = async (result: BookingStatusDialogResult) => {
-    const error = await handleStatusChange(result);
-    if (!error) setPendingStatusChange(null);
+  const handleDialogConfirm = async (result: BookingWorkflowPayload) => {
+    const error = await handleWorkflow(result);
+    if (!error) setPendingAction(null);
     return error;
   };
 
@@ -223,21 +310,17 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
         )}
 
         <div className="flex flex-wrap gap-2 pt-2">
-          {booking.status !== "contacted" && booking.status !== "confirmed" && booking.status !== "cancelled" && (
-            <Button size="sm" variant="outline" disabled={updating} onClick={() => handleRequestedStatusChange("contacted")}>
-              标记为已联系
+          {bookingActionsFor(booking.kind, booking.status).map((action) => (
+            <Button
+              disabled={updating}
+              key={action}
+              onClick={() => setPendingAction(action)}
+              size="sm"
+              variant={action === "cancel" ? "destructive" : "outline"}
+            >
+              {ACTION_LABELS[action]}
             </Button>
-          )}
-          {booking.status !== "confirmed" && booking.status !== "cancelled" && (
-            <Button size="sm" variant="outline" disabled={updating} onClick={() => handleRequestedStatusChange("confirmed")}>
-              确认预约
-            </Button>
-          )}
-          {booking.status !== "cancelled" && (
-            <Button size="sm" variant="destructive" disabled={updating} onClick={() => handleRequestedStatusChange("cancelled")}>
-              取消预约
-            </Button>
-          )}
+          ))}
         </div>
       </div>
 
@@ -317,14 +400,14 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
         )}
       </section>
 
-      {pendingStatusChange && (
-        <BookingStatusDialog
+      {pendingAction && (
+        <BookingWorkflowDialog
+          action={pendingAction}
+          booking={booking}
           isSubmitting={updating}
-          expectedStatus={pendingStatusChange.expectedStatus}
-          onCancel={() => setPendingStatusChange(null)}
+          onCancel={() => setPendingAction(null)}
           onConfirm={handleDialogConfirm}
           open
-          status={pendingStatusChange.status}
         />
       )}
     </div>

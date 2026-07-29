@@ -135,6 +135,7 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
   now?: () => Date;
   customerActionTokenSecret?: string;
   customerManageBaseUrl?: string;
+  requireDatabaseGate?: boolean;
 }) {
   const bookingsRepo = createBookingsRepository(db);
   const partiesRepo = createPartiesRepository(db);
@@ -355,6 +356,17 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
 
   return {
     async createPartyRequest(input: PartyCreateInput, idempotencyKey?: string): Promise<PartyBookingDto> {
+      if (
+        dependencies?.requireDatabaseGate &&
+        !(await createSettingsRepository(db).findSingleton())
+          ?.partyRequestsEnabled
+      ) {
+        throw new AppError(
+          503,
+          "REQUEST_FLOW_DISABLED",
+          "party requests are not currently available",
+        );
+      }
       assertPartyInput(input);
       const canonicalInput = { ...input, projectInterests: canonicalProjectInterests(input.projectInterests) };
       const key = assertUuid(idempotencyKey, "Idempotency-Key");
@@ -366,6 +378,17 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
       }
       return db.transaction(async (tx) => {
         await bookingsRepo.lockCreateAttempt(key, tx);
+        if (
+          dependencies?.requireDatabaseGate &&
+          !(await createSettingsRepository(tx).findSingleton())
+            ?.partyRequestsEnabled
+        ) {
+          throw new AppError(
+            503,
+            "REQUEST_FLOW_DISABLED",
+            "party requests are not currently available",
+          );
+        }
         const replay = await bookingsRepo.findByIdempotencyKey(key, tx);
         if (replay) {
           await assertPartyReplay(replay, canonicalInput, packageId, tx);
@@ -629,18 +652,65 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
       });
     },
 
-    async recordPartyCharge(input: { bookingId: string; type: "cake_cutting" | "cleaning" | "overtime"; amountCents: number; note?: string; actorUserId: string }): Promise<void> {
+    async recordPartyCharge(input: {
+      bookingId: string;
+      expectedStatus: "confirmed_paid";
+      type: "cake_cutting" | "cleaning" | "overtime";
+      amountCents: number;
+      note?: string;
+      operationId: string;
+      actorUserId: string;
+    }): Promise<PartyBookingDto> {
       const bookingId = assertUuid(input.bookingId, "bookingId");
+      const operationId = assertUuid(input.operationId, "operationId");
       const actorUserId = assertUuid(input.actorUserId, "actorUserId");
       if (input.type !== "cake_cutting" && input.type !== "cleaning" && input.type !== "overtime") {
         throw new AppError(400, "PARTY_CHARGE_TYPE_INVALID", "Party charge type is invalid");
       }
       const validAmount = input.type === "cake_cutting" ? input.amountCents === 1500 : input.amountCents >= 1500 && input.amountCents <= 3500;
       if (!validAmount) throw new AppError(400, "PARTY_CHARGE_AMOUNT_INVALID", "Party charge amount is invalid");
-      await db.transaction(async (tx) => {
-        const booking = await bookingsRepo.findById(bookingId, tx);
-        if (!booking || booking.requestKind !== "party" || booking.status !== "confirmed_paid") throw new AppError(409, "STATUS_CONFLICT", "Party charges require a paid party booking");
+      return db.transaction(async (tx) => {
+        const operationPayload = {
+          action: "charge",
+          type: input.type,
+          amountCents: input.amountCents,
+          note: input.note?.trim() || null,
+        };
+        const transition = await recordTransition(
+          {
+            bookingId,
+            expectedStatus: input.expectedStatus,
+            toStatus: input.expectedStatus,
+            operationId,
+            actorUserId,
+            operationPayload,
+          },
+          tx,
+        );
+        if (transition.replayed) {
+          return {
+            id: transition.booking.id,
+            status: transition.booking.status,
+            createdAt: transition.booking.createdAt,
+            replayed: true,
+          };
+        }
+        const booking = transition.booking;
         await partyRepo.addCharge({ bookingId, type: input.type, amountCents: input.amountCents, note: input.note, recordedByUserId: actorUserId }, tx);
+        await eventsRepo.createBooking({
+          bookingId,
+          operationId,
+          fromStatus: input.expectedStatus,
+          toStatus: input.expectedStatus,
+          adminNote: encodePartyOperation(operationPayload),
+          actorUserId,
+        }, tx);
+        return {
+          id: booking.id,
+          status: booking.status,
+          createdAt: booking.createdAt,
+          replayed: false,
+        };
       });
     },
 

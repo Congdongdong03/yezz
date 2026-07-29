@@ -18,11 +18,12 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: "/admin", label: "看板", exact: true },
-  { href: "/admin/bookings", label: "预约", badgeKey: "bookings" },
+  { href: "/admin", label: "今日运营", exact: true },
+  { href: "/admin/bookings", label: "预约处理", badgeKey: "bookings" },
+  { href: "/admin/schedule", label: "周排班" },
   { href: "/admin/orders", label: "订单", badgeKey: "orders" },
-  { href: "/admin/time-slots", label: "档期" },
-  { href: "/admin/email-deliveries", label: "邮件发送" },
+  { href: "/admin/time-slots", label: "旧档期" },
+  { href: "/admin/email-deliveries", label: "邮件异常" },
   { href: "/admin/projects", label: "项目", adminOnly: true },
   { href: "/admin/parties", label: "派对套餐", adminOnly: true },
   { href: "/admin/gallery", label: "画廊", adminOnly: true },
@@ -105,17 +106,17 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const visibleNav = navItems.filter((item) => user?.role === "admin" || !item.adminOnly);
 
   return (
-    <div className="flex min-h-screen bg-muted/40">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
-        <div className="border-b border-border px-4 py-5">
-          <Link href="/admin" className="font-serif text-lg font-semibold text-warm-charcoal">
-            YezYY Admin
+    <div className="flex min-h-screen flex-col bg-[#F5F3F2] md:flex-row">
+      <aside className="flex w-full shrink-0 flex-col border-b border-[#DED9D7] bg-white md:w-52 md:border-r md:border-b-0">
+        <div className="border-b border-[#DED9D7] px-4 py-4">
+          <Link href="/admin" className="font-serif text-lg font-semibold text-[#302F2F]">
+            YezYY 运营台
           </Link>
           <p className="mt-1 text-xs text-muted-foreground">
-            {user?.role === "staff" ? "前台运营" : "内容管理"}
+            {user?.role === "staff" ? "前台值班" : "运营与内容管理"}
           </p>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 p-3">
+        <nav className="flex flex-1 gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible md:p-3">
           {visibleNav.map((item) => {
             const active = item.exact
               ? pathname === item.href
@@ -131,10 +132,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
+                  "flex shrink-0 items-center justify-between gap-2 rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 md:shrink",
                   active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-warm-charcoal hover:bg-muted",
+                    ? "bg-[#302F2F] text-white"
+                    : "text-[#302F2F] hover:bg-[#F5F3F2]",
                 )}
               >
                 <span>{item.label}</span>
@@ -152,7 +153,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             );
           })}
         </nav>
-        <div className="border-t border-border p-3">
+        <div className="hidden border-t border-border p-3 md:block">
           <Button
             variant="outline"
             size="sm"
@@ -171,8 +172,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center border-b border-border bg-card px-6">
-          <p className="text-sm text-muted-foreground">官网内容后台</p>
+        <header className="flex h-12 items-center border-b border-[#DED9D7] bg-white px-4 sm:px-6">
+          <p className="text-sm text-[#6E6968]">墨尔本时间 · 到店运营</p>
           <div className="ml-auto flex items-center gap-3">
             <Link
               href="/zh"
@@ -192,7 +193,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </Link>
           </div>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-3 sm:p-5 lg:p-6">{children}</main>
       </div>
     </div>
   );
