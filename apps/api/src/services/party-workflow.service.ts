@@ -135,7 +135,7 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
   now?: () => Date;
   customerActionTokenSecret?: string;
   customerManageBaseUrl?: string;
-  requireDatabaseGate?: boolean;
+  requirePublicRequestCapability?: (tx: Db) => Promise<void>;
 }) {
   const bookingsRepo = createBookingsRepository(db);
   const partiesRepo = createPartiesRepository(db);
@@ -386,16 +386,8 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
 
   return {
     async createPartyRequest(input: PartyCreateInput, idempotencyKey?: string): Promise<PartyBookingDto> {
-      if (
-        dependencies?.requireDatabaseGate &&
-        !(await createSettingsRepository(db).findSingleton())
-          ?.partyRequestsEnabled
-      ) {
-        throw new AppError(
-          503,
-          "REQUEST_FLOW_DISABLED",
-          "party requests are not currently available",
-        );
+      if (dependencies?.requirePublicRequestCapability) {
+        await dependencies.requirePublicRequestCapability(db);
       }
       assertPartyInput(input);
       const canonicalInput = { ...input, projectInterests: canonicalProjectInterests(input.projectInterests) };
@@ -407,18 +399,10 @@ export function createPartyWorkflowService(db: Db, dependencies?: {
         return { id: existing.id, status: existing.status, createdAt: existing.createdAt, replayed: true };
       }
       return db.transaction(async (tx) => {
-        await bookingsRepo.lockCreateAttempt(key, tx);
-        if (
-          dependencies?.requireDatabaseGate &&
-          !(await createSettingsRepository(tx).findSingleton())
-            ?.partyRequestsEnabled
-        ) {
-          throw new AppError(
-            503,
-            "REQUEST_FLOW_DISABLED",
-            "party requests are not currently available",
-          );
+        if (dependencies?.requirePublicRequestCapability) {
+          await dependencies.requirePublicRequestCapability(tx);
         }
+        await bookingsRepo.lockCreateAttempt(key, tx);
         const replay = await bookingsRepo.findByIdempotencyKey(key, tx);
         if (replay) {
           await assertPartyReplay(replay, canonicalInput, packageId, tx);

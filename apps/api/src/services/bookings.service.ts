@@ -278,10 +278,30 @@ export function createBookingsService(
   const partiesRepo = createPartiesRepository(db);
   const capacityRepo = createRequestCapacityRepository(db);
   const scheduleRepo = createStudioScheduleRepository(db);
-  const settingsRepo = createSettingsRepository(db);
   const outboxRepo = createEmailOutboxRepository(db);
   const statusEventsRepo = createStatusEventsRepository(db);
   const now = dependencies?.now ?? (() => new Date());
+
+  async function requirePublicCreateCapability(
+    kind: "experience" | "party" | "product",
+    tx: Db = db,
+  ): Promise<void> {
+    const settings = await createSettingsRepository(tx).findSingleton();
+    if (!settings) {
+      throw new AppError(
+        503,
+        "REQUEST_FLOW_DISABLED",
+        "requests are not currently available",
+      );
+    }
+    requireEffectiveRequestCapability(kind, settings, {
+      REQUEST_FLOW_EXPERIENCE_ENABLED: requestCapabilities.experience
+        ? "true"
+        : "false",
+      REQUEST_FLOW_PARTY_ENABLED: requestCapabilities.party ? "true" : "false",
+      REQUEST_FLOW_PRODUCT_ENABLED: "false",
+    });
+  }
 
   return {
     async create(
@@ -348,6 +368,7 @@ export function createBookingsService(
 
       try {
         const result = await db.transaction(async (tx) => {
+          await requirePublicCreateCapability(kind, tx);
           await repo.lockCreateAttempt(normalizedKey, tx);
           const existing = await repo.findByIdempotencyKey(normalizedKey, tx);
           if (existing) {
@@ -579,10 +600,7 @@ export function createBookingsService(
       }
       assertOrdinaryInput(input);
       const normalizedKey = assertUuid(idempotencyKey, "Idempotency-Key");
-      const initialSettings = await settingsRepo.findSingleton();
-      if (!initialSettings?.experienceRequestsEnabled) {
-        throw new AppError(503, "REQUEST_FLOW_DISABLED", "experience requests are not currently available");
-      }
+      await requirePublicCreateCapability("experience");
       const existing = await repo.findByIdempotencyKey(normalizedKey);
       const assertReplay = async (row: Awaited<ReturnType<typeof repo.findByIdempotencyKey>>) => {
         if (!row) return false;
@@ -596,11 +614,8 @@ export function createBookingsService(
       }
 
       const result = await db.transaction(async (tx) => {
+        await requirePublicCreateCapability("experience", tx);
         await repo.lockCreateAttempt(normalizedKey, tx);
-        const settings = await createSettingsRepository(tx).findSingleton();
-        if (!settings?.experienceRequestsEnabled) {
-          throw new AppError(503, "REQUEST_FLOW_DISABLED", "experience requests are not currently available");
-        }
         const replay = await repo.findByIdempotencyKey(normalizedKey, tx);
         if (replay) {
           if (!(await assertReplay(replay))) throw new Error("unreachable");
@@ -757,7 +772,8 @@ export function createBookingsService(
       }
       return createPartyWorkflowService(db, {
         now,
-        requireDatabaseGate: true,
+        requirePublicRequestCapability: (tx) =>
+          requirePublicCreateCapability("party", tx),
       }).createPartyRequest(input, idempotencyKey);
     },
   };

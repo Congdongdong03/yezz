@@ -1,9 +1,12 @@
 import Fastify from "fastify";
 import {
+  bookings,
   diyProjects,
   projectCategories,
+  requestRateLimits,
   siteSettings,
   studioWeeklyHours,
+  timeSlots,
 } from "@yezz/db";
 import {
   afterEach,
@@ -21,6 +24,9 @@ import {
   type RequestFlowTestDatabase,
 } from "../../test-utils/request-flow-postgres.js";
 import { createBookingsService } from "../../services/bookings.service.js";
+import { createRateLimitsRepository } from "../../repositories/rate-limits.repository.js";
+import { createRateLimitsService } from "../../services/rate-limits.service.js";
+import { createSettingsService } from "../../services/settings.service.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
 
@@ -338,18 +344,210 @@ describe("bookingsRoutes durable rate limits", () => {
 describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integration", () => {
   let database: RequestFlowTestDatabase;
   let projectId: string;
+  let slotId: string;
 
   beforeEach(async () => {
     database = await createRequestFlowTestDatabase();
     const categoryId = crypto.randomUUID();
     projectId = crypto.randomUUID();
+    slotId = crypto.randomUUID();
     await database.connection.db.insert(projectCategories).values({ id: categoryId, name: { en: "DIY", zh: "手作" }, slug: `route-diy-${categoryId}` });
     await database.connection.db.insert(diyProjects).values({ id: projectId, categoryId, name: { en: "Clay cup", zh: "陶杯" }, slug: `route-clay-${projectId}`, projectType: "experience", bookable: true, durationMinutes: 60, priceMin: 4300 });
-    await database.connection.db.insert(siteSettings).values({ storeName: "YezYY", experienceRequestsEnabled: true });
+    await database.connection.db.insert(timeSlots).values({
+      id: slotId,
+      date: "2026-08-02",
+      startTime: "10:00",
+      endTime: "11:00",
+      capacity: 8,
+      categoryId,
+    });
+    await database.connection.db.insert(siteSettings).values({ storeName: "YezYY", experienceRequestsEnabled: true, partyRequestsEnabled: true, productRequestsEnabled: true });
     await database.connection.db.insert(studioWeeklyHours).values({ weekday: 0, opensAt: "09:00", closesAt: "17:00", isClosed: false });
   });
 
   afterEach(async () => database.close());
+
+  async function createGatedApp(environment: {
+    REQUEST_FLOW_EXPERIENCE_ENABLED: string;
+    REQUEST_FLOW_PARTY_ENABLED: string;
+    REQUEST_FLOW_PRODUCT_ENABLED?: string;
+  }) {
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = VERIFIED_IDENTITY;
+    });
+    app.decorate("services", {
+      settings: createSettingsService(database.connection.db, null, environment),
+      bookings: createBookingsService(database.connection.db, {
+        experience: environment.REQUEST_FLOW_EXPERIENCE_ENABLED === "true",
+        party: environment.REQUEST_FLOW_PARTY_ENABLED === "true",
+        product: false,
+      }),
+      rateLimits: createRateLimitsService(
+        createRateLimitsRepository(database.connection.db),
+        { hashSecret: "route-gate-test-rate-limit-secret" },
+      ),
+    } as never);
+    await app.register(bookingsRoutes, { prefix: "/bookings" });
+    return app;
+  }
+
+  it("dispatches an enabled ordinary request after consuming exactly one durable rate bucket", async () => {
+    const app = await createGatedApp({
+      REQUEST_FLOW_EXPERIENCE_ENABLED: "true",
+      REQUEST_FLOW_PARTY_ENABLED: "true",
+    });
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings",
+        headers: { "idempotency-key": crypto.randomUUID() },
+        payload: {
+          kind: "experience",
+          mode: "booking",
+          name: "Enabled ordinary",
+          phone: "0430000000",
+          email: "enabled-ordinary@example.com",
+          date: "2026-08-02",
+          startTime: "10:00",
+          participantCount: 2,
+          youngChildCount: 0,
+          accompanyingAdultCount: 1,
+          items: [{ projectId, quantity: 2 }],
+          locale: "en",
+          policyVersion: "2026-07-29",
+          policyAccepted: true,
+        },
+      });
+      expect(response.statusCode).toBe(201);
+      await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(1);
+      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(1);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("rechecks the legacy create gate inside the write transaction", async () => {
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = VERIFIED_IDENTITY;
+    });
+    const consume = vi.fn(async () => {
+      await database.connection.db
+        .update(siteSettings)
+        .set({ experienceRequestsEnabled: false });
+      return allowedResult();
+    });
+    app.decorate("services", {
+      settings: createSettingsService(database.connection.db, null, {
+        REQUEST_FLOW_EXPERIENCE_ENABLED: "true",
+        REQUEST_FLOW_PARTY_ENABLED: "true",
+      }),
+      bookings: createBookingsService(database.connection.db, {
+        experience: true,
+        party: true,
+        product: false,
+      }),
+      rateLimits: { consume },
+    } as never);
+    await app.register(bookingsRoutes, { prefix: "/bookings" });
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings",
+        headers: { "idempotency-key": crypto.randomUUID() },
+        payload: {
+          name: "Legacy recheck",
+          phone: "0430000000",
+          email: "legacy-recheck@example.com",
+          projectId,
+          timeSlotId: slotId,
+          preferredDate: "2026-08-02",
+          numberOfPeople: 2,
+          locale: "en",
+        },
+      });
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toMatchObject({
+        success: false,
+        error: { code: "REQUEST_FLOW_DISABLED" },
+      });
+      expect(consume).toHaveBeenCalledTimes(1);
+      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it.each([
+    ["legacy experience", { name: "Legacy", phone: "0430000000", email: "legacy@example.com" }],
+    ["ordinary experience", { kind: "experience", mode: "booking", name: "Ordinary", phone: "0430000000", email: "ordinary@example.com" }],
+    ["party", { kind: "party", name: "Party", phone: "0430000000", email: "party@example.com" }],
+  ])(
+    "rejects disabled database gates for %s before dispatch or durable rate limiting",
+    async (_label, payload) => {
+      await database.connection.db.update(siteSettings).set({
+        experienceRequestsEnabled: false,
+        partyRequestsEnabled: false,
+      });
+      const app = await createGatedApp({
+        REQUEST_FLOW_EXPERIENCE_ENABLED: "true",
+        REQUEST_FLOW_PARTY_ENABLED: "true",
+      });
+      try {
+        const response = await app.inject({
+          method: "POST",
+          url: "/bookings",
+          headers: { "idempotency-key": crypto.randomUUID() },
+          payload,
+        });
+        expect(response.statusCode).toBe(503);
+        expect(response.json()).toMatchObject({
+          success: false,
+          error: { code: "REQUEST_FLOW_DISABLED" },
+        });
+        await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
+        await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
+      } finally {
+        await app.close();
+      }
+    },
+  );
+
+  it.each([
+    ["legacy experience", { name: "Legacy", phone: "0430000000", email: "legacy@example.com" }],
+    ["ordinary experience", { kind: "experience", mode: "booking", name: "Ordinary", phone: "0430000000", email: "ordinary@example.com" }],
+    ["party", { kind: "party", name: "Party", phone: "0430000000", email: "party@example.com" }],
+  ])(
+    "rejects disabled deployment gates for %s before dispatch or durable rate limiting",
+    async (_label, payload) => {
+      const app = await createGatedApp({
+        REQUEST_FLOW_EXPERIENCE_ENABLED: "false",
+        REQUEST_FLOW_PARTY_ENABLED: "false",
+      });
+      try {
+        const response = await app.inject({
+          method: "POST",
+          url: "/bookings",
+          headers: { "idempotency-key": crypto.randomUUID() },
+          payload,
+        });
+        expect(response.statusCode).toBe(503);
+        expect(response.json()).toMatchObject({
+          success: false,
+          error: { code: "REQUEST_FLOW_DISABLED" },
+        });
+        await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
+        await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
+      } finally {
+        await app.close();
+      }
+    },
+  );
 
   it("rejects an existing ordinary idempotency key when the database gate is disabled", async () => {
     const key = crypto.randomUUID();

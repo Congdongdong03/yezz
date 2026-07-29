@@ -353,6 +353,14 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
         )
       )
     );
+    CREATE TABLE "${schema}".request_rate_limits (
+      scope varchar(64) NOT NULL,
+      subject_hash varchar(64) NOT NULL,
+      window_started_at timestamptz NOT NULL,
+      request_count integer NOT NULL DEFAULT 1 CHECK (request_count >= 1),
+      expires_at timestamptz NOT NULL,
+      PRIMARY KEY (scope, subject_hash, window_started_at)
+    );
     CREATE TABLE "${schema}".admin_request_reads (
       user_id uuid NOT NULL REFERENCES "${schema}".users(id) ON DELETE CASCADE,
       booking_id uuid REFERENCES "${schema}".bookings(id) ON DELETE CASCADE,

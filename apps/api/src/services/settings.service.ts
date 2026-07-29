@@ -94,6 +94,28 @@ export function requireRequestCapability(
   }
 }
 
+/**
+ * Public create paths must require both the deployment hard gate and the
+ * auditable database switch. Product remains permanently closed.
+ */
+export function requireEffectiveRequestCapability(
+  capability: string,
+  database: Parameters<typeof effectiveRequestCapabilities>[0],
+  env: RequestCapabilityEnvironment = process.env,
+): void {
+  const capabilities = effectiveRequestCapabilities(database, env);
+  if (
+    !["experience", "product", "party"].includes(capability) ||
+    !capabilities[capability as keyof RequestCapabilities]
+  ) {
+    throw new AppError(
+      503,
+      "REQUEST_FLOW_DISABLED",
+      `${capability} requests are not currently available`,
+    );
+  }
+}
+
 export function createSettingsService(
   db: Db,
   redis: Redis | null = null,
@@ -102,6 +124,14 @@ export function createSettingsService(
   const repo = createSettingsRepository(db);
 
   return {
+    async requirePublicRequestCapability(capability: string): Promise<void> {
+      const row = await repo.findSingleton();
+      if (!row) {
+        throw new AppError(503, "REQUEST_FLOW_DISABLED", "requests are not currently available");
+      }
+      requireEffectiveRequestCapability(capability, row, env);
+    },
+
     async get(): Promise<SiteSettingsDto> {
       const [cached, row] = await Promise.all([
         cacheGet<SiteSettingsDto>(redis, CACHE_KEYS.settings),

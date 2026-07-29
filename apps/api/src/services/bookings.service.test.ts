@@ -201,6 +201,12 @@ describe.skipIf(!runDatabaseTests)(
         capacity: 12,
         categoryId: null,
       });
+      await database.connection.db.insert(siteSettings).values({
+        storeName: "YezYY",
+        experienceRequestsEnabled: true,
+        partyRequestsEnabled: true,
+        productRequestsEnabled: true,
+      });
     });
 
     afterEach(async () => {
