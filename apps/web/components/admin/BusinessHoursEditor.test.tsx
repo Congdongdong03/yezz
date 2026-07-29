@@ -52,6 +52,20 @@ describe("BusinessHoursEditor", () => {
     expect(container.textContent).toContain("Australia/Melbourne");
   });
 
+  it("shows the explicit booking acknowledgement for shortened special hours", async () => {
+    await act(async () =>
+      root.render(
+        <BusinessHoursEditor onChanged={vi.fn()} schedule={schedule} />,
+      ),
+    );
+
+    const specialHoursForm = container.querySelectorAll("form")[0];
+    expect(
+      specialHoursForm?.querySelectorAll("input[type='checkbox']"),
+    ).toHaveLength(2);
+    expect(specialHoursForm?.textContent).toContain("已核对现有预约");
+  });
+
   it("distinguishes database, deployment, and effective switches and locks product", async () => {
     await act(async () =>
       root.render(

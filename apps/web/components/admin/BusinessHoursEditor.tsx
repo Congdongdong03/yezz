@@ -216,21 +216,19 @@ export default function BusinessHoursEditor({
                 />
               </div>
             )}
-            {special.isClosed && (
-              <label className="flex gap-2 text-sm text-[#6E6968]">
-                <input
-                  checked={special.acknowledgeExistingBookings}
-                  onChange={(event) =>
-                    setSpecial((value) => ({
-                      ...value,
-                      acknowledgeExistingBookings: event.target.checked,
-                    }))
-                  }
-                  type="checkbox"
-                />
-                已核对现有预约；即使冲突也保存（不会修改预约）
-              </label>
-            )}
+            <label className="flex gap-2 text-sm text-[#6E6968]">
+              <input
+                checked={special.acknowledgeExistingBookings}
+                onChange={(event) =>
+                  setSpecial((value) => ({
+                    ...value,
+                    acknowledgeExistingBookings: event.target.checked,
+                  }))
+                }
+                type="checkbox"
+              />
+              已核对现有预约；缩短营业时间或闭店即使冲突也保存（不会修改预约）
+            </label>
             <Button disabled={busy} size="sm" type="submit">
               保存特别安排
             </Button>
