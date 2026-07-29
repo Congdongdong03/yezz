@@ -78,6 +78,59 @@ export type BookingEmailDelivery = {
   updatedAt: Date;
 };
 
+export type BookingAttendance = {
+  participantCount: number;
+  youngChildCount: number | null;
+  accompanyingAdultCount: number | null;
+  totalCount: number;
+  durationMinutes: number | null;
+};
+
+export type BookingItemDetail = {
+  id: string;
+  projectId: string | null;
+  projectName: { en: string; zh: string } | null;
+  unitPriceCents: number | null;
+  durationMinutes: number;
+  quantity: number;
+  decideInStore: boolean;
+};
+
+export type PartyChargeDetail = {
+  id: string;
+  type: "venue_fee" | "cake_cutting" | "cleaning" | "overtime" | "refund";
+  amountCents: number;
+  note: string | null;
+  createdAt: Date;
+  recordedBy: { id: string; name: string };
+};
+
+export type PartyBookingDetail = {
+  birthdayChildName: string;
+  birthdayChildAge: number;
+  participantCount: number;
+  parentCount: number;
+  desiredDate: string;
+  desiredStartTime: string;
+  byo: { cake: boolean; drinks: boolean; food: boolean; snacks: boolean };
+  cakeCuttingRequested: boolean;
+  specialRequirements: string | null;
+  finalSchedule: {
+    date: string | null;
+    setupStart: string | null;
+    guestStart: string | null;
+    guestEnd: string | null;
+    cleanupEnd: string | null;
+  };
+  venueFeeCents: number;
+  minSpendPerPersonCents: number;
+  paymentDeadline: Date | null;
+  paidAt: Date | null;
+  paidAmountCents: number | null;
+  refundedAt: Date | null;
+  charges: PartyChargeDetail[];
+};
+
 export type BookingDto = {
   id: string;
   kind: "experience" | "party";
@@ -94,6 +147,9 @@ export type BookingDto = {
   timeSlotId: string | null;
   policyVersion: string | null;
   policyAcceptedAt: Date | null;
+  attendance: BookingAttendance | null;
+  ordinaryDetails: { items: BookingItemDetail[] } | null;
+  partyDetails: PartyBookingDetail | null;
   status: OrderStatus | BookingStatus;
   offering: {
     id: string | null;
@@ -198,6 +254,19 @@ export function mapBookingRow(
           timeZone: row.slotTimezone,
         }
       : null;
+  const attendance = row.attendanceCount === null || row.participantCount === null
+    ? null
+    : {
+        participantCount: row.participantCount,
+        youngChildCount: row.requestKind === "experience" ? row.youngChildCount : null,
+        accompanyingAdultCount: row.requestKind === "party"
+          ? row.numberOfPeople === null
+            ? null
+            : Math.max(0, row.numberOfPeople - row.participantCount)
+          : row.accompanyingAdultCount,
+        totalCount: row.attendanceCount,
+        durationMinutes: row.durationMinutes,
+      };
 
   return {
     id: row.id,
@@ -215,6 +284,9 @@ export function mapBookingRow(
     timeSlotId: row.timeSlotId ?? null,
     policyVersion: row.policyVersion ?? null,
     policyAcceptedAt: row.policyAcceptedAt ?? null,
+    attendance,
+    ordinaryDetails: null,
+    partyDetails: null,
     status: row.participantCount !== null
       ? row.status
       : legacyStatusFromBookingEvidence(
@@ -291,6 +363,77 @@ export function createAdminBookingsService(db: Db) {
     };
   }
 
+  async function loadBookingDetails(row: BookingRow): Promise<Pick<
+    BookingDto,
+    "ordinaryDetails" | "partyDetails"
+  >> {
+    if (row.requestKind === "experience" && row.participantCount !== null) {
+      const items = await repo.findItems(row.id);
+      return {
+        ordinaryDetails: {
+          items: items.map((item) => ({
+            id: item.id,
+            projectId: item.projectId,
+            projectName: item.projectNameSnapshot,
+            unitPriceCents: item.unitPriceCentsSnapshot,
+            durationMinutes: item.durationMinutesSnapshot,
+            quantity: item.quantity,
+            decideInStore: item.decideInStore,
+          })),
+        },
+        partyDetails: null,
+      };
+    }
+    if (row.requestKind !== "party") {
+      return { ordinaryDetails: null, partyDetails: null };
+    }
+    const [details, charges] = await Promise.all([
+      repo.findPartyDetails(row.id),
+      repo.findChargesWithRecorder(row.id),
+    ]);
+    if (!details) return { ordinaryDetails: null, partyDetails: null };
+    return {
+      ordinaryDetails: null,
+      partyDetails: {
+        birthdayChildName: details.birthdayChildName,
+        birthdayChildAge: details.birthdayChildAge,
+        participantCount: details.participantCount,
+        parentCount: details.parentCount,
+        desiredDate: details.desiredDate,
+        desiredStartTime: details.desiredStartTime,
+        byo: {
+          cake: details.byoCake,
+          drinks: details.byoDrinks,
+          food: details.byoFood,
+          snacks: details.byoSnacks,
+        },
+        cakeCuttingRequested: details.cakeCuttingRequested,
+        specialRequirements: details.specialRequirements,
+        finalSchedule: {
+          date: details.finalDate,
+          setupStart: details.finalSetupStart,
+          guestStart: details.finalGuestStart,
+          guestEnd: details.finalGuestEnd,
+          cleanupEnd: details.finalCleanupEnd,
+        },
+        venueFeeCents: details.venueFeeCents,
+        minSpendPerPersonCents: details.minSpendPerPersonCents,
+        paymentDeadline: details.paymentDeadline,
+        paidAt: details.paidAt,
+        paidAmountCents: details.paidAmountCents,
+        refundedAt: details.refundedAt,
+        charges: charges.map((charge) => ({
+          id: charge.id,
+          type: charge.type,
+          amountCents: charge.amountCents,
+          note: charge.note,
+          createdAt: charge.createdAt,
+          recordedBy: { id: charge.recordedById, name: charge.recordedByName },
+        })),
+      },
+    };
+  }
+
   async function getById(id: string, actorUserId?: string): Promise<BookingDto> {
     const row = await repo.findById(id);
     if (!row) {
@@ -299,7 +442,11 @@ export function createAdminBookingsService(db: Db) {
     if (actorUserId) {
       await readsRepo.markBookingRead(actorUserId, row.id);
     }
-    return mapBookingRow(row, await loadExtras(row.id, true));
+    const [extras, details] = await Promise.all([
+      loadExtras(row.id, true),
+      loadBookingDetails(row),
+    ]);
+    return { ...mapBookingRow(row, extras), ...details };
   }
 
   return {

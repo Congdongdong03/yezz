@@ -1,14 +1,18 @@
 import {
   adminRequestReads,
+  bookingCharges,
   bookingItems,
+  bookingPartyDetails,
   bookings,
   requestStatusEvents,
+  users,
   type Db,
   type BookingStatus,
   type LocalizedString,
 } from "@yezz/db";
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -312,6 +316,32 @@ export function createBookingsRepository(db: Db) {
         .from(bookingItems)
         .where(eq(bookingItems.bookingId, bookingId))
         .orderBy(bookingItems.sortOrder);
+    },
+
+    async findPartyDetails(bookingId: string, tx: Db = db) {
+      const [row] = await tx
+        .select()
+        .from(bookingPartyDetails)
+        .where(eq(bookingPartyDetails.bookingId, bookingId))
+        .limit(1);
+      return row ?? null;
+    },
+
+    async findChargesWithRecorder(bookingId: string, tx: Db = db) {
+      return tx
+        .select({
+          id: bookingCharges.id,
+          type: bookingCharges.type,
+          amountCents: bookingCharges.amountCents,
+          note: bookingCharges.note,
+          createdAt: bookingCharges.createdAt,
+          recordedById: users.id,
+          recordedByName: users.name,
+        })
+        .from(bookingCharges)
+        .innerJoin(users, eq(users.id, bookingCharges.recordedByUserId))
+        .where(eq(bookingCharges.bookingId, bookingId))
+        .orderBy(asc(bookingCharges.createdAt), asc(bookingCharges.id));
     },
 
     async compareAndSetStatus(

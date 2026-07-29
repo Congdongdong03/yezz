@@ -75,6 +75,16 @@ function formatDate(value: string | null) {
   });
 }
 
+function formatAttendance(booking: Booking) {
+  if (!booking.attendance) return booking.numberOfPeople == null ? "—" : `${booking.numberOfPeople} 人`;
+  const { participantCount, accompanyingAdultCount, totalCount } = booking.attendance;
+  if (booking.kind === "party") {
+    return `${participantCount} 位参与者${accompanyingAdultCount == null ? "" : `，${accompanyingAdultCount} 位家长`}（共 ${totalCount} 人）`;
+  }
+  const children = booking.attendance.youngChildCount;
+  return `${participantCount} 位制作${children ? `，${children} 名儿童` : ""}${accompanyingAdultCount ? `，${accompanyingAdultCount} 位陪同` : ""}（共 ${totalCount} 人）`;
+}
+
 export default function AdminBookingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -449,7 +459,7 @@ export default function AdminBookingsPage() {
                       "资料不完整"
                     )}
                   </td>
-                  <td className="px-4 py-3">{booking.numberOfPeople ?? "—"}</td>
+                  <td className="px-4 py-3">{formatAttendance(booking)}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex border-l-2 border-[#D96F9E] pl-2 font-medium">
                       {STATUS_LABELS[booking.status]}

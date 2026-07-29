@@ -166,6 +166,56 @@ export type Booking = {
   timeSlotId: string | null;
   policyVersion: string | null;
   policyAcceptedAt: string | null;
+  attendance: {
+    participantCount: number;
+    youngChildCount: number | null;
+    accompanyingAdultCount: number | null;
+    totalCount: number;
+    durationMinutes: number | null;
+  } | null;
+  ordinaryDetails: {
+    items: Array<{
+      id: string;
+      projectId: string | null;
+      projectName: LocalizedString | null;
+      unitPriceCents: number | null;
+      durationMinutes: number;
+      quantity: number;
+      decideInStore: boolean;
+    }>;
+  } | null;
+  partyDetails: {
+    birthdayChildName: string;
+    birthdayChildAge: number;
+    participantCount: number;
+    parentCount: number;
+    desiredDate: string;
+    desiredStartTime: string;
+    byo: { cake: boolean; drinks: boolean; food: boolean; snacks: boolean };
+    cakeCuttingRequested: boolean;
+    specialRequirements: string | null;
+    finalSchedule: {
+      date: string | null;
+      setupStart: string | null;
+      guestStart: string | null;
+      guestEnd: string | null;
+      cleanupEnd: string | null;
+    };
+    venueFeeCents: number;
+    minSpendPerPersonCents: number;
+    paymentDeadline: string | null;
+    paidAt: string | null;
+    paidAmountCents: number | null;
+    refundedAt: string | null;
+    charges: Array<{
+      id: string;
+      type: "venue_fee" | "cake_cutting" | "cleaning" | "overtime" | "refund";
+      amountCents: number;
+      note: string | null;
+      createdAt: string;
+      recordedBy: { id: string; name: string };
+    }>;
+  } | null;
   status: BookingStatus;
   offering: {
     id: string | null;

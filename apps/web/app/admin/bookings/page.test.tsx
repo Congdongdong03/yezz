@@ -58,6 +58,9 @@ function booking(status: Booking["status"]): Booking {
     timeSlotId: "00000000-0000-4000-8000-000000000002",
     policyVersion: "2026-07-29",
     policyAcceptedAt: "2026-07-29T01:02:03.000Z",
+    attendance: null,
+    ordinaryDetails: null,
+    partyDetails: null,
     status,
     offering: {
       id: "00000000-0000-4000-8000-000000000003",

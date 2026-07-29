@@ -71,6 +71,14 @@ const ACTIVITY_LABELS: Record<string, string> = {
   mobile: "上门",
 };
 
+const PARTY_CHARGE_LABELS = {
+  venue_fee: "场地费",
+  cake_cutting: "切蛋糕服务",
+  cleaning: "清洁费",
+  overtime: "加时费",
+  refund: "退款",
+} as const;
+
 function formatDate(value: string | null) {
   if (!value) return "—";
   const d = new Date(value);
@@ -83,6 +91,32 @@ function formatDate(value: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatAudCents(amountCents: number) {
+  return `A$${(amountCents / 100).toFixed(2)}`;
+}
+
+function formatAttendance(booking: Booking) {
+  if (!booking.attendance) return booking.numberOfPeople == null ? "—" : `${booking.numberOfPeople} 人`;
+  const { participantCount, accompanyingAdultCount, totalCount } = booking.attendance;
+  if (booking.kind === "party") {
+    return `${participantCount} 位参与者${accompanyingAdultCount == null ? "" : `，${accompanyingAdultCount} 位家长`}（共 ${totalCount} 人）`;
+  }
+  const children = booking.attendance.youngChildCount;
+  return `${participantCount} 位制作${children ? `，${children} 名儿童` : ""}${accompanyingAdultCount ? `，${accompanyingAdultCount} 位陪同` : ""}（共 ${totalCount} 人）`;
+}
+
+function partyByoSummary(booking: Booking) {
+  const byo = booking.partyDetails?.byo;
+  if (!byo) return "无";
+  const labels = [
+    byo.cake ? "蛋糕" : null,
+    byo.drinks ? "饮料" : null,
+    byo.food ? "食物" : null,
+    byo.snacks ? "零食" : null,
+  ].filter((label): label is string => Boolean(label));
+  return labels.length ? `自带${labels.join("、")}` : "无";
 }
 
 export default function AdminBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -277,7 +311,7 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
           </div>
           <div>
             <p className="text-xs text-muted-foreground">人数</p>
-            <p className="font-medium">{booking.numberOfPeople ?? "—"}</p>
+            <p className="font-medium">{formatAttendance(booking)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">
@@ -336,6 +370,110 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
           ))}
         </div>
       </div>
+
+      {booking.ordinaryDetails && (
+        <section className="rounded-xl border border-border bg-card p-6">
+          <h2 className="font-serif text-lg font-semibold text-warm-charcoal">
+            到店人数与 DIY 项目
+          </h2>
+          {booking.attendance && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {formatAttendance(booking)}
+              {booking.attendance.durationMinutes != null && ` · 预计 ${booking.attendance.durationMinutes} 分钟`}
+            </p>
+          )}
+          {booking.ordinaryDetails.items.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">未记录项目明细</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-border">
+              {booking.ordinaryDetails.items.map((item) => (
+                <li className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0" key={item.id}>
+                  <div>
+                    <p className="font-medium">
+                      {item.decideInStore
+                        ? "到店选择项目"
+                        : item.projectName?.zh ?? item.projectName?.en ?? "项目资料不完整"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {item.quantity} 件 · {item.durationMinutes} 分钟
+                      {item.unitPriceCents == null ? " · 到店确认价格" : ` · ${formatAudCents(item.unitPriceCents)}/件`}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {booking.partyDetails && (
+        <section className="space-y-6 rounded-xl border border-border bg-card p-6">
+          <div>
+            <h2 className="font-serif text-lg font-semibold text-warm-charcoal">
+              派对专属信息
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {booking.partyDetails.participantCount} 位参与者，{booking.partyDetails.parentCount} 位家长 · 生日主角 {booking.partyDetails.birthdayChildName}（{booking.partyDetails.birthdayChildAge} 岁）
+            </p>
+          </div>
+
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-muted-foreground">期望时段</dt>
+              <dd className="mt-1 font-medium">{booking.partyDetails.desiredDate} {booking.partyDetails.desiredStartTime}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">自带物品</dt>
+              <dd className="mt-1 font-medium">{partyByoSummary(booking)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">切蛋糕服务</dt>
+              <dd className="mt-1 font-medium">{booking.partyDetails.cakeCuttingRequested ? "需要" : "不需要"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">特别要求</dt>
+              <dd className="mt-1 whitespace-pre-wrap font-medium">{booking.partyDetails.specialRequirements ?? "无"}</dd>
+            </div>
+          </dl>
+
+          {booking.partyDetails.finalSchedule.date && (
+            <div className="rounded-lg bg-muted/40 p-4 text-sm">
+              <p className="font-medium">最终安排</p>
+              <p className="mt-1 text-muted-foreground">
+                {booking.partyDetails.finalSchedule.date} · 布置 {booking.partyDetails.finalSchedule.setupStart ?? "—"} · 客人 {booking.partyDetails.finalSchedule.guestStart ?? "—"}–{booking.partyDetails.finalSchedule.guestEnd ?? "—"} · 清场至 {booking.partyDetails.finalSchedule.cleanupEnd ?? "—"}
+              </p>
+            </div>
+          )}
+
+          <div>
+            <h3 className="font-serif text-base font-semibold text-warm-charcoal">
+              场地费与费用台账
+            </h3>
+            <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              <div><dt className="text-xs text-muted-foreground">场地费</dt><dd className="mt-1 font-medium">{formatAudCents(booking.partyDetails.venueFeeCents)}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">每位最低消费</dt><dd className="mt-1 font-medium">{formatAudCents(booking.partyDetails.minSpendPerPersonCents)}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">付款期限</dt><dd className="mt-1 font-medium">{formatDate(booking.partyDetails.paymentDeadline)}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">已到店支付</dt><dd className="mt-1 font-medium">{booking.partyDetails.paidAmountCents == null ? "尚未记录" : `${formatAudCents(booking.partyDetails.paidAmountCents)} · ${formatDate(booking.partyDetails.paidAt)}`}</dd></div>
+            </dl>
+            {booking.partyDetails.charges.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">尚无费用台账记录</p>
+            ) : (
+              <ul className="mt-4 divide-y divide-border">
+                {booking.partyDetails.charges.map((charge) => (
+                  <li className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0" key={charge.id}>
+                    <div>
+                      <p className="font-medium">{PARTY_CHARGE_LABELS[charge.type]}</p>
+                      <p className="text-sm text-muted-foreground">{charge.recordedBy.name} · {formatDate(charge.createdAt)}</p>
+                      {charge.note && <p className="mt-1 whitespace-pre-wrap text-sm">{charge.note}</p>}
+                    </div>
+                    <span className="font-medium">{formatAudCents(charge.amountCents)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-xl border border-border bg-card p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">

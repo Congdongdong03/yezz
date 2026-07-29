@@ -1,4 +1,7 @@
 import {
+  bookingCharges,
+  bookingItems,
+  bookingPartyDetails,
   bookings,
   diyProjects,
   emailOutbox,
@@ -400,6 +403,183 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
       notificationSummary: {
         latestStatus: "pending",
         failedCount: 0,
+      },
+    });
+  });
+
+  it("returns an ordinary booking's stored attendance and selected project items for staff review", async () => {
+    const bookingId = crypto.randomUUID();
+    await database.connection.db.insert(bookings).values({
+      id: bookingId,
+      name: "Ordinary detail customer",
+      phone: "0430000031",
+      requestKind: "experience",
+      status: "pending_review",
+      participantCount: 2,
+      youngChildCount: 1,
+      accompanyingAdultCount: 1,
+      attendanceCount: 3,
+      durationMinutes: 60,
+      slotDate: "2030-08-13",
+      slotStartTime: "10:00",
+      slotEndTime: "11:00",
+    });
+    await database.connection.db.insert(bookingItems).values([
+      {
+        bookingId,
+        projectNameSnapshot: { en: "Phone case", zh: "手机壳" },
+        unitPriceCentsSnapshot: 4300,
+        durationMinutesSnapshot: 40,
+        quantity: 2,
+        decideInStore: false,
+        sortOrder: 0,
+      },
+      {
+        bookingId,
+        projectNameSnapshot: null,
+        unitPriceCentsSnapshot: null,
+        durationMinutesSnapshot: 20,
+        quantity: 1,
+        decideInStore: true,
+        sortOrder: 1,
+      },
+    ]);
+
+    await expect(
+      createAdminBookingsService(database.connection.db).getById(bookingId),
+    ).resolves.toMatchObject({
+      attendance: {
+        participantCount: 2,
+        youngChildCount: 1,
+        accompanyingAdultCount: 1,
+        totalCount: 3,
+        durationMinutes: 60,
+      },
+      ordinaryDetails: {
+        items: [
+          {
+            projectName: { en: "Phone case", zh: "手机壳" },
+            unitPriceCents: 4300,
+            durationMinutes: 40,
+            quantity: 2,
+            decideInStore: false,
+          },
+          {
+            projectName: null,
+            unitPriceCents: null,
+            durationMinutes: 20,
+            quantity: 1,
+            decideInStore: true,
+          },
+        ],
+      },
+      partyDetails: null,
+    });
+  });
+
+  it("returns stored party requirements, in-store payment, and charge ledger for staff review", async () => {
+    const staffId = crypto.randomUUID();
+    const bookingId = crypto.randomUUID();
+    await database.connection.db.insert(users).values({
+      id: staffId,
+      email: "party-ledger-staff@example.com",
+      passwordHash: "not-used",
+      name: "收费员工",
+      role: "staff",
+    });
+    await database.connection.db.insert(bookings).values({
+      id: bookingId,
+      name: "Party detail customer",
+      phone: "0430000032",
+      requestKind: "party",
+      status: "confirmed_paid",
+      participantCount: 4,
+      attendanceCount: 5,
+      numberOfPeople: 5,
+    });
+    await database.connection.db.insert(bookingPartyDetails).values({
+      bookingId,
+      birthdayChildName: "Mia",
+      birthdayChildAge: 6,
+      participantCount: 4,
+      parentCount: 1,
+      desiredDate: "2030-08-14",
+      desiredStartTime: "13:00",
+      byoCake: true,
+      byoDrinks: true,
+      byoFood: false,
+      byoSnacks: true,
+      cakeCuttingRequested: true,
+      specialRequirements: "Nut-free table",
+      finalDate: "2030-08-15",
+      finalSetupStart: "12:30",
+      finalGuestStart: "13:00",
+      finalGuestEnd: "14:30",
+      finalCleanupEnd: "15:00",
+      venueFeeCents: 9500,
+      minSpendPerPersonCents: 4500,
+      paymentDeadline: new Date("2030-08-10T03:00:00.000Z"),
+      paidAt: new Date("2030-08-09T03:00:00.000Z"),
+      paidAmountCents: 9500,
+    });
+    await database.connection.db.insert(bookingCharges).values([
+      {
+        bookingId,
+        type: "venue_fee",
+        amountCents: 9500,
+        recordedByUserId: staffId,
+      },
+      {
+        bookingId,
+        type: "cake_cutting",
+        amountCents: 1500,
+        note: "Birthday cake",
+        recordedByUserId: staffId,
+      },
+    ]);
+
+    await expect(
+      createAdminBookingsService(database.connection.db).getById(bookingId),
+    ).resolves.toMatchObject({
+      attendance: {
+        participantCount: 4,
+        accompanyingAdultCount: 1,
+        totalCount: 5,
+      },
+      ordinaryDetails: null,
+      partyDetails: {
+        birthdayChildName: "Mia",
+        birthdayChildAge: 6,
+        participantCount: 4,
+        parentCount: 1,
+        desiredDate: "2030-08-14",
+        desiredStartTime: "13:00",
+        byo: { cake: true, drinks: true, food: false, snacks: true },
+        cakeCuttingRequested: true,
+        specialRequirements: "Nut-free table",
+        finalSchedule: {
+          date: "2030-08-15",
+          setupStart: "12:30",
+          guestStart: "13:00",
+          guestEnd: "14:30",
+          cleanupEnd: "15:00",
+        },
+        venueFeeCents: 9500,
+        minSpendPerPersonCents: 4500,
+        paidAmountCents: 9500,
+        charges: [
+          {
+            type: "venue_fee",
+            amountCents: 9500,
+            recordedBy: { id: staffId, name: "收费员工" },
+          },
+          {
+            type: "cake_cutting",
+            amountCents: 1500,
+            note: "Birthday cake",
+            recordedBy: { id: staffId, name: "收费员工" },
+          },
+        ],
       },
     });
   });
