@@ -103,23 +103,7 @@ function testDatabaseUrl(): string {
   return value;
 }
 
-function futureWednesday(): string {
-  const now = new Date();
-  for (let offset = 3; offset <= 20; offset += 1) {
-    const candidate = new Date(now.getTime() + offset * 86_400_000);
-    const date = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Australia/Melbourne",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(candidate);
-    if (new Date(`${date}T00:00:00Z`).getUTCDay() === 3) return date;
-  }
-  throw new Error("Unable to choose a future Wednesday");
-}
-
-function futureBookingDate(): string {
-  const now = new Date();
+export function selectClosureBookingDate(now: Date = new Date()): string {
   const candidate = new Date(now.getTime() + 3 * 86_400_000);
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Australia/Melbourne",
@@ -362,7 +346,7 @@ export async function seedLiveBookingFixture(input: {
   return {
     sql,
     runId,
-    bookingDate: futureBookingDate(),
+    bookingDate: selectClosureBookingDate(),
     ownerEmail: "congdongdong03@gmail.com",
     projects: {
       short: shortProject,
@@ -460,7 +444,7 @@ export async function createClosureFixture(
   const partyPackageId = flow === "party" ? crypto.randomUUID() : null;
   const slotId = crypto.randomUUID();
   const slug = `closure-${flow}-${label}`;
-  const slotDate = futureWednesday();
+  const slotDate = selectClosureBookingDate();
   const [slotStartTime, slotEndTime] =
     flow === "experience"
       ? ["10:00", "11:00"]
