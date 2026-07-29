@@ -1,0 +1,429 @@
+"use client";
+
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
+import { useTranslations } from "next-intl";
+import AttendanceFields, {
+  validateOrdinaryAttendance,
+  type OrdinaryAttendance,
+} from "./AttendanceFields";
+import ProjectQuantityPicker, {
+  summarizeProjectSelection,
+  type OrdinaryBookingItemSelection,
+  type OrdinaryBookingProject,
+} from "./ProjectQuantityPicker";
+import PolicyConsent from "./PolicyConsent";
+import BookingCalendar from "./BookingCalendar";
+import RequestContactFallback from "@/components/RequestContactFallback";
+import {
+  createBookingAttempt,
+  submitBooking,
+} from "@/lib/actions/booking";
+import {
+  getOrdinaryAvailability,
+  type OrdinaryAvailabilitySlot,
+} from "@/lib/api/availability";
+import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
+
+type OrdinaryBookingFormProps = {
+  locale: "en" | "zh";
+  projects: OrdinaryBookingProject[];
+  requestEnabled: boolean;
+};
+
+type FormErrors = Record<string, string[] | undefined>;
+
+export default function OrdinaryBookingForm({
+  locale,
+  projects,
+  requestEnabled,
+}: OrdinaryBookingFormProps) {
+  const t = useTranslations("ordinaryBooking");
+  const id = useId();
+  const [attendance, setAttendance] = useState<OrdinaryAttendance>({
+    participantCount: 1,
+    youngChildCount: 0,
+    accompanyingAdultCount: 0,
+  });
+  const [items, setItems] = useState<OrdinaryBookingItemSelection[]>([]);
+  const [date, setDate] = useState("");
+  const [selectedSlot, setSelectedSlot] =
+    useState<OrdinaryAvailabilitySlot | null>(null);
+  const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [attempt] = useState(createBookingAttempt);
+  const [submitting, setSubmitting] = useState(false);
+  const [successMode, setSuccessMode] = useState<
+    "booking" | "waitlist" | null
+  >(null);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [calendarRevision, setCalendarRevision] = useState(0);
+
+  const attendanceErrors = validateOrdinaryAttendance(attendance);
+  const selection = useMemo(
+    () => summarizeProjectSelection(items, projects),
+    [items, projects],
+  );
+  const attendanceCount =
+    attendance.participantCount + attendance.accompanyingAdultCount;
+  const scheduleReady =
+    Object.keys(attendanceErrors).length === 0 &&
+    selection.quantity === attendance.participantCount &&
+    Boolean(selection.durationMinutes);
+  const ignoreLegacySlot = useCallback(() => {}, []);
+  const handleDateChange = useCallback((value: string) => {
+    setDate(value);
+    setSelectedSlot(null);
+    setErrors((current) => ({
+      ...current,
+      slot: undefined,
+      server: undefined,
+    }));
+  }, []);
+  const handleSelectOrdinarySlot = useCallback(
+    (slot: OrdinaryAvailabilitySlot | null) => {
+      setSelectedSlot(slot);
+      setErrors((current) => ({
+        ...current,
+        slot: undefined,
+        server: undefined,
+      }));
+    },
+    [],
+  );
+
+  if (!requestEnabled) {
+    return (
+      <div className="space-y-4">
+        <RequestContactFallback locale={locale} />
+        <address className="rounded-2xl border border-warm-grey/15 bg-white px-6 py-4 text-center text-sm not-italic leading-6 text-warm-grey">
+          <p>{YEZYY_BUSINESS_PROFILE.address}</p>
+          <p>
+            {locale === "zh" ? "小红书" : "Xiaohongshu"}:{" "}
+            {YEZYY_BUSINESS_PROFILE.xiaohongshu}
+          </p>
+        </address>
+      </div>
+    );
+  }
+
+  if (successMode) {
+    return (
+      <section
+        className="rounded-3xl border border-sage/50 bg-sage/15 p-6 sm:p-8"
+        role="status"
+      >
+        <h2 className="font-serif text-2xl font-semibold text-warm-charcoal">
+          {t("successTitle")}
+        </h2>
+        <p className="mt-3 leading-7 text-warm-charcoal">
+          {successMode === "waitlist"
+            ? t("successWaitlist")
+            : t("successBooking")}
+        </p>
+      </section>
+    );
+  }
+
+  const fieldId = (name: string) => `${id}-${name}`;
+  const errorId = (name: string) => `${id}-${name}-error`;
+  const serverErrorId = `${id}-server-error`;
+  const inputClass =
+    "mt-2 min-h-11 w-full rounded-xl border border-warm-grey/25 bg-white px-3 text-base text-warm-charcoal outline-none transition focus-visible:border-caramel focus-visible:ring-2 focus-visible:ring-caramel/25";
+
+  const validateContact = (form: HTMLFormElement) => {
+    const data = new FormData(form);
+    const next: FormErrors = {};
+    const name = String(data.get("name") ?? "").trim();
+    const phone = String(data.get("phone") ?? "").trim();
+    const email = String(data.get("email") ?? "").trim();
+    if (!name) next.name = [t("nameRequired")];
+    if (!phone) next.phone = [t("phoneRequired")];
+    if (!email) {
+      next.email = [t("emailRequired")];
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      next.email = [t("emailInvalid")];
+    }
+    if (Object.keys(attendanceErrors).length > 0) {
+      next.attendance = [t("attendanceInvalid")];
+    }
+    if (
+      selection.quantity !== attendance.participantCount ||
+      !selection.durationMinutes
+    ) {
+      next.items = [t("itemsInvalid")];
+    }
+    if (!selectedSlot || !date) next.slot = [t("selectSlot")];
+    if (!policyAccepted) next.policyAccepted = [t("policyRequired")];
+    return next;
+  };
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const localErrors = validateContact(form);
+    if (Object.keys(localErrors).length > 0) {
+      setErrors(localErrors);
+      return;
+    }
+    const slot = selectedSlot!;
+    const durationMinutes = selection.durationMinutes!;
+    setSubmitting(true);
+    setErrors({});
+    try {
+      const freshSlots = await getOrdinaryAvailability({
+        attendance: attendanceCount,
+        date,
+        durationMinutes,
+      });
+      const freshSlot = freshSlots.find(
+        (candidate) => candidate.startTime === slot.startTime,
+      );
+      if (!freshSlot || freshSlot.status !== slot.status) {
+        setSelectedSlot(null);
+        setCalendarRevision((value) => value + 1);
+        setErrors({ server: [t("staleSlot")] });
+        return;
+      }
+
+      const formData = new FormData(form);
+      formData.set("mode", slot.status === "waitlist" ? "waitlist" : "booking");
+      formData.set("date", date);
+      formData.set("startTime", slot.startTime);
+      formData.set("participantCount", String(attendance.participantCount));
+      formData.set("youngChildCount", String(attendance.youngChildCount));
+      formData.set(
+        "accompanyingAdultCount",
+        String(attendance.accompanyingAdultCount),
+      );
+      formData.set("items", JSON.stringify(items));
+      formData.set("locale", locale);
+      formData.set("policyVersion", "2026-07-29");
+      formData.set("policyAccepted", "true");
+
+      const result = await submitBooking(formData, attempt);
+      if (result.success) {
+        setSuccessMode(slot.status === "waitlist" ? "waitlist" : "booking");
+      } else {
+        setErrors(result.errors as FormErrors);
+      }
+    } catch {
+      setErrors({ server: [t("genericError")] });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderField = (
+    name: "name" | "phone" | "email",
+    type: "text" | "tel" | "email",
+  ) => {
+    const fieldError = errors[name]?.[0];
+    return (
+      <div>
+        <label
+          className="text-sm font-semibold text-warm-charcoal"
+          htmlFor={fieldId(name)}
+        >
+          {t(name)} *
+        </label>
+        <input
+          aria-describedby={fieldError ? errorId(name) : undefined}
+          aria-invalid={Boolean(fieldError)}
+          className={inputClass}
+          id={fieldId(name)}
+          name={name}
+          required
+          type={type}
+        />
+        {fieldError && (
+          <p
+            className="mt-1 text-sm text-red-700"
+            id={errorId(name)}
+            role="alert"
+          >
+            {fieldError}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  const stepClass =
+    "relative rounded-3xl border border-warm-grey/15 bg-white p-5 shadow-sm sm:p-7";
+  const stepLabelClass =
+    "mb-5 flex items-center gap-3 font-serif text-xl font-semibold text-warm-charcoal";
+
+  return (
+    <form
+      aria-describedby={errors.server?.[0] ? serverErrorId : undefined}
+      aria-label={t("formLabel")}
+      className="space-y-6"
+      onSubmit={onSubmit}
+    >
+      <div className="rounded-3xl border border-caramel/25 bg-caramel/5 p-5 sm:p-7">
+        <p className="max-w-2xl text-sm leading-6 text-warm-charcoal">
+          {t("intro")}
+        </p>
+        <ol className="mt-4 grid grid-cols-2 gap-2 text-xs font-semibold text-warm-grey sm:grid-cols-4">
+          {[
+            t("stepPeople"),
+            t("stepProjects"),
+            t("stepSchedule"),
+            t("stepContact"),
+          ].map((label, index) => (
+            <li className="flex items-center gap-2" key={label}>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-warm-charcoal text-white">
+                {index + 1}
+              </span>
+              {label}
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <section className={stepClass}>
+        <h2 className={stepLabelClass}>
+          <span className="text-caramel">01</span> {t("stepPeople")}
+        </h2>
+        <AttendanceFields
+          locale={locale}
+          onChange={(value) => {
+            setAttendance(value);
+            setSelectedSlot(null);
+            setErrors((current) => ({
+              ...current,
+              attendance: undefined,
+              server: undefined,
+            }));
+          }}
+          value={attendance}
+        />
+      </section>
+
+      <section className={stepClass}>
+        <h2 className={stepLabelClass}>
+          <span className="text-caramel">02</span> {t("stepProjects")}
+        </h2>
+        <ProjectQuantityPicker
+          locale={locale}
+          onChange={(value) => {
+            setItems(value);
+            setSelectedSlot(null);
+            setErrors((current) => ({
+              ...current,
+              items: undefined,
+              server: undefined,
+            }));
+          }}
+          participantCount={attendance.participantCount}
+          projects={projects}
+          value={items}
+        />
+      </section>
+
+      <section className={stepClass}>
+        <h2 className={stepLabelClass}>
+          <span className="text-caramel">03</span> {t("stepSchedule")}
+        </h2>
+        {scheduleReady ? (
+          <>
+            <p className="mb-4 text-sm text-warm-grey">
+              {t("scheduleReady")}
+            </p>
+            <BookingCalendar
+              onDateChange={handleDateChange}
+              onSelectOrdinarySlot={handleSelectOrdinarySlot}
+              onSelectSlot={ignoreLegacySlot}
+              ordinaryAvailability={{
+                attendance: attendanceCount,
+                durationMinutes: selection.durationMinutes!,
+              }}
+              ordinaryRefreshKey={calendarRevision}
+              people={attendanceCount}
+              selectedOrdinaryStartTime={selectedSlot?.startTime ?? null}
+              selectedSlotId={null}
+            />
+          </>
+        ) : (
+          <p className="rounded-xl bg-warm-grey/10 px-4 py-3 text-sm text-warm-grey">
+            {t("scheduleNotReady")}
+          </p>
+        )}
+        {errors.slot?.[0] && (
+          <p className="mt-3 text-sm text-red-700" role="alert">
+            {errors.slot[0]}
+          </p>
+        )}
+      </section>
+
+      <section className={stepClass}>
+        <h2 className={stepLabelClass}>
+          <span className="text-caramel">04</span> {t("stepContact")}
+        </h2>
+        <p className="mb-5 rounded-xl border border-sage/35 bg-sage/10 px-4 py-3 text-sm leading-6 text-warm-charcoal">
+          {t("payInStore")}
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {renderField("name", "text")}
+          {renderField("phone", "tel")}
+        </div>
+        <div className="mt-4">{renderField("email", "email")}</div>
+        <div className="mt-4">
+          <label
+            className="text-sm font-semibold text-warm-charcoal"
+            htmlFor={fieldId("message")}
+          >
+            {t("message")}
+          </label>
+          <textarea
+            className={inputClass}
+            id={fieldId("message")}
+            name="message"
+            rows={4}
+          />
+        </div>
+        <div className="mt-6">
+          <PolicyConsent
+            checked={policyAccepted}
+            error={errors.policyAccepted?.[0]}
+            locale={locale}
+            onChange={(checked) => {
+              setPolicyAccepted(checked);
+              setErrors((current) => ({
+                ...current,
+                policyAccepted: undefined,
+              }));
+            }}
+          />
+        </div>
+      </section>
+
+      {errors.server?.[0] && (
+        <p
+          className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800"
+          id={serverErrorId}
+          role="alert"
+        >
+          {errors.server[0]}
+        </p>
+      )}
+
+      <button
+        className="min-h-12 w-full rounded-full bg-caramel px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+        disabled={submitting}
+        type="submit"
+      >
+        {submitting
+          ? t("submitting")
+          : selectedSlot?.status === "waitlist"
+            ? t("submitWaitlist")
+            : t("submitBooking")}
+      </button>
+    </form>
+  );
+}

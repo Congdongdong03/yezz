@@ -61,11 +61,222 @@ type ApiError = {
 export type BookingAttempt = RequestAttempt;
 export const createBookingAttempt = createRequestAttempt;
 
+function ordinarySchema(locale?: string) {
+  const zh = locale?.startsWith("zh") ?? false;
+  const messages = {
+    name: zh ? "请填写姓名" : "Name is required",
+    phone: zh ? "请填写电话" : "Phone is required",
+    email: zh ? "请填写邮箱" : "Email is required",
+    emailInvalid: zh ? "邮箱格式不正确" : "Invalid email",
+    date: zh ? "请重新选择日期" : "Please choose a date again",
+    time: zh ? "请重新选择开始时段" : "Please choose a start time again",
+    participants: zh
+      ? "至少需要一位手作参与者"
+      : "Choose at least one DIY participant",
+    children: zh
+      ? "4 至 8 岁儿童人数不能超过手作参与者人数"
+      : "Children aged 4–8 cannot exceed DIY participants",
+    adults: zh ? "陪同成人不能为负数" : "Accompanying adults cannot be negative",
+    supervision: zh
+      ? "有 4 至 8 岁儿童参加时，至少需要一位陪同成人"
+      : "An accompanying adult is required for a child aged 4–8",
+    capacity: zh
+      ? "店内实际人数不能超过 8 人"
+      : "Physical attendance cannot exceed 8 people",
+    items: zh
+      ? "每位手作参与者须选择一个项目"
+      : "Choose exactly one project for each DIY participant",
+    policy: zh
+      ? "请接受预约政策后继续"
+      : "Accept the booking policies to continue",
+  };
+  const itemSchema = z.union([
+    z.object({
+      projectId: z.string().uuid(),
+      quantity: z.number().int().positive(),
+      decideInStore: z.literal(false),
+    }),
+    z.object({
+      quantity: z.number().int().positive(),
+      decideInStore: z.literal(true),
+    }),
+  ]);
+  return z
+    .object({
+      mode: z.enum(["booking", "waitlist"]),
+      name: z.string().trim().min(1, messages.name),
+      phone: z.string().trim().min(1, messages.phone),
+      email: z
+        .string()
+        .trim()
+        .min(1, messages.email)
+        .pipe(z.string().email(messages.emailInvalid)),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, messages.date),
+      startTime: z
+        .string()
+        .regex(/^(?:[01]\d|2[0-3]):(?:00|30)$/, messages.time),
+      participantCount: z.coerce.number().int().min(1, messages.participants),
+      youngChildCount: z.coerce.number().int().min(0, messages.children),
+      accompanyingAdultCount: z.coerce.number().int().min(0, messages.adults),
+      items: z.preprocess((value) => {
+        if (typeof value !== "string") return value;
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      }, z.array(itemSchema).min(1, messages.items)),
+      message: z.string().trim().optional(),
+      locale: z.enum(["en", "zh"]),
+      policyVersion: z.literal("2026-07-29"),
+      policyAccepted: z
+        .string()
+        .refine((value) => value === "true", messages.policy),
+    })
+    .superRefine((data, context) => {
+      if (data.youngChildCount > data.participantCount) {
+        context.addIssue({
+          code: "custom",
+          message: messages.children,
+          path: ["youngChildCount"],
+        });
+      }
+      if (
+        data.youngChildCount > 0 &&
+        data.accompanyingAdultCount < 1
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: messages.supervision,
+          path: ["accompanyingAdultCount"],
+        });
+      }
+      if (data.participantCount + data.accompanyingAdultCount > 8) {
+        context.addIssue({
+          code: "custom",
+          message: messages.capacity,
+          path: ["accompanyingAdultCount"],
+        });
+      }
+      if (
+        data.items.reduce((total, item) => total + item.quantity, 0) !==
+        data.participantCount
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: messages.items,
+          path: ["items"],
+        });
+      }
+    });
+}
+
+function ordinaryErrorMessage(code: string, locale?: string) {
+  const zh = locale?.startsWith("zh") ?? false;
+  if (["SLOT_FULL", "SLOT_IN_PAST", "STUDIO_CLOSED"].includes(code)) {
+    return zh
+      ? "该时段刚刚发生变化，请重新查看可用或候补时段。"
+      : "That time just changed. Review the available and waitlist times.";
+  }
+  if (code === "REQUEST_FLOW_DISABLED") {
+    return zh
+      ? "线上申请暂未开放，请直接联系 YezYY。"
+      : "Online requests are not available yet. Contact YezYY directly.";
+  }
+  if (code === "PROJECT_NOT_BOOKABLE") {
+    return zh
+      ? "所选项目已不可预约，请重新选择。"
+      : "A selected project is no longer bookable. Choose again.";
+  }
+  return zh
+    ? "申请发送失败，请重试或直接联系 YezYY。"
+    : "Could not send your request. Try again or contact YezYY.";
+}
+
+async function submitOrdinaryBooking(
+  rawData: Record<string, FormDataEntryValue>,
+  attempt: BookingAttempt,
+) {
+  const locale = typeof rawData.locale === "string" ? rawData.locale : "en";
+  const parsed = ordinarySchema(locale).safeParse({
+    ...rawData,
+    name: rawData.name ?? "",
+    phone: rawData.phone ?? "",
+    email: rawData.email ?? "",
+    date: rawData.date ?? "",
+    startTime: rawData.startTime ?? "",
+    participantCount: rawData.participantCount ?? "",
+    youngChildCount: rawData.youngChildCount ?? "",
+    accompanyingAdultCount: rawData.accompanyingAdultCount ?? "",
+    items: rawData.items ?? "",
+    policyAccepted: rawData.policyAccepted ?? "",
+  });
+  if (!parsed.success) {
+    attempt.failed();
+    return { success: false, errors: parsed.error.flatten().fieldErrors };
+  }
+  const data = parsed.data;
+  const body = {
+    kind: "experience" as const,
+    mode: data.mode,
+    name: data.name,
+    phone: data.phone,
+    email: data.email,
+    date: data.date,
+    startTime: data.startTime,
+    participantCount: data.participantCount,
+    youngChildCount: data.youngChildCount,
+    accompanyingAdultCount: data.accompanyingAdultCount,
+    items: data.items,
+    ...(data.message ? { message: data.message } : {}),
+    locale: data.locale,
+    policyVersion: data.policyVersion,
+    policyAccepted: true as const,
+  };
+  try {
+    const response = await fetch("/api/backend/v1/bookings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": attempt.current(),
+      },
+      body: JSON.stringify(body),
+    });
+    const result = (await response.json()) as
+      | ApiSuccess<{ id: string }>
+      | ApiError;
+    if (!result.success) {
+      attempt.failed();
+      return {
+        success: false,
+        code: result.error.code,
+        errors: {
+          server: [ordinaryErrorMessage(result.error.code, data.locale)],
+        },
+      };
+    }
+    attempt.succeeded();
+    return { success: true, bookingId: result.data.id };
+  } catch {
+    attempt.failed();
+    return {
+      success: false,
+      code: "NETWORK_ERROR",
+      errors: {
+        server: [ordinaryErrorMessage("NETWORK_ERROR", data.locale)],
+      },
+    };
+  }
+}
+
 export async function submitBooking(
   formData: FormData,
   attempt: BookingAttempt = createBookingAttempt(),
 ) {
   const rawData = Object.fromEntries(formData.entries());
+  if ("mode" in rawData || "items" in rawData || "participantCount" in rawData) {
+    return submitOrdinaryBooking(rawData, attempt);
+  }
   const locale = typeof rawData.locale === "string" ? rawData.locale : undefined;
   const parsed = bookingSchema(locale).safeParse({
     ...rawData,

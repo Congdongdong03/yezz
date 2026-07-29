@@ -40,6 +40,35 @@ function validPartyFormData() {
   return form;
 }
 
+function validOrdinaryFormData() {
+  const form = new FormData();
+  form.set("mode", "booking");
+  form.set("name", "Alice");
+  form.set("phone", "0430000000");
+  form.set("email", "alice@example.com");
+  form.set("date", "2030-08-12");
+  form.set("startTime", "10:30");
+  form.set("participantCount", "2");
+  form.set("youngChildCount", "1");
+  form.set("accompanyingAdultCount", "1");
+  form.set(
+    "items",
+    JSON.stringify([
+      {
+        projectId: "00000000-0000-4000-8000-000000000001",
+        quantity: 1,
+        decideInStore: false,
+      },
+      { quantity: 1, decideInStore: true },
+    ]),
+  );
+  form.set("message", "Window seat if possible");
+  form.set("locale", "en");
+  form.set("policyVersion", "2026-07-29");
+  form.set("policyAccepted", "true");
+  return form;
+}
+
 describe("submitBooking", () => {
   it("submits the authoritative project/slot IDs and required contact fields", async () => {
     const request = vi.fn(
@@ -146,6 +175,145 @@ describe("submitBooking", () => {
     expect(keys[0]).toBe(originalKey);
     expect(keys[1]).toBe(originalKey);
     expect(keys[2]).toBe(nextAttemptKey);
+  });
+
+  it("submits the exact ordinary booking request body and mode", async () => {
+    const request = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        void input;
+        void init;
+        return Response.json({
+          success: true,
+          data: { id: "ordinary-1", status: "pending_review" },
+        });
+      },
+    );
+    vi.stubGlobal("fetch", request);
+
+    await expect(submitBooking(validOrdinaryFormData())).resolves.toMatchObject({
+      success: true,
+      bookingId: "ordinary-1",
+    });
+
+    const body = JSON.parse(
+      String((request.mock.calls[0]?.[1] as RequestInit).body),
+    );
+    expect(body).toEqual({
+      kind: "experience",
+      mode: "booking",
+      name: "Alice",
+      phone: "0430000000",
+      email: "alice@example.com",
+      date: "2030-08-12",
+      startTime: "10:30",
+      participantCount: 2,
+      youngChildCount: 1,
+      accompanyingAdultCount: 1,
+      items: [
+        {
+          projectId: "00000000-0000-4000-8000-000000000001",
+          quantity: 1,
+          decideInStore: false,
+        },
+        { quantity: 1, decideInStore: true },
+      ],
+      message: "Window seat if possible",
+      locale: "en",
+      policyVersion: "2026-07-29",
+      policyAccepted: true,
+    });
+  });
+
+  it("validates ordinary attendance, supervision, item parity, and policy before transport", async () => {
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+    const form = validOrdinaryFormData();
+    form.set("participantCount", "7");
+    form.set("youngChildCount", "1");
+    form.set("accompanyingAdultCount", "2");
+    form.set(
+      "items",
+      JSON.stringify([
+        {
+          projectId: "00000000-0000-4000-8000-000000000001",
+          quantity: 1,
+          decideInStore: false,
+        },
+      ]),
+    );
+    form.set("policyAccepted", "false");
+
+    await expect(submitBooking(form)).resolves.toMatchObject({
+      success: false,
+      errors: {
+        accompanyingAdultCount: ["Physical attendance cannot exceed 8 people"],
+        items: ["Choose exactly one project for each DIY participant"],
+        policyAccepted: ["Accept the booking policies to continue"],
+      },
+    });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("localizes authoritative stale-slot errors and retains the attempt key", async () => {
+    const request = vi.fn(async () =>
+      Response.json(
+        {
+          success: false,
+          error: {
+            code: "SLOT_FULL",
+            message: "Internal English should not leak",
+          },
+        },
+        { status: 409 },
+      ),
+    );
+    vi.stubGlobal("fetch", request);
+    const form = validOrdinaryFormData();
+    form.set("locale", "zh");
+    const attempt = createBookingAttempt();
+    const key = attempt.current();
+
+    await expect(submitBooking(form, attempt)).resolves.toMatchObject({
+      success: false,
+      code: "SLOT_FULL",
+      errors: {
+        server: ["该时段刚刚发生变化，请重新查看可用或候补时段。"],
+      },
+    });
+    expect(attempt.current()).toBe(key);
+  });
+
+  it("retains an ordinary request key across network retry and rotates it only after success", async () => {
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce(
+        Response.json({
+          success: true,
+          data: { id: "ordinary-1", status: "pending_review" },
+        }),
+      );
+    vi.stubGlobal("fetch", request);
+    const attempt = createBookingAttempt();
+    const originalKey = attempt.current();
+
+    await expect(
+      submitBooking(validOrdinaryFormData(), attempt),
+    ).resolves.toMatchObject({ success: false });
+    expect(attempt.current()).toBe(originalKey);
+
+    await expect(
+      submitBooking(validOrdinaryFormData(), attempt),
+    ).resolves.toMatchObject({
+      success: true,
+      bookingId: "ordinary-1",
+    });
+    expect(attempt.current()).not.toBe(originalKey);
+    expect(
+      request.mock.calls.map(([, init]) =>
+        new Headers((init as RequestInit).headers).get("Idempotency-Key"),
+      ),
+    ).toEqual([originalKey, originalKey]);
   });
 });
 

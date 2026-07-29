@@ -7,6 +7,11 @@ import {
   fetchMonthAvailability,
   type TimeSlotOption,
 } from "@/lib/api/time-slots";
+import {
+  getOrdinaryAvailability,
+  type OrdinaryAvailabilityQuery,
+  type OrdinaryAvailabilitySlot,
+} from "@/lib/api/availability";
 
 type BookingCalendarProps = {
   people: number;
@@ -14,12 +19,182 @@ type BookingCalendarProps = {
   selectedSlotId: string | null;
   onSelectSlot: (slot: TimeSlotOption | null) => void;
   onDateChange: (date: string) => void;
+  ordinaryAvailability?: Pick<
+    OrdinaryAvailabilityQuery,
+    "attendance" | "durationMinutes"
+  >;
+  selectedOrdinaryStartTime?: string | null;
+  onSelectOrdinarySlot?: (slot: OrdinaryAvailabilitySlot | null) => void;
+  ordinaryRefreshKey?: number;
 };
 
 const WEEKDAYS_ZH = ["日", "一", "二", "三", "四", "五", "六"];
 const WEEKDAYS_EN = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-export default function BookingCalendar({
+function melbourneDate(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Australia/Melbourne",
+    year: "numeric",
+  }).format(now);
+}
+
+function addCalendarDays(date: string, days: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day + days));
+  return value.toISOString().slice(0, 10);
+}
+
+function OrdinaryBookingCalendar({
+  ordinaryAvailability,
+  selectedOrdinaryStartTime,
+  onSelectOrdinarySlot,
+  onDateChange,
+  ordinaryRefreshKey,
+}: BookingCalendarProps & {
+  ordinaryAvailability: NonNullable<
+    BookingCalendarProps["ordinaryAvailability"]
+  >;
+}) {
+  const t = useTranslations("bookingCalendar");
+  const [date, setDate] = useState("");
+  const [slots, setSlots] = useState<OrdinaryAvailabilitySlot[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const today = useMemo(() => melbourneDate(), []);
+  const lastDate = useMemo(() => addCalendarDays(today, 7), [today]);
+  const { attendance, durationMinutes } = ordinaryAvailability;
+
+  const load = useCallback(
+    async (nextDate: string) => {
+      if (!nextDate) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await getOrdinaryAvailability({
+          date: nextDate,
+          attendance,
+          durationMinutes,
+        });
+        setSlots(result);
+      } catch {
+        setSlots([]);
+        setError(t("ordinaryLoadError"));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [attendance, durationMinutes, t],
+  );
+
+  useEffect(() => {
+    if (date) {
+      void Promise.resolve().then(() => load(date));
+    }
+  }, [
+    date,
+    attendance,
+    durationMinutes,
+    load,
+    ordinaryRefreshKey,
+  ]);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label
+          className="text-sm font-semibold text-warm-charcoal"
+          htmlFor="ordinary-booking-date"
+        >
+          {t("ordinaryDate")}
+        </label>
+        <input
+          className="mt-2 min-h-11 w-full rounded-xl border border-warm-grey/25 bg-white px-3 text-base text-warm-charcoal outline-none transition focus-visible:border-caramel focus-visible:ring-2 focus-visible:ring-caramel/25"
+          id="ordinary-booking-date"
+          max={lastDate}
+          min={today}
+          onChange={(event) => {
+            const nextDate = event.target.value;
+            setDate(nextDate);
+            setSlots([]);
+            onDateChange(nextDate);
+          }}
+          type="date"
+          value={date}
+        />
+        <p className="mt-2 text-xs text-warm-grey">
+          {t("melbourneTime")}
+        </p>
+      </div>
+
+      {loading && (
+        <p className="rounded-xl bg-sage/10 px-4 py-3 text-sm text-warm-grey">
+          {t("checking")}
+        </p>
+      )}
+      {error && (
+        <p
+          className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+      {!loading && !error && date && slots.length === 0 && (
+        <p className="rounded-xl bg-warm-grey/10 px-4 py-3 text-sm text-warm-grey">
+          {t("ordinaryEmpty")}
+        </p>
+      )}
+      {slots.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {slots.map((slot) => {
+            const waitlist = slot.status === "waitlist";
+            const selected = selectedOrdinaryStartTime === slot.startTime;
+            const action = waitlist
+              ? t("waitlistAction")
+              : t("availableAction");
+            return (
+              <button
+                aria-label={`${action}: ${slot.startTime} – ${slot.endTime}, ${t("melbourneTime")}`}
+                aria-pressed={selected}
+                className={`min-h-11 rounded-xl border px-4 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2 ${
+                  selected
+                    ? "border-caramel bg-caramel text-white"
+                    : waitlist
+                      ? "border-lavender bg-lavender/15 text-warm-charcoal hover:border-caramel"
+                      : "border-sage/60 bg-sage/15 text-warm-charcoal hover:border-caramel"
+                }`}
+                key={`${slot.date}-${slot.startTime}`}
+                onClick={() => onSelectOrdinarySlot?.(slot)}
+                type="button"
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <strong>
+                    {slot.startTime} – {slot.endTime}
+                  </strong>
+                  <span className="text-xs">
+                    {waitlist
+                      ? t("waitlistStatus")
+                      : t("availableStatus")}
+                  </span>
+                </span>
+                <span className="mt-1 block text-xs opacity-80">
+                  {action}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <p className="text-xs leading-5 text-warm-grey">
+        {t("manualConfirmation")}
+      </p>
+    </div>
+  );
+}
+
+function LegacyBookingCalendar({
   people,
   categoryId,
   selectedSlotId,
@@ -275,4 +450,16 @@ export default function BookingCalendar({
       )}
     </div>
   );
+}
+
+export default function BookingCalendar(props: BookingCalendarProps) {
+  if (props.ordinaryAvailability) {
+    return (
+      <OrdinaryBookingCalendar
+        {...props}
+        ordinaryAvailability={props.ordinaryAvailability}
+      />
+    );
+  }
+  return <LegacyBookingCalendar {...props} />;
 }

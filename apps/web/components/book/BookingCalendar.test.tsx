@@ -9,11 +9,13 @@ const testState = vi.hoisted(() => {
   const state: {
     fetchDaySlots: ReturnType<typeof vi.fn>;
     fetchMonthAvailability: ReturnType<typeof vi.fn>;
+    getOrdinaryAvailability: ReturnType<typeof vi.fn>;
     locale: string;
     translate: (key: string, values?: { count?: number }) => string;
   } = {
     fetchDaySlots: vi.fn(),
     fetchMonthAvailability: vi.fn(),
+    getOrdinaryAvailability: vi.fn(),
     locale: "en",
     translate: () => "",
   };
@@ -31,6 +33,15 @@ const testState = vi.hoisted(() => {
       manualConfirmation: "Manual confirmation",
       prevMonth: "Previous month",
       nextMonth: "Next month",
+      ordinaryDate: "Visit date",
+      checking: "Checking sessions…",
+      availableAction: "Request this time",
+      waitlistAction: "Join waitlist",
+      availableStatus: "Available",
+      waitlistStatus: "Waitlist",
+      ordinaryLoadError: "Could not check sessions. Try another date.",
+      ordinaryEmpty: "No request times on this date.",
+      melbourneTime: "Melbourne time",
     })[key] ?? key;
   return state;
 });
@@ -43,6 +54,10 @@ vi.mock("next-intl", () => ({
 vi.mock("@/lib/api/time-slots", () => ({
   fetchMonthAvailability: testState.fetchMonthAvailability,
   fetchDaySlots: testState.fetchDaySlots,
+}));
+
+vi.mock("@/lib/api/availability", () => ({
+  getOrdinaryAvailability: testState.getOrdinaryAvailability,
 }));
 
 const testEnvironment = globalThis as typeof globalThis & {
@@ -129,5 +144,107 @@ describe("BookingCalendar date accessibility", () => {
 
     expect(button?.getAttribute("aria-label")).toContain(`${year}年`);
     expect(button?.getAttribute("aria-label")).toContain("2日");
+  });
+});
+
+describe("BookingCalendar ordinary DIY availability", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    testState.locale = "en";
+    testState.getOrdinaryAvailability.mockReset().mockResolvedValue([
+      {
+        date: "2030-08-12",
+        startTime: "10:00",
+        endTime: "11:00",
+        status: "available",
+        remaining: 5,
+      },
+      {
+        date: "2030-08-12",
+        startTime: "10:30",
+        endTime: "11:30",
+        status: "waitlist",
+        remaining: 1,
+      },
+    ]);
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    document.body.replaceChildren();
+  });
+
+  async function chooseDate(onSelectOrdinarySlot = vi.fn()) {
+    await act(async () => {
+      root.render(
+        <BookingCalendar
+          onDateChange={vi.fn()}
+          onSelectOrdinarySlot={onSelectOrdinarySlot}
+          onSelectSlot={vi.fn()}
+          ordinaryAvailability={{ attendance: 3, durationMinutes: 60 }}
+          people={3}
+          selectedOrdinaryStartTime={null}
+          selectedSlotId={null}
+        />,
+      );
+    });
+    const input = container.querySelector<HTMLInputElement>('input[type="date"]');
+    expect(input?.className).toContain("min-h-11");
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(input, "2030-08-12");
+    await act(async () => {
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+      input?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await act(async () => {});
+    return onSelectOrdinarySlot;
+  }
+
+  it("loads generated starts with the longest duration and total attendance", async () => {
+    await chooseDate();
+
+    expect(testState.getOrdinaryAvailability).toHaveBeenCalledWith({
+      attendance: 3,
+      date: "2030-08-12",
+      durationMinutes: 60,
+    });
+    expect(container.textContent).toContain("10:00 – 11:00");
+    expect(container.textContent).toContain("10:30 – 11:30");
+    expect(container.textContent).toContain("Available");
+    expect(container.textContent).toContain("Waitlist");
+  });
+
+  it("keeps available and waitlist starts as distinct keyboard buttons", async () => {
+    const onSelect = await chooseDate();
+    const buttons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    );
+    const available = buttons.find((button) =>
+      button.getAttribute("aria-label")?.includes("Request this time"),
+    );
+    const waitlist = buttons.find((button) =>
+      button.getAttribute("aria-label")?.includes("Join waitlist"),
+    );
+
+    expect(available?.type).toBe("button");
+    expect(waitlist?.type).toBe("button");
+    expect(available?.className).toContain("min-h-11");
+    expect(waitlist?.className).toContain("min-h-11");
+    await act(async () => waitlist?.click());
+    expect(onSelect).toHaveBeenCalledWith({
+      date: "2030-08-12",
+      endTime: "11:30",
+      remaining: 1,
+      startTime: "10:30",
+      status: "waitlist",
+    });
   });
 });
