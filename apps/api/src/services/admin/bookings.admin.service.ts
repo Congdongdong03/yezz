@@ -130,8 +130,15 @@ const EMPTY_EXTRAS: BookingDtoExtras = {
   emailDeliveries: [],
 };
 
-function displayBookingEventStatus(status: string): OrderStatus | BookingStatus {
-  if (["pending_review", "waitlisted", "rejected", "reschedule_requested", "cancellation_requested", "no_show", "completed"].includes(status)) {
+const LIVE_BOOKING_STATUSES: readonly BookingStatus[] = [
+  "pending_review", "confirmed", "waitlisted", "rejected", "time_proposed",
+  "awaiting_in_store_payment", "confirmed_paid", "payment_expired",
+  "reschedule_requested", "cancellation_requested", "cancelled", "refunded",
+  "no_show", "completed",
+];
+
+export function displayBookingEventStatus(status: string): OrderStatus | BookingStatus {
+  if (LIVE_BOOKING_STATUSES.includes(status as BookingStatus)) {
     return status as BookingStatus;
   }
   return legacyStatusFromStoredValue(status);

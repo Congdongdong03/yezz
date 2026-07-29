@@ -13,7 +13,13 @@ import {
   createRequestFlowTestDatabase,
   type RequestFlowTestDatabase,
 } from "../../test-utils/request-flow-postgres.js";
-import { createAdminBookingsService } from "./bookings.admin.service.js";
+import { createAdminBookingsService, displayBookingEventStatus } from "./bookings.admin.service.js";
+
+describe("admin booking status display", () => {
+  it.each(["time_proposed", "awaiting_in_store_payment", "confirmed_paid", "payment_expired", "refunded", "waitlisted", "reschedule_requested"] as const)("preserves the live status %s in history", (status) => {
+    expect(displayBookingEventStatus(status)).toBe(status);
+  });
+});
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
 
