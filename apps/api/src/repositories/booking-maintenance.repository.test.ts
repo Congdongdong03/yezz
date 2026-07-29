@@ -43,6 +43,9 @@ describe.skipIf(!runDatabaseTests)("booking maintenance repository", () => {
       RETURNING id
     `;
     if (input.requestKind === "party") {
+      const paymentDeadline = (
+        input.deadline ?? new Date("2026-10-03T00:00:00.000Z")
+      ).toISOString();
       await database.connection.client`
         INSERT INTO booking_party_details (
           booking_id, birthday_child_name, birthday_child_age,
@@ -57,7 +60,7 @@ describe.skipIf(!runDatabaseTests)("booking maintenance repository", () => {
           '11:30', ${input.start === undefined ? "12:00" : input.start},
           ${input.end === undefined ? "13:00" : input.end}, '13:30',
           ${input.venueFeeCents ?? 9500}, 4500,
-          ${input.deadline ?? new Date("2026-10-03T00:00:00.000Z")}
+          ${paymentDeadline}::timestamptz
         )
       `;
     }

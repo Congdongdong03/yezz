@@ -81,6 +81,7 @@ export function createBookingMaintenanceRepository(db: Db) {
     async findBookingsNeedingReminder(
       now: Date,
     ): Promise<BookingReminderCandidate[]> {
+      const nowIso = now.toISOString();
       const rows = await db
         .select({
           bookingId: bookings.id,
@@ -117,8 +118,8 @@ export function createBookingMaintenanceRepository(db: Db) {
             sql`${appointmentStart} IS NOT NULL`,
             sql`${appointmentEnd} IS NOT NULL`,
             sql`${appointmentInstant}
-              BETWEEN ${now} + interval '23 hours 55 minutes'
-                  AND ${now} + interval '24 hours 5 minutes'`,
+              BETWEEN ${nowIso}::timestamptz + interval '23 hours 55 minutes'
+                  AND ${nowIso}::timestamptz + interval '24 hours 5 minutes'`,
             notExists(
               db
                 .select({ id: emailOutbox.id })
