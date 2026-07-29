@@ -104,6 +104,24 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
     });
   });
 
+  it("hides party operational metadata while retaining a human party transition note", async () => {
+    const bookingId = crypto.randomUUID();
+    await database.connection.db.insert(bookings).values({
+      id: bookingId, name: "Party customer", phone: "0430000077", requestKind: "party",
+      status: "cancelled",
+    });
+    await database.connection.db.insert(requestStatusEvents).values([
+      { bookingId, operationId: crypto.randomUUID(), fromStatus: "pending_review", toStatus: "time_proposed", adminNote: JSON.stringify({ partyWorkflow: 1, action: "propose" }), actorUserId: null, actorKind: "system" },
+      { bookingId, operationId: crypto.randomUUID(), fromStatus: "cancellation_requested", toStatus: "cancelled", adminNote: JSON.stringify({ partyWorkflow: 1, action: "transition", note: "Customer confirmed cancellation" }), actorUserId: null, actorKind: "staff" },
+    ]);
+
+    await expect(createAdminBookingsService(database.connection.db).getById(bookingId))
+      .resolves.toMatchObject({ statusHistory: [
+        { note: null },
+        { note: "Customer confirmed cancellation" },
+      ] });
+  });
+
   it("returns immutable offering/slot details, history, and delivery state", async () => {
     const actorId = crypto.randomUUID();
     const slotId = crypto.randomUUID();

@@ -234,16 +234,20 @@ export function createAdminBookingsService(db: Db) {
           ({ deliveryStatus }) => deliveryStatus === "failed",
         ).length,
       },
-      statusHistory: history.map((event) => ({
-        id: event.id,
-        operationId: event.operationId,
-        fromStatus: displayBookingEventStatus(event.fromStatus),
-        toStatus: displayBookingEventStatus(event.toStatus),
-        note: decodeOrdinaryOperationNote(event.note)?.note ?? decodePartyOperationNote(event.note)?.note ?? event.note,
-        customerRescheduleRequest: event.customerRescheduleRequest,
-        createdAt: event.createdAt,
-        actor: historyActor(event),
-      })),
+      statusHistory: history.map((event) => {
+        const ordinary = decodeOrdinaryOperationNote(event.note);
+        const party = decodePartyOperationNote(event.note);
+        return {
+          id: event.id,
+          operationId: event.operationId,
+          fromStatus: displayBookingEventStatus(event.fromStatus),
+          toStatus: displayBookingEventStatus(event.toStatus),
+          note: ordinary ? ordinary.note : party ? party.note : event.note,
+          customerRescheduleRequest: event.customerRescheduleRequest,
+          createdAt: event.createdAt,
+          actor: historyActor(event),
+        };
+      }),
     };
   }
 

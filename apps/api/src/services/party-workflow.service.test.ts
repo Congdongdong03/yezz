@@ -9,6 +9,7 @@ import {
   studioWeeklyHours,
   users,
 } from "@yezz/db";
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -222,13 +223,23 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
       actorUserId: staffId,
     };
     const first = await service.proposePartyTime(proposal);
+    const [persistedToken] = await database.connection.db.select().from(customerActionTokens).where(eq(customerActionTokens.bookingId, created.id));
     const replay = await service.proposePartyTime(proposal);
 
     expect(first.acceptTimeToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(replay).toMatchObject({ id: created.id, replayed: true });
     expect(replay.acceptTimeToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(replay.acceptTimeToken).toBe(first.acceptTimeToken);
-    expect(await database.connection.db.select().from(customerActionTokens).where(eq(customerActionTokens.bookingId, created.id))).toHaveLength(1);
+    const [replayedToken] = await database.connection.db.select().from(customerActionTokens).where(eq(customerActionTokens.bookingId, created.id));
+    expect(replayedToken).toMatchObject({ id: persistedToken?.id, tokenDigest: persistedToken?.tokenDigest, revokedAt: persistedToken?.revokedAt });
+    const previousOwnerEmail = process.env.OWNER_EMAIL;
+    process.env.OWNER_EMAIL = "owner@example.com";
+    try {
+      await expect(service.acceptPartyTimeByToken(first.acceptTimeToken!)).resolves.toMatchObject({ status: "awaiting_in_store_payment" });
+    } finally {
+      if (previousOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
+      else process.env.OWNER_EMAIL = previousOwnerEmail;
+    }
     await expect(service.proposePartyTime({ ...proposal, finalGuestStart: "13:00" }))
       .rejects.toMatchObject({ code: "OPERATION_ID_CONFLICT" });
   });
@@ -240,12 +251,16 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     const proposal = { bookingId: created.id, expectedStatus: "pending_review" as const, finalDate: "2030-08-12", finalGuestStart: "12:30", paymentDeadline: new Date("2030-08-10T01:00:00.000Z"), operationId: crypto.randomUUID(), actorUserId: staffId };
     const issued = await service.proposePartyTime(proposal);
     await service.acceptPartyTime({ bookingId: created.id, expectedStatus: "time_proposed", operationId: crypto.randomUUID(), actorUserId: staffId });
-    await expect(service.proposePartyTime(proposal)).resolves.toMatchObject({ replayed: true, acceptTimeToken: undefined });
+    const acceptedReplay = await service.proposePartyTime(proposal);
+    expect(acceptedReplay.replayed).toBe(true);
+    expect(acceptedReplay.acceptTimeToken).toBeUndefined();
     const expired = await service.createPartyRequest(validParty({ email: "expired@example.com" }), crypto.randomUUID());
     const expiredProposal = { ...proposal, bookingId: expired.id, operationId: crypto.randomUUID() };
     await service.proposePartyTime(expiredProposal);
     current = new Date("2030-08-10T02:00:00.000Z");
-    await expect(service.proposePartyTime(expiredProposal)).resolves.toMatchObject({ replayed: true, acceptTimeToken: undefined });
+    const expiredReplay = await service.proposePartyTime(expiredProposal);
+    expect(expiredReplay.replayed).toBe(true);
+    expect(expiredReplay.acceptTimeToken).toBeUndefined();
     expect(issued.acceptTimeToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
@@ -320,6 +335,21 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     } finally {
       if (previousOwnerEmail === undefined) delete process.env.OWNER_EMAIL;
       else process.env.OWNER_EMAIL = previousOwnerEmail;
+    }
+  });
+
+  it("returns the same generic invalid-link error for wrong-scope, wrong-state, and expired accept tokens", async () => {
+    const now = new Date("2030-08-10T00:00:00.000Z");
+    const service = createPartyWorkflowService(database.connection.db, { now: () => now });
+    const booking = await service.createPartyRequest(validParty(), crypto.randomUUID());
+    const tokens = [
+      { raw: "s".repeat(43), scopes: ["request_cancellation"], expiresAt: new Date("2030-08-11T00:00:00.000Z") },
+      { raw: "t".repeat(43), scopes: ["accept_time"], expiresAt: new Date("2030-08-11T00:00:00.000Z") },
+      { raw: "u".repeat(43), scopes: ["accept_time"], expiresAt: new Date("2030-08-09T00:00:00.000Z") },
+    ] as const;
+    await database.connection.db.insert(customerActionTokens).values(tokens.map((token) => ({ bookingId: booking.id, tokenDigest: createHash("sha256").update(token.raw).digest("hex"), scopes: [...token.scopes], expiresAt: token.expiresAt })));
+    for (const token of tokens) {
+      await expect(service.acceptPartyTimeByToken(token.raw)).rejects.toMatchObject({ code: "LINK_INVALID_OR_EXPIRED" });
     }
   });
 
