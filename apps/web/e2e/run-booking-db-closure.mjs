@@ -3,7 +3,10 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { buildClosureEnvironment } from "./closure-environment.mjs";
-import { buildClosureBookingDatabaseEnvironment } from "./closure-booking-database-environment.mjs";
+import {
+  buildClosureBookingDatabaseEnvironment,
+  buildClosureMigrationDatabaseEnvironment,
+} from "./closure-booking-database-environment.mjs";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -64,6 +67,9 @@ try {
       DATABASE_URL: databaseUrl,
       YEZZY_CLOSURE_E2E: "1",
     },
+  });
+  run("corepack", ["pnpm", "--filter", "@yezz/db", "test:integration"], {
+    env: buildClosureMigrationDatabaseEnvironment(process.env, databaseUrl),
   });
   run("corepack", ["pnpm", "test:api:booking-db"], {
     env: buildClosureBookingDatabaseEnvironment(process.env, databaseUrl),

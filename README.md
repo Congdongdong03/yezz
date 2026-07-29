@@ -144,6 +144,19 @@ reservation rollback, concurrent create/cancel idempotency, status-event and
 outbox atomicity, and immutable admin booking views. CI and release workflows
 must run this command in addition to `pnpm verify`.
 
+For the complete release gate, use:
+
+```bash
+pnpm verify:release
+```
+
+It creates a unique, loopback-only Docker PostgreSQL project, applies the
+current migrations, then runs the booking transaction suite plus the real
+migration, catalogue seed, and production-bootstrap integration suites. Those
+database-package integration tests are deliberately fail-closed: they require
+the runner-owned `TEST_DATABASE_URL` and cannot silently skip. The command
+removes its test containers and volumes when it finishes.
+
 ## Deployment
 
 | Component | Platform |
