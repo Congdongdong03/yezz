@@ -14,10 +14,12 @@ describe.skipIf(!runDatabaseTests)("customer actions", () => {
   let database: RequestFlowTestDatabase;
   let service: ReturnType<typeof createCustomerActionsService>;
   let bookingId: string;
+  let currentTime: Date;
 
   beforeEach(async () => {
     vi.stubEnv("OWNER_EMAIL", "owner@example.com");
     database = await createRequestFlowTestDatabase();
+    currentTime = new Date("2030-07-30T00:00:00Z");
     bookingId = crypto.randomUUID();
     await database.connection.db.insert(bookings).values({
       id: bookingId,
@@ -36,7 +38,7 @@ describe.skipIf(!runDatabaseTests)("customer actions", () => {
       durationMinutes: 60,
     });
     service = createCustomerActionsService(database.connection.db, {
-      now: () => new Date("2030-08-01T00:00:00Z"),
+      now: () => currentTime,
     });
   });
 
@@ -65,6 +67,7 @@ describe.skipIf(!runDatabaseTests)("customer actions", () => {
       scopes: ["request_cancellation"],
       expiresAt: new Date("2030-07-31T00:00:00Z"),
     });
+    currentTime = new Date("2030-08-01T00:00:00Z");
     const revoked = await service.issue({
       bookingId,
       scopes: ["request_cancellation"],

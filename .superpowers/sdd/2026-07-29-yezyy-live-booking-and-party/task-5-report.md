@@ -59,3 +59,17 @@ The affected tests are `src/lib/smtp-outbox.test.ts` (two listener-based tests).
 - `apps/api/src/services/customer-actions.service.ts`
 - `apps/api/src/routes/v1/customer-bookings.routes.ts`
 - Focused tests for each new unit plus the waitlist guard in the existing admin service test.
+
+## Follow-up test-harness fix
+
+- Controller-local isolated PostgreSQL exposed a harness error in the expired-link test: it tried to issue a token expiring on `2030-07-31` while the injected service clock was already `2030-08-01`. Production correctly rejects expired issuance.
+- Replaced the fixed injected clock with a test-local mutable clock. The test issues while the clock is `2030-07-30`, then advances it to `2030-08-01` before resolving the token. No production validation was weakened and no global fake timers were introduced.
+- Follow-up local verification:
+
+  ```bash
+  corepack pnpm --filter @yezz/api exec vitest run src/services/customer-actions.service.test.ts src/repositories/customer-action-tokens.repository.test.ts src/routes/v1/customer-bookings.routes.test.ts --config vitest.config.ts
+  # 3 route tests passed; 5 database tests skipped because TEST_DATABASE_URL is unavailable here
+
+  corepack pnpm --filter @yezz/api typecheck
+  # passed
+  ```
