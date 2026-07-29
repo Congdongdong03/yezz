@@ -20,13 +20,10 @@ export default function AdminUsersPage() {
   const [me, setMe] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [createdPassword, setCreatedPassword] = useState<string | null>(null);
-  const [resetPassword, setResetPassword] = useState<string | null>(null);
   const [form, setForm] = useState({
     email: "",
     name: "",
-    role: "staff" as "admin" | "staff",
-    password: "",
+    role: "staff" as "owner" | "admin" | "staff",
   });
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -52,15 +49,13 @@ export default function AdminUsersPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const result = await createAdminUser({
+      await createAdminUser({
         email: form.email.trim(),
         name: form.name.trim(),
         role: form.role,
-        password: form.password.trim() || undefined,
       });
-      setCreatedPassword(result.initialPassword);
-      setMessage({ type: "success", text: "用户已创建，初始密码见下方" });
-      setForm({ email: "", name: "", role: "staff", password: "" });
+      setMessage({ type: "success", text: "用户已创建，密码设置链接已发送到该邮箱" });
+      setForm({ email: "", name: "", role: "staff" });
       load();
     } catch (err) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "创建失败" });
@@ -92,9 +87,8 @@ export default function AdminUsersPage() {
   const handleResetPassword = async (user: AdminUser) => {
     if (!confirm(`确定重置用户 ${user.name} 的密码？`)) return;
     try {
-      const result = await resetAdminUserPassword(user.id);
-      setResetPassword(result.newPassword);
-      setMessage({ type: "success", text: `用户 ${user.name} 的密码已重置` });
+      await resetAdminUserPassword(user.id);
+      setMessage({ type: "success", text: `已向用户 ${user.name} 发送新的密码设置链接` });
     } catch (err) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "重置失败" });
     }
@@ -104,27 +98,11 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-serif text-2xl font-semibold text-warm-charcoal">用户管理</h1>
-        <p className="text-sm text-muted-foreground">仅管理员可创建 staff / admin 账号</p>
+        <p className="text-sm text-muted-foreground">账号密码仅通过一次性邮件链接设置</p>
       </div>
 
       {message && (
         <AlertBanner type={message.type} message={message.text} onDismiss={() => setMessage(null)} />
-      )}
-
-      {createdPassword && (
-        <AlertBanner
-          type="success"
-          message={`初始密码：${createdPassword}。请立即复制，并通过安全方式交给用户；密码不会发送到邮箱。`}
-          onDismiss={() => setCreatedPassword(null)}
-        />
-      )}
-
-      {resetPassword && (
-        <AlertBanner
-          type="success"
-          message={`新密码：${resetPassword}。请立即复制，并通过安全方式交给用户；密码不会发送到邮箱。`}
-          onDismiss={() => setResetPassword(null)}
-        />
       )}
 
       <form
@@ -157,21 +135,21 @@ export default function AdminUsersPage() {
             id="role"
             className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-2 text-sm"
             value={form.role}
-            onChange={(e) => setForm({ ...form, role: e.target.value as "admin" | "staff" })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                role: e.target.value as "owner" | "admin" | "staff",
+              })
+            }
           >
             <option value="staff">staff（预约/订单）</option>
-            <option value="admin">admin（全部权限）</option>
+            {me?.role === "owner" && (
+              <>
+                <option value="admin">admin（运营与内容）</option>
+                <option value="owner">owner（账号管理）</option>
+              </>
+            )}
           </select>
-        </div>
-        <div>
-          <Label htmlFor="password">初始密码（留空自动生成）</Label>
-          <Input
-            id="password"
-            type="password"
-            minLength={12}
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-          />
         </div>
         <Button type="submit">创建用户</Button>
       </form>
@@ -219,11 +197,19 @@ export default function AdminUsersPage() {
                         className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm"
                         value={editForm.role ?? user.role}
                         onChange={(e) =>
-                          setEditForm({ ...editForm, role: e.target.value as "admin" | "staff" })
+                          setEditForm({
+                            ...editForm,
+                            role: e.target.value as "owner" | "admin" | "staff",
+                          })
                         }
                       >
                         <option value="staff">staff</option>
-                        <option value="admin">admin</option>
+                        <option value="admin" disabled={me?.role !== "owner"}>
+                          admin
+                        </option>
+                        <option value="owner" disabled={me?.role !== "owner"}>
+                          owner
+                        </option>
                       </select>
                     ) : (
                       user.role
@@ -245,14 +231,18 @@ export default function AdminUsersPage() {
                           <Button size="sm" variant="outline" onClick={() => startEdit(user)}>
                             编辑
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleResetPassword(user)}
-                          >
-                            重置密码
-                          </Button>
-                          {user.id !== me?.id && (
+                          {(user.role === "staff" || me?.role === "owner") && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleResetPassword(user)}
+                            >
+                              发送密码设置链接
+                            </Button>
+                          )}
+                          {user.id !== me?.id &&
+                            (user.role === "staff" ||
+                              me?.role === "owner") && (
                             <Button
                               size="sm"
                               variant="destructive"

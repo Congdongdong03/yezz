@@ -10,6 +10,13 @@ const VALID_STATUSES = new Set<EmailDeliveryStatus>([
   "failed",
 ]);
 
+export function safeEmailDelivery<T extends { payload: unknown }>(
+  row: T,
+): Omit<T, "payload"> {
+  const { payload: _privatePayload, ...safe } = row;
+  return safe;
+}
+
 export function parseEmailDeliveryPagination(
   value: string | undefined,
   fallback: number,
@@ -44,11 +51,14 @@ export default async function adminEmailDeliveriesRoutes(app: FastifyInstance) {
       limit: parseEmailDeliveryPagination(request.query.limit, 25, 100),
       status: status as EmailDeliveryStatus | undefined,
     });
-    return success(data);
+    return success({
+      ...data,
+      data: data.data.map(safeEmailDelivery),
+    });
   });
 
   app.post<{ Params: { id: string } }>("/:id/retry", async (request) => {
     const data = await app.services.emailOutbox.retry(request.params.id);
-    return success(data);
+    return success(safeEmailDelivery(data));
   });
 }

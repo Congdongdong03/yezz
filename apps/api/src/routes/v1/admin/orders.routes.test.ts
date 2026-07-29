@@ -16,6 +16,7 @@ describe("admin cart-order status routes", () => {
         sub: "00000000-0000-4000-8000-000000000002",
         email: "staff@example.com",
         role: "staff",
+        sessionVersion: 0,
       };
     });
     app.decorate("services", {

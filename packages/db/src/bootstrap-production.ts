@@ -1,14 +1,28 @@
 import bcrypt from "bcryptjs";
 import { eq, sql } from "drizzle-orm";
+import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { createDb, type Db } from "./client.js";
 import { loadEnv } from "./env.js";
-import { siteSettings, users } from "./schema/index.js";
+import {
+  emailOutbox,
+  passwordSetupTokens,
+  siteSettings,
+  users,
+  type UserRole,
+} from "./schema/index.js";
 
 export type ProductionBootstrapEnv = Record<string, string | undefined>;
 
 type SiteSettingsInsert = typeof siteSettings.$inferInsert;
-type AdminInsert = typeof users.$inferInsert;
+type OwnerInsert = typeof users.$inferInsert;
+type OwnerRow = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  sessionVersion: number;
+};
 
 export type ProductionBootstrapStore = {
   transaction<T>(
@@ -17,34 +31,40 @@ export type ProductionBootstrapStore = {
   acquireBootstrapLock(): Promise<void>;
   hasSiteSettings(): Promise<boolean>;
   createSiteSettings(settings: SiteSettingsInsert): Promise<void>;
-  hasAdmin(): Promise<boolean>;
-  createAdmin(admin: AdminInsert): Promise<void>;
+  findUserByEmail(email: string): Promise<OwnerRow | null>;
+  createOwner(owner: OwnerInsert): Promise<OwnerRow>;
+  updateUserRole(id: string, role: "owner"): Promise<void>;
+  createPasswordSetupToken(input: {
+    userId: string;
+    tokenDigest: string;
+    expiresAt: Date;
+  }): Promise<{ id: string }>;
+  enqueuePasswordSetupEmail(input: {
+    dedupeKey: string;
+    messageType: "admin_password_setup";
+    recipient: string;
+    locale: "en";
+    payload: Record<string, unknown>;
+  }): Promise<void>;
 };
 
 type BootstrapOptions = {
   store?: ProductionBootstrapStore;
   hashPassword?: (password: string, rounds: number) => Promise<string>;
+  randomBytes?: (size: number) => Buffer;
+  now?: () => Date;
 };
 
 export type ProductionBootstrapResult = {
   settingsCreated: boolean;
-  adminCreated: boolean;
+  ownerCreated: boolean;
+  setupEmailQueued: boolean;
 };
 
-const PLACEHOLDER_PASSWORDS = new Set([
-  "admin",
-  "changeme",
-  "change_me_in_env",
-  "password",
-  "your-strong-password",
-  "your-very-strong-password",
-]);
-
-const PLACEHOLDER_EMAILS = new Set([
-  "admin@yezz.local",
-  "admin@example.com",
-  "your-email@example.com",
-]);
+const OWNER_ACCOUNT = {
+  email: "congdongdong03@gmail.com",
+  name: "YezYY Owner",
+} as const;
 
 const TRUTHFUL_SETTINGS: SiteSettingsInsert = {
   storeName: "YezYY",
@@ -87,77 +107,134 @@ export function createBootstrapStore(db: Db): ProductionBootstrapStore {
     async createSiteSettings(settings) {
       await db.insert(siteSettings).values(settings);
     },
-    async hasAdmin() {
+    async findUserByEmail(email) {
       const [row] = await db
-        .select({ id: users.id })
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+          sessionVersion: users.sessionVersion,
+        })
         .from(users)
-        .where(eq(users.role, "admin"))
+        .where(eq(users.email, email))
         .limit(1);
-      return Boolean(row);
+      return row ?? null;
     },
-    async createAdmin(admin) {
-      await db.insert(users).values(admin);
+    async createOwner(owner) {
+      const [row] = await db
+        .insert(users)
+        .values(owner)
+        .returning({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+          sessionVersion: users.sessionVersion,
+        });
+      if (!row) throw new Error("Owner insert returned no row.");
+      return row;
+    },
+    async updateUserRole(id, role) {
+      await db
+        .update(users)
+        .set({
+          role,
+          sessionVersion: sql`${users.sessionVersion} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, id));
+    },
+    async createPasswordSetupToken(input) {
+      const [row] = await db
+        .insert(passwordSetupTokens)
+        .values(input)
+        .returning({ id: passwordSetupTokens.id });
+      if (!row) throw new Error("Password setup token insert returned no row.");
+      return row;
+    },
+    async enqueuePasswordSetupEmail(input) {
+      await db.insert(emailOutbox).values({
+        ...input,
+        bookingId: null,
+        cartOrderId: null,
+        statusEventId: null,
+      });
     },
   };
 }
 
-function requireFirstAdminCredentials(env: ProductionBootstrapEnv) {
-  const email = env.ADMIN_EMAIL?.trim().toLowerCase();
-  const password = env.ADMIN_PASSWORD ?? "";
-
-  if (!email) {
-    throw new Error("ADMIN_EMAIL is required when no admin exists.");
-  }
-  if (!password) {
-    throw new Error("ADMIN_PASSWORD is required when no admin exists.");
-  }
-  if (
-    !email.includes("@") ||
-    PLACEHOLDER_EMAILS.has(email) ||
-    email.endsWith(".local") ||
-    email.endsWith("@example.com") ||
-    email.endsWith("@example.test")
-  ) {
-    throw new Error("Refusing placeholder credentials for the first admin.");
-  }
-  if (PLACEHOLDER_PASSWORDS.has(password.trim().toLowerCase())) {
-    throw new Error("Refusing placeholder credentials for the first admin.");
-  }
-  if (password.length < 12) {
-    throw new Error("ADMIN_PASSWORD must be at least 12 characters.");
+export async function ensureOwnerAccount(
+  input: typeof OWNER_ACCOUNT,
+  store: ProductionBootstrapStore,
+  options: {
+    hashPassword: (password: string, rounds: number) => Promise<string>;
+    randomBytes: (size: number) => Buffer;
+    now: () => Date;
+  },
+): Promise<{ ownerCreated: boolean; setupEmailQueued: boolean }> {
+  const existing = await store.findUserByEmail(input.email);
+  if (existing) {
+    if (existing.role !== "owner") {
+      await store.updateUserRole(existing.id, "owner");
+    }
+    return { ownerCreated: false, setupEmailQueued: false };
   }
 
-  return { email, password };
+  const bootstrapSecret = options.randomBytes(32).toString("base64url");
+  const passwordHash = await options.hashPassword(bootstrapSecret, 12);
+  const owner = await store.createOwner({
+    email: input.email,
+    passwordHash,
+    name: input.name,
+    role: "owner",
+  });
+  const rawToken = options.randomBytes(32).toString("base64url");
+  const issuedAt = options.now();
+  const expiresAt = new Date(issuedAt.getTime() + 60 * 60 * 1000);
+  const token = await store.createPasswordSetupToken({
+    userId: owner.id,
+    tokenDigest: createHash("sha256").update(rawToken).digest("hex"),
+    expiresAt,
+  });
+  await store.enqueuePasswordSetupEmail({
+    dedupeKey: `admin-password-setup:${token.id}`,
+    messageType: "admin_password_setup",
+    recipient: owner.email,
+    locale: "en",
+    payload: {
+      template: "admin_password_setup",
+      name: owner.name,
+      email: owner.email,
+      role: owner.role,
+      setupUrl: `https://yezyy.com/admin/setup-password?token=${rawToken}`,
+      expiresAt: expiresAt.toISOString(),
+    },
+  });
+  return { ownerCreated: true, setupEmailQueued: true };
 }
 
 async function bootstrapWithStore(
-  env: ProductionBootstrapEnv,
   store: ProductionBootstrapStore,
   hashPassword: (password: string, rounds: number) => Promise<string>,
+  randomBytes: (size: number) => Buffer,
+  now: () => Date,
 ): Promise<ProductionBootstrapResult> {
   return store.transaction(async (transaction) => {
     await transaction.acquireBootstrapLock();
     let settingsCreated = false;
-    let adminCreated = false;
 
     if (!(await transaction.hasSiteSettings())) {
       await transaction.createSiteSettings(TRUTHFUL_SETTINGS);
       settingsCreated = true;
     }
 
-    if (!(await transaction.hasAdmin())) {
-      const { email, password } = requireFirstAdminCredentials(env);
-      const passwordHash = await hashPassword(password, 12);
-      await transaction.createAdmin({
-        email,
-        passwordHash,
-        name: "YezYY Admin",
-        role: "admin",
-      });
-      adminCreated = true;
-    }
-
-    return { settingsCreated, adminCreated };
+    const owner = await ensureOwnerAccount(OWNER_ACCOUNT, transaction, {
+      hashPassword,
+      randomBytes,
+      now,
+    });
+    return { settingsCreated, ...owner };
   });
 }
 
@@ -172,8 +249,10 @@ export async function bootstrapProduction(
   }
 
   const hashPassword = options.hashPassword ?? bcrypt.hash;
+  const randomBytes = options.randomBytes ?? nodeRandomBytes;
+  const now = options.now ?? (() => new Date());
   if (options.store) {
-    return bootstrapWithStore(env, options.store, hashPassword);
+    return bootstrapWithStore(options.store, hashPassword, randomBytes, now);
   }
 
   const databaseUrl = env.DATABASE_URL?.trim();
@@ -184,9 +263,10 @@ export async function bootstrapProduction(
   const { db, client } = createDb(databaseUrl);
   try {
     return await bootstrapWithStore(
-      env,
       createBootstrapStore(db),
       hashPassword,
+      randomBytes,
+      now,
     );
   } finally {
     await client.end();
@@ -197,7 +277,7 @@ async function runFromCommandLine() {
   loadEnv();
   const result = await bootstrapProduction(process.env);
   console.log(
-    `Production bootstrap complete (settings: ${result.settingsCreated ? "created" : "existing"}, admin: ${result.adminCreated ? "created" : "existing"}).`,
+    `Production bootstrap complete (settings: ${result.settingsCreated ? "created" : "existing"}, owner: ${result.ownerCreated ? "created" : "existing"}, setup email: ${result.setupEmailQueued ? "queued" : "unchanged"}).`,
   );
 }
 

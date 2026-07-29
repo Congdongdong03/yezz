@@ -72,6 +72,15 @@ export type OwnerRequestOutboxPayload = {
   fields: Array<{ label: string; value: string }>;
 };
 
+export type AdminPasswordSetupOutboxPayload = {
+  template: "admin_password_setup";
+  name: string;
+  email: string;
+  role: "owner" | "admin" | "staff";
+  setupUrl: string;
+  expiresAt: string;
+};
+
 export type BookingNotificationTemplate =
   | "booking_confirmed"
   | "booking_rejected"
@@ -140,6 +149,7 @@ export type EmailTemplatePayload =
   | BookingReceivedOutboxPayload
   | OrderReceivedOutboxPayload
   | OwnerRequestOutboxPayload
+  | AdminPasswordSetupOutboxPayload
   | CustomerManagePayload;
 
 export type EmailOutboxEnvelope = {
@@ -173,7 +183,8 @@ export type EmailMessageType =
   | "booking_status_customer"
   | "cart_order_status_customer"
   | "booking_notification_customer"
-  | "booking_notification_owner";
+  | "booking_notification_owner"
+  | "admin_password_setup";
 
 type PlainRecord = Record<string, unknown>;
 
@@ -574,6 +585,46 @@ function validatePayloadForMessage(
   messageType: EmailMessageType,
   payload: unknown,
 ): EmailTemplatePayload {
+  if (messageType === "admin_password_setup") {
+    const candidate = record(
+      payload,
+      "payload",
+      ["template", "name", "email", "role", "setupUrl", "expiresAt"],
+      ["template", "name", "email", "role", "setupUrl", "expiresAt"],
+    );
+    if (candidate.template !== "admin_password_setup") {
+      invalid("payload.template must be admin_password_setup");
+    }
+    stringValue(candidate.name, "payload.name", { max: 255 });
+    const email = stringValue(candidate.email, "payload.email", { max: 255 });
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      invalid("payload.email must be a valid email address");
+    }
+    if (!["owner", "admin", "staff"].includes(String(candidate.role))) {
+      invalid("payload.role is invalid");
+    }
+    const setupUrl = stringValue(candidate.setupUrl, "payload.setupUrl", {
+      max: 2048,
+    });
+    try {
+      const parsed = new URL(setupUrl ?? "");
+      const token = parsed.searchParams.get("token");
+      if (
+        parsed.origin !== "https://yezyy.com" ||
+        parsed.pathname !== "/admin/setup-password" ||
+        parsed.searchParams.size !== 1 ||
+        !token ||
+        !/^[A-Za-z0-9_-]{43}$/.test(token)
+      ) {
+        invalid("payload.setupUrl is invalid");
+      }
+    } catch {
+      invalid("payload.setupUrl is invalid");
+    }
+    dateString(candidate.expiresAt, "payload.expiresAt");
+    return candidate as AdminPasswordSetupOutboxPayload;
+  }
+
   if (
     messageType === "booking_notification_customer" ||
     messageType === "booking_notification_owner"
@@ -732,6 +783,7 @@ const MESSAGE_TYPES = new Set<EmailMessageType>([
   "cart_order_status_customer",
   "booking_notification_customer",
   "booking_notification_owner",
+  "admin_password_setup",
 ]);
 
 export function validateEmailOutboxEnvelope(
@@ -747,11 +799,18 @@ export function validateEmailOutboxEnvelope(
     input.cartOrderId == null
       ? null
       : uuidValue(input.cartOrderId, "cartOrderId");
-  if (Boolean(bookingId) === Boolean(cartOrderId)) {
+  const isAdminPasswordSetup = messageType === "admin_password_setup";
+  if (
+    (isAdminPasswordSetup && (bookingId !== null || cartOrderId !== null)) ||
+    (!isAdminPasswordSetup && Boolean(bookingId) === Boolean(cartOrderId))
+  ) {
     invalid("exactly one request parent is required");
   }
   const expectsBooking = messageType.startsWith("booking_");
-  if ((expectsBooking && !bookingId) || (!expectsBooking && !cartOrderId)) {
+  if (
+    !isAdminPasswordSetup &&
+    ((expectsBooking && !bookingId) || (!expectsBooking && !cartOrderId))
+  ) {
     invalid("messageType does not match the request parent");
   }
   const isStatus = messageType.endsWith("_status_customer");
@@ -771,11 +830,19 @@ export function validateEmailOutboxEnvelope(
     invalid("locale is unsupported");
   }
   const payload = validatePayloadForMessage(messageType, input.payload);
+  if (
+    isAdminPasswordSetup &&
+    (payload as AdminPasswordSetupOutboxPayload).email !== recipient
+  ) {
+    invalid("payload.email must match recipient");
+  }
   const requiresStatusEvent =
     isStatus || isStatusLifecycleTemplate(payload.template);
   if (
     (requiresStatusEvent && !statusEventId) ||
-    (!isStatus && !isLifecycleNotification && statusEventId)
+    (!isStatus &&
+      !isLifecycleNotification &&
+      statusEventId)
   ) {
     invalid(
       requiresStatusEvent

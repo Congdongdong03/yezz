@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseEmailDeliveryPagination } from "./email-deliveries.routes.js";
+import {
+  parseEmailDeliveryPagination,
+  safeEmailDelivery,
+} from "./email-deliveries.routes.js";
 
 describe("email delivery pagination", () => {
   it.each(["1.5", "Infinity", "-1", "0", "not-a-number"])(
@@ -13,5 +16,23 @@ describe("email delivery pagination", () => {
 
   it("caps a valid integer limit at 100", () => {
     expect(parseEmailDeliveryPagination("250", 25, 100)).toBe(100);
+  });
+
+  it("never returns setup tokens embedded in durable outbox payloads", () => {
+    const token = "A".repeat(43);
+    const safe = safeEmailDelivery({
+      id: "delivery-1",
+      messageType: "admin_password_setup",
+      payload: {
+        template: "admin_password_setup",
+        setupUrl: `https://yezyy.com/admin/setup-password?token=${token}`,
+      },
+    } as never);
+
+    expect(safe).toEqual({
+      id: "delivery-1",
+      messageType: "admin_password_setup",
+    });
+    expect(JSON.stringify(safe)).not.toContain(token);
   });
 });

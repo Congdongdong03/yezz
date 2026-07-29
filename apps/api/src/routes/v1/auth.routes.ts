@@ -13,6 +13,11 @@ type LoginBody = {
   password?: string;
 };
 
+type SetupPasswordBody = {
+  token?: unknown;
+  newPassword?: unknown;
+};
+
 const isProduction = process.env.NODE_ENV === "production";
 
 function compareControllingLimit(
@@ -49,6 +54,27 @@ function clearAuthCookie(reply: FastifyReply) {
 }
 
 export default async function authRoutes(app: FastifyInstance) {
+  app.post<{ Body: SetupPasswordBody }>(
+    "/setup-password",
+    async (request, reply) => {
+      const clientIp = resolvePublicRateLimitSubject(request);
+      const limit = await app.services.rateLimits.consume(
+        "password-setup-ip",
+        clientIp,
+        10,
+        3600,
+      );
+      enforceRateLimitResult(limit, reply);
+      const body = request.body ?? {};
+      return success(
+        await app.services.passwordSetup.complete(
+          body.token,
+          body.newPassword,
+        ),
+      );
+    },
+  );
+
   app.post<{ Body: LoginBody }>("/login", async (request, reply) => {
     const { email = "", password = "" } = request.body ?? {};
     const clientIp = resolvePublicRateLimitSubject(request);

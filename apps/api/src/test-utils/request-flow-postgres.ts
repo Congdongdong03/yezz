@@ -242,6 +242,15 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       revoked_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE "${schema}".password_setup_tokens (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id uuid NOT NULL REFERENCES "${schema}".users(id) ON DELETE CASCADE,
+      token_digest varchar(64) NOT NULL UNIQUE,
+      expires_at timestamptz NOT NULL,
+      used_at timestamptz,
+      revoked_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE "${schema}".cart_orders (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       name varchar(255) NOT NULL,
@@ -310,7 +319,18 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       actor_user_id uuid REFERENCES "${schema}".users(id) ON DELETE RESTRICT,
       actor_kind varchar(16) NOT NULL DEFAULT 'staff',
       created_at timestamptz NOT NULL DEFAULT now(),
-      CHECK (num_nonnulls(booking_id, cart_order_id) = 1)
+      CHECK (
+        (
+          message_type = 'admin_password_setup'
+          AND num_nonnulls(booking_id, cart_order_id) = 0
+          AND status_event_id IS NULL
+        )
+        OR
+        (
+          message_type <> 'admin_password_setup'
+          AND num_nonnulls(booking_id, cart_order_id) = 1
+        )
+      )
     );
     CREATE TABLE "${schema}".email_outbox (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

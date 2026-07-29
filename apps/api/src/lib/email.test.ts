@@ -68,20 +68,38 @@ describe("staff credential emails", () => {
     }
   });
 
-  it("does not send a plaintext temporary password by email", async () => {
-    const { sendStaffWelcomeEmail } = await import("./email.js");
+  it("sends only the expiring setup link through the durable outbox template", async () => {
+    const { createResendOutboxProvider } = await import("./email.js");
+    const provider = createResendOutboxProvider();
+    const token = "A".repeat(43);
 
-    await sendStaffWelcomeEmail({
-      to: "staff@example.com",
-      name: "Staff",
-      email: "staff@example.com",
-      role: "staff",
+    await provider.send({
+      id: "00000000-0000-4000-8000-000000000001",
+      dedupeKey: "admin-password-setup:token-1",
+      bookingId: null,
+      cartOrderId: null,
+      statusEventId: null,
+      messageType: "admin_password_setup",
+      recipient: "staff@example.com",
+      locale: "en",
+      payload: {
+        template: "admin_password_setup",
+        name: "Staff",
+        email: "staff@example.com",
+        role: "staff",
+        setupUrl: `https://yezyy.com/admin/setup-password?token=${token}`,
+        expiresAt: "2030-08-01T01:00:00.000Z",
+      },
     });
 
-    const sentEmail = sentEmails[0] as { html: string };
-    expect(sentEmail.html).toContain("obtain your temporary password from your administrator");
+    const sentEmail = sentEmails[0] as { html: string; subject: string };
+    expect(sentEmail.subject).toContain("Set up your YezYY Admin password");
+    expect(sentEmail.html).toContain(
+      `https://yezyy.com/admin/setup-password?token=${token}`,
+    );
+    expect(sentEmail.html).toContain("expires in 60 minutes");
     expect(sentEmail.html).not.toContain("SafeTemporary42!");
-    expect(sentEmail.html).not.toContain("Password / 初始密码");
+    expect(sentEmail.html).not.toContain("temporary password");
   });
 });
 

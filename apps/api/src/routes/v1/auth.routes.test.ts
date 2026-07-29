@@ -21,6 +21,51 @@ function rateLimitResult(
 }
 
 describe("authRoutes durable rate limits", () => {
+  it("completes password setup without authenticating or echoing the token", async () => {
+    const complete = vi.fn(async () => ({ ok: true as const }));
+    const consume = vi.fn(async (_scope: string, _subject: string, limit: number) =>
+      rateLimitResult(true, limit, limit - 1),
+    );
+    const app = Fastify();
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = {
+        clientIp: "203.0.113.12",
+        requestId: "00000000-0000-4000-8000-000000000001",
+        timestamp: 1_785_200_000,
+        idempotencyKey: null,
+      };
+    });
+    app.decorate("services", {
+      rateLimits: { consume },
+      passwordSetup: { complete },
+    } as never);
+    await app.register(cookie);
+    await app.register(authRoutes, { prefix: "/auth" });
+    const token = "A".repeat(43);
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/auth/setup-password",
+        payload: { token, newPassword: "NewOwnerPassword42!" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ success: true, data: { ok: true } });
+      expect(response.body).not.toContain(token);
+      expect(complete).toHaveBeenCalledWith(token, "NewOwnerPassword42!");
+      expect(consume).toHaveBeenCalledWith(
+        "password-setup-ip",
+        "203.0.113.12",
+        10,
+        3600,
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
   it("consumes both login IP/email and IP buckets using signed identity", async () => {
     const consume = vi.fn(
       async (_scope: string, _subject: string, limit: number) =>

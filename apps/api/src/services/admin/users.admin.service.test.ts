@@ -8,17 +8,22 @@ const repo = vi.hoisted(() => ({
   findAllOrdered: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
+  updatePasswordAndIncrementSessionVersion: vi.fn(),
   delete: vi.fn(),
+  countByRole: vi.fn(),
 }));
 
-const sendStaffWelcomeEmail = vi.hoisted(() => vi.fn());
+const passwordSetup = vi.hoisted(() => ({
+  createUserAndIssue: vi.fn(),
+  issueForUser: vi.fn(),
+}));
 
 vi.mock("../../repositories/users.repository.js", () => ({
   createUsersRepository: () => repo,
 }));
 
-vi.mock("../../lib/email.js", () => ({
-  sendStaffWelcomeEmail,
+vi.mock("../password-setup.service.js", () => ({
+  createPasswordSetupService: () => passwordSetup,
 }));
 
 import { createAdminUsersService } from "./users.admin.service.js";
@@ -37,43 +42,57 @@ describe("admin users service password lifecycle", () => {
     repo.findByEmail.mockResolvedValue(null);
     repo.create.mockResolvedValue(user);
     repo.update.mockResolvedValue(user);
+    repo.updatePasswordAndIncrementSessionVersion.mockResolvedValue({
+      id: user.id,
+      sessionVersion: 1,
+    });
+    passwordSetup.createUserAndIssue.mockResolvedValue({
+      ...user,
+      sessionVersion: 0,
+    });
+    passwordSetup.issueForUser.mockResolvedValue(undefined);
   });
 
-  it("returns the generated initial password to the authenticated admin caller", async () => {
+  it("returns no plaintext password when creating a user", async () => {
     const service = createAdminUsersService({} as never);
-    let storedPasswordHash = "";
-    repo.create.mockImplementation(async (input) => {
-      storedPasswordHash = input.passwordHash;
-      return user;
-    });
 
     const result = await service.create({
       email: "staff@example.com",
       name: "Staff",
       role: "staff",
+    }, {
+      sub: "owner-1",
+      email: "owner@example.com",
+      role: "owner",
+      sessionVersion: 0,
     });
 
-    expect(result.initialPassword).toMatch(/^[A-Za-z0-9_-]{12}$/);
-    expect(await bcrypt.compare(result.initialPassword, storedPasswordHash)).toBe(true);
+    expect(result).toEqual({ user });
+    expect(JSON.stringify(result)).not.toMatch(/password/i);
   });
 
-  it("does not pass a plaintext password to the welcome email", async () => {
+  it("does not accept or pass a plaintext password during user creation", async () => {
     const service = createAdminUsersService({} as never);
 
     await service.create({
       email: "staff@example.com",
       name: "Staff",
       role: "staff",
-      password: "SafeTemporary42!",
+    }, {
+      sub: "owner-1",
+      email: "owner@example.com",
+      role: "owner",
+      sessionVersion: 0,
     });
 
-    expect(sendStaffWelcomeEmail).toHaveBeenCalledWith({
-      to: "staff@example.com",
-      name: "Staff",
+    expect(passwordSetup.createUserAndIssue).toHaveBeenCalledWith({
       email: "staff@example.com",
+      name: "Staff",
       role: "staff",
     });
-    expect(sendStaffWelcomeEmail.mock.calls[0]?.[0]).not.toHaveProperty("password");
+    expect(
+      JSON.stringify(passwordSetup.createUserAndIssue.mock.calls),
+    ).not.toMatch(/password/i);
   });
 
   it("rejects an incorrect current password", async () => {
@@ -95,10 +114,12 @@ describe("admin users service password lifecycle", () => {
       ...user,
       passwordHash: await bcrypt.hash("CurrentPassword42!", 10),
     });
-    repo.update.mockImplementation(async (_id, input) => {
-      storedPasswordHash = input.passwordHash;
-      return user;
-    });
+    repo.updatePasswordAndIncrementSessionVersion.mockImplementation(
+      async (_id, passwordHash) => {
+        storedPasswordHash = passwordHash;
+        return { id: user.id, sessionVersion: 1 };
+      },
+    );
 
     await expect(
       service.changePassword(user.id, "CurrentPassword42!", "NewPassword42!"),
@@ -115,6 +136,76 @@ describe("admin users service password lifecycle", () => {
     expect(repo.findByIdWithPasswordHash).not.toHaveBeenCalled();
   });
 
+  it("allows only an owner to create another admin", async () => {
+    const service = createAdminUsersService({} as never);
+
+    await expect(
+      service.create(
+        {
+          email: "admin@example.com",
+          name: "Admin",
+          role: "admin",
+        },
+        {
+          sub: "admin-1",
+          email: "admin-1@example.com",
+          role: "admin",
+          sessionVersion: 0,
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 403, code: "FORBIDDEN" });
+    expect(passwordSetup.createUserAndIssue).not.toHaveBeenCalled();
+  });
+
+  it("prevents the sole owner from demoting themselves", async () => {
+    const service = createAdminUsersService({} as never);
+    repo.findById.mockResolvedValue({
+      ...user,
+      id: "owner-1",
+      email: "owner@example.com",
+      role: "owner",
+    });
+    repo.countByRole.mockResolvedValue(1);
+
+    await expect(
+      service.update(
+        "owner-1",
+        { role: "admin" },
+        {
+          sub: "owner-1",
+          email: "owner@example.com",
+          role: "owner",
+          sessionVersion: 0,
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 400, code: "VALIDATION_ERROR" });
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it("prevents an admin from modifying an owner account", async () => {
+    const service = createAdminUsersService({} as never);
+    repo.findById.mockResolvedValue({
+      ...user,
+      id: "owner-1",
+      email: "owner@example.com",
+      role: "owner",
+    });
+
+    await expect(
+      service.update(
+        "owner-1",
+        { name: "Changed by admin" },
+        {
+          sub: "admin-1",
+          email: "admin@example.com",
+          role: "admin",
+          sessionVersion: 0,
+        },
+      ),
+    ).rejects.toMatchObject({ statusCode: 403, code: "FORBIDDEN" });
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
   it.each([
     [{ value: "not-a-password" }, "NewPassword42!"],
     [["not-a-password"], "NewPassword42!"],
@@ -127,15 +218,17 @@ describe("admin users service password lifecycle", () => {
     const originalHash = await bcrypt.hash("CurrentPassword42!", 10);
     let storedPasswordHash = originalHash;
     repo.findByIdWithPasswordHash.mockResolvedValue({ ...user, passwordHash: originalHash });
-    repo.update.mockImplementation(async (_id, input) => {
-      storedPasswordHash = input.passwordHash;
-      return user;
-    });
+    repo.updatePasswordAndIncrementSessionVersion.mockImplementation(
+      async (_id, passwordHash) => {
+        storedPasswordHash = passwordHash;
+        return { id: user.id, sessionVersion: 1 };
+      },
+    );
 
     await expect(
       service.changePassword(user.id, currentPassword, newPassword),
     ).rejects.toMatchObject({ statusCode: 400, code: "VALIDATION_ERROR" });
-    expect(repo.update).not.toHaveBeenCalled();
+    expect(repo.updatePasswordAndIncrementSessionVersion).not.toHaveBeenCalled();
     expect(storedPasswordHash).toBe(originalHash);
   });
 });

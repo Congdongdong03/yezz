@@ -4,7 +4,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "staff";
+  role: "owner" | "admin" | "staff";
 };
 
 export type LoginResponse = {
@@ -343,7 +343,7 @@ export type AdminUser = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "staff";
+  role: "owner" | "admin" | "staff";
   createdAt: string;
 };
 

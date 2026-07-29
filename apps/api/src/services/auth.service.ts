@@ -8,7 +8,7 @@ export type AuthUserDto = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "staff";
+  role: "owner" | "admin" | "staff";
 };
 
 export type LoginResultDto = {
@@ -45,6 +45,7 @@ export function createAuthService(db: Db) {
         sub: user.id,
         email: user.email,
         role: user.role,
+        sessionVersion: user.sessionVersion,
       });
 
       return {

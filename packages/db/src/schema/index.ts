@@ -683,7 +683,14 @@ export const emailOutbox = pgTable(
     index("email_outbox_status_event_id_idx").on(table.statusEventId),
     check(
       "email_outbox_exactly_one_request",
-      sql`num_nonnulls(${table.bookingId}, ${table.cartOrderId}) = 1`,
+      sql`(
+        (${table.messageType} = 'admin_password_setup'
+          AND num_nonnulls(${table.bookingId}, ${table.cartOrderId}) = 0
+          AND ${table.statusEventId} IS NULL)
+        OR
+        (${table.messageType} <> 'admin_password_setup'
+          AND num_nonnulls(${table.bookingId}, ${table.cartOrderId}) = 1)
+      )`,
     ),
     check(
       "email_outbox_delivery_status_valid",

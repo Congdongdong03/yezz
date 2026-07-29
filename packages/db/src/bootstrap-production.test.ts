@@ -17,7 +17,9 @@ import { assertDemoSeedAllowed } from "./seed-safety.js";
 
 type BootstrapState = {
   settings: Array<Record<string, unknown>>;
-  admins: Array<Record<string, unknown>>;
+  users: Array<Record<string, unknown>>;
+  setupTokens: Array<Record<string, unknown>>;
+  outbox: Array<Record<string, unknown>>;
   categories: number;
   projects: number;
   parties: number;
@@ -27,7 +29,9 @@ type BootstrapState = {
 function createState(): BootstrapState {
   return {
     settings: [],
-    admins: [],
+    users: [],
+    setupTokens: [],
+    outbox: [],
     categories: 0,
     projects: 0,
     parties: 0,
@@ -43,9 +47,26 @@ function createStore(state: BootstrapState): ProductionBootstrapStore {
     createSiteSettings: async (settings) => {
       state.settings.push(settings);
     },
-    hasAdmin: async () => state.admins.length > 0,
-    createAdmin: async (admin) => {
-      state.admins.push(admin);
+    findUserByEmail: async (email) =>
+      state.users.find((user) => user.email === email) as never ?? null,
+    createOwner: async (owner) => {
+      const row = { id: "owner-1", sessionVersion: 0, ...owner };
+      state.users.push(row);
+      return row as never;
+    },
+    updateUserRole: async (id, role) => {
+      const user = state.users.find((candidate) => candidate.id === id);
+      if (!user) throw new Error("missing test user");
+      user.role = role;
+      user.sessionVersion = Number(user.sessionVersion ?? 0) + 1;
+    },
+    createPasswordSetupToken: async (token) => {
+      const row = { id: "setup-token-1", ...token };
+      state.setupTokens.push(row);
+      return row as never;
+    },
+    enqueuePasswordSetupEmail: async (delivery) => {
+      state.outbox.push(delivery);
     },
   };
   return store;
@@ -53,8 +74,6 @@ function createStore(state: BootstrapState): ProductionBootstrapStore {
 
 const guardedEnv = {
   ALLOW_PRODUCTION_BOOTSTRAP: "YezYY",
-  ADMIN_EMAIL: "Congdongdong03@Gmail.com",
-  ADMIN_PASSWORD: "a-strong-owner-password",
 };
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_MIGRATION_TESTS === "1";
@@ -128,6 +147,12 @@ async function applyCurrentMigrations(client: Sql, schemaName: string) {
     schemaName,
     "0003_yezyy_live_booking_operations.sql",
   );
+  await applyMigration(client, schemaName, "0004_slippery_kree.sql");
+  await applyMigration(
+    client,
+    schemaName,
+    "0005_secure_owner_password_setup.sql",
+  );
 }
 
 afterEach(async () => {
@@ -186,14 +211,14 @@ describe("production bootstrap", () => {
         envPath,
         [
           'EMAIL_FROM="YezYY <bookings@yezyy.com>"',
-          'ADMIN_PASSWORD="strong password with spaces"',
+          'EMAIL_REPLY_TO="YezYY Owner <congdongdong03@gmail.com>"',
         ].join("\n"),
       );
       const result = spawnSync(
         "bash",
         [
           "-c",
-          'set -a; . "$1"; set +a; printf "%s\\n%s" "$EMAIL_FROM" "$ADMIN_PASSWORD"',
+          'set -a; . "$1"; set +a; printf "%s\\n%s" "$EMAIL_FROM" "$EMAIL_REPLY_TO"',
           "bash",
           envPath,
         ],
@@ -202,7 +227,7 @@ describe("production bootstrap", () => {
 
       expect(result.status).toBe(0);
       expect(result.stdout).toBe(
-        "YezYY <bookings@yezyy.com>\nstrong password with spaces",
+        "YezYY <bookings@yezyy.com>\nYezYY Owner <congdongdong03@gmail.com>",
       );
     } finally {
       await rm(directory, { force: true, recursive: true });
@@ -234,26 +259,36 @@ describe("production bootstrap", () => {
     );
   });
 
-  it("creates truthful settings and one admin without catalogue demo rows", async () => {
+  it("creates truthful settings and the canonical owner without plaintext credentials", async () => {
     const state = createState();
     const hashPassword = vi.fn(async () => "safe-hash");
 
     const result = await bootstrapProduction(guardedEnv, {
       store: createStore(state),
       hashPassword,
+      randomBytes: () => Buffer.alloc(32, 7),
+      now: () => new Date("2030-08-01T00:00:00.000Z"),
     });
 
-    expect(result).toEqual({ adminCreated: true, settingsCreated: true });
+    expect(result).toEqual({
+      ownerCreated: true,
+      settingsCreated: true,
+      setupEmailQueued: true,
+    });
     expect({
       settings: state.settings.length,
-      admins: state.admins.length,
+      owners: state.users.filter(({ role }) => role === "owner").length,
+      setupTokens: state.setupTokens.length,
+      setupEmails: state.outbox.length,
       categories: state.categories,
       projects: state.projects,
       parties: state.parties,
       gallery: state.gallery,
     }).toEqual({
       settings: 1,
-      admins: 1,
+      owners: 1,
+      setupTokens: 1,
+      setupEmails: 1,
       categories: 0,
       projects: 0,
       parties: 0,
@@ -266,35 +301,78 @@ describe("production bootstrap", () => {
       email: "congdongdong03@gmail.com",
       xiaohongshu: "95848743904",
     });
-    expect(state.admins[0]).toMatchObject({
+    expect(state.users[0]).toMatchObject({
       email: "congdongdong03@gmail.com",
       passwordHash: "safe-hash",
-      name: "YezYY Admin",
-      role: "admin",
+      name: "YezYY Owner",
+      role: "owner",
     });
     expect(hashPassword).toHaveBeenCalledWith(
-      "a-strong-owner-password",
+      expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
       12,
     );
+    expect(state.setupTokens[0]).toMatchObject({
+      userId: "owner-1",
+      tokenDigest: expect.stringMatching(/^[a-f0-9]{64}$/),
+      expiresAt: new Date("2030-08-01T01:00:00.000Z"),
+    });
+    expect(state.outbox[0]).toMatchObject({
+      messageType: "admin_password_setup",
+      recipient: "congdongdong03@gmail.com",
+      payload: expect.objectContaining({
+        template: "admin_password_setup",
+        setupUrl: expect.stringMatching(
+          /^https:\/\/yezyy\.com\/admin\/setup-password\?token=[A-Za-z0-9_-]{43}$/,
+        ),
+      }),
+    });
+    expect(JSON.stringify(result)).not.toMatch(/password|token/i);
   });
 
-  it("is idempotent and does not require credentials when an admin exists", async () => {
+  it("is idempotent and queues setup email only when the owner needs setup", async () => {
     const state = createState();
-    state.admins.push({ email: "existing@example.com" });
     const store = createStore(state);
 
-    await bootstrapProduction(
-      { ALLOW_PRODUCTION_BOOTSTRAP: "YezYY" },
-      { store },
-    );
+    await bootstrapProduction(guardedEnv, { store });
     const second = await bootstrapProduction(
-      { ALLOW_PRODUCTION_BOOTSTRAP: "YezYY" },
+      guardedEnv,
       { store },
     );
 
-    expect(second).toEqual({ adminCreated: false, settingsCreated: false });
+    expect(second).toEqual({
+      ownerCreated: false,
+      settingsCreated: false,
+      setupEmailQueued: false,
+    });
     expect(state.settings).toHaveLength(1);
-    expect(state.admins).toHaveLength(1);
+    expect(state.users).toHaveLength(1);
+    expect(state.setupTokens).toHaveLength(1);
+    expect(state.outbox).toHaveLength(1);
+  });
+
+  it("promotes the canonical existing account without issuing a setup token", async () => {
+    const state = createState();
+    state.users.push({
+      id: "existing-user",
+      email: "congdongdong03@gmail.com",
+      name: "Existing",
+      role: "admin",
+      sessionVersion: 3,
+    });
+
+    await expect(
+      bootstrapProduction(guardedEnv, { store: createStore(state) }),
+    ).resolves.toEqual({
+      ownerCreated: false,
+      settingsCreated: true,
+      setupEmailQueued: false,
+    });
+    expect(state.users[0]).toMatchObject({
+      role: "owner",
+      sessionVersion: 4,
+    });
+    expect(state.setupTokens).toHaveLength(0);
+    expect(state.outbox).toHaveLength(0);
   });
 
   it("rejects a missing guard before touching the store", async () => {
@@ -304,34 +382,18 @@ describe("production bootstrap", () => {
 
     await expect(
       bootstrapProduction(
-        {
-          ADMIN_EMAIL: guardedEnv.ADMIN_EMAIL,
-          ADMIN_PASSWORD: guardedEnv.ADMIN_PASSWORD,
-        },
+        {},
         { store },
       ),
     ).rejects.toThrow("ALLOW_PRODUCTION_BOOTSTRAP=YezYY");
     expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    [{ ...guardedEnv, ADMIN_PASSWORD: "changeme" }, "placeholder credentials"],
-    [{ ...guardedEnv, ADMIN_PASSWORD: "your-strong-password" }, "placeholder credentials"],
-    [{ ...guardedEnv, ADMIN_PASSWORD: "short" }, "at least 12 characters"],
-    [{ ...guardedEnv, ADMIN_EMAIL: "admin@yezz.local" }, "placeholder credentials"],
-    [{ ...guardedEnv, ADMIN_EMAIL: "" }, "ADMIN_EMAIL"],
-    [{ ...guardedEnv, ADMIN_PASSWORD: "" }, "ADMIN_PASSWORD"],
-  ])("rejects unsafe first-admin credentials", async (env, message) => {
-    await expect(
-      bootstrapProduction(env, { store: createStore(createState()) }),
-    ).rejects.toThrow(message);
   });
 });
 
 describe.skipIf(!runDatabaseTests)(
   "production bootstrap PostgreSQL integration",
   () => {
-    it("creates only settings/admin and remains idempotent", async () => {
+    it("creates only settings/owner/setup email and remains idempotent", async () => {
       integrationClient = postgres(requireSafeTestDatabaseUrl(), { max: 1 });
       integrationSchema = `yezyy_bootstrap_test_${crypto.randomUUID().replaceAll("-", "")}`;
       await integrationClient.unsafe(`CREATE SCHEMA "${integrationSchema}"`);
@@ -351,17 +413,21 @@ describe.skipIf(!runDatabaseTests)(
       };
 
       expect(await bootstrapProduction(guardedEnv, options)).toEqual({
-        adminCreated: true,
+        ownerCreated: true,
         settingsCreated: true,
+        setupEmailQueued: true,
       });
       expect(await bootstrapProduction(guardedEnv, options)).toEqual({
-        adminCreated: false,
+        ownerCreated: false,
         settingsCreated: false,
+        setupEmailQueued: false,
       });
 
       const [counts] = await integrationClient<{
         settings: number;
-        admins: number;
+        owners: number;
+        setupTokens: number;
+        setupEmails: number;
         categories: number;
         projects: number;
         parties: number;
@@ -369,7 +435,9 @@ describe.skipIf(!runDatabaseTests)(
       }[]>`
         SELECT
           (SELECT count(*)::int FROM site_settings) AS settings,
-          (SELECT count(*)::int FROM users WHERE role = 'admin') AS admins,
+          (SELECT count(*)::int FROM users WHERE role = 'owner') AS owners,
+          (SELECT count(*)::int FROM password_setup_tokens) AS "setupTokens",
+          (SELECT count(*)::int FROM email_outbox WHERE message_type = 'admin_password_setup') AS "setupEmails",
           (SELECT count(*)::int FROM project_categories) AS categories,
           (SELECT count(*)::int FROM diy_projects) AS projects,
           (SELECT count(*)::int FROM party_packages) AS parties,
@@ -377,7 +445,9 @@ describe.skipIf(!runDatabaseTests)(
       `;
       expect(counts).toEqual({
         settings: 1,
-        admins: 1,
+        owners: 1,
+        setupTokens: 1,
+        setupEmails: 1,
         categories: 0,
         projects: 0,
         parties: 0,
@@ -385,7 +455,7 @@ describe.skipIf(!runDatabaseTests)(
       });
     });
 
-    it("serializes concurrent first-admin bootstraps", async () => {
+    it("serializes concurrent first-owner bootstraps", async () => {
       integrationClient = postgres(requireSafeTestDatabaseUrl(), { max: 1 });
       integrationSchema = `yezyy_bootstrap_test_${crypto.randomUUID().replaceAll("-", "")}`;
       await integrationClient.unsafe(`CREATE SCHEMA "${integrationSchema}"`);
@@ -409,27 +479,24 @@ describe.skipIf(!runDatabaseTests)(
 
       const results = await Promise.all([
         bootstrapProduction(guardedEnv, options),
-        bootstrapProduction(
-          { ...guardedEnv, ADMIN_EMAIL: "second-owner@yezyy.com" },
-          options,
-        ),
+        bootstrapProduction(guardedEnv, options),
       ]);
       expect(
         results.filter(
-          ({ adminCreated, settingsCreated }) =>
-            adminCreated && settingsCreated,
+          ({ ownerCreated, settingsCreated }) =>
+            ownerCreated && settingsCreated,
         ),
       ).toHaveLength(1);
 
       const [counts] = await integrationClient<{
         settings: number;
-        admins: number;
+        owners: number;
       }[]>`
         SELECT
           (SELECT count(*)::int FROM site_settings) AS settings,
-          (SELECT count(*)::int FROM users WHERE role = 'admin') AS admins
+          (SELECT count(*)::int FROM users WHERE role = 'owner') AS owners
       `;
-      expect(counts).toEqual({ settings: 1, admins: 1 });
+      expect(counts).toEqual({ settings: 1, owners: 1 });
     });
 
     it("runs the real development demo seed against an isolated schema", async () => {

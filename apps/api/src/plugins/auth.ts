@@ -4,6 +4,7 @@ import type { FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { AppError } from "../lib/errors.js";
 import type { JwtPayload, UserRole } from "../lib/jwt.js";
+import { createUsersRepository } from "../repositories/users.repository.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -40,22 +41,32 @@ export default fp(async (app) => {
     },
   });
 
+  const users = createUsersRepository(app.db);
+
   app.decorate("authenticate", async (request: FastifyRequest) => {
     try {
       const header = request.headers.authorization;
       if (header?.startsWith("Bearer ")) {
         await request.jwtVerify();
-        return;
+      } else {
+        const cookieToken = request.cookies[AUTH_COOKIE_NAME];
+        if (cookieToken) {
+          request.user =
+            await request.server.jwt.verify<JwtPayload>(cookieToken);
+        } else {
+          await request.jwtVerify();
+        }
       }
 
-      const cookieToken = request.cookies[AUTH_COOKIE_NAME];
-      if (cookieToken) {
-        const decoded = await request.server.jwt.verify<JwtPayload>(cookieToken);
-        request.user = decoded;
-        return;
+      const current = await users.findById(request.user.sub);
+      if (
+        !current ||
+        !Number.isInteger(request.user.sessionVersion) ||
+        current.sessionVersion !== request.user.sessionVersion ||
+        current.role !== request.user.role
+      ) {
+        throw new Error("Session is no longer current");
       }
-
-      await request.jwtVerify();
     } catch {
       throw new AppError(401, "UNAUTHORIZED", "Invalid or missing token");
     }
@@ -64,7 +75,7 @@ export default fp(async (app) => {
   app.decorate("requireAdmin", async (request: FastifyRequest) => {
     await app.authenticate(request);
     const role = request.user.role as UserRole;
-    if (role !== "admin") {
+    if (role !== "owner" && role !== "admin") {
       throw new AppError(403, "FORBIDDEN", "Admin access required");
     }
   });

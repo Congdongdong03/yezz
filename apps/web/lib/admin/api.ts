@@ -74,6 +74,17 @@ export async function login(email: string, password: string) {
   });
 }
 
+export async function completePasswordSetup(
+  token: string,
+  newPassword: string,
+) {
+  return adminFetch<{ ok: true }>("/api/v1/auth/setup-password", {
+    method: "POST",
+    body: JSON.stringify({ token, newPassword }),
+    auth: false,
+  });
+}
+
 export async function logout() {
   clearLegacyAdminToken();
   return adminFetch<{ ok: boolean }>("/api/v1/auth/logout", {
@@ -417,10 +428,9 @@ export async function getAdminUsers() {
 export async function createAdminUser(data: {
   email: string;
   name: string;
-  role: "admin" | "staff";
-  password?: string;
+  role: "owner" | "admin" | "staff";
 }) {
-  return adminFetch<{ user: AdminUser; initialPassword: string }>("/api/v1/admin/users", {
+  return adminFetch<{ user: AdminUser }>("/api/v1/admin/users", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -437,7 +447,7 @@ export async function updateAdminUser(
 }
 
 export async function resetAdminUserPassword(id: string) {
-  return adminFetch<{ user: AdminUser; newPassword: string }>(`/api/v1/admin/users/${id}/reset-password`, {
+  return adminFetch<{ user: AdminUser }>(`/api/v1/admin/users/${id}/reset-password`, {
     method: "POST",
   });
 }

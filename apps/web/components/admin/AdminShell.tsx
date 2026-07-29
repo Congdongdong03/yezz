@@ -50,14 +50,15 @@ function formatBadge(count: number) {
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const isLogin = pathname === "/admin/login";
+  const isPublicAuth =
+    pathname === "/admin/login" || pathname === "/admin/setup-password";
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [unread, setUnread] = useState<UnreadCounts>({ bookings: 0, orders: 0, total: 0 });
 
   useEffect(() => {
     clearLegacyAdminToken();
-    if (isLogin) {
+    if (isPublicAuth) {
       void Promise.resolve().then(() => setReady(true));
       return;
     }
@@ -68,17 +69,17 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         setReady(true);
       })
       .catch(() => router.replace("/admin/login"));
-  }, [isLogin, router, pathname]);
+  }, [isPublicAuth, router, pathname]);
 
   useEffect(() => {
-    if (!ready || isLogin || !user) return;
+    if (!ready || isPublicAuth || !user) return;
     if (user.role === "staff" && STAFF_BLOCKED_PREFIXES.some((p) => pathname.startsWith(p))) {
       router.replace("/admin/bookings");
     }
-  }, [ready, isLogin, user, pathname, router]);
+  }, [ready, isPublicAuth, user, pathname, router]);
 
   useEffect(() => {
-    if (!ready || isLogin) return;
+    if (!ready || isPublicAuth) return;
 
     const refresh = () => {
       getUnreadCounts()
@@ -89,9 +90,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     refresh();
     const timer = setInterval(refresh, 30_000);
     return () => clearInterval(timer);
-  }, [ready, isLogin, pathname]);
+  }, [ready, isPublicAuth, pathname]);
 
-  if (isLogin) {
+  if (isPublicAuth) {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
 
@@ -103,7 +104,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     );
   }
 
-  const visibleNav = navItems.filter((item) => user?.role === "admin" || !item.adminOnly);
+  const visibleNav = navItems.filter(
+    (item) => user?.role !== "staff" || !item.adminOnly,
+  );
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F5F3F2] md:flex-row">

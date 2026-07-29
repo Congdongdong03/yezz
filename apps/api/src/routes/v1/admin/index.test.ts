@@ -19,6 +19,7 @@ describe("admin durable rate limits", () => {
         sub: "00000000-0000-4000-8000-000000000099",
         email: "staff@example.test",
         role: "staff",
+        sessionVersion: 0,
       };
     });
     app.decorate("requireAdmin", async () => undefined);
@@ -63,6 +64,7 @@ describe("admin durable rate limits", () => {
         sub: "00000000-0000-4000-8000-000000000099",
         email: "staff@example.test",
         role: "staff",
+        sessionVersion: 0,
       };
     });
     app.decorate("requireAdmin", async () => undefined);

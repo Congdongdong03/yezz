@@ -1,12 +1,12 @@
 import type { Db } from "@yezz/db";
 import bcrypt from "bcryptjs";
-import { randomBytes } from "node:crypto";
 import { AppError } from "../../lib/errors.js";
-import { sendStaffWelcomeEmail } from "../../lib/email.js";
+import type { JwtPayload } from "../../lib/jwt.js";
 import {
   createUsersRepository,
   type UserRole,
 } from "../../repositories/users.repository.js";
+import { createPasswordSetupService } from "../password-setup.service.js";
 
 export type AdminUserDto = {
   id: string;
@@ -18,36 +18,55 @@ export type AdminUserDto = {
 
 export type AdminUsersService = ReturnType<typeof createAdminUsersService>;
 
-function generatePassword() {
-  return randomBytes(9).toString("base64url");
-}
-
 export function createAdminUsersService(db: Db) {
   const repo = createUsersRepository(db);
+  const passwordSetup = createPasswordSetupService(db);
+
+  function requireOwner(actor: JwtPayload) {
+    if (actor.role !== "owner") {
+      throw new AppError(403, "FORBIDDEN", "Owner access required");
+    }
+  }
+
+  function dto(row: {
+    id: string;
+    email: string;
+    name: string;
+    role: UserRole;
+    createdAt: Date;
+  }): AdminUserDto {
+    return {
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      role: row.role,
+      createdAt: row.createdAt,
+    };
+  }
 
   return {
     async list(): Promise<AdminUserDto[]> {
       const rows = await repo.findAllOrdered();
-      return rows.map((row) => ({
-        id: row.id,
-        email: row.email,
-        name: row.name,
-        role: row.role,
-        createdAt: row.createdAt,
-      }));
+      return rows.map(dto);
     },
 
     async create(input: {
       email: string;
       name: string;
       role: UserRole;
-      password?: string;
-    }): Promise<{ user: AdminUserDto; initialPassword: string }> {
+    }, actor: JwtPayload): Promise<{ user: AdminUserDto }> {
       if (!input.email?.trim() || !input.name?.trim()) {
         throw new AppError(400, "VALIDATION_ERROR", "email and name are required");
       }
-      if (!["admin", "staff"].includes(input.role)) {
-        throw new AppError(400, "VALIDATION_ERROR", "role must be admin or staff");
+      if (!["owner", "admin", "staff"].includes(input.role)) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          "role must be owner, admin, or staff",
+        );
+      }
+      if (input.role !== "staff") {
+        requireOwner(actor);
       }
 
       const existing = await repo.findByEmail(input.email.trim().toLowerCase());
@@ -55,59 +74,59 @@ export function createAdminUsersService(db: Db) {
         throw new AppError(409, "CONFLICT", "Email already in use");
       }
 
-      const initialPassword = input.password?.trim() || generatePassword();
-      if (initialPassword.length < 12) {
-        throw new AppError(400, "VALIDATION_ERROR", "Password must be at least 12 characters");
-      }
-      const passwordHash = await bcrypt.hash(initialPassword, 10);
-      const row = await repo.create({
+      const row = await passwordSetup.createUserAndIssue({
         email: input.email,
-        passwordHash,
         name: input.name,
         role: input.role,
       });
 
-      try {
-        await sendStaffWelcomeEmail({
-          to: row.email,
-          name: row.name,
-          email: row.email,
-          role: row.role,
-        });
-      } catch (error) {
-        console.error("Staff welcome email failed:", error);
-      }
-
-      return {
-        user: {
-          id: row.id,
-          email: row.email,
-          name: row.name,
-          role: row.role,
-          createdAt: row.createdAt,
-        },
-        initialPassword,
-      };
+      return { user: dto(row) };
     },
 
     async update(id: string, input: {
       email?: string;
       name?: string;
       role?: UserRole;
-    }): Promise<AdminUserDto> {
+    }, actor: JwtPayload): Promise<AdminUserDto> {
       if (input.email && !input.email.trim()) {
         throw new AppError(400, "VALIDATION_ERROR", "email cannot be empty");
       }
       if (input.name && !input.name.trim()) {
         throw new AppError(400, "VALIDATION_ERROR", "name cannot be empty");
       }
-      if (input.role && !["admin", "staff"].includes(input.role)) {
-        throw new AppError(400, "VALIDATION_ERROR", "role must be admin or staff");
+      if (input.role && !["owner", "admin", "staff"].includes(input.role)) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          "role must be owner, admin, or staff",
+        );
       }
 
       const existing = await repo.findById(id);
       if (!existing) {
         throw new AppError(404, "NOT_FOUND", "User not found");
+      }
+      if (existing.role === "owner") {
+        requireOwner(actor);
+      }
+      const roleChanges = input.role !== undefined && input.role !== existing.role;
+      if (
+        roleChanges &&
+        (existing.role !== "staff" || input.role !== "staff")
+      ) {
+        requireOwner(actor);
+      }
+      if (
+        roleChanges &&
+        existing.role === "owner" &&
+        id === actor.sub &&
+        (await repo.countByRole("owner")) <= 1
+      ) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          "The sole owner cannot demote themselves",
+        );
       }
 
       if (input.email && input.email.trim().toLowerCase() !== existing.email) {
@@ -126,50 +145,23 @@ export function createAdminUsersService(db: Db) {
         throw new AppError(500, "INTERNAL_ERROR", "Failed to update user");
       }
 
-      return {
-        id: row.id,
-        email: row.email,
-        name: row.name,
-        role: row.role,
-        createdAt: row.createdAt,
-      };
+      return dto(row);
     },
 
-    async resetPassword(id: string): Promise<{ user: AdminUserDto; newPassword: string }> {
+    async resetPassword(
+      id: string,
+      actor: JwtPayload,
+    ): Promise<{ user: AdminUserDto }> {
       const existing = await repo.findById(id);
       if (!existing) {
         throw new AppError(404, "NOT_FOUND", "User not found");
       }
 
-      const newPassword = generatePassword();
-      const passwordHash = await bcrypt.hash(newPassword, 10);
-
-      const row = await repo.update(id, { passwordHash });
-      if (!row) {
-        throw new AppError(500, "INTERNAL_ERROR", "Failed to reset password");
+      if (existing.role !== "staff") {
+        requireOwner(actor);
       }
-
-      try {
-        await sendStaffWelcomeEmail({
-          to: row.email,
-          name: row.name,
-          email: row.email,
-          role: row.role,
-        });
-      } catch (error) {
-        console.error("Password reset email failed:", error);
-      }
-
-      return {
-        user: {
-          id: row.id,
-          email: row.email,
-          name: row.name,
-          role: row.role,
-          createdAt: row.createdAt,
-        },
-        newPassword,
-      };
+      await passwordSetup.issueForUser(existing);
+      return { user: dto(existing) };
     },
 
     async changePassword(
@@ -197,7 +189,10 @@ export function createAdminUsersService(db: Db) {
       }
 
       const passwordHash = await bcrypt.hash(newPassword, 10);
-      const row = await repo.update(userId, { passwordHash });
+      const row = await repo.updatePasswordAndIncrementSessionVersion(
+        userId,
+        passwordHash,
+      );
       if (!row) {
         throw new AppError(500, "INTERNAL_ERROR", "Failed to change password");
       }
@@ -205,9 +200,26 @@ export function createAdminUsersService(db: Db) {
       return { ok: true };
     },
 
-    async remove(id: string, currentUserId: string): Promise<{ id: string }> {
-      if (id === currentUserId) {
+    async remove(id: string, actor: JwtPayload): Promise<{ id: string }> {
+      if (id === actor.sub) {
         throw new AppError(400, "VALIDATION_ERROR", "Cannot delete your own account");
+      }
+      const existing = await repo.findById(id);
+      if (!existing) {
+        throw new AppError(404, "NOT_FOUND", "User not found");
+      }
+      if (existing.role !== "staff") {
+        requireOwner(actor);
+      }
+      if (
+        existing.role === "owner" &&
+        (await repo.countByRole("owner")) <= 1
+      ) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          "The sole owner cannot be deleted",
+        );
       }
       const row = await repo.delete(id);
       if (!row) {

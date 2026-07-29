@@ -8,6 +8,7 @@ import type {
 import {
   isStatusLifecycleTemplate,
   validateEmailOutboxEnvelope,
+  type AdminPasswordSetupOutboxPayload,
   type BookingReceivedOutboxPayload,
   type BookingStatusOutboxPayload,
   type BookingStatusTemplate,
@@ -778,6 +779,19 @@ function renderOutboxMessage(message: OutboxProviderMessage) {
       subject: payload.subject,
       html: brandedEmail(payload.subject, body, validated.locale),
     };
+  } else if (template === "admin_password_setup") {
+    const payload = validated.payload as AdminPasswordSetupOutboxPayload;
+    const subject = "Set up your YezYY Admin password";
+    const body = `
+      <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Set up your password</h2>
+      <p style="color:#5C5C5C;margin:0 0 20px;">Hi <strong>${escapeHtml(payload.name)}</strong>, use the secure link below to set the password for ${escapeHtml(payload.email)}.</p>
+      <p style="margin:0 0 20px;"><a href="${escapeHtml(payload.setupUrl)}" rel="noreferrer" style="display:inline-block;border-radius:8px;background:#2C2C2C;color:#fff;padding:12px 18px;text-decoration:none;">Set up password</a></p>
+      <p style="color:#5C5C5C;font-size:13px;">This single-use link expires in 60 minutes. If you did not expect this email, ignore it.</p>
+    `;
+    rendered = {
+      subject,
+      html: brandedEmail(subject, body, validated.locale),
+    };
   } else if (
     template === "booking_confirmed" ||
     template === "booking_rejected" ||
@@ -886,27 +900,4 @@ export function createConfiguredOutboxProvider(
       return { providerMessageId: `smtp:${message.dedupeKey}` };
     },
   };
-}
-
-export async function sendStaffWelcomeEmail(options: {
-  to: string;
-  name: string;
-  email: string;
-  role: string;
-}): Promise<void> {
-  const subject = "YezYY Admin — Your Account / 账号已开通";
-  const body = `
-    <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Welcome to YezYY Admin / 欢迎使用后台</h2>
-    <p style="color:#5C5C5C;margin:0 0 24px;">
-      Hi <strong>${escapeHtml(options.name)}</strong>, your admin account has been created.<br/>
-      您好，您的后台账号已开通。
-    </p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #B07D5C;padding-top:16px;">
-      ${infoRow("Email / 邮箱", escapeHtml(options.email))}
-      ${infoRow("Role / 角色", escapeHtml(options.role))}
-    </table>
-    <p style="margin-top:24px;color:#5C5C5C;font-size:13px;">Your YezYY Admin account is ready.</p>
-    <p style="color:#5C5C5C;font-size:13px;">Please obtain your temporary password from your administrator, then change it after signing in.<br/>请向管理员安全地获取临时密码，并在登录后立即修改。</p>
-  `;
-  await sendCustomerTemplatedEmail(options.to, subject, body);
 }
