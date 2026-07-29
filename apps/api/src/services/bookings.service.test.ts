@@ -10,7 +10,7 @@ import {
   timeSlots,
 } from "@yezz/db";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AppError } from "../lib/errors.js";
 import { createTimeSlotsRepository } from "../repositories/time-slots.repository.js";
 import { createBookingAvailabilityRepository } from "../repositories/booking-availability.repository.js";
@@ -675,16 +675,14 @@ describe.skipIf(!runDatabaseTests)("ordinary DIY booking PostgreSQL integration"
   });
 
   it("rejects a same-day ordinary request less than two Melbourne hours away", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-08-01T22:01:00.000Z"));
-    try {
-      await expect(createEnabledBookingsService(database.connection.db).createOrdinaryRequest(
-        ordinaryInput({ startTime: "10:00" }),
-        crypto.randomUUID(),
-      )).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
-    } finally {
-      vi.useRealTimers();
-    }
+    await expect(createBookingsService(
+      database.connection.db,
+      enabledCapabilities,
+      { now: () => new Date("2026-08-01T22:01:00.000Z") },
+    ).createOrdinaryRequest(
+      ordinaryInput({ startTime: "10:00" }),
+      crypto.randomUUID(),
+    )).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
   it("rejects an unknown or non-bookable project", async () => {

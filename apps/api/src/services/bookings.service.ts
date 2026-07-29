@@ -254,6 +254,7 @@ async function loadStoreContact(db: Db): Promise<StoreContact> {
 export function createBookingsService(
   db: Db,
   requestCapabilities: RequestCapabilities = readRequestCapabilities(),
+  dependencies?: { now?: () => Date },
 ) {
   const repo = createBookingsRepository(db);
   const projectsRepo = createProjectsRepository(db);
@@ -262,6 +263,7 @@ export function createBookingsService(
   const scheduleRepo = createStudioScheduleRepository(db);
   const settingsRepo = createSettingsRepository(db);
   const outboxRepo = createEmailOutboxRepository(db);
+  const now = dependencies?.now ?? (() => new Date());
 
   return {
     async create(
@@ -611,7 +613,7 @@ export function createBookingsService(
         const interval = buildOrdinaryInterval({ date: input.date, startTime: input.startTime, participantCount: input.participantCount, accompanyingAdultCount: input.accompanyingAdultCount, itemDurations: snapshots.map((item) => item.durationMinutesSnapshot) });
         const schedule = await scheduleRepo.resolveDay(input.date);
         if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt) throw new AppError(400, "STUDIO_CLOSED", "The studio is closed on this date");
-        validateBookingWindow({ date: input.date, startTime: input.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(new Date()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
+        validateBookingWindow({ date: input.date, startTime: input.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(now()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
         return { row: await repo.createOrdinary({ ...input, email: input.email.trim().toLowerCase(), endTime: interval.endTime, attendanceCount: interval.attendanceCount, durationMinutes: interval.durationMinutes, idempotencyKey: normalizedKey, status: input.mode === "waitlist" ? "waitlisted" : "pending_review", submissionMode: input.mode, items: snapshots }, tx), replayed: false };
       });
       return { id: result.row.id, status: result.row.status, createdAt: result.row.createdAt, replayed: result.replayed, notification: "queued" };
