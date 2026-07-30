@@ -32,15 +32,16 @@ export default function WeChatCTA({ wechatId }: { wechatId?: string }) {
   };
 
   return (
-    <section className="py-20 bg-cream">
-      <div className="mx-auto max-w-3xl px-4 text-center">
+    <section className="public-section bg-cream py-20">
+      <div className="public-contact-panel mx-auto max-w-3xl px-4 py-10 text-center sm:px-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           viewport={{ once: true }}
         >
-          <h2 className="text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
+          <p className="public-eyebrow">{t("eyebrow")}</p>
+          <h2 className="mt-3 text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
             {t("title")}
           </h2>
           <p className="mt-6 text-lg text-warm-grey">{t("subtitle")}</p>

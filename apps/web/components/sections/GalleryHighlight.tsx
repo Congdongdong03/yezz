@@ -32,7 +32,7 @@ export default function GalleryHighlight({ images }: GalleryHighlightProps) {
   if (images.length === 0) return null;
 
   return (
-    <section className="py-20 bg-cream">
+    <section className="public-section bg-cream py-20">
       <div className="mx-auto max-w-7xl px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -41,9 +41,12 @@ export default function GalleryHighlight({ images }: GalleryHighlightProps) {
           viewport={{ once: true }}
           className="flex items-end justify-between"
         >
-          <h2 className="text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
+          <div>
+            <p className="public-eyebrow">{t("eyebrow")}</p>
+            <h2 className="mt-3 text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
             {t("title")}
-          </h2>
+            </h2>
+          </div>
           <Link
             href="/gallery"
             className="text-sm font-medium text-caramel hover:underline"
@@ -60,7 +63,7 @@ export default function GalleryHighlight({ images }: GalleryHighlightProps) {
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: i * 0.05 }}
               viewport={{ once: true }}
-              className="group relative aspect-square overflow-hidden rounded-xl"
+              className="group relative aspect-square overflow-hidden rounded-[1.5rem]"
             >
               {img.imageUrl ? (
                 <Image

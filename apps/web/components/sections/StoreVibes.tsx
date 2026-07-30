@@ -19,7 +19,7 @@ export default function StoreVibes({ storeImage }: StoreVibesProps) {
   const locale = useLocale();
 
   return (
-    <section className="py-20 bg-white overflow-hidden">
+    <section className="public-section overflow-hidden bg-white py-20">
       <div className="mx-auto max-w-7xl px-4">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <motion.div
@@ -27,7 +27,7 @@ export default function StoreVibes({ storeImage }: StoreVibesProps) {
             whileInView={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
-            className="relative aspect-[4/3] overflow-hidden rounded-2xl"
+            className="public-store-image relative aspect-[4/3] overflow-hidden rounded-[2rem]"
           >
             {storeImage?.imageUrl ? (
               <Image
@@ -55,7 +55,8 @@ export default function StoreVibes({ storeImage }: StoreVibesProps) {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
+            <p className="public-eyebrow">{t("eyebrow")}</p>
+            <h2 className="mt-3 text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
               {t("title")}
             </h2>
             <p className="mt-6 text-lg leading-relaxed text-warm-grey">

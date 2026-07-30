@@ -34,12 +34,14 @@
     "cart": "购物车"
   },
   "hero": {
+    "eyebrow": "YezYY 手作体验馆 · Glen Waverley",
     "title": "亲手制作，独一无二",
     "subtitle": "一个适合约会、生日和聚会的手作空间",
     "cta": "立即预约"
   },
   "home": {
     "sceneEntry": {
+      "eyebrow": "让今天更有意思",
       "title": "适合每一个特别时刻",
       "subtitle": "为你的特别时刻找到完美的手作体验",
       "date": {
@@ -56,10 +58,12 @@
       }
     },
     "featuredProjects": {
+      "eyebrow": "挑选一个项目",
       "title": "热门项目",
       "viewAll": "查看全部项目"
     },
     "partyPackages": {
+      "eyebrow": "一起庆祝",
       "title": "派对套餐",
       "viewAll": "查看全部套餐",
       "viewDetails": "了解详情",
@@ -75,15 +79,18 @@
       "giftsDesc": "亲手制作的礼物，承载着满满的心意。"
     },
     "gallery": {
+      "eyebrow": "YezYY 制作现场",
       "title": "顾客作品",
       "viewAll": "查看全部作品"
     },
     "storeVibes": {
+      "eyebrow": "位于 Glen Waverley",
       "title": "来店里看看",
       "desc": "一个温暖、舒适的空间，专为创意和连接而设计。来体验 YezYY 的氛围吧。",
       "cta": "找到我们"
     },
     "wechatCta": {
+      "eyebrow": "计划来店吗？",
       "title": "准备好创造了吗？",
       "subtitle": "预约你的体验或添加微信咨询 — 我们很乐意帮你规划一次完美的到访。",
       "wechat": "添加微信",

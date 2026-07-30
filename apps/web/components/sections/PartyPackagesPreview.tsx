@@ -27,7 +27,7 @@ export default function PartyPackagesPreview({ packages }: PartyPackagesPreviewP
   if (packages.length === 0) return null;
 
   return (
-    <section className="py-20 bg-white">
+    <section className="public-section bg-white py-20">
       <div className="mx-auto max-w-7xl px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -36,9 +36,12 @@ export default function PartyPackagesPreview({ packages }: PartyPackagesPreviewP
           viewport={{ once: true }}
           className="flex items-end justify-between"
         >
-          <h2 className="text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
+          <div>
+            <p className="public-eyebrow">{t("eyebrow")}</p>
+            <h2 className="mt-3 text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
             {t("title")}
-          </h2>
+            </h2>
+          </div>
           <Link
             href="/parties"
             className="text-sm font-medium text-caramel hover:underline"
@@ -55,7 +58,7 @@ export default function PartyPackagesPreview({ packages }: PartyPackagesPreviewP
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
               viewport={{ once: true }}
-              className="group overflow-hidden rounded-2xl bg-cream transition-shadow hover:shadow-md"
+              className="public-party-card group overflow-hidden rounded-[1.75rem] bg-cream transition-all hover:-translate-y-1"
             >
               <div className="relative aspect-[16/9] overflow-hidden">
                 {pkg.imageUrl ? (

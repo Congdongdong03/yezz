@@ -185,6 +185,57 @@
     color: var(--public-pink);
 }
 
+.public-site .public-section {
+    position: relative;
+}
+
+.public-site .public-eyebrow {
+    color: var(--public-pink);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.public-site .public-hero {
+    min-height: min(46rem, calc(100vh - 4.5rem));
+}
+
+.public-site .public-scene-card,
+.public-site .public-value-card,
+.public-site .public-party-card {
+    border: 1px solid var(--public-border);
+    box-shadow: 0 18px 42px rgba(68, 57, 61, 0.06);
+}
+
+.public-site .public-scene-card:hover,
+.public-site .public-value-card:hover,
+.public-site .public-party-card:hover {
+    box-shadow: 0 26px 52px rgba(68, 57, 61, 0.12);
+}
+
+.public-site .public-store-image {
+    border: 0.75rem solid var(--public-rose-paper);
+    box-shadow: 1rem 1rem 0 var(--public-blush);
+}
+
+.public-site .public-contact-panel {
+    border: 1px solid var(--public-border);
+    border-radius: 2rem;
+    background: var(--public-paper);
+    box-shadow: 0 22px 54px rgba(68, 57, 61, 0.07);
+}
+
+@media (max-width: 639px) {
+    .public-site .public-hero {
+        min-height: 32rem;
+    }
+
+    .public-site .public-store-image {
+        box-shadow: 0.65rem 0.65rem 0 var(--public-blush);
+    }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

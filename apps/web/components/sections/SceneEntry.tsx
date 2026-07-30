@@ -33,16 +33,17 @@ export default function SceneEntry() {
   const t = useTranslations("home.sceneEntry");
 
   return (
-    <section className="py-20 bg-white">
+    <section className="public-section bg-white py-20">
       <div className="mx-auto max-w-7xl px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           viewport={{ once: true }}
-          className="text-center"
+          className="mx-auto max-w-2xl text-center"
         >
-          <h2 className="text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
+          <p className="public-eyebrow">{t("eyebrow")}</p>
+          <h2 className="mt-3 text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
             {t("title")}
           </h2>
           <p className="mt-4 text-warm-grey">{t("subtitle")}</p>
@@ -59,7 +60,7 @@ export default function SceneEntry() {
             >
               <Link
                 href={scene.href}
-                className="group block rounded-2xl bg-cream p-8 text-center transition-shadow hover:shadow-md"
+                className="public-scene-card group block rounded-[1.75rem] bg-cream p-8 text-center transition-all hover:-translate-y-1"
               >
                 <div
                   className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full ${scene.color}`}

@@ -18,7 +18,7 @@ export default function Hero({
 
   return (
     <section
-      className={`relative flex items-center justify-center overflow-hidden ${
+      className={`public-hero relative flex items-center justify-center overflow-hidden ${
         heroImageUrl ? "min-h-[80vh]" : "min-h-[32rem]"
       }`}
     >
@@ -32,15 +32,23 @@ export default function Hero({
           priority
         />
       ) : (
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(230,172,174,0.45),_transparent_40%),linear-gradient(135deg,_var(--color-cream),_#fff7f2_55%,_rgba(230,172,174,0.22))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,_rgba(217,111,158,0.25),_transparent_32%),radial-gradient(circle_at_86%_78%,_rgba(229,200,211,0.9),_transparent_32%),linear-gradient(135deg,_#FBF8F6,_#F8E8EE_56%,_#FFF_100%)]" />
       )}
-      <div className="absolute inset-0 bg-[var(--public-canvas)]/50" />
-      <div className="relative z-10 mx-auto max-w-4xl px-4 text-center">
+      <div className="absolute inset-0 bg-[var(--public-canvas)]/35" />
+      <div className="relative z-10 mx-auto max-w-4xl px-4 text-center sm:px-6">
+        <motion.p
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="public-eyebrow"
+        >
+          {t("eyebrow")}
+        </motion.p>
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-4xl font-serif font-bold leading-tight text-[var(--public-ink)] md:text-6xl"
+          className="mt-4 text-4xl font-serif font-bold leading-[1.05] text-[var(--public-ink)] md:text-6xl"
         >
           {t("title")}
         </motion.h1>
@@ -48,7 +56,7 @@ export default function Hero({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-6 text-lg text-[var(--public-muted)] md:text-xl"
+          className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[var(--public-muted)] md:text-xl"
         >
           {t("subtitle")}
         </motion.p>
