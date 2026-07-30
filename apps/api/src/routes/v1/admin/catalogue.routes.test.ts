@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import { describe, expect, it, vi } from "vitest";
+import { registerErrorHandler } from "../../../plugins/error-handler.js";
 import adminCatalogueRoutes from "./catalogue.routes.js";
 
 describe("admin catalogue routes", () => {
@@ -46,6 +47,29 @@ describe("admin catalogue routes", () => {
       expect(update.statusCode).toBe(200);
       expect(remove.statusCode).toBe(404);
       expect(adminCatalogue.update).toHaveBeenCalledWith("catalogue-1", payload);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("returns a validation error for malformed JSON bodies", async () => {
+    const app = Fastify();
+    registerErrorHandler(app);
+    app.decorate("services", { adminCatalogue: { create: vi.fn() } } as never);
+    await app.register(adminCatalogueRoutes, { prefix: "/catalogue" });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/catalogue",
+        headers: { "content-type": "application/json" },
+        payload: '{"name":',
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        error: { code: "VALIDATION_ERROR" },
+      });
     } finally {
       await app.close();
     }

@@ -194,6 +194,15 @@ function hasLocalizedContent(value: LocalizedString | null | undefined): value i
   return Boolean(value?.en?.trim() && value.zh?.trim());
 }
 
+function isAbsoluteHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function toEntryDto(
   entry: typeof catalogueEntries.$inferSelect,
   category: typeof projectCategories.$inferSelect,
@@ -337,6 +346,8 @@ export function createAdminCatalogueService(
       if (
         !input.imageSourceUrl?.trim() ||
         !input.imageLicenseUrl?.trim() ||
+        !isAbsoluteHttpUrl(input.imageSourceUrl) ||
+        !isAbsoluteHttpUrl(input.imageLicenseUrl) ||
         !hasLocalizedContent(input.imageAttribution)
       ) {
         throw new AppError(

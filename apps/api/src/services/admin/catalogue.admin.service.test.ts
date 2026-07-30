@@ -183,6 +183,35 @@ describe("admin catalogue validation", () => {
     });
   });
 
+  it("requires absolute HTTP(S) URLs for inspiration provenance", async () => {
+    const { service } = createService();
+    const inspiration = input({
+      imageKind: "inspiration",
+      imageSourceUrl: "not-a-url",
+      imageLicenseUrl: "https://license.example/terms",
+      imageAttribution: { en: "Example source", zh: "示例来源" },
+    });
+
+    await expect(service.create(inspiration)).rejects.toMatchObject({
+      statusCode: 400,
+      code: "VALIDATION_ERROR",
+    });
+
+    await expect(
+      service.create({ ...inspiration, imageSourceUrl: "https://source.example/image", imageLicenseUrl: "not-a-url" }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: "VALIDATION_ERROR",
+    });
+
+    await expect(
+      service.create({
+        ...inspiration,
+        imageSourceUrl: "https://source.example/image",
+      }),
+    ).resolves.toMatchObject({ image: { kind: "inspiration" } });
+  });
+
   it("allows a YezYY image without external provenance", async () => {
     const { service, getTransactionCount, getCachedKeys } = createService();
 
@@ -216,5 +245,33 @@ describe("admin catalogue validation", () => {
       expect.objectContaining({ projectId: operationalProject.id, bookable: false }),
     ]);
     expect(getProject()).toMatchObject({ id: operationalProject.id, bookable: false });
+  });
+
+  it("keeps a zero-variant draft visible to admin list and detail reads", async () => {
+    const draft = {
+      id: "00000000-0000-4000-8000-000000000003",
+      ...input({ variants: [] }),
+    };
+    const row = {
+      catalogueEntry: draft,
+      projectCategory: category,
+      association: null,
+      project: null,
+    };
+    const service = createAdminCatalogueService(null as never, null, {
+      repository: {
+        findAllWithVariants: async () => [row],
+        findByIdWithVariants: async () => [row],
+      } as never,
+    });
+
+    await expect(service.list()).resolves.toMatchObject([
+      { id: draft.id, published: false, variants: [] },
+    ]);
+    await expect(service.getById(draft.id)).resolves.toMatchObject({
+      id: draft.id,
+      published: false,
+      variants: [],
+    });
   });
 });
