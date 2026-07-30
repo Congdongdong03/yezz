@@ -144,6 +144,47 @@
     outline-offset: 3px;
 }
 
+.public-site .bg-cream {
+    background-color: var(--public-canvas);
+}
+
+.public-site .bg-white {
+    background-color: var(--public-paper);
+}
+
+.public-site .bg-muted {
+    background-color: var(--public-rose-paper);
+}
+
+.public-site .text-warm-charcoal {
+    color: var(--public-ink);
+}
+
+.public-site .text-warm-grey,
+.public-site .text-muted-foreground {
+    color: var(--public-muted);
+}
+
+.public-site .text-caramel {
+    color: var(--public-pink);
+}
+
+.public-site .bg-caramel {
+    background-color: var(--public-pink);
+}
+
+.public-site .border-caramel {
+    border-color: var(--public-pink);
+}
+
+.public-site .hover\\:bg-caramel:hover {
+    background-color: var(--public-pink);
+}
+
+.public-site .hover\\:text-caramel:hover {
+    color: var(--public-pink);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
