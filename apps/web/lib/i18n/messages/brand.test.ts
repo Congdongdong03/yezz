@@ -26,4 +26,14 @@ describe("customer-visible brand messages", () => {
       expect(messages.footer.email).toBe(expectedEmail);
     },
   );
+
+  it.each([
+    ["English", enMessages, "Browse projects"],
+    ["Chinese", zhMessages, "浏览项目"],
+  ])(
+    "provides a customer-facing fallback CTA in %s when requests are closed",
+    (_locale, messages, expectedLabel) => {
+      expect(messages.nav.browseProjects).toBe(expectedLabel);
+    },
+  );
 });
