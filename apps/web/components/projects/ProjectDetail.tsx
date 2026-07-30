@@ -101,10 +101,10 @@ export default function ProjectDetail({
 
   return (
     <div className="min-h-screen bg-cream pb-20">
-      <div className="mx-auto max-w-4xl px-4 pt-8">
+      <div className="mx-auto max-w-5xl px-4 pt-10 sm:px-6 md:pt-14">
         <Link
           href="/projects"
-          className="text-sm text-warm-grey hover:text-caramel"
+          className="inline-flex rounded-full border border-[var(--public-border)] bg-white px-4 py-2 text-sm text-warm-grey transition-colors hover:text-caramel"
         >
           ← {t("back")}
         </Link>
@@ -113,28 +113,28 @@ export default function ProjectDetail({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="mt-6"
+          className="mt-7"
         >
           <div className="grid gap-4 sm:grid-cols-2">
             {project.images?.map((img: string, i: number) => (
               <div
                 key={i}
-                className={`relative overflow-hidden rounded-xl ${i === 0 ? "aspect-[4/3] sm:col-span-2" : "aspect-square"}`}
+                className={`relative overflow-hidden rounded-[1.5rem] border border-[var(--public-border)] ${i === 0 ? "aspect-[4/3] sm:col-span-2" : "aspect-square"}`}
               >
                 <Image src={img} alt="" fill sizes="(max-width: 640px) 100vw, (max-width: 896px) 50vw, 450px" className="object-cover" />
               </div>
             ))}
           </div>
 
-          <div className="mt-8">
-            <h1 className="font-serif text-3xl font-bold text-warm-charcoal">
+          <div className="mt-7 rounded-[2rem] border border-[var(--public-border)] bg-white p-6 shadow-[0_18px_42px_rgba(68,57,61,0.06)] sm:p-9">
+            <h1 className="font-serif text-3xl font-bold text-warm-charcoal sm:text-4xl">
               {projectLabel}
             </h1>
             <div className="mt-3 flex flex-wrap gap-2">
               {project.tags?.map((tag: string) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-soft-pink/20 px-3 py-1 text-xs text-warm-charcoal"
+                  className="rounded-full bg-[var(--public-blush)] px-3 py-1 text-xs text-warm-charcoal"
                 >
                   {localizeTag(tag, pageLocale)}
                 </span>
@@ -153,16 +153,14 @@ export default function ProjectDetail({
                 {project.description[pageLocale as "en" | "zh"]}
               </p>
             )}
-          </div>
+            {!requestEnabled && (
+              <div className="mt-8">
+                <RequestContactFallback locale={pageLocale} />
+              </div>
+            )}
 
-          {!requestEnabled && (
-            <div className="mt-8">
-              <RequestContactFallback locale={pageLocale} />
-            </div>
-          )}
-
-          {requestEnabled && isProduct && project.styles && (
-            <>
+            {requestEnabled && isProduct && project.styles && (
+              <>
               <StyleSelector
                 styles={project.styles}
                 selected={selectedStyle}
@@ -184,11 +182,11 @@ export default function ProjectDetail({
                   {cartT("goToCart")}
                 </Link>
               </div>
-            </>
-          )}
+              </>
+            )}
 
-          {requestEnabled && !isProduct && (
-            <section className="mt-10 rounded-2xl border border-warm-grey/15 bg-white p-6 sm:p-8">
+            {requestEnabled && !isProduct && (
+              <section className="mt-10 rounded-2xl border border-[var(--public-border)] bg-[var(--public-blush)] p-6 sm:p-8">
                 <h2 className="font-serif text-xl font-bold text-warm-charcoal">
                   {t("bookSectionTitle")}
                 </h2>
@@ -200,7 +198,8 @@ export default function ProjectDetail({
                   {t("bookCurrentFlow")}
                 </Link>
               </section>
-          )}
+            )}
+          </div>
         </motion.div>
       </div>
     </div>

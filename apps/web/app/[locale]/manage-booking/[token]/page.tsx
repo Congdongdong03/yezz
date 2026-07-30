@@ -71,7 +71,7 @@ export default async function ManageBookingPage({
     });
     return (
       <main className="mx-auto flex min-h-[60vh] max-w-2xl items-center px-4 py-16 sm:px-6">
-        <section className="w-full rounded-3xl border border-warm-grey/15 bg-white p-7 text-center shadow-sm sm:p-10">
+        <section className="w-full rounded-3xl border border-[var(--public-border)] bg-white p-7 text-center shadow-[0_18px_42px_rgba(68,57,61,0.06)] sm:p-10">
           <h1 className="font-serif text-3xl font-bold text-warm-charcoal">
             {t("invalidTitle")}
           </h1>
@@ -101,8 +101,10 @@ export default async function ManageBookingPage({
           {t("intro")}
         </p>
       </header>
-      <CustomerBookingActions booking={booking} />
-      <footer className="mt-8 rounded-3xl border border-warm-grey/15 bg-white p-6 text-center">
+      <div className="rounded-3xl border border-[var(--public-border)] bg-white p-5 shadow-[0_18px_42px_rgba(68,57,61,0.06)] sm:p-7">
+        <CustomerBookingActions booking={booking} />
+      </div>
+      <footer className="mt-8 rounded-3xl border border-[var(--public-border)] bg-[var(--public-blush)] p-6 text-center">
         <ContactDetails locale={booking.locale} />
       </footer>
     </main>

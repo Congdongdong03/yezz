@@ -59,7 +59,7 @@ export default async function BookPage({
 
   return (
     <main className="min-h-screen bg-cream pb-20">
-      <header className="border-b border-warm-grey/10 bg-white/50">
+      <header className="border-b border-[var(--public-border)] bg-[linear-gradient(120deg,_#FBF8F6,_#F8E8EE_65%,_#FFF)]">
         <div className="mx-auto max-w-5xl px-4 py-10 sm:py-14">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-caramel">
             {t("eyebrow")}
@@ -74,7 +74,7 @@ export default async function BookPage({
             {[t("factProjects"), t("factCapacity"), t("factPayment")].map(
               (fact) => (
                 <span
-                  className="rounded-full border border-warm-grey/15 bg-white px-4 py-2"
+                  className="rounded-full border border-[var(--public-border)] bg-white/85 px-4 py-2"
                   key={fact}
                 >
                   {fact}
