@@ -50,12 +50,13 @@ export async function cacheDel(
   }
 }
 
-export async function invalidateProjectsCache(
+async function invalidateCachePattern(
   redis: Redis | null,
+  pattern: string,
 ): Promise<void> {
   if (!redis) return;
   try {
-    const keys = await redis.keys("cache:projects:*");
+    const keys = await redis.keys(pattern);
     if (keys.length > 0) {
       await redis.del(...keys);
     }
@@ -64,16 +65,17 @@ export async function invalidateProjectsCache(
   }
 }
 
+export async function invalidateProjectsCache(
+  redis: Redis | null,
+): Promise<void> {
+  await Promise.all([
+    invalidateCachePattern(redis, "cache:projects:*"),
+    invalidateCatalogueCache(redis),
+  ]);
+}
+
 export async function invalidateCatalogueCache(
   redis: Redis | null,
 ): Promise<void> {
-  if (!redis) return;
-  try {
-    const keys = await redis.keys("catalogue:*");
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
-  } catch {
-    // ignore
-  }
+  await invalidateCachePattern(redis, "catalogue:*");
 }

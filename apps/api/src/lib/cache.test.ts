@@ -40,12 +40,20 @@ describe("cache", () => {
     expect(value).toEqual({ ok: true });
   });
 
-  it("invalidates project cache keys", async () => {
+  it("invalidates project and catalogue cache keys after an operational project changes", async () => {
     const redis = new FakeRedis() as never;
     await cacheSet(redis, "cache:projects:list", []);
     await cacheSet(redis, "cache:projects:slug:foo", {});
+    await cacheSet(redis, "catalogue:list", []);
+    await cacheSet(redis, "catalogue:slug:foo", {});
+    await cacheSet(redis, "cache:settings", {});
+
     await invalidateProjectsCache(redis);
+
     expect(await cacheGet(redis, "cache:projects:list")).toBeNull();
     expect(await cacheGet(redis, "cache:projects:slug:foo")).toBeNull();
+    expect(await cacheGet(redis, "catalogue:list")).toBeNull();
+    expect(await cacheGet(redis, "catalogue:slug:foo")).toBeNull();
+    expect(await cacheGet(redis, "cache:settings")).toEqual({});
   });
 });
