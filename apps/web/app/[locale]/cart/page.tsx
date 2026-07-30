@@ -135,17 +135,20 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-cream py-12">
+    <div className="min-h-screen bg-cream py-12 sm:py-16">
       <div className="mx-auto max-w-2xl px-4">
-        <h1 className="font-serif text-2xl font-bold text-warm-charcoal">
-          {t("checkoutTitle")}
-        </h1>
+        <header className="rounded-[2rem] border border-[var(--public-border)] bg-[linear-gradient(120deg,_#FFF,_#F8E8EE)] p-6 sm:p-8">
+          <p className="public-eyebrow">YezYY DIY Studio</p>
+          <h1 className="mt-3 font-serif text-3xl font-bold text-warm-charcoal">
+            {t("checkoutTitle")}
+          </h1>
+        </header>
 
         <div className="mt-6 space-y-4">
           {items.map((item) => (
             <div
               key={item.projectId}
-              className="flex gap-4 rounded-xl bg-white p-4 shadow-sm"
+              className="flex gap-4 rounded-[1.5rem] border border-[var(--public-border)] bg-white p-5 shadow-[0_12px_30px_rgba(68,57,61,0.05)]"
             >
               {item.imageUrl && (
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg">
@@ -186,7 +189,7 @@ export default function CartPage() {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-4 rounded-[2rem] border border-[var(--public-border)] bg-white p-5 shadow-[0_18px_42px_rgba(68,57,61,0.06)] sm:p-7">
           <div>
             <label
               htmlFor={fieldId("numberOfPeople")}
@@ -211,7 +214,7 @@ export default function CartPage() {
             <p className="block text-sm font-medium text-warm-charcoal">
               {projectT("pickSchedule")} *
             </p>
-            <div className="mt-2 rounded-xl border border-warm-grey/15 bg-white p-4">
+            <div className="mt-2 rounded-2xl border border-[var(--public-border)] bg-[var(--public-blush)] p-4">
               <BookingCalendar
                 people={people}
                 selectedSlotId={selectedSlot?.id ?? null}
