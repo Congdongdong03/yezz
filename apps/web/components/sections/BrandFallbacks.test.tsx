@@ -22,6 +22,15 @@ describe("public image brand fallbacks", () => {
     expect(html).toContain('alt="YezYY Studio"');
   });
 
+  it("guides visitors to projects instead of a closed booking entry", () => {
+    const html = renderToStaticMarkup(
+      <Hero heroImageUrl="/hero.jpg" experienceEnabled={false} />,
+    );
+
+    expect(html).toContain('href="/projects"');
+    expect(html).not.toContain('href="/book"');
+  });
+
   it("uses the canonical brand in the store image description", () => {
     const html = renderToStaticMarkup(
       <StoreVibes storeImage={{ _id: "store", imageUrl: "/store.jpg" }} />,

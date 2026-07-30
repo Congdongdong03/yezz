@@ -53,7 +53,10 @@ export default async function HomePage({
 
   return (
     <>
-      <Hero heroImageUrl={siteSettings?.heroImageUrl} />
+      <Hero
+        heroImageUrl={siteSettings?.heroImageUrl}
+        experienceEnabled={siteSettings.requestCapabilities.experience}
+      />
       <SceneEntry />
       {projects.length > 0 ? (
         <FeaturedProjects projects={projects} />
