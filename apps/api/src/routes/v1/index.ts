@@ -5,6 +5,7 @@ import availabilityRoutes from "./availability.routes.js";
 import bookingsRoutes from "./bookings.routes.js";
 import cartOrdersRoutes from "./cart-orders.routes.js";
 import cartRoutes from "./cart.routes.js";
+import catalogueRoutes from "./catalogue.routes.js";
 import categoriesRoutes from "./categories.routes.js";
 import customerBookingsRoutes from "./customer-bookings.routes.js";
 import galleryRoutes from "./gallery.routes.js";
@@ -19,6 +20,7 @@ export default async function v1Routes(app: FastifyInstance) {
   await app.register(bookingsRoutes, { prefix: "/bookings" });
   await app.register(cartOrdersRoutes, { prefix: "/cart-orders" });
   await app.register(cartRoutes, { prefix: "/cart" });
+  await app.register(catalogueRoutes, { prefix: "/catalogue" });
   await app.register(categoriesRoutes, { prefix: "/categories" });
   await app.register(customerBookingsRoutes, { prefix: "/customer-bookings" });
   await app.register(projectsRoutes, { prefix: "/projects" });

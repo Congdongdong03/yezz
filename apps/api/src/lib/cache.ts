@@ -3,6 +3,8 @@ import type Redis from "ioredis";
 export const CACHE_TTL_SECONDS = 300;
 
 export const CACHE_KEYS = {
+  catalogueList: "catalogue:list",
+  catalogueSlug: (slug: string) => `catalogue:slug:${slug}`,
   projectsList: "cache:projects:list",
   projectSlug: (slug: string) => `cache:projects:slug:${slug}`,
   settings: "cache:settings",
@@ -54,6 +56,20 @@ export async function invalidateProjectsCache(
   if (!redis) return;
   try {
     const keys = await redis.keys("cache:projects:*");
+    if (keys.length > 0) {
+      await redis.del(...keys);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export async function invalidateCatalogueCache(
+  redis: Redis | null,
+): Promise<void> {
+  if (!redis) return;
+  try {
+    const keys = await redis.keys("catalogue:*");
     if (keys.length > 0) {
       await redis.del(...keys);
     }

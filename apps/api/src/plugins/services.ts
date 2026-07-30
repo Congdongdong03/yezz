@@ -23,6 +23,7 @@ import { createAvailabilityService, type AvailabilityService } from "../services
 import { createCartOrdersService, type CartOrdersService } from "../services/cart-orders.service.js";
 import { createCustomerActionsService, type CustomerActionsService } from "../services/customer-actions.service.js";
 import { createCartSessionsService, type CartSessionsService } from "../services/cart-sessions.service.js";
+import { createCatalogueService, type CatalogueService } from "../services/catalogue.service.js";
 import { createCategoriesService, type CategoriesService } from "../services/categories.service.js";
 import {
   createEmailOutboxService,
@@ -56,6 +57,7 @@ export type AppServices = {
   bookingMaintenance: BookingMaintenanceService;
   cartOrders: CartOrdersService;
   cartSessions: CartSessionsService;
+  catalogue: CatalogueService;
   customerActions: CustomerActionsService;
   categories: CategoriesService;
   projects: ProjectsService;
@@ -110,6 +112,7 @@ export default fp(async (app: FastifyInstance) => {
     bookingMaintenance,
     cartOrders: createCartOrdersService(app.db, requestCapabilities),
     cartSessions: createCartSessionsService(app.db),
+    catalogue: createCatalogueService(app.db, app.redis),
     customerActions: createCustomerActionsService(app.db),
     categories: createCategoriesService(app.db),
     projects: createProjectsService(app.db, app.redis),
