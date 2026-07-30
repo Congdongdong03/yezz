@@ -4,6 +4,7 @@ import { createEmailOutboxRepository } from "../repositories/email-outbox.reposi
 import { createBookingMaintenanceRepository } from "../repositories/booking-maintenance.repository.js";
 import { createRateLimitsRepository } from "../repositories/rate-limits.repository.js";
 import { createAdminBookingsService, type AdminBookingsService } from "../services/admin/bookings.admin.service.js";
+import { createAdminCatalogueService, type AdminCatalogueService } from "../services/admin/catalogue.admin.service.js";
 import { createAdminCartOrdersService, type AdminCartOrdersService } from "../services/admin/cart-orders.admin.service.js";
 import { createAdminCategoriesService, type AdminCategoriesService } from "../services/admin/categories.admin.service.js";
 import { createAdminProjectsService, type AdminProjectsService } from "../services/admin/projects.admin.service.js";
@@ -69,6 +70,7 @@ export type AppServices = {
   timeSlots: TimeSlotsService;
   adminProjects: AdminProjectsService;
   adminBookings: AdminBookingsService;
+  adminCatalogue: AdminCatalogueService;
   adminCartOrders: AdminCartOrdersService;
   adminCategories: AdminCategoriesService;
   adminParties: AdminPartiesService;
@@ -126,6 +128,7 @@ export default fp(async (app: FastifyInstance) => {
     timeSlots: createTimeSlotsService(app.db),
     adminProjects: createAdminProjectsService(app.db, app.redis),
     adminBookings: createAdminBookingsService(app.db),
+    adminCatalogue: createAdminCatalogueService(app.db, app.redis),
     adminCartOrders: createAdminCartOrdersService(app.db),
     adminCategories: createAdminCategoriesService(app.db),
     adminParties: createAdminPartiesService(app.db),

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { AppError } from "../../../lib/errors.js";
 import { enforceRequestLimit } from "../../../lib/public-request-limit.js";
 import adminBookingsRoutes from "./bookings.routes.js";
+import adminCatalogueRoutes from "./catalogue.routes.js";
 import adminOrdersRoutes from "./orders.routes.js";
 import adminCategoriesRoutes from "./categories.routes.js";
 import adminGalleryRoutes from "./gallery.routes.js";
@@ -74,6 +75,7 @@ export default async function adminRoutes(app: FastifyInstance) {
 
   await app.register(async (adminOnly) => {
     adminOnly.addHook("onRequest", app.requireAdmin);
+    await adminOnly.register(adminCatalogueRoutes, { prefix: "/catalogue" });
     await adminOnly.register(adminProjectsRoutes, { prefix: "/projects" });
     await adminOnly.register(adminCategoriesRoutes, { prefix: "/categories" });
     await adminOnly.register(adminPartiesRoutes, { prefix: "/parties" });
