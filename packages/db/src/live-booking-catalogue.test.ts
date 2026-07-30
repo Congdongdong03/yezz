@@ -61,9 +61,9 @@ describe("approved live booking catalogue", () => {
   it("matches every category, party package, and synthetic option exactly", () => {
     expect(LIVE_PROJECT_CATEGORIES).toEqual([
       { slug: "air-dry-cream-piping", name: { en: "Cream piping DIY", zh: "奶油胶DIY" }, sortOrder: 0 },
-      { slug: "melty-beads", name: { en: "Melty beads", zh: "拼豆" }, sortOrder: 1 },
-      { slug: "paint-clay", name: { en: "Paint clay", zh: "彩绘黏土" }, sortOrder: 2 },
-      { slug: "beading", name: { en: "Beading", zh: "串珠" }, sortOrder: 3 },
+      { slug: "paint-clay", name: { en: "Paint clay", zh: "彩绘黏土" }, sortOrder: 1 },
+      { slug: "beading", name: { en: "Beading", zh: "串珠" }, sortOrder: 2 },
+      { slug: "melty-beads", name: { en: "Melty beads", zh: "拼豆" }, sortOrder: 3 },
     ]);
     expect(LIVE_PARTY_PACKAGES).toEqual([
       { slug: "party-90", name: { en: "90-minute party package", zh: "90分钟派对套餐" }, guestDurationMinutes: 90, setupMinutes: 30, cleanupMinutes: 30, venueFeeCents: 9500, minPeople: 4, maxPeople: 8, minSpendPerPersonCents: 4500, minParents: 1, maxParents: 2 },

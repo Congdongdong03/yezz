@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { createDb, type Db } from "./client.js";
@@ -7,7 +7,10 @@ import {
   PUBLIC_CATALOGUE_ENTRIES,
 } from "./catalogue-data.js";
 import { loadEnv } from "./env.js";
-import { LIVE_DIY_PROJECTS } from "./live-booking-catalogue.js";
+import {
+  LIVE_DIY_PROJECTS,
+  LIVE_PROJECT_CATEGORIES,
+} from "./live-booking-catalogue.js";
 import {
   catalogueEntries,
   catalogueEntryProjects,
@@ -58,6 +61,13 @@ export async function seedPublicCatalogue(db: Db): Promise<void> {
       }
     }
 
+    for (const category of LIVE_PROJECT_CATEGORIES) {
+      await database
+        .update(projectCategories)
+        .set({ sortOrder: category.sortOrder })
+        .where(eq(projectCategories.slug, category.slug));
+    }
+
     const projects = await database
       .select({ id: diyProjects.id, slug: diyProjects.slug })
       .from(diyProjects)
@@ -74,12 +84,33 @@ export async function seedPublicCatalogue(db: Db): Promise<void> {
       }
     }
 
+    for (const project of LIVE_DIY_PROJECTS) {
+      if (
+        project.slug === "air-dry-phone-case" ||
+        project.slug === "air-dry-lamp"
+      ) {
+        await database
+          .update(diyProjects)
+          .set({
+            priceMin: project.priceMinCents,
+            priceMax: project.priceMaxCents,
+          })
+          .where(eq(diyProjects.slug, project.slug));
+      }
+    }
+
     for (const entry of PUBLIC_CATALOGUE_ENTRIES) {
       const categoryId = categoryIdBySlug.get(entry.categorySlug);
       if (!categoryId)
         throw new Error(
           `Missing category for public catalogue entry: ${entry.slug}`,
         );
+
+      const [existingEntry] = await database
+        .select({ coverImageUrl: catalogueEntries.coverImageUrl })
+        .from(catalogueEntries)
+        .where(eq(catalogueEntries.slug, entry.slug));
+      const replaceImageBundle = !existingEntry?.coverImageUrl;
 
       const [catalogueEntry] = await database
         .insert(catalogueEntries)
@@ -115,13 +146,18 @@ export async function seedPublicCatalogue(db: Db): Promise<void> {
             availabilityNote: PUBLIC_CATALOGUE_AVAILABILITY_NOTE,
             featured: entry.featured,
             sortOrder: entry.sortOrder,
-            imageKind: entry.image.imageKind,
-            imageSourceUrl: entry.image.sourceUrl,
-            imageLicenseUrl: entry.image.licenseUrl,
-            imageAttribution: {
-              en: entry.image.attribution,
-              zh: entry.image.attribution,
-            },
+            ...(replaceImageBundle
+              ? {
+                  coverImageUrl: entry.image.coverImageUrl,
+                  imageKind: entry.image.imageKind,
+                  imageSourceUrl: entry.image.sourceUrl,
+                  imageLicenseUrl: entry.image.licenseUrl,
+                  imageAttribution: {
+                    en: entry.image.attribution,
+                    zh: entry.image.attribution,
+                  },
+                }
+              : {}),
             updatedAt: new Date(),
           },
         })
@@ -130,20 +166,6 @@ export async function seedPublicCatalogue(db: Db): Promise<void> {
         throw new Error(
           `Unable to upsert public catalogue entry: ${entry.slug}`,
         );
-
-      const [existingImage] = await database
-        .select({ coverImageUrl: catalogueEntries.coverImageUrl })
-        .from(catalogueEntries)
-        .where(eq(catalogueEntries.id, catalogueEntry.id));
-      if (!existingImage?.coverImageUrl) {
-        await database
-          .update(catalogueEntries)
-          .set({
-            coverImageUrl: entry.image.coverImageUrl,
-            updatedAt: new Date(),
-          })
-          .where(eq(catalogueEntries.id, catalogueEntry.id));
-      }
 
       await database
         .delete(catalogueEntryProjects)
@@ -164,17 +186,28 @@ export async function seedPublicCatalogue(db: Db): Promise<void> {
     const existingBeadingStyles = await database
       .select({ id: projectStyles.id })
       .from(projectStyles)
-      .where(eq(projectStyles.projectId, beadingProjectId));
-    if (existingBeadingStyles.length === 0) {
-      await database.insert(projectStyles).values(
-        beadingStyles.map((style, sortOrder) => ({
+      .where(eq(projectStyles.projectId, beadingProjectId))
+      .orderBy(asc(projectStyles.sortOrder), asc(projectStyles.id));
+    for (const [sortOrder, style] of beadingStyles.entries()) {
+      const existingStyle = existingBeadingStyles[sortOrder];
+      if (existingStyle) {
+        await database
+          .update(projectStyles)
+          .set({ name: style.name, price: style.price, sortOrder })
+          .where(eq(projectStyles.id, existingStyle.id));
+      } else {
+        await database.insert(projectStyles).values({
           projectId: beadingProjectId,
           name: style.name,
           imageUrl: null,
           price: style.price,
           sortOrder,
-        })),
-      );
+        });
+      }
+    }
+    const obsoleteStyles = existingBeadingStyles.slice(beadingStyles.length);
+    for (const style of obsoleteStyles) {
+      await database.delete(projectStyles).where(eq(projectStyles.id, style.id));
     }
   });
 }

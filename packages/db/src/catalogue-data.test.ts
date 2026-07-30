@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { PUBLIC_CATALOGUE_ENTRIES } from "./catalogue-data.js";
-import { LIVE_DIY_PROJECTS } from "./live-booking-catalogue.js";
+import {
+  LIVE_DIY_PROJECTS,
+  LIVE_PROJECT_CATEGORIES,
+} from "./live-booking-catalogue.js";
 
 describe("approved public catalogue data", () => {
   it("defines the nine approved public catalogue entries", () => {
@@ -66,6 +69,18 @@ describe("approved public catalogue data", () => {
       { en: "30–45 min", zh: "30–45 分钟" },
       { en: "30–45 min", zh: "30–45 分钟" },
       { en: "30–45 min", zh: "30–45 分钟" },
+    ]);
+  });
+
+  it("orders public categories Deco Cream, Plaster Painting, Beading, then Melty Beads", () => {
+    expect(LIVE_PROJECT_CATEGORIES.map((category) => category.slug)).toEqual([
+      "air-dry-cream-piping",
+      "paint-clay",
+      "beading",
+      "melty-beads",
+    ]);
+    expect(LIVE_PROJECT_CATEGORIES.map((category) => category.sortOrder)).toEqual([
+      0, 1, 2, 3,
     ]);
   });
 });

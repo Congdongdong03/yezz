@@ -22,9 +22,9 @@ export type LiveProjectSeed = {
 
 export const LIVE_PROJECT_CATEGORIES = [
   { slug: "air-dry-cream-piping", name: { en: "Cream piping DIY", zh: "奶油胶DIY" }, sortOrder: 0 },
-  { slug: "melty-beads", name: { en: "Melty beads", zh: "拼豆" }, sortOrder: 1 },
-  { slug: "paint-clay", name: { en: "Paint clay", zh: "彩绘黏土" }, sortOrder: 2 },
-  { slug: "beading", name: { en: "Beading", zh: "串珠" }, sortOrder: 3 },
+  { slug: "paint-clay", name: { en: "Paint clay", zh: "彩绘黏土" }, sortOrder: 1 },
+  { slug: "beading", name: { en: "Beading", zh: "串珠" }, sortOrder: 2 },
+  { slug: "melty-beads", name: { en: "Melty beads", zh: "拼豆" }, sortOrder: 3 },
 ] as const;
 
 export const LIVE_DIY_PROJECTS = [

@@ -108,7 +108,7 @@ describe.skipIf(!runDatabaseTests)("public catalogue PostgreSQL seed", () => {
     for (const category of LIVE_PROJECT_CATEGORIES) {
       const [row] = await migrationClient<{ id: string }[]>`
         INSERT INTO project_categories (name, slug, sort_order)
-        VALUES (${JSON.stringify(category.name)}::jsonb, ${category.slug}, ${category.sortOrder})
+        VALUES (${JSON.stringify(category.name)}::jsonb, ${category.slug}, ${category.sortOrder + 20})
         RETURNING id
       `;
       categoryIdBySlug.set(category.slug, row.id);
@@ -124,7 +124,7 @@ describe.skipIf(!runDatabaseTests)("public catalogue PostgreSQL seed", () => {
           price_currency, duration_minutes, bookable, variant_selected_in_store, sort_order
         ) VALUES (
           ${categoryIdBySlug.get(project.categorySlug)!}, ${JSON.stringify(project.name)}::jsonb,
-          ${project.slug}, 'experience', ${project.priceMinCents}, ${project.priceMaxCents},
+          ${project.slug}, 'experience', ${project.slug === "air-dry-phone-case" ? 6600 : project.slug === "air-dry-lamp" ? 4300 : project.priceMinCents}, ${project.slug === "air-dry-phone-case" || project.slug === "air-dry-lamp" ? 4300 : project.priceMaxCents},
           'AUD', ${project.durationMinutes}, ${sortOrder % 2 === 0}, ${project.variantSelectedInStore}, ${sortOrder}
         )
         RETURNING id
@@ -135,6 +135,14 @@ describe.skipIf(!runDatabaseTests)("public catalogue PostgreSQL seed", () => {
         bookable: sortOrder % 2 === 0,
       });
     }
+
+    const staleBeadingStyles = await migrationClient<{ id: string }[]>`
+      INSERT INTO project_styles (project_id, name, price, sort_order)
+      VALUES
+        (${projectIdBySlug.get("beading")!}, '{"en":"Old bracelet","zh":"旧手链"}'::jsonb, '1.00', 0),
+        (${projectIdBySlug.get("beading")!}, '{"en":"Old phone strap","zh":"旧手机链"}'::jsonb, '2.00', 1)
+      RETURNING id
+    `;
 
     applicationClient = postgres(
       withSearchPath(requireSafeTestDatabaseUrl(), testSchema),
@@ -178,29 +186,64 @@ describe.skipIf(!runDatabaseTests)("public catalogue PostgreSQL seed", () => {
     `;
     expect(bookableAfterSeed).toEqual(expectedBookableBySlug);
 
+    const reconciledPrices = await migrationClient<
+      { slug: string; price_min: number; price_max: number }[]
+    >`
+      SELECT slug, price_min, price_max
+      FROM diy_projects
+      WHERE slug IN ('air-dry-phone-case', 'air-dry-lamp')
+      ORDER BY slug
+    `;
+    expect(reconciledPrices).toEqual([
+      { slug: "air-dry-lamp", price_min: 4300, price_max: 9800 },
+      { slug: "air-dry-phone-case", price_min: 6600, price_max: 7600 },
+    ]);
+
+    const categoryOrder = await migrationClient<
+      { slug: string; sort_order: number }[]
+    >`
+      SELECT slug, sort_order
+      FROM project_categories
+      WHERE slug IN ('air-dry-cream-piping', 'paint-clay', 'beading', 'melty-beads')
+      ORDER BY sort_order
+    `;
+    expect(categoryOrder).toEqual([
+      { slug: "air-dry-cream-piping", sort_order: 0 },
+      { slug: "paint-clay", sort_order: 1 },
+      { slug: "beading", sort_order: 2 },
+      { slug: "melty-beads", sort_order: 3 },
+    ]);
+
     const beadingStyles = await migrationClient<
       {
+        id: string;
         name: { en: string; zh: string };
         price: string | null;
       }[]
     >`
-      SELECT ps.name, ps.price
+      SELECT ps.id, ps.name, ps.price
       FROM project_styles ps
       INNER JOIN diy_projects p ON p.id = ps.project_id
       WHERE p.slug = 'beading'
       ORDER BY ps.sort_order
     `;
     expect(beadingStyles).toEqual([
-      { name: { en: "Bracelet", zh: "手链" }, price: "43.00" },
-      { name: { en: "Phone Strap 20cm", zh: "手机链 20cm" }, price: "43.00" },
-      { name: { en: "Phone Strap 30cm", zh: "手机链 30cm" }, price: "60.50" },
-      { name: { en: "Phone Strap 40cm", zh: "手机链 40cm" }, price: "71.50" },
-      { name: { en: "Bag Chain", zh: "包链" }, price: "93.50" },
+      { id: staleBeadingStyles[0]?.id, name: { en: "Bracelet", zh: "手链" }, price: "43.00" },
+      { id: staleBeadingStyles[1]?.id, name: { en: "Phone Strap 20cm", zh: "手机链 20cm" }, price: "43.00" },
+      { id: expect.any(String), name: { en: "Phone Strap 30cm", zh: "手机链 30cm" }, price: "60.50" },
+      { id: expect.any(String), name: { en: "Phone Strap 40cm", zh: "手机链 40cm" }, price: "71.50" },
+      { id: expect.any(String), name: { en: "Bag Chain", zh: "包链" }, price: "93.50" },
     ]);
 
     await migrationClient`
       UPDATE catalogue_entries
-      SET published = false, cover_image_url = 'https://example.test/owner-phone-case.jpg'
+      SET
+        published = false,
+        cover_image_url = 'https://example.test/owner-phone-case.jpg',
+        image_kind = 'yezyy',
+        image_source_url = 'https://example.test/owner-source.jpg',
+        image_license_url = 'https://example.test/owner-licence',
+        image_attribution = '{"en":"Owner","zh":"店主"}'::jsonb
       WHERE slug = 'deco-cream-phone-case'
     `;
     await seedPublicCatalogue(db);
@@ -209,15 +252,24 @@ describe.skipIf(!runDatabaseTests)("public catalogue PostgreSQL seed", () => {
       {
         published: boolean;
         cover_image_url: string | null;
+        image_kind: string;
+        image_source_url: string | null;
+        image_license_url: string | null;
+        image_attribution: { en: string; zh: string } | null;
       }[]
     >`
-      SELECT published, cover_image_url
+      SELECT published, cover_image_url, image_kind, image_source_url,
+        image_license_url, image_attribution
       FROM catalogue_entries
       WHERE slug = 'deco-cream-phone-case'
     `;
     expect(preservedAdminState).toEqual({
       published: false,
       cover_image_url: "https://example.test/owner-phone-case.jpg",
+      image_kind: "yezyy",
+      image_source_url: "https://example.test/owner-source.jpg",
+      image_license_url: "https://example.test/owner-licence",
+      image_attribution: { en: "Owner", zh: "店主" },
     });
 
     const [counts] = await migrationClient<

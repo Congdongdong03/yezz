@@ -13,6 +13,11 @@ import {
 } from "./bootstrap-production.js";
 import type { Db } from "./client.js";
 import * as databaseSchema from "./schema/index.js";
+import {
+  LIVE_DIY_PROJECTS,
+  LIVE_PARTY_PACKAGES,
+  LIVE_PROJECT_CATEGORIES,
+} from "./live-booking-catalogue.js";
 import { assertDemoSeedAllowed } from "./seed-safety.js";
 
 type BootstrapState = {
@@ -158,6 +163,7 @@ async function applyCurrentMigrations(client: Sql, schemaName: string) {
     schemaName,
     "0006_capability_gate_linearization.sql",
   );
+  await applyMigration(client, schemaName, "0007_yezyy_public_catalogue.sql");
 }
 
 afterEach(async () => {
@@ -398,6 +404,59 @@ describe("production bootstrap", () => {
 describe.skipIf(!runDatabaseTests)(
   "production bootstrap PostgreSQL integration",
   () => {
+    it("initializes the operational and public catalogues before creating bootstrap state", async () => {
+      integrationClient = postgres(requireSafeTestDatabaseUrl(), { max: 1 });
+      integrationSchema = `yezyy_bootstrap_catalogue_${crypto.randomUUID().replaceAll("-", "")}`;
+      await integrationClient.unsafe(`CREATE SCHEMA "${integrationSchema}"`);
+      await applyCurrentMigrations(integrationClient, integrationSchema);
+
+      expect(
+        await bootstrapProduction(
+          {
+            ...guardedEnv,
+            DATABASE_URL: withSearchPath(
+              requireSafeTestDatabaseUrl(),
+              integrationSchema,
+            ),
+          },
+          { hashPassword: async () => "integration-safe-hash" },
+        ),
+      ).toEqual({
+        ownerCreated: true,
+        settingsCreated: true,
+        setupEmailQueued: true,
+      });
+
+      await integrationClient.unsafe(`SET search_path TO "${integrationSchema}"`);
+      const [state] = await integrationClient<{
+        categories: number;
+        projects: number;
+        parties: number;
+        entries: number;
+        experience_requests_enabled: boolean;
+        party_requests_enabled: boolean;
+        product_requests_enabled: boolean;
+      }[]>`
+        SELECT
+          (SELECT count(*)::int FROM project_categories) AS categories,
+          (SELECT count(*)::int FROM diy_projects) AS projects,
+          (SELECT count(*)::int FROM party_packages) AS parties,
+          (SELECT count(*)::int FROM catalogue_entries) AS entries,
+          (SELECT experience_requests_enabled FROM site_settings) AS experience_requests_enabled,
+          (SELECT party_requests_enabled FROM site_settings) AS party_requests_enabled,
+          (SELECT product_requests_enabled FROM site_settings) AS product_requests_enabled
+      `;
+      expect(state).toEqual({
+        categories: LIVE_PROJECT_CATEGORIES.length,
+        projects: LIVE_DIY_PROJECTS.length,
+        parties: LIVE_PARTY_PACKAGES.length,
+        entries: 9,
+        experience_requests_enabled: false,
+        party_requests_enabled: false,
+        product_requests_enabled: false,
+      });
+    });
+
     it("creates only settings/owner/setup email and remains idempotent", async () => {
       integrationClient = postgres(requireSafeTestDatabaseUrl(), { max: 1 });
       integrationSchema = `yezyy_bootstrap_test_${crypto.randomUUID().replaceAll("-", "")}`;

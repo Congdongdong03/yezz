@@ -4,9 +4,14 @@ import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { createDb, type Db } from "./client.js";
 import { loadEnv } from "./env.js";
+import {
+  createLiveCatalogueSeedStore,
+  seedLiveBookingCatalogue,
+} from "./seed-live-booking-catalogue.js";
 import { seedPublicCatalogue } from "./seed-public-catalogue.js";
 import {
   emailOutbox,
+  diyProjects,
   passwordSetupTokens,
   siteSettings,
   users,
@@ -239,6 +244,16 @@ async function bootstrapWithStore(
   });
 }
 
+async function seedOperationalCatalogueWhenEmpty(db: Db): Promise<void> {
+  const [existingProject] = await db
+    .select({ id: diyProjects.id })
+    .from(diyProjects)
+    .limit(1);
+  if (!existingProject) {
+    await seedLiveBookingCatalogue(createLiveCatalogueSeedStore(db));
+  }
+}
+
 export async function bootstrapProduction(
   env: ProductionBootstrapEnv = process.env,
   options: BootstrapOptions = {},
@@ -263,13 +278,14 @@ export async function bootstrapProduction(
 
   const { db, client } = createDb(databaseUrl);
   try {
+    await seedOperationalCatalogueWhenEmpty(db);
+    await seedPublicCatalogue(db);
     const result = await bootstrapWithStore(
       createBootstrapStore(db),
       hashPassword,
       randomBytes,
       now,
     );
-    await seedPublicCatalogue(db);
     return result;
   } finally {
     await client.end();
