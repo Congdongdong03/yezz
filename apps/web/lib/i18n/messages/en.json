@@ -40,6 +40,21 @@
     "cta": "Book Now"
   },
   "home": {
+    "studioConfidence": {
+      "label": "What to expect at YezYY",
+      "beginner": "Beginner friendly",
+      "included": "Materials included by project",
+      "confirmation": "Manually confirmed",
+      "payment": "Pay in store"
+    },
+    "editorialProjects": {
+      "eyebrow": "Choose your project",
+      "title": "Make something you will keep.",
+      "viewAll": "Browse every project",
+      "featured": "Featured experience",
+      "project": "DIY experience",
+      "duration": "Duration"
+    },
     "sceneEntry": {
       "eyebrow": "Make it your kind of day",
       "title": "Perfect For Every Occasion",

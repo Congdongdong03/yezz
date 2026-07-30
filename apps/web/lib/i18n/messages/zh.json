@@ -40,6 +40,21 @@
     "cta": "立即预约"
   },
   "home": {
+    "studioConfidence": {
+      "label": "YezYY 到店体验说明",
+      "beginner": "新手也能轻松体验",
+      "included": "材料按项目提供",
+      "confirmation": "由店员人工确认",
+      "payment": "确认后到店付款"
+    },
+    "editorialProjects": {
+      "eyebrow": "选择你的项目",
+      "title": "做一件愿意带回家的作品。",
+      "viewAll": "浏览全部项目",
+      "featured": "精选体验",
+      "project": "DIY 体验",
+      "duration": "时长"
+    },
     "sceneEntry": {
       "eyebrow": "让今天更有意思",
       "title": "适合每一个特别时刻",

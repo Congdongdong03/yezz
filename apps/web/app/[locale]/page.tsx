@@ -2,13 +2,13 @@ import { loadHomePageData } from "@/lib/site/data";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import ServiceUnavailable from "@/components/ServiceUnavailable";
 import Hero from "@/components/sections/Hero";
-import SceneEntry from "@/components/sections/SceneEntry";
-import FeaturedProjects from "@/components/sections/FeaturedProjects";
-import WhyDIY from "@/components/sections/WhyDIY";
 import PartyPackagesPreview from "@/components/sections/PartyPackagesPreview";
 import GalleryHighlight from "@/components/sections/GalleryHighlight";
-import StoreVibes from "@/components/sections/StoreVibes";
 import WeChatCTA from "@/components/sections/WeChatCTA";
+import StudioConfidenceStrip from "@/components/sections/StudioConfidenceStrip";
+import StudioProcess from "@/components/sections/StudioProcess";
+import EditorialProjects from "@/components/sections/EditorialProjects";
+import StudioVisitPreview from "@/components/sections/StudioVisitPreview";
 import { EmptyCatalogueState } from "@/components/EmptyCatalogueState";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -57,15 +57,15 @@ export default async function HomePage({
         heroImageUrl={siteSettings?.heroImageUrl}
         experienceEnabled={siteSettings.requestCapabilities.experience}
       />
-      <SceneEntry />
+      <StudioConfidenceStrip />
       {projects.length > 0 ? (
-        <FeaturedProjects projects={projects} />
+        <EditorialProjects projects={projects.slice(0, 3)} />
       ) : (
         <div className="bg-cream px-4 py-8">
           <EmptyCatalogueState {...emptyStateProps} kind="projects" />
         </div>
       )}
-      <WhyDIY />
+      <StudioProcess locale={locale as "en" | "zh"} />
       {parties.length > 0 ? (
         <PartyPackagesPreview packages={parties} />
       ) : (
@@ -80,7 +80,7 @@ export default async function HomePage({
           <EmptyCatalogueState {...emptyStateProps} kind="gallery" />
         </div>
       )}
-      <StoreVibes storeImage={storeImage} />
+      <StudioVisitPreview storeImage={storeImage} />
       {siteSettings?.wechatId && <WeChatCTA wechatId={siteSettings.wechatId} />}
     </>
   );
