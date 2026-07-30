@@ -188,13 +188,13 @@
     border-color: var(--public-pink);
 }
 
-.public-site .hover\\:bg-caramel:hover,
-.public-app .hover\\:bg-caramel:hover {
+.public-site .hover\:bg-caramel:hover,
+.public-app .hover\:bg-caramel:hover {
     background-color: var(--public-pink);
 }
 
-.public-site .hover\\:text-caramel:hover,
-.public-app .hover\\:text-caramel:hover {
+.public-site .hover\:text-caramel:hover,
+.public-app .hover\:text-caramel:hover {
     color: var(--public-pink);
 }
 
