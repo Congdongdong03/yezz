@@ -42,5 +42,6 @@ describe("LocaleRouteChrome", () => {
     expect(html).toContain("legacy-navbar");
     expect(html).toContain("legacy-footer");
     expect(html).not.toContain("marketing-frame");
+    expect(html).toContain("public-app");
   });
 });

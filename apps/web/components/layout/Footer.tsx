@@ -54,14 +54,14 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
   const xiaohongshuHref = absoluteHttpUrl(settings?.xiaohongshu);
 
   return (
-    <footer className="bg-warm-charcoal py-12 text-cream">
+    <footer className="mt-auto bg-[var(--public-footer)] py-12 text-[var(--public-ink)]">
       <div className="mx-auto max-w-7xl px-4">
         <div className="grid gap-8 md:grid-cols-3">
           <div>
             <h3 className="mb-4 font-serif text-xl font-bold">
               {YEZYY_BUSINESS_PROFILE.storeName}
             </h3>
-            <p className="text-sm opacity-80">{t("tagline")}</p>
+            <p className="text-sm text-[var(--public-muted)]">{t("tagline")}</p>
             {(instagramHref || xiaohongshuHref || YEZYY_BUSINESS_PROFILE.xiaohongshu) && (
               <div className="mt-4 flex gap-3">
                 {instagramHref && (
@@ -69,7 +69,7 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
                     href={instagramHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
+                    className="rounded-full p-2 text-[var(--public-muted)] transition-colors hover:text-[var(--public-pink)]"
                     aria-label="Instagram"
                   >
                     <InstagramIcon className="h-5 w-5" />
@@ -80,14 +80,14 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
                     href={xiaohongshuHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-full p-2 opacity-80 transition-opacity hover:opacity-100"
+                    className="rounded-full p-2 text-[var(--public-muted)] transition-colors hover:text-[var(--public-pink)]"
                     aria-label={t("xiaohongshu")}
                   >
                     <XiaohongshuIcon className="h-5 w-5" />
                   </a>
                 ) : (
                   <span
-                    className="flex items-center gap-2 text-sm opacity-80"
+                    className="flex items-center gap-2 text-sm text-[var(--public-muted)]"
                     aria-label={t("xiaohongshu")}
                   >
                     <XiaohongshuIcon className="h-5 w-5" />
@@ -99,27 +99,27 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
           </div>
           <div>
             <h4 className="mb-4 font-medium">{t("links")}</h4>
-            <div className="flex flex-col gap-2 text-sm opacity-80">
-              <Link href="/projects" className="hover:text-white">
+            <div className="flex flex-col gap-2 text-sm text-[var(--public-muted)]">
+              <Link href="/projects" className="hover:text-[var(--public-pink)]">
                 {nav("projects")}
               </Link>
-              <Link href="/parties" className="hover:text-white">
+              <Link href="/parties" className="hover:text-[var(--public-pink)]">
                 {nav("parties")}
               </Link>
-              <Link href="/gallery" className="hover:text-white">
+              <Link href="/gallery" className="hover:text-[var(--public-pink)]">
                 {nav("gallery")}
               </Link>
-              <Link href="/contact" className="hover:text-white">
+              <Link href="/contact" className="hover:text-[var(--public-pink)]">
                 {nav("contact")}
               </Link>
             </div>
           </div>
           <div>
             <h4 className="mb-4 font-medium">{t("contact")}</h4>
-            <div className="space-y-1 text-sm opacity-80">
+            <div className="space-y-1 text-sm text-[var(--public-muted)]">
               <p>
                 <a
-                  className="hover:text-white"
+                  className="hover:text-[var(--public-pink)]"
                   href={`mailto:${YEZYY_BUSINESS_PROFILE.email}`}
                 >
                   {YEZYY_BUSINESS_PROFILE.email}
@@ -127,7 +127,7 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
               </p>
               <p>
                 <a
-                  className="hover:text-white"
+                  className="hover:text-[var(--public-pink)]"
                   href={`tel:${formatPhoneHref(YEZYY_BUSINESS_PROFILE.phone)}`}
                 >
                   {YEZYY_BUSINESS_PROFILE.phone}
@@ -137,7 +137,7 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
             </div>
           </div>
         </div>
-        <div className="mt-12 border-t border-white/10 pt-8 text-center text-sm opacity-60">
+        <div className="mt-12 border-t border-[var(--public-border)] pt-8 text-center text-sm text-[var(--public-muted)]">
           <p>
             © {new Date().getFullYear()} {YEZYY_BUSINESS_PROFILE.storeName}. {t("rights")}
           </p>

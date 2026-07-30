@@ -8,6 +8,7 @@ import MobileMenu from "./MobileMenu";
 import CartIcon from "@/components/cart/CartIcon";
 import BookNavButton from "./BookNavButton";
 import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
+import type { SiteSettingsView } from "@/lib/site/data";
 
 const navLinks = [
   { href: "/", key: "home" },
@@ -17,7 +18,11 @@ const navLinks = [
   { href: "/contact", key: "contact" },
 ];
 
-export default function Navbar() {
+export default function Navbar({
+  capabilities,
+}: {
+  capabilities: SiteSettingsView["requestCapabilities"];
+}) {
   const t = useTranslations("nav");
   const locale = useLocale();
   const pathname = usePathname();
@@ -25,11 +30,12 @@ export default function Navbar() {
 
   const bookButtonClass =
     "rounded-full bg-caramel px-6 py-2 text-sm font-medium text-white transition-transform hover:-translate-y-0.5";
+  const requestsEnabled = capabilities.experience || capabilities.product;
 
   return (
-    <header className="sticky top-0 z-50 bg-cream/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-[var(--public-border)] bg-[var(--public-canvas)]/90 backdrop-blur-md">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-        <Link href="/" className="text-2xl font-bold text-warm-charcoal">
+        <Link href="/" className="font-serif text-2xl font-bold tracking-tight text-[var(--public-ink)]">
           {YEZYY_BUSINESS_PROFILE.storeName}
         </Link>
 
@@ -61,12 +67,15 @@ export default function Navbar() {
           >
             {locale === "zh" ? "EN" : "中"}
           </Link>
-          <CartIcon />
-          <BookNavButton className={bookButtonClass} />
+          {capabilities.product && <CartIcon />}
+          <BookNavButton
+            className={bookButtonClass}
+            requestsEnabled={requestsEnabled}
+          />
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
-          <CartIcon />
+          {capabilities.product && <CartIcon />}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
@@ -76,7 +85,13 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {mobileOpen && <MobileMenu onClose={() => setMobileOpen(false)} />}
+      {mobileOpen && (
+        <MobileMenu
+          onClose={() => setMobileOpen(false)}
+          productEnabled={capabilities.product}
+          requestsEnabled={requestsEnabled}
+        />
+      )}
     </header>
   );
 }

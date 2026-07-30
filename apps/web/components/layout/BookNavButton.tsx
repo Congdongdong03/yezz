@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/routing";
 
-export default function BookNavButton({ className }: { className?: string }) {
+export default function BookNavButton({
+  className,
+  requestsEnabled = true,
+}: {
+  className?: string;
+  requestsEnabled?: boolean;
+}) {
   const t = useTranslations("nav");
   const locale = useLocale();
   const pathname = usePathname();
@@ -22,6 +28,14 @@ export default function BookNavButton({ className }: { className?: string }) {
 
   const projectMatch = pathname.match(/^\/projects\/([^/]+)$/);
   const onProjectDetail = Boolean(projectMatch);
+
+  if (!requestsEnabled) {
+    return (
+      <Link href="/projects" className={className}>
+        {t("browseProjects")}
+      </Link>
+    );
+  }
 
   if (onProjectDetail) {
     return (

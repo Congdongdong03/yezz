@@ -124,7 +124,8 @@
     --sidebar-ring: #C1785C;
 }
 
-.public-site {
+.public-site,
+.public-app {
     --public-canvas: #FBF8F6;
     --public-paper: #FFFFFF;
     --public-blush: #F8E8EE;
@@ -139,49 +140,61 @@
     color: var(--public-ink);
 }
 
-.public-site :focus-visible {
+.public-site :focus-visible,
+.public-app :focus-visible {
     outline: 3px solid color-mix(in srgb, var(--public-pink) 70%, white);
     outline-offset: 3px;
 }
 
-.public-site .bg-cream {
+.public-site .bg-cream,
+.public-app .bg-cream {
     background-color: var(--public-canvas);
 }
 
-.public-site .bg-white {
+.public-site .bg-white,
+.public-app .bg-white {
     background-color: var(--public-paper);
 }
 
-.public-site .bg-muted {
+.public-site .bg-muted,
+.public-app .bg-muted {
     background-color: var(--public-rose-paper);
 }
 
-.public-site .text-warm-charcoal {
+.public-site .text-warm-charcoal,
+.public-app .text-warm-charcoal {
     color: var(--public-ink);
 }
 
 .public-site .text-warm-grey,
-.public-site .text-muted-foreground {
+.public-site .text-muted-foreground,
+.public-app .text-warm-grey,
+.public-app .text-muted-foreground {
     color: var(--public-muted);
 }
 
-.public-site .text-caramel {
+.public-site .text-caramel,
+.public-app .text-caramel {
     color: var(--public-pink);
 }
 
-.public-site .bg-caramel {
+.public-site .bg-caramel,
+.public-app .bg-caramel {
     background-color: var(--public-pink);
 }
 
-.public-site .border-caramel {
+.public-site .border-caramel,
+.public-app .border-caramel {
     border-color: var(--public-pink);
 }
 
-.public-site .hover\\:bg-caramel:hover {
+.public-site .hover\\:bg-caramel:hover,
+.public-app .hover\\:bg-caramel:hover {
     background-color: var(--public-pink);
 }
 
-.public-site .hover\\:text-caramel:hover {
+.public-site .hover\\:text-caramel:hover,
+.public-app .hover\\:text-caramel:hover {
     color: var(--public-pink);
 }
 

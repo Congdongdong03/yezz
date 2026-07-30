@@ -18,7 +18,15 @@ const navLinks = [
 const FOCUSABLE =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export default function MobileMenu({ onClose }: { onClose: () => void }) {
+export default function MobileMenu({
+  onClose,
+  productEnabled = true,
+  requestsEnabled = true,
+}: {
+  onClose: () => void;
+  productEnabled?: boolean;
+  requestsEnabled?: boolean;
+}) {
   const t = useTranslations("nav");
   const locale = useLocale();
   const pathname = usePathname();
@@ -89,21 +97,24 @@ export default function MobileMenu({ onClose }: { onClose: () => void }) {
             {t(link.key)}
           </Link>
         ))}
-        <Link
-          href="/cart"
-          onClick={onClose}
-          className="relative flex items-center gap-2 text-2xl font-serif text-warm-charcoal hover:text-caramel"
-        >
-          <ShoppingBag size={24} />
-          <span>{t("cart")}</span>
-          {items.length > 0 && (
-            <span className="absolute -right-4 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-caramel text-xs font-bold text-white">
-              {items.length}
-            </span>
-          )}
-        </Link>
+        {productEnabled && (
+          <Link
+            href="/cart"
+            onClick={onClose}
+            className="relative flex items-center gap-2 text-2xl font-serif text-warm-charcoal hover:text-caramel"
+          >
+            <ShoppingBag size={24} />
+            <span>{t("cart")}</span>
+            {items.length > 0 && (
+              <span className="absolute -right-4 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-caramel text-xs font-bold text-white">
+                {items.length}
+              </span>
+            )}
+          </Link>
+        )}
         <BookNavButton
           className="rounded-full bg-caramel px-8 py-3 text-lg font-medium text-white"
+          requestsEnabled={requestsEnabled}
         />
         <Link
           href={pathname}
