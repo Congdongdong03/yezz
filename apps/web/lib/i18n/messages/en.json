@@ -379,6 +379,7 @@
   },
   "projectDetail": {
     "back": "Back to Projects",
+    "price": "Price",
     "duration": "Duration",
     "preferredDate": "Preferred Date",
     "numberOfPeople": "Number of People",

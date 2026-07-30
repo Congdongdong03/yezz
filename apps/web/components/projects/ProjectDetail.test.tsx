@@ -98,4 +98,24 @@ describe("ProjectDetail capability fallback", () => {
     expect(html).not.toContain('data-testid="calendar"');
     expect(html).not.toContain('data-testid="booking-form"');
   });
+
+  it("presents price and duration together as a project fact rail", () => {
+    const html = renderToStaticMarkup(
+      <ProjectDetail
+        locale="en"
+        requestEnabled={false}
+        project={{
+          _id: "experience-2",
+          name: { en: "Paint Clay Figure", zh: "彩绘公仔" },
+          projectType: "experience",
+          priceDisplay: "A$49.50",
+          duration: "1小时|1 hour",
+        }}
+      />,
+    );
+
+    expect(html).toContain('data-testid="project-fact-rail"');
+    expect(html).toContain("A$49.50");
+    expect(html).toContain("1 hour");
+  });
 });

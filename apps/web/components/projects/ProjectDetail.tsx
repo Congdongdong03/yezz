@@ -101,7 +101,7 @@ export default function ProjectDetail({
 
   return (
     <div className="min-h-screen bg-cream pb-20">
-      <div className="mx-auto max-w-5xl px-4 pt-10 sm:px-6 md:pt-14">
+      <div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6 md:pt-14">
         <Link
           href="/projects"
           className="inline-flex rounded-full border border-[var(--public-border)] bg-white px-4 py-2 text-sm text-warm-grey transition-colors hover:text-caramel"
@@ -115,7 +115,7 @@ export default function ProjectDetail({
           transition={{ duration: 0.5 }}
           className="mt-7"
         >
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-12 sm:gap-4">
             {project.images?.map((img: string, i: number) => (
               <div
                 key={i}
@@ -126,7 +126,11 @@ export default function ProjectDetail({
             ))}
           </div>
 
-          <div className="mt-7 rounded-[2rem] border border-[var(--public-border)] bg-white p-6 shadow-[0_18px_42px_rgba(68,57,61,0.06)] sm:p-9">
+          <div className="mt-7 grid border-y border-[var(--public-border)] bg-white lg:grid-cols-[minmax(0,1fr)_15rem]">
+            <div className="p-6 sm:p-9">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-caramel">
+                YezYY DIY Studio
+              </p>
             <h1 className="font-serif text-3xl font-bold text-warm-charcoal sm:text-4xl">
               {projectLabel}
             </h1>
@@ -140,16 +144,8 @@ export default function ProjectDetail({
                 </span>
               ))}
             </div>
-            {displayPrice && (
-              <p className="mt-4 text-lg text-caramel">{displayPrice}</p>
-            )}
-            {project.duration && (
-              <p className="mt-1 text-sm text-warm-grey">
-                {t("duration")}: {localizeDuration(project.duration, pageLocale)}
-              </p>
-            )}
             {project.description && (
-              <p className="mt-4 leading-relaxed text-warm-charcoal">
+              <p className="mt-6 max-w-2xl leading-relaxed text-warm-charcoal">
                 {project.description[pageLocale as "en" | "zh"]}
               </p>
             )}
@@ -198,6 +194,33 @@ export default function ProjectDetail({
                   {t("bookCurrentFlow")}
                 </Link>
               </section>
+            )}
+            </div>
+
+            {(displayPrice || project.duration) && (
+              <dl
+                data-testid="project-fact-rail"
+                className="border-t border-[var(--public-border)] bg-[var(--public-rose-paper)] px-6 py-7 lg:border-l lg:border-t-0 sm:px-8"
+              >
+                {displayPrice && (
+                  <div className="border-b border-[var(--public-border)] pb-5">
+                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-grey">
+                      {t("price")}
+                    </dt>
+                    <dd className="mt-2 font-serif text-2xl text-caramel">{displayPrice}</dd>
+                  </div>
+                )}
+                {project.duration && (
+                  <div className={displayPrice ? "pt-5" : ""}>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-warm-grey">
+                      {t("duration")}
+                    </dt>
+                    <dd className="mt-2 text-lg text-warm-charcoal">
+                      {localizeDuration(project.duration, pageLocale)}
+                    </dd>
+                  </div>
+                )}
+              </dl>
             )}
           </div>
         </motion.div>

@@ -140,7 +140,7 @@ export default async function PartiesPage({
     settings.requestCapabilities.party && hasCompleteLiveCatalogue;
 
   return (
-    <div className="overflow-hidden pb-20">
+    <div className="overflow-hidden bg-[var(--public-canvas)] pb-20">
       <section className="relative border-b border-[var(--public-border)] bg-[radial-gradient(circle_at_top_right,rgba(217,111,158,0.2),transparent_42%),linear-gradient(135deg,#FBF8F6_0%,#FFF_58%,rgba(242,223,230,0.7)_100%)]">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.15fr_0.85fr] md:items-center md:py-20">
           <div>
@@ -163,7 +163,7 @@ export default async function PartiesPage({
             </div>
           </div>
 
-          <div className="relative rounded-[2rem] border border-white/80 bg-white/75 p-4 shadow-xl shadow-[rgba(217,111,158,0.12)] backdrop-blur">
+          <div className="relative border border-white/80 bg-white/75 p-4 shadow-xl shadow-[rgba(217,111,158,0.12)] backdrop-blur">
             <div className="grid gap-3">
               <div className="rounded-2xl bg-[var(--public-rose-paper)] p-5 text-[var(--public-ink)]">
                 <p className="text-xs uppercase tracking-[0.16em] text-[var(--public-muted)]">
@@ -205,7 +205,7 @@ export default async function PartiesPage({
                 : t("extendedName");
             return (
               <article
-                className="relative overflow-hidden rounded-3xl border border-warm-grey/15 bg-white p-6 shadow-sm sm:p-8"
+                className="relative overflow-hidden border border-warm-grey/15 bg-white p-6 shadow-sm sm:p-8"
                 key={`${party.guestDurationMinutes}-${party.id ?? "fallback"}`}
               >
                 {party.imageUrl && (
@@ -273,7 +273,7 @@ export default async function PartiesPage({
         </section>
 
         <section className="mt-14 grid gap-5 lg:grid-cols-3">
-          <article className="rounded-3xl border border-[var(--public-border)] bg-[var(--public-blush)] p-6 sm:p-8">
+          <article className="border border-[var(--public-border)] bg-[var(--public-blush)] p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-bold text-warm-charcoal">
               {t("includedTitle")}
             </h2>
@@ -293,7 +293,7 @@ export default async function PartiesPage({
             </ul>
           </article>
 
-          <article className="rounded-3xl border border-[var(--public-border)] bg-[var(--public-rose-paper)] p-6 sm:p-8">
+          <article className="border border-[var(--public-border)] bg-[var(--public-rose-paper)] p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-bold text-warm-charcoal">
               {t("byoTitle")}
             </h2>
@@ -307,7 +307,7 @@ export default async function PartiesPage({
             </ul>
           </article>
 
-          <article className="rounded-3xl border border-[var(--public-border)] bg-white p-6 sm:p-8">
+          <article className="border border-[var(--public-border)] bg-white p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-bold text-warm-charcoal">
               {t("paymentTitle")}
             </h2>

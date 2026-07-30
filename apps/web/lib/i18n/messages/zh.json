@@ -379,6 +379,7 @@
   },
   "projectDetail": {
     "back": "返回项目列表",
+    "price": "价格",
     "duration": "时长",
     "preferredDate": "首选日期",
     "numberOfPeople": "人数",
