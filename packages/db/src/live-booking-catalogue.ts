@@ -14,6 +14,10 @@ export type LiveProjectSeed = {
   variantSelectedInStore: boolean;
   extraTimeMinutes?: 30;
   extraTimePriceCents?: number;
+  styles?: readonly {
+    name: { en: string; zh: string };
+    price: string;
+  }[];
 };
 
 export const LIVE_PROJECT_CATEGORIES = [
@@ -36,11 +40,11 @@ export const LIVE_DIY_PROJECTS = [
   { categorySlug: "air-dry-cream-piping", slug: "air-dry-pen-holder", name: { en: "Pen holder, one face", zh: "笔筒（单面）" }, priceMinCents: 5000, priceMaxCents: 5000, durationMinutes: 60, variantSelectedInStore: false },
   { categorySlug: "air-dry-cream-piping", slug: "air-dry-extra-face", name: { en: "Extra face", zh: "加做一面" }, priceMinCents: 3300, priceMaxCents: 3300, durationMinutes: 60, variantSelectedInStore: false },
   { categorySlug: "air-dry-cream-piping", slug: "air-dry-mug", name: { en: "Mug", zh: "马克杯" }, priceMinCents: 6500, priceMaxCents: 6500, durationMinutes: 60, variantSelectedInStore: false },
-  { categorySlug: "air-dry-cream-piping", slug: "air-dry-lamp", name: { en: "Lamp", zh: "台灯" }, priceMinCents: 4300, priceMaxCents: 4300, durationMinutes: 60, variantSelectedInStore: true },
+  { categorySlug: "air-dry-cream-piping", slug: "air-dry-lamp", name: { en: "Lamp", zh: "台灯" }, priceMinCents: 4300, priceMaxCents: 9800, durationMinutes: 60, variantSelectedInStore: true },
   { categorySlug: "air-dry-cream-piping", slug: "air-dry-mirror", name: { en: "Mirror", zh: "镜子" }, priceMinCents: 8700, priceMaxCents: 8700, durationMinutes: 60, variantSelectedInStore: false },
   { categorySlug: "air-dry-cream-piping", slug: "air-dry-notebook", name: { en: "Notebook", zh: "笔记本" }, priceMinCents: 8700, priceMaxCents: 8700, durationMinutes: 60, variantSelectedInStore: false },
   { categorySlug: "air-dry-cream-piping", slug: "air-dry-pencil-case", name: { en: "Pencil case", zh: "笔袋" }, priceMinCents: 6500, priceMaxCents: 6500, durationMinutes: 60, variantSelectedInStore: false },
-  { categorySlug: "air-dry-cream-piping", slug: "air-dry-phone-case", name: { en: "Phone case", zh: "手机壳" }, priceMinCents: 6600, priceMaxCents: 6600, durationMinutes: 60, variantSelectedInStore: true },
+  { categorySlug: "air-dry-cream-piping", slug: "air-dry-phone-case", name: { en: "Phone case", zh: "手机壳" }, priceMinCents: 6600, priceMaxCents: 7600, durationMinutes: 60, variantSelectedInStore: true },
   { categorySlug: "air-dry-cream-piping", slug: "air-dry-phone-stand", name: { en: "Phone stand", zh: "手机支架" }, priceMinCents: 7600, priceMaxCents: 7600, durationMinutes: 60, variantSelectedInStore: false },
   { categorySlug: "air-dry-cream-piping", slug: "air-dry-phone-socket", name: { en: "Phone socket", zh: "手机气囊支架" }, priceMinCents: 3200, priceMaxCents: 3200, durationMinutes: 60, variantSelectedInStore: false },
   { categorySlug: "air-dry-cream-piping", slug: "air-dry-small-bag", name: { en: "Small bag to decorate", zh: "小包（可装饰）" }, priceMinCents: 6500, priceMaxCents: 6500, durationMinutes: 60, variantSelectedInStore: false },
@@ -51,7 +55,13 @@ export const LIVE_DIY_PROJECTS = [
   { categorySlug: "paint-clay", slug: "paint-clay-figurine-small", name: { en: "Paint clay figurine — Small", zh: "彩绘黏土摆件—小号" }, priceMinCents: 2750, priceMaxCents: 2750, durationMinutes: 60, variantSelectedInStore: false },
   { categorySlug: "paint-clay", slug: "paint-clay-figurine-medium", name: { en: "Paint clay figurine — Medium", zh: "彩绘黏土摆件—中号" }, priceMinCents: 3850, priceMaxCents: 3850, durationMinutes: 60, variantSelectedInStore: false },
   { categorySlug: "paint-clay", slug: "paint-clay-figurine-large", name: { en: "Paint clay figurine — Large", zh: "彩绘黏土摆件—大号" }, priceMinCents: 5400, priceMaxCents: 5400, durationMinutes: 60, variantSelectedInStore: false },
-  { categorySlug: "beading", slug: "beading", name: { en: "Beading — from $43", zh: "串珠—43澳元起" }, priceMinCents: 4300, priceMaxCents: 4300, durationMinutes: 30, variantSelectedInStore: true },
+  { categorySlug: "beading", slug: "beading", name: { en: "Beading — from $43", zh: "串珠—43澳元起" }, priceMinCents: 4300, priceMaxCents: 4300, durationMinutes: 30, variantSelectedInStore: true, styles: [
+    { name: { en: "Bracelet", zh: "手链" }, price: "43.00" },
+    { name: { en: "Phone Strap 20cm", zh: "手机链 20cm" }, price: "43.00" },
+    { name: { en: "Phone Strap 30cm", zh: "手机链 30cm" }, price: "60.50" },
+    { name: { en: "Phone Strap 40cm", zh: "手机链 40cm" }, price: "71.50" },
+    { name: { en: "Bag Chain", zh: "包链" }, price: "93.50" },
+  ] },
 ] as const satisfies readonly LiveProjectSeed[];
 
 export const LIVE_PARTY_PACKAGES = [

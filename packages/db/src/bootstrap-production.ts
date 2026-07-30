@@ -4,6 +4,7 @@ import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { createDb, type Db } from "./client.js";
 import { loadEnv } from "./env.js";
+import { seedPublicCatalogue } from "./seed-public-catalogue.js";
 import {
   emailOutbox,
   passwordSetupTokens,
@@ -262,12 +263,14 @@ export async function bootstrapProduction(
 
   const { db, client } = createDb(databaseUrl);
   try {
-    return await bootstrapWithStore(
+    const result = await bootstrapWithStore(
       createBootstrapStore(db),
       hashPassword,
       randomBytes,
       now,
     );
+    await seedPublicCatalogue(db);
+    return result;
   } finally {
     await client.end();
   }
