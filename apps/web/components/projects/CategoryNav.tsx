@@ -61,7 +61,7 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
   };
 
   return (
-    <div className="sticky top-16 z-30 border-b border-warm-grey/10 bg-cream/95 backdrop-blur-sm">
+    <div className="sticky top-16 z-30 border-b border-[var(--public-border)] bg-[var(--public-canvas)]/95 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 py-3">
         <div className="flex gap-2 overflow-x-auto pb-1">
           {categories.map((cat) => {
@@ -74,7 +74,7 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
                 className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-caramel text-white"
-                    : "bg-white text-warm-charcoal hover:bg-caramel/10"
+                    : "border border-[var(--public-border)] bg-white text-warm-charcoal hover:bg-caramel/10"
                 }`}
               >
                 {Icon && <Icon className="h-4 w-4" />}

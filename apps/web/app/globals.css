@@ -198,11 +198,13 @@
     color: var(--public-pink);
 }
 
-.public-site .public-section {
+.public-site .public-section,
+.public-app .public-section {
     position: relative;
 }
 
-.public-site .public-eyebrow {
+.public-site .public-eyebrow,
+.public-app .public-eyebrow {
     color: var(--public-pink);
     font-size: 0.72rem;
     font-weight: 700;
@@ -237,6 +239,17 @@
     border-radius: 2rem;
     background: var(--public-paper);
     box-shadow: 0 22px 54px rgba(68, 57, 61, 0.07);
+}
+
+.public-site .public-project-card,
+.public-app .public-project-card {
+    border: 1px solid var(--public-border);
+    box-shadow: 0 18px 42px rgba(68, 57, 61, 0.06);
+}
+
+.public-site .public-project-card:hover,
+.public-app .public-project-card:hover {
+    box-shadow: 0 26px 52px rgba(68, 57, 61, 0.12);
 }
 
 @media (max-width: 639px) {

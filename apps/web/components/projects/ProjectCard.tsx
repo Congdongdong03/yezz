@@ -35,7 +35,7 @@ export default function ProjectCard({ project, locale }: ProjectCardProps) {
   return (
     <Link
       href={href}
-      className="group block cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md"
+      className="public-project-card group block cursor-pointer overflow-hidden rounded-[1.5rem] bg-white transition-all hover:-translate-y-1"
     >
       <div className="relative aspect-[4/3] overflow-hidden">
         {project.imageUrl ? (
@@ -54,7 +54,7 @@ export default function ProjectCard({ project, locale }: ProjectCardProps) {
           </div>
         )}
       </div>
-      <div className="p-4">
+      <div className="p-5">
         <h3 className="font-serif text-lg font-bold text-warm-charcoal">
           {project.name[locale as "en" | "zh"]}
         </h3>
@@ -62,7 +62,7 @@ export default function ProjectCard({ project, locale }: ProjectCardProps) {
           {project.tags?.map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-soft-pink/20 px-3 py-1 text-xs text-warm-charcoal"
+              className="rounded-full bg-[var(--public-blush)] px-3 py-1 text-xs text-warm-charcoal"
             >
               {localizeTag(tag, locale)}
             </span>

@@ -49,18 +49,18 @@ export default function CategorySection({
   const Icon = category.icon ? iconMap[category.icon] : null;
 
   return (
-    <section id={category.slug.current} className="scroll-mt-32 py-16">
+    <section id={category.slug.current} className="scroll-mt-32 py-16 md:py-20">
       <div className="mx-auto max-w-7xl px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           viewport={{ once: true }}
-          className="mb-8"
+          className="mb-9 max-w-2xl"
         >
           <div className="flex items-center gap-3">
             {Icon && <Icon className="h-7 w-7 text-caramel" />}
-            <h2 className="font-serif text-2xl font-bold text-warm-charcoal md:text-3xl">
+            <h2 className="font-serif text-3xl font-bold text-warm-charcoal md:text-4xl">
               {category.name[locale as "en" | "zh"]}
             </h2>
           </div>

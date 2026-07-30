@@ -141,7 +141,7 @@ export default async function PartiesPage({
 
   return (
     <div className="overflow-hidden pb-20">
-      <section className="relative border-b border-lavender/40 bg-[radial-gradient(circle_at_top_right,rgba(216,195,227,0.6),transparent_42%),linear-gradient(135deg,#FDF6F0_0%,#FFF_58%,rgba(156,175,136,0.16)_100%)]">
+      <section className="relative border-b border-[var(--public-border)] bg-[radial-gradient(circle_at_top_right,rgba(217,111,158,0.2),transparent_42%),linear-gradient(135deg,#FBF8F6_0%,#FFF_58%,rgba(242,223,230,0.7)_100%)]">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.15fr_0.85fr] md:items-center md:py-20">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-caramel">
@@ -154,36 +154,36 @@ export default async function PartiesPage({
               {t("subtitle")}
             </p>
             <div className="mt-7 flex flex-wrap gap-2 text-sm font-semibold text-warm-charcoal">
-              <span className="rounded-full border border-caramel/25 bg-white/80 px-4 py-2">
+              <span className="rounded-full border border-[var(--public-border)] bg-white/85 px-4 py-2">
                 {t("attendance")}
               </span>
-              <span className="rounded-full border border-sage/35 bg-white/80 px-4 py-2">
+              <span className="rounded-full border border-[var(--public-border)] bg-white/85 px-4 py-2">
                 {t("minimumSpend")}
               </span>
             </div>
           </div>
 
-          <div className="relative rounded-[2rem] border border-white/80 bg-white/70 p-4 shadow-xl shadow-lavender/20 backdrop-blur">
+          <div className="relative rounded-[2rem] border border-white/80 bg-white/75 p-4 shadow-xl shadow-[rgba(217,111,158,0.12)] backdrop-blur">
             <div className="grid gap-3">
-              <div className="rounded-2xl bg-warm-charcoal p-5 text-white">
-                <p className="text-xs uppercase tracking-[0.16em] text-white/65">
+              <div className="rounded-2xl bg-[var(--public-rose-paper)] p-5 text-[var(--public-ink)]">
+                <p className="text-xs uppercase tracking-[0.16em] text-[var(--public-muted)]">
                   {t("paymentTitle")}
                 </p>
                 <p className="mt-3 font-serif text-2xl font-semibold">
-                  A$95 <span className="text-white/40">/</span> A$145
+                  A$95 <span className="text-[var(--public-muted)]/50">/</span> A$145
                 </p>
-                <p className="mt-2 text-sm leading-6 text-white/75">
+                <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">
                   {t("paymentBody")}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-lavender/25 p-4">
+                <div className="rounded-2xl bg-[var(--public-blush)] p-4">
                   <p className="text-2xl font-bold text-warm-charcoal">1.5h</p>
                   <p className="mt-1 text-xs text-warm-grey">
                     {t("standardName")}
                   </p>
                 </div>
-                <div className="rounded-2xl bg-sage/20 p-4">
+                <div className="rounded-2xl bg-[var(--public-rose-paper)] p-4">
                   <p className="text-2xl font-bold text-warm-charcoal">2.5h</p>
                   <p className="mt-1 text-xs text-warm-grey">
                     {t("extendedName")}
@@ -273,7 +273,7 @@ export default async function PartiesPage({
         </section>
 
         <section className="mt-14 grid gap-5 lg:grid-cols-3">
-          <article className="rounded-3xl border border-lavender/45 bg-lavender/10 p-6 sm:p-8">
+          <article className="rounded-3xl border border-[var(--public-border)] bg-[var(--public-blush)] p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-bold text-warm-charcoal">
               {t("includedTitle")}
             </h2>
@@ -293,7 +293,7 @@ export default async function PartiesPage({
             </ul>
           </article>
 
-          <article className="rounded-3xl border border-sage/45 bg-sage/10 p-6 sm:p-8">
+          <article className="rounded-3xl border border-[var(--public-border)] bg-[var(--public-rose-paper)] p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-bold text-warm-charcoal">
               {t("byoTitle")}
             </h2>
@@ -307,7 +307,7 @@ export default async function PartiesPage({
             </ul>
           </article>
 
-          <article className="rounded-3xl border border-caramel/35 bg-caramel/5 p-6 sm:p-8">
+          <article className="rounded-3xl border border-[var(--public-border)] bg-white p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-bold text-warm-charcoal">
               {t("paymentTitle")}
             </h2>
