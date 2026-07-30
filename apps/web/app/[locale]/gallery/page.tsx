@@ -39,11 +39,13 @@ export default async function GalleryPage({
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12">
-      <h1 className="text-3xl font-serif font-bold text-warm-charcoal md:text-4xl">
+    <div className="bg-[var(--public-canvas)] px-4 py-14 text-[var(--public-ink)] sm:py-20">
+      <div className="mx-auto max-w-7xl">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--public-pink)]">YezYY studio diary</p>
+      <h1 className="mt-3 text-4xl font-serif font-bold tracking-tight md:text-5xl">
         {t("title")}
       </h1>
-      <p className="mt-4 text-warm-grey">{t("subtitle")}</p>
+      <p className="mt-4 max-w-2xl text-lg leading-8 text-[var(--public-muted)]">{t("subtitle")}</p>
 
       {publishableImages.length === 0 ? (
         <EmptyCatalogueState
@@ -62,7 +64,7 @@ export default async function GalleryPage({
             }) => (
               <div
                 key={img._id}
-                className="relative aspect-square overflow-hidden rounded-lg"
+                className="relative aspect-square overflow-hidden rounded-3xl bg-[var(--public-rose-paper)] shadow-sm"
               >
                 <Image
                   src={img.imageUrl}
@@ -79,7 +81,7 @@ export default async function GalleryPage({
             ),
           )}
         </div>
-      )}
+      )}</div>
     </div>
   );
 }
