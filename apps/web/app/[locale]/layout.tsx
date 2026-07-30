@@ -2,12 +2,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { CartProvider } from "@/lib/cart/context";
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
-import CartDrawer from "@/components/cart/CartDrawer";
-import CartToast from "@/components/cart/CartToast";
-import ErrorBoundary from "@/components/ErrorBoundary";
+import LocaleRouteChrome from "@/components/public/LocaleRouteChrome";
 import HtmlLang from "@/components/layout/HtmlLang";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import { loadSiteSettings } from "@/lib/site/data";
@@ -45,17 +40,12 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider messages={messages} locale={locale}>
       <HtmlLang locale={locale} />
-      <CartProvider>
-        <div className="flex min-h-screen flex-col">
-          <Navbar />
-          <main className="flex-1">
-            <ErrorBoundary>{children}</ErrorBoundary>
-          </main>
-          <Footer settings={siteSettings} />
-          <CartDrawer />
-          <CartToast />
-        </div>
-      </CartProvider>
+      <LocaleRouteChrome
+        capabilities={siteSettings.requestCapabilities}
+        settings={siteSettings}
+      >
+        {children}
+      </LocaleRouteChrome>
     </NextIntlClientProvider>
   );
 }

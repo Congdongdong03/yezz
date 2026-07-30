@@ -124,6 +124,26 @@
     --sidebar-ring: #C1785C;
 }
 
+.public-site {
+    --public-canvas: #FBF8F6;
+    --public-paper: #FFFFFF;
+    --public-blush: #F8E8EE;
+    --public-rose-paper: #F2DFE6;
+    --public-footer: #E5C8D3;
+    --public-pink: #D96F9E;
+    --public-ink: #44393D;
+    --public-muted: #75666B;
+    --public-border: #E8DEDF;
+    min-width: 0;
+    background: var(--public-canvas);
+    color: var(--public-ink);
+}
+
+.public-site :focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--public-pink) 70%, white);
+    outline-offset: 3px;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
