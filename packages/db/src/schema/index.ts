@@ -121,6 +121,68 @@ export const diyProjects = pgTable("diy_projects", {
   ),
 ]);
 
+export type CatalogueImageKind = "yezyy" | "inspiration" | "placeholder";
+
+export const catalogueEntries = pgTable(
+  "catalogue_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => projectCategories.id, { onDelete: "restrict" }),
+    name: jsonb("name").$type<LocalizedString>().notNull(),
+    slug: varchar("slug", { length: 128 }).notNull().unique(),
+    description: jsonb("description").$type<LocalizedString>().notNull(),
+    durationDisplay: jsonb("duration_display").$type<LocalizedString>().notNull(),
+    occasionTags: jsonb("occasion_tags").$type<LocalizedString[]>().notNull().default([]),
+    availabilityNote: jsonb("availability_note").$type<LocalizedString>().notNull(),
+    published: boolean("published").notNull().default(false),
+    featured: boolean("featured").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    coverImageUrl: text("cover_image_url"),
+    imageKind: varchar("image_kind", { length: 32 })
+      .$type<CatalogueImageKind>()
+      .notNull()
+      .default("placeholder"),
+    imageSourceUrl: text("image_source_url"),
+    imageLicenseUrl: text("image_license_url"),
+    imageAttribution: jsonb("image_attribution").$type<LocalizedString>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      "catalogue_entries_image_kind_valid",
+      sql`${table.imageKind} IN ('yezyy', 'inspiration', 'placeholder')`,
+    ),
+    index("catalogue_entries_published_sort_order_idx").on(
+      table.published,
+      table.sortOrder,
+    ),
+  ],
+);
+
+export const catalogueEntryProjects = pgTable(
+  "catalogue_entry_projects",
+  {
+    catalogueEntryId: uuid("catalogue_entry_id")
+      .notNull()
+      .references(() => catalogueEntries.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => diyProjects.id, { onDelete: "restrict" }),
+    label: jsonb("label").$type<LocalizedString>(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.catalogueEntryId, table.projectId] }),
+    index("catalogue_entry_projects_entry_sort_order_idx").on(
+      table.catalogueEntryId,
+      table.sortOrder,
+    ),
+  ],
+);
+
 export const projectStyles = pgTable("project_styles", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id")
