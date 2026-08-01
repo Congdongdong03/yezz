@@ -41,6 +41,45 @@ async function post(
   });
 }
 
+test("catalogue choice opens a preselected ordinary booking on desktop and mobile", async ({
+  page,
+}) => {
+  let fixture: LiveBookingFixture | undefined;
+  try {
+    fixture = await seedLiveBookingFixture({
+      weeklyHours: APPROVED_WEEKLY_HOURS,
+      projects: LIVE_DIY_PROJECTS,
+      parties: LIVE_PARTY_PACKAGES,
+      capabilities: { experience: true, party: true, product: false },
+    });
+    const meltyProject = fixture.projects.bySlug.get("melty-bead-craft");
+    if (!meltyProject) throw new Error("Melty bead project fixture is missing");
+
+    await page.goto("/en/projects/melty-beads");
+    const bookingLink = page.getByRole("link", {
+      name: /Book Melty bead craft/i,
+    });
+    await expect(bookingLink).toBeVisible();
+    await bookingLink.click();
+
+    await expect(page).toHaveURL(
+      new RegExp(`/en/book\\?project=${meltyProject.id}$`),
+    );
+    await expect(
+      page.getByLabel(/Melty bead craft quantity/i),
+    ).toHaveValue("1");
+    await expect(page.getByText("1 of 1 participants assigned")).toBeVisible();
+    await expect(
+      page.locator("p").filter({
+        hasText:
+          "Prices are in AUD. Pay in store; there is no online payment.",
+      }),
+    ).toBeVisible();
+  } finally {
+    await fixture?.cleanup();
+  }
+});
+
 test("English ordinary request closes through Chinese admin, secure email, reminder, and completion", async ({
   page,
 }) => {
