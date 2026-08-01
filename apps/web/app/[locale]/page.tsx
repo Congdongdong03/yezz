@@ -28,6 +28,8 @@ export async function generateMetadata({
   const t = await getTranslations({ locale, namespace: "metadata" });
   return buildPageMetadata({
     description: t("description"),
+    locale,
+    pathname: "/",
   });
 }
 

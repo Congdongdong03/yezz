@@ -13,7 +13,11 @@ export async function generateMetadata({
   const { slug, locale } = await params;
   const result = await loadCatalogueEntry(slug);
   if (!result.ok || !result.data) {
-    return buildPageMetadata({ title: slug.replace(/-/g, " ") });
+    return buildPageMetadata({
+      title: slug.replace(/-/g, " "),
+      locale,
+      pathname: `/projects/${slug}`,
+    });
   }
   const name =
     result.data.name[locale as "en" | "zh"] ?? slug.replace(/-/g, " ");
@@ -23,6 +27,8 @@ export async function generateMetadata({
   return buildPageMetadata({
     title: name,
     description: description ?? undefined,
+    locale,
+    pathname: `/projects/${slug}`,
   });
 }
 

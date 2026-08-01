@@ -14,6 +14,8 @@ export async function generateMetadata({
   return buildPageMetadata({
     title: t("title"),
     description: t("metaDescription"),
+    locale,
+    pathname: "/contact",
   });
 }
 

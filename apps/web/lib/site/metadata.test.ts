@@ -9,12 +9,22 @@ describe("buildPageMetadata", () => {
     process.env.NEXT_PUBLIC_USE_API = "false";
 
     try {
-      const metadata = await buildPageMetadata();
+      const metadata = await buildPageMetadata({
+        locale: "en",
+        pathname: "/projects/beading",
+      });
 
       expect(metadata.title).toBe("YezYY");
       expect(metadata.description).toBe(
         "YezYY — G082/235 Springvale Rd, Glen Waverley VIC 3150",
       );
+      expect(metadata.alternates).toEqual({
+        canonical: "/en/projects/beading",
+        languages: {
+          en: "/en/projects/beading",
+          "zh-CN": "/zh/projects/beading",
+        },
+      });
     } finally {
       if (originalUseApi === undefined) {
         delete process.env.NEXT_PUBLIC_USE_API;

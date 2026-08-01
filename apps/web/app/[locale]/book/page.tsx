@@ -16,6 +16,8 @@ export async function generateMetadata({
   return buildPageMetadata({
     title: t("pageTitle"),
     description: t("metadataDescription"),
+    locale,
+    pathname: "/book",
   });
 }
 

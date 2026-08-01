@@ -3,6 +3,7 @@ import { Inter, Noto_Serif_SC } from "next/font/google";
 import { routing } from "@/i18n/routing";
 import zhMessages from "@/lib/i18n/messages/zh.json";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
+import { getSiteUrl } from "@/lib/site/url";
 import "./globals.css";
 
 const inter = Inter({
@@ -19,6 +20,7 @@ const notoSerifSC = Noto_Serif_SC({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
   title: {
     default: zhMessages.metadata.title,
     template: `%s | ${zhMessages.metadata.title}`,

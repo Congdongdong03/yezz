@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import LocaleRouteChrome from "@/components/public/LocaleRouteChrome";
 import HtmlLang from "@/components/layout/HtmlLang";
+import LocalBusinessJsonLd from "@/components/seo/LocalBusinessJsonLd";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import { loadSiteSettings } from "@/lib/site/data";
 import type { Metadata } from "next";
@@ -18,6 +19,8 @@ export async function generateMetadata({
   await loadSiteSettings();
   return buildPageMetadata({
     description: messages.metadata.description,
+    locale,
+    pathname: "/",
   });
 }
 
@@ -40,6 +43,7 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider messages={messages} locale={locale}>
       <HtmlLang locale={locale} />
+      <LocalBusinessJsonLd />
       <LocaleRouteChrome
         capabilities={siteSettings.requestCapabilities}
         settings={siteSettings}

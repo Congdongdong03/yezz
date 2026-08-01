@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
 import { getSiteUrl } from "@/lib/site/url";
-import { fetchProjects } from "@/lib/api/client";
+import { fetchCatalogue } from "@/lib/api/client";
 import { isApiEnabled } from "@/lib/api/config";
 
 const staticPaths = ["/", "/projects", "/parties", "/gallery", "/contact"] as const;
@@ -25,9 +25,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   if (isApiEnabled()) {
     try {
-      const projects = await fetchProjects();
-      for (const project of projects) {
-        const slug = project.slug;
+      const catalogueEntries = await fetchCatalogue();
+      for (const entry of catalogueEntries) {
+        const slug = entry.slug;
         if (!slug) continue;
         for (const locale of routing.locales) {
           entries.push({
