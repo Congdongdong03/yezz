@@ -50,6 +50,16 @@ export async function fetchProjectBySlug(slug: string) {
   );
 }
 
+export async function fetchCatalogue() {
+  return apiFetch<import("./types").ApiCatalogueEntry[]>("/api/v1/catalogue");
+}
+
+export async function fetchCatalogueBySlug(slug: string) {
+  return apiFetch<import("./types").ApiCatalogueEntry>(
+    `/api/v1/catalogue/${encodeURIComponent(slug)}`,
+  );
+}
+
 export async function fetchParties() {
   return apiFetch<import("./types").ApiParty[]>("/api/v1/parties");
 }

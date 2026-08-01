@@ -1,4 +1,5 @@
 import type {
+  ApiCatalogueEntry,
   ApiCategory,
   ApiGalleryImage,
   ApiParty,
@@ -14,6 +15,32 @@ function slugField(slug: string) {
 
 function optional<T>(value: T | null | undefined): T | undefined {
   return value ?? undefined;
+}
+
+const CATALOGUE_CATEGORY_PRESENTATION: Record<
+  string,
+  { order: number; name: { en: string; zh: string } }
+> = {
+  "air-dry-cream-piping": {
+    order: 0,
+    name: { en: "Deco Cream DIY", zh: "奶油胶DIY" },
+  },
+  "paint-clay": {
+    order: 1,
+    name: { en: "Plaster Painting", zh: "石膏彩绘" },
+  },
+  beading: {
+    order: 2,
+    name: { en: "Beading", zh: "串珠" },
+  },
+  "melty-beads": {
+    order: 3,
+    name: { en: "Melty Beads", zh: "拼豆" },
+  },
+};
+
+export function catalogueCategoryOrder(slug: string): number {
+  return CATALOGUE_CATEGORY_PRESENTATION[slug]?.order ?? Number.MAX_SAFE_INTEGER;
 }
 
 /** API category → shape expected by CategoryNav / CategorySection */
@@ -104,6 +131,45 @@ export function mapProjectDetailFromApi(project: ApiProjectDetail) {
     extraTimePriceCents: project.extraTimePriceCents,
     tags: project.tags ?? [],
     order: project.sortOrder,
+  };
+}
+
+/** Curated public catalogue DTO → customer-facing editorial project shape. */
+export function mapCatalogueEntryFromApi(entry: ApiCatalogueEntry) {
+  return {
+    _id: entry.id,
+    name: entry.name,
+    slug: slugField(entry.slug),
+    description: entry.description,
+    durationDisplay: entry.durationDisplay,
+    occasionTags: entry.occasionTags,
+    availabilityNote: entry.availabilityNote,
+    featured: entry.featured,
+    order: entry.sortOrder,
+    imageUrl: optional(entry.coverImageUrl),
+    image: entry.image,
+    category: {
+      _id: entry.category.id,
+      name:
+        CATALOGUE_CATEGORY_PRESENTATION[entry.category.slug]?.name ??
+        entry.category.name,
+      slug: slugField(entry.category.slug),
+      icon: optional(entry.category.icon),
+      order: catalogueCategoryOrder(entry.category.slug),
+    },
+    variants: [...entry.variants]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((variant) => ({
+        _id: variant.projectId,
+        projectId: variant.projectId,
+        slug: variant.slug,
+        name: variant.name,
+        label: optional(variant.label),
+        priceDisplay: optional(variant.priceDisplay),
+        bookable: variant.bookable,
+        order: variant.sortOrder,
+      })),
+    priceDisplay: optional(entry.priceDisplay),
   };
 }
 

@@ -57,6 +57,43 @@ export type ApiProjectDetail = ApiProjectListItem & {
   images: ApiProjectImage[];
 };
 
+export type ApiCatalogueVariant = {
+  projectId: string;
+  slug: string;
+  name: LocalizedString;
+  label: LocalizedString | null;
+  priceDisplay: string | null;
+  bookable: boolean;
+  sortOrder: number;
+};
+
+export type ApiCatalogueEntry = {
+  id: string;
+  slug: string;
+  name: LocalizedString;
+  description: LocalizedString;
+  durationDisplay: LocalizedString;
+  occasionTags: LocalizedString[];
+  availabilityNote: LocalizedString;
+  featured: boolean;
+  sortOrder: number;
+  coverImageUrl: string | null;
+  image: {
+    kind: "yezyy" | "inspiration" | "placeholder";
+    sourceUrl: string | null;
+    licenseUrl: string | null;
+    attribution: LocalizedString | null;
+  };
+  category: {
+    id: string;
+    name: LocalizedString;
+    slug: string;
+    icon: string | null;
+  };
+  variants: ApiCatalogueVariant[];
+  priceDisplay: string | null;
+};
+
 export type ApiParty = {
   id: string;
   name: LocalizedString;
