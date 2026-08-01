@@ -23,10 +23,13 @@ export async function generateMetadata({
 
 export default async function BookPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ project?: string | string[] }>;
 }) {
   const { locale } = await params;
+  const requestedProject = (await searchParams)?.project;
   const pageLocale = locale === "zh" ? "zh" : "en";
   const t = await getTranslations({
     locale: pageLocale,
@@ -58,6 +61,11 @@ export default async function BookPage({
           priceDisplay: project.priceDisplay,
         }))
     : [];
+  const initialProjectId =
+    typeof requestedProject === "string" &&
+    projects.some((project) => project.id === requestedProject)
+      ? requestedProject
+      : undefined;
 
   return (
     <main className="min-h-screen bg-cream pb-20">
@@ -88,6 +96,7 @@ export default async function BookPage({
       </header>
       <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
         <OrdinaryBookingForm
+          initialProjectId={initialProjectId}
           locale={pageLocale}
           projects={projects}
           requestEnabled={requestEnabled}

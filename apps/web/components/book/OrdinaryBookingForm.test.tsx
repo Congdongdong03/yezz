@@ -206,12 +206,17 @@ describe("OrdinaryBookingForm", () => {
   });
 
   async function renderForm(
-    options: { locale?: "en" | "zh"; requestEnabled?: boolean } = {},
+    options: {
+      initialProjectId?: string;
+      locale?: "en" | "zh";
+      requestEnabled?: boolean;
+    } = {},
   ) {
     testState.locale = options.locale ?? "en";
     await act(async () =>
       root.render(
         <OrdinaryBookingForm
+          initialProjectId={options.initialProjectId}
           locale={options.locale ?? "en"}
           projects={projects}
           requestEnabled={options.requestEnabled ?? true}
@@ -219,6 +224,64 @@ describe("OrdinaryBookingForm", () => {
       ),
     );
   }
+
+  it("preselects a valid catalogue project for one participant and keeps it editable", async () => {
+    await renderForm({ initialProjectId: projects[1].id });
+
+    const initial = container.querySelector<HTMLInputElement>(
+      '[aria-label="Paint clay figurine quantity"]',
+    );
+    const alternative = container.querySelector<HTMLInputElement>(
+      '[aria-label="Beading quantity"]',
+    );
+    expect(initial?.value).toBe("1");
+    expect(alternative?.value).toBe("0");
+    expect(container.textContent).toContain("1 of 1 participants assigned");
+    expect(container.querySelector('[data-testid="ordinary-calendar"]')).not.toBeNull();
+
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(initial, "0");
+    await act(async () => {
+      initial?.dispatchEvent(new Event("input", { bubbles: true }));
+      initial?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const refreshedAlternative = container.querySelector<HTMLInputElement>(
+      '[aria-label="Beading quantity"]',
+    );
+    setter?.call(refreshedAlternative, "1");
+    await act(async () => {
+      refreshedAlternative?.dispatchEvent(new Event("input", { bubbles: true }));
+      refreshedAlternative?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(
+      container.querySelector<HTMLInputElement>(
+        '[aria-label="Paint clay figurine quantity"]',
+      )?.value,
+    ).toBe("0");
+    expect(refreshedAlternative?.value).toBe("1");
+  });
+
+  it("ignores an unknown catalogue project instead of preselecting it", async () => {
+    await renderForm({ initialProjectId: "unknown-project" });
+
+    expect(
+      container.querySelector<HTMLInputElement>(
+        '[aria-label="Beading quantity"]',
+      )?.value,
+    ).toBe("0");
+    expect(
+      container.querySelector<HTMLInputElement>(
+        '[aria-label="Paint clay figurine quantity"]',
+      )?.value,
+    ).toBe("0");
+    expect(container.textContent).toContain("0 of 1 participants assigned");
+    expect(container.querySelector('[data-testid="ordinary-calendar"]')).toBeNull();
+  });
 
   function setInput(name: string, value: string) {
     const input = container.querySelector<HTMLInputElement>(`[name="${name}"]`);

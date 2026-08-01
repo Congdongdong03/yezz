@@ -35,6 +35,7 @@ import {
 } from "@/lib/site/business";
 
 type OrdinaryBookingFormProps = {
+  initialProjectId?: string;
   locale: "en" | "zh";
   projects: OrdinaryBookingProject[];
   requestEnabled: boolean;
@@ -43,6 +44,7 @@ type OrdinaryBookingFormProps = {
 type FormErrors = Record<string, string[] | undefined>;
 
 export default function OrdinaryBookingForm({
+  initialProjectId,
   locale,
   projects,
   requestEnabled,
@@ -54,7 +56,20 @@ export default function OrdinaryBookingForm({
     youngChildCount: 0,
     accompanyingAdultCount: 0,
   });
-  const [items, setItems] = useState<OrdinaryBookingItemSelection[]>([]);
+  const [items, setItems] = useState<OrdinaryBookingItemSelection[]>(() => {
+    const initialProject = projects.find(
+      (project) => project.id === initialProjectId,
+    );
+    return initialProject
+      ? [
+          {
+            projectId: initialProject.id,
+            quantity: 1,
+            decideInStore: false as const,
+          },
+        ]
+      : [];
+  });
   const [date, setDate] = useState("");
   const [selectedSlot, setSelectedSlot] =
     useState<OrdinaryAvailabilitySlot | null>(null);
