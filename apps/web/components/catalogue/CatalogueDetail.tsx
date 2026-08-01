@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { CatalogueEntryView } from "@/lib/catalogue/data";
 import ImageProvenance from "@/components/public/ImageProvenance";
 import RequestContactFallback from "@/components/RequestContactFallback";
+import CatalogueBookingLink from "./CatalogueBookingLink";
 
 type CatalogueDetailProps = {
   entry: CatalogueEntryView;
@@ -50,6 +51,13 @@ export default function CatalogueDetail({ entry, locale, requestEnabled }: Catal
               <section className="mt-10 border-t border-[var(--public-border)] pt-8">
                 <h2 className="font-serif text-2xl text-[var(--public-ink)]">{language === "zh" ? "到店选择尺寸或款式" : "Choose your size or style in store"}</h2>
                 <p className="mt-2 text-sm leading-6 text-[var(--public-muted)]">{language === "zh" ? "颜色、材料和可选底坯会随门店库存变化。" : "Colours, materials and available bases can vary in store."}</p>
+                {requestEnabled ? (
+                  <p className="mt-3 text-sm font-medium text-[var(--public-ink)]">
+                    {language === "zh"
+                      ? "人工确认 · 到店付款"
+                      : "Manual confirmation · Pay in store"}
+                  </p>
+                ) : null}
                 <ul className="mt-5 divide-y divide-[var(--public-border)] border-y border-[var(--public-border)]">
                   {entry.variants.map((variant) => (
                     <li key={variant.projectId} className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 py-4">
@@ -58,7 +66,20 @@ export default function CatalogueDetail({ entry, locale, requestEnabled }: Catal
                         {variant.label ? <p className="mt-1 text-sm text-[var(--public-muted)]">{variant.label[language]}</p> : null}
                         {variant.extraTimeMinutes && variant.extraTimePriceCents ? <p className="mt-1 text-sm text-[var(--public-muted)]">{formatExtraTime(variant.extraTimePriceCents, variant.extraTimeMinutes, language)}</p> : null}
                       </div>
-                      {variant.priceDisplay ? <p className="text-sm font-semibold text-[var(--public-pink)]">{variant.priceDisplay}</p> : null}
+                      <div className="flex flex-col items-end gap-3">
+                        {variant.priceDisplay ? <p className="text-sm font-semibold text-[var(--public-pink)]">{variant.priceDisplay}</p> : null}
+                        {requestEnabled && variant.bookable ? (
+                          <CatalogueBookingLink
+                            locale={locale}
+                            projectId={variant.projectId}
+                            projectName={variant.name[language]}
+                          />
+                        ) : requestEnabled ? (
+                          <p className="text-sm font-medium text-[var(--public-muted)]">
+                            {language === "zh" ? "到店咨询" : "Ask in store"}
+                          </p>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>

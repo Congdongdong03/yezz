@@ -26,6 +26,14 @@ export function trackViewProject(params: {
   trackEvent("view_project", params);
 }
 
+export function trackBeginBooking(params: {
+  project_id: string;
+  project_name: string;
+  source: "catalogue_detail";
+}) {
+  trackEvent("begin_booking", params);
+}
+
 export function trackSubmitBooking(params: {
   project_slug?: string;
   project_name?: string;

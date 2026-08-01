@@ -6,8 +6,14 @@ vi.mock("next/image", () => ({
   default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => <img {...props} />,
 }));
 vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
@@ -27,6 +33,7 @@ const entry = {
       slug: "melty-bead-craft",
       name: { en: "Melty Bead Craft", zh: "拼豆手作" },
       priceDisplay: "A$49.50",
+      bookable: true,
       extraTimeMinutes: 30,
       extraTimePriceCents: 1650,
     },
@@ -45,5 +52,35 @@ describe("CatalogueDetail", () => {
     expect(html).toContain('data-testid="request-contact-fallback"');
     expect(html).not.toContain("Book Now");
     expect(html).not.toContain("Add to Cart");
+  });
+
+  it("offers a specific bookable variant when ordinary requests are open", () => {
+    const html = renderToStaticMarkup(
+      <CatalogueDetail entry={entry as never} locale="en" requestEnabled />,
+    );
+
+    expect(html).toContain('href="/en/book?project=melty-project"');
+    expect(html).toContain('aria-label="Book Melty Bead Craft"');
+    expect(html).toContain("Book this option");
+    expect(html).toContain("Manual confirmation · Pay in store");
+    expect(html).not.toContain('data-testid="request-contact-fallback"');
+  });
+
+  it("keeps an unbookable variant useful without exposing a booking link", () => {
+    const unbookable = {
+      ...entry,
+      variants: [{ ...entry.variants[0], bookable: false }],
+    };
+    const html = renderToStaticMarkup(
+      <CatalogueDetail
+        entry={unbookable as never}
+        locale="zh"
+        requestEnabled
+      />,
+    );
+
+    expect(html).toContain("到店咨询");
+    expect(html).not.toContain("/zh/book?project=");
+    expect(html).not.toContain('data-testid="request-contact-fallback"');
   });
 });
