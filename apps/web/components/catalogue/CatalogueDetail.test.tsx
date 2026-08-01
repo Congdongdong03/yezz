@@ -34,6 +34,7 @@ const entry = {
       name: { en: "Melty Bead Craft", zh: "拼豆手作" },
       priceDisplay: "A$49.50",
       bookable: true,
+      bookingEligible: true,
       extraTimeMinutes: 30,
       extraTimePriceCents: 1650,
     },
@@ -69,7 +70,13 @@ describe("CatalogueDetail", () => {
   it("keeps an unbookable variant useful without exposing a booking link", () => {
     const unbookable = {
       ...entry,
-      variants: [{ ...entry.variants[0], bookable: false }],
+      variants: [
+        {
+          ...entry.variants[0],
+          bookable: false,
+          bookingEligible: false,
+        },
+      ],
     };
     const html = renderToStaticMarkup(
       <CatalogueDetail
@@ -82,5 +89,28 @@ describe("CatalogueDetail", () => {
     expect(html).toContain("到店咨询");
     expect(html).not.toContain("/zh/book?project=");
     expect(html).not.toContain('data-testid="request-contact-fallback"');
+  });
+
+  it("does not offer booking for a bookable variant outside the ordinary booking boundary", () => {
+    const unsupported = {
+      ...entry,
+      variants: [
+        {
+          ...entry.variants[0],
+          bookable: true,
+          bookingEligible: false,
+        },
+      ],
+    };
+    const html = renderToStaticMarkup(
+      <CatalogueDetail
+        entry={unsupported as never}
+        locale="en"
+        requestEnabled
+      />,
+    );
+
+    expect(html).toContain("Ask in store");
+    expect(html).not.toContain("/en/book?project=");
   });
 });

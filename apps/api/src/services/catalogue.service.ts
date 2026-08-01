@@ -20,6 +20,7 @@ export type CatalogueVariantDto = {
   label: LocalizedString | null;
   priceDisplay: string | null;
   bookable: boolean;
+  bookingEligible: boolean;
   sortOrder: number;
   extraTimeMinutes: number | null;
   extraTimePriceCents: number | null;
@@ -106,6 +107,10 @@ function mapVariant(
       pricing.priceCurrency,
     ),
     bookable: project.bookable,
+    bookingEligible:
+      project.bookable &&
+      project.projectType === "experience" &&
+      (project.durationMinutes === 30 || project.durationMinutes === 60),
     sortOrder: association.sortOrder,
     extraTimeMinutes: project.extraTimeMinutes ?? null,
     extraTimePriceCents: project.extraTimePriceCents ?? null,

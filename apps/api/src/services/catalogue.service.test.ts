@@ -47,7 +47,9 @@ function project(
     priceMin,
     priceMax,
     priceCurrency: "AUD",
+    projectType: "experience",
     bookable: false,
+    durationMinutes: 60,
     sortOrder,
     extraTimeMinutes,
     extraTimePriceCents,
@@ -157,6 +159,38 @@ describe("public catalogue service", () => {
       extraTimeMinutes: 30,
       extraTimePriceCents: 1650,
     });
+  });
+
+  it("only marks supported experience variants as eligible for ordinary booking", async () => {
+    const eligible = project("eligible-experience", 4300);
+    eligible.bookable = true;
+    const product = {
+      ...project("product", 4300),
+      bookable: true,
+      projectType: "product",
+    };
+    const unsupportedDuration = {
+      ...project("unsupported-duration", 4300),
+      bookable: true,
+      durationMinutes: 90,
+    };
+
+    const result = await service([
+      row(eligible),
+      row(product),
+      row(unsupportedDuration),
+    ]).list();
+
+    expect(
+      result[0]?.variants.map(({ slug, bookingEligible }) => ({
+        slug,
+        bookingEligible,
+      })),
+    ).toEqual([
+      { slug: "eligible-experience", bookingEligible: true },
+      { slug: "product", bookingEligible: false },
+      { slug: "unsupported-duration", bookingEligible: false },
+    ]);
   });
 
   it("returns NOT_FOUND for a missing published slug", async () => {

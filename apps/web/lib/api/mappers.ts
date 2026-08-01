@@ -167,6 +167,7 @@ export function mapCatalogueEntryFromApi(entry: ApiCatalogueEntry) {
         label: optional(variant.label),
         priceDisplay: optional(variant.priceDisplay),
         bookable: variant.bookable,
+        bookingEligible: variant.bookingEligible,
         order: variant.sortOrder,
         extraTimeMinutes: variant.extraTimeMinutes,
         extraTimePriceCents: variant.extraTimePriceCents,

@@ -10,6 +10,7 @@ const testState = vi.hoisted(() => ({
   selectedStatus: "available" as "available" | "waitlist",
   getOrdinaryAvailability: vi.fn(),
   submitBooking: vi.fn(),
+  trackSubmitBooking: vi.fn(),
 }));
 
 const en: Record<string, string> = {
@@ -155,6 +156,10 @@ vi.mock("@/lib/actions/booking", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/analytics/gtag", () => ({
+  trackSubmitBooking: testState.trackSubmitBooking,
+}));
+
 const projects = [
   {
     id: "00000000-0000-4000-8000-000000000001",
@@ -195,6 +200,7 @@ describe("OrdinaryBookingForm", () => {
       success: true,
       bookingId: "ordinary-1",
     });
+    testState.trackSubmitBooking.mockReset();
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -380,6 +386,12 @@ describe("OrdinaryBookingForm", () => {
     expect(container.textContent).toContain("awaits manual staff confirmation");
     expect(container.textContent).toContain("Pay in store");
     expect(container.textContent).not.toContain("Booking confirmed");
+    expect(testState.trackSubmitBooking).toHaveBeenCalledOnce();
+    expect(testState.trackSubmitBooking).toHaveBeenCalledWith({
+      booking_mode: "booking",
+      project_ids: ["00000000-0000-4000-8000-000000000001"],
+      project_name: "Beading",
+    });
   });
 
   it("stops a stale available selection, refreshes the calendar, and does not submit", async () => {

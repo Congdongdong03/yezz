@@ -35,6 +35,8 @@ export function trackBeginBooking(params: {
 }
 
 export function trackSubmitBooking(params: {
+  booking_mode?: "booking" | "waitlist";
+  project_ids?: string[];
   project_slug?: string;
   project_name?: string;
 }) {

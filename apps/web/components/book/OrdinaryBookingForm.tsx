@@ -33,6 +33,7 @@ import {
   YEZYY_BUSINESS_PROFILE,
   formatPhoneHref,
 } from "@/lib/site/business";
+import { trackSubmitBooking } from "@/lib/analytics/gtag";
 
 type OrdinaryBookingFormProps = {
   initialProjectId?: string;
@@ -266,6 +267,22 @@ export default function OrdinaryBookingForm({
 
       const result = await submitBooking(formData, attempt);
       if (result.success) {
+        const selectedProjects = items.flatMap((item) => {
+          if (item.decideInStore) return [];
+          const project = projects.find(
+            (candidate) => candidate.id === item.projectId,
+          );
+          return project ? [project] : [];
+        });
+        trackSubmitBooking({
+          booking_mode: slot.status === "waitlist" ? "waitlist" : "booking",
+          project_ids: selectedProjects.map((project) => project.id),
+          project_name:
+            selectedProjects
+              .map((project) => project.name[locale])
+              .join(", ") ||
+            (locale === "zh" ? "到店决定" : "Decide in store"),
+        });
         setSuccessMode(slot.status === "waitlist" ? "waitlist" : "booking");
       } else {
         if (

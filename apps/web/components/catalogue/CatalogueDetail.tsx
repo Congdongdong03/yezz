@@ -4,6 +4,7 @@ import type { CatalogueEntryView } from "@/lib/catalogue/data";
 import ImageProvenance from "@/components/public/ImageProvenance";
 import RequestContactFallback from "@/components/RequestContactFallback";
 import CatalogueBookingLink from "./CatalogueBookingLink";
+import CatalogueViewTracker from "./CatalogueViewTracker";
 
 type CatalogueDetailProps = {
   entry: CatalogueEntryView;
@@ -23,6 +24,10 @@ export default function CatalogueDetail({ entry, locale, requestEnabled }: Catal
 
   return (
     <main className="min-h-screen bg-[var(--public-canvas)] px-4 py-10 sm:px-6 md:py-16">
+      <CatalogueViewTracker
+        projectName={entry.name[language]}
+        projectSlug={entry.slug.current}
+      />
       <div className="mx-auto max-w-6xl">
         <Link href={`/${locale}/projects`} className="text-sm font-medium text-[var(--public-muted)] transition hover:text-[var(--public-pink)]">
           ← {language === "zh" ? "所有手作项目" : "All DIY projects"}
@@ -68,7 +73,7 @@ export default function CatalogueDetail({ entry, locale, requestEnabled }: Catal
                       </div>
                       <div className="flex flex-col items-end gap-3">
                         {variant.priceDisplay ? <p className="text-sm font-semibold text-[var(--public-pink)]">{variant.priceDisplay}</p> : null}
-                        {requestEnabled && variant.bookable ? (
+                        {requestEnabled && variant.bookingEligible ? (
                           <CatalogueBookingLink
                             locale={locale}
                             projectId={variant.projectId}

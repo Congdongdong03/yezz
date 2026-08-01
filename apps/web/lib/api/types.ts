@@ -64,6 +64,7 @@ export type ApiCatalogueVariant = {
   label: LocalizedString | null;
   priceDisplay: string | null;
   bookable: boolean;
+  bookingEligible: boolean;
   sortOrder: number;
   extraTimeMinutes: number | null;
   extraTimePriceCents: number | null;
