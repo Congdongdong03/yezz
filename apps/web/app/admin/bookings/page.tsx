@@ -25,65 +25,15 @@ import {
   melbourneLocalToIso,
   type BookingWorkflowAction,
 } from "@/lib/admin/booking-status";
-import { EMAIL_DELIVERY_LABELS } from "@/lib/admin/email-delivery";
+import {
+  BOOKING_ACTION_LABELS,
+  BOOKING_STATUS_LABELS,
+  formatBookingQueueAttendance,
+  formatBookingQueueDate,
+  getBookingQueueDeliverySummary,
+  getBookingQueueOfferingName,
+} from "@/lib/admin/booking-queue";
 import { parseAdminQueueSearchParams } from "@/lib/admin/queue-query";
-
-const STATUS_LABELS: Record<BookingStatus, string> = {
-  new: "新预约",
-  contacted: "已联系",
-  confirmed: "已确认",
-  cancelled: "已取消",
-  pending_review: "待审核",
-  waitlisted: "候补中",
-  rejected: "已拒绝",
-  time_proposed: "已提议时段",
-  awaiting_in_store_payment: "等待到店支付",
-  confirmed_paid: "已付场地费",
-  payment_expired: "付款期限已过",
-  reschedule_requested: "申请改期",
-  cancellation_requested: "申请取消",
-  refunded: "已退款",
-  no_show: "未到店",
-  completed: "已完成",
-};
-
-const ACTION_LABELS: Record<BookingWorkflowAction, string> = {
-  confirm: "确认",
-  waitlist: "转候补",
-  reject: "拒绝",
-  propose_time: "提出时段",
-  accept_time: "接受时段",
-  record_payment: "记录场地费",
-  add_charge: "记录费用",
-  cancel: "取消",
-  refund: "记录退款",
-  complete: "完成",
-  no_show: "未到店",
-};
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString("zh-CN", {
-    timeZone: "Australia/Melbourne",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatAttendance(booking: Booking) {
-  if (!booking.attendance) return booking.numberOfPeople == null ? "—" : `${booking.numberOfPeople} 人`;
-  const { participantCount, accompanyingAdultCount, totalCount } = booking.attendance;
-  if (booking.kind === "party") {
-    return `${participantCount} 位参与者${accompanyingAdultCount == null ? "" : `，${accompanyingAdultCount} 位家长`}（共 ${totalCount} 人）`;
-  }
-  const children = booking.attendance.youngChildCount;
-  return `${participantCount} 位制作${children ? `，${children} 名儿童` : ""}${accompanyingAdultCount ? `，${accompanyingAdultCount} 位陪同` : ""}（共 ${totalCount} 人）`;
-}
 
 export default function AdminBookingsPage() {
   const searchParams = useSearchParams();
@@ -361,7 +311,7 @@ export default function AdminBookingsPage() {
             value={status}
           >
             <option value="">全部状态</option>
-            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+            {Object.entries(BOOKING_STATUS_LABELS).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
@@ -396,7 +346,7 @@ export default function AdminBookingsPage() {
               {items.map((booking) => (
                 <tr key={booking.id} className="border-b border-border last:border-0 align-top">
                   <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
-                    {formatDate(booking.createdAt)}
+                    {formatBookingQueueDate(booking.createdAt)}
                   </td>
                   <td className="px-4 py-3 font-medium">
                     {booking.isUnread && <span className="mr-2 inline-flex rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">未读</span>}
@@ -430,10 +380,7 @@ export default function AdminBookingsPage() {
                     </span>
                     <span className="font-medium">
                       <span className="block">
-                      {booking.offering?.name?.zh ??
-                        booking.offering?.name?.en ??
-                        booking.interestedProject ??
-                        "资料不完整"}
+                      {getBookingQueueOfferingName(booking)}
                       </span>
                     </span>
                     {booking.offering?.price && (
@@ -459,23 +406,19 @@ export default function AdminBookingsPage() {
                       "资料不完整"
                     )}
                   </td>
-                  <td className="px-4 py-3">{formatAttendance(booking)}</td>
+                  <td className="px-4 py-3">
+                    {formatBookingQueueAttendance(booking)}
+                  </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex border-l-2 border-[#D96F9E] pl-2 font-medium">
-                      {STATUS_LABELS[booking.status]}
+                      {BOOKING_STATUS_LABELS[booking.status]}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {booking.notificationSummary.latestStatus
-                      ? EMAIL_DELIVERY_LABELS[
-                          booking.notificationSummary.latestStatus
-                        ]
-                      : booking.email
-                        ? "尚无邮件"
-                        : "无邮箱，需电话联系"}
-                    {booking.notificationSummary.failedCount > 0 && (
+                    {getBookingQueueDeliverySummary(booking).label}
+                    {getBookingQueueDeliverySummary(booking).failureLabel && (
                       <span className="block text-xs text-destructive">
-                        {booking.notificationSummary.failedCount} 封发送失败
+                        {getBookingQueueDeliverySummary(booking).failureLabel}
                       </span>
                     )}
                   </td>
@@ -484,7 +427,7 @@ export default function AdminBookingsPage() {
                       {bookingActionsFor(booking.kind, booking.status).map(
                         (action, index) => (
                           <button
-                            aria-label={`${ACTION_LABELS[action]} ${booking.name}`}
+                            aria-label={`${BOOKING_ACTION_LABELS[action]} ${booking.name}`}
                             className="rounded border border-[#DED9D7] bg-white px-2 py-1 text-xs hover:border-[#D96F9E] focus-visible:outline-2 disabled:opacity-50"
                             data-booking-id={
                               index === 0 ? booking.id : undefined
@@ -494,7 +437,7 @@ export default function AdminBookingsPage() {
                             onClick={() => requestWorkflow(booking.id, action)}
                             type="button"
                           >
-                            {ACTION_LABELS[action]}
+                            {BOOKING_ACTION_LABELS[action]}
                           </button>
                         ),
                       )}
