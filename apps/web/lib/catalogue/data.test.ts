@@ -66,6 +66,8 @@ const plasterEntry = {
     priceDisplay: "A$19.80",
     bookable: false,
     sortOrder,
+    extraTimeMinutes: null,
+    extraTimePriceCents: null,
   })),
   priceDisplay: "A$19.80–A$54.00",
 };

@@ -65,6 +65,8 @@ export type ApiCatalogueVariant = {
   priceDisplay: string | null;
   bookable: boolean;
   sortOrder: number;
+  extraTimeMinutes: number | null;
+  extraTimePriceCents: number | null;
 };
 
 export type ApiCatalogueEntry = {

@@ -168,6 +168,8 @@ export function mapCatalogueEntryFromApi(entry: ApiCatalogueEntry) {
         priceDisplay: optional(variant.priceDisplay),
         bookable: variant.bookable,
         order: variant.sortOrder,
+        extraTimeMinutes: variant.extraTimeMinutes,
+        extraTimePriceCents: variant.extraTimePriceCents,
       })),
     priceDisplay: optional(entry.priceDisplay),
   };

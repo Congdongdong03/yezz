@@ -21,6 +21,8 @@ export type CatalogueVariantDto = {
   priceDisplay: string | null;
   bookable: boolean;
   sortOrder: number;
+  extraTimeMinutes: number | null;
+  extraTimePriceCents: number | null;
 };
 
 export type CatalogueEntryDto = {
@@ -105,6 +107,8 @@ function mapVariant(
     ),
     bookable: project.bookable,
     sortOrder: association.sortOrder,
+    extraTimeMinutes: project.extraTimeMinutes ?? null,
+    extraTimePriceCents: project.extraTimePriceCents ?? null,
     priceMin: pricing.priceMin,
     priceMax: pricing.priceMax,
     priceCurrency: pricing.priceCurrency,

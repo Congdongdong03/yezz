@@ -36,6 +36,8 @@ function project(
   priceMin: number,
   priceMax = priceMin,
   sortOrder = 0,
+  extraTimeMinutes: number | null = null,
+  extraTimePriceCents: number | null = null,
 ) {
   return {
     id: `project-${slug}`,
@@ -47,6 +49,8 @@ function project(
     priceCurrency: "AUD",
     bookable: false,
     sortOrder,
+    extraTimeMinutes,
+    extraTimePriceCents,
   };
 }
 
@@ -142,6 +146,17 @@ describe("public catalogue service", () => {
 
     expect(result[0]?.priceDisplay).toBe("A$18.00");
     expect(result[0]?.variants[0]?.priceDisplay).toBe("A$18.00");
+  });
+
+  it("keeps an operational extra-time price available for Melty Beads", async () => {
+    const result = await service([
+      row(project("melty-bead-craft", 4950, 4950, 0, 30, 1650)),
+    ]).list();
+
+    expect(result[0]?.variants[0]).toMatchObject({
+      extraTimeMinutes: 30,
+      extraTimePriceCents: 1650,
+    });
   });
 
   it("returns NOT_FOUND for a missing published slug", async () => {
