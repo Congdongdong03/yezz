@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
-import ProjectDetail from "@/components/projects/ProjectDetail";
+import CatalogueDetail from "@/components/catalogue/CatalogueDetail";
 import ServiceUnavailable from "@/components/ServiceUnavailable";
-import { loadProjectBySlug } from "@/lib/projects/data";
+import { loadCatalogueEntry } from "@/lib/catalogue/data";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import type { Metadata } from "next";
-import { loadSiteSettings } from "@/lib/site/data";
 
 export async function generateMetadata({
   params,
@@ -12,14 +11,14 @@ export async function generateMetadata({
   params: Promise<{ slug: string; locale: string }>;
 }): Promise<Metadata> {
   const { slug, locale } = await params;
-  const result = await loadProjectBySlug(slug);
+  const result = await loadCatalogueEntry(slug);
   if (!result.ok || !result.data) {
     return buildPageMetadata({ title: slug.replace(/-/g, " ") });
   }
   const name =
-    result.data.name?.[locale as "en" | "zh"] ?? slug.replace(/-/g, " ");
+    result.data.name[locale as "en" | "zh"] ?? slug.replace(/-/g, " ");
   const description =
-    result.data.description?.[locale as "en" | "zh"] ??
+    result.data.description[locale as "en" | "zh"] ??
     result.data.description?.en;
   return buildPageMetadata({
     title: name,
@@ -34,10 +33,7 @@ export default async function ProjectDetailPage({
 }) {
   const { locale, slug } = await params;
 
-  const [result, settings] = await Promise.all([
-    loadProjectBySlug(slug),
-    loadSiteSettings(),
-  ]);
+  const result = await loadCatalogueEntry(slug);
 
   if (!result.ok) {
     return <ServiceUnavailable />;
@@ -47,16 +43,11 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const requestEnabled =
-    result.data.projectType === "product"
-      ? settings.requestCapabilities.product
-      : settings.requestCapabilities.experience;
-
   return (
-    <ProjectDetail
-      project={result.data}
+    <CatalogueDetail
+      entry={result.data}
       locale={locale}
-      requestEnabled={requestEnabled}
+      requestEnabled={false}
     />
   );
 }

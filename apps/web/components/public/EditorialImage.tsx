@@ -2,8 +2,16 @@ import Image from "next/image";
 import type { EditorialMedia, PublicLocale } from "@/lib/editorial/media";
 import ImageProvenance from "./ImageProvenance";
 
+type CatalogueImageMedia = {
+  kind: "inspiration" | "yezyy" | "placeholder";
+  imageUrl: string;
+  sourceUrl?: string | null;
+  licenseUrl?: string | null;
+  alt: Record<PublicLocale, string>;
+};
+
 type EditorialImageProps = {
-  media: EditorialMedia;
+  media: EditorialMedia | CatalogueImageMedia;
   locale: PublicLocale;
   sizes: string;
   className?: string;
@@ -29,14 +37,11 @@ export default function EditorialImage({
           priority={priority}
         />
       </div>
-      <figcaption className="mt-3">
-        <ImageProvenance
-          locale={locale}
-          kind={media.kind}
-          sourceUrl={media.sourceUrl}
-          licenseUrl={media.licenseUrl}
-        />
-      </figcaption>
+      {media.kind === "inspiration" && media.sourceUrl && media.licenseUrl ? (
+        <figcaption className="mt-3">
+          <ImageProvenance locale={locale} kind="inspiration" sourceUrl={media.sourceUrl} licenseUrl={media.licenseUrl} />
+        </figcaption>
+      ) : null}
     </figure>
   );
 }

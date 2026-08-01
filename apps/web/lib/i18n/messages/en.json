@@ -388,6 +388,15 @@
     "bookCurrentFlow": "Start a DIY booking request",
     "pickSchedule": "Choose date & time"
   },
+  "catalogue": {
+    "eyebrow": "DIY projects",
+    "payInStore": "AUD · Pay in store",
+    "availability": "Colours, materials and available bases can vary in store.",
+    "moreBases": "More bases may be available in store.",
+    "inspiration": "DIY inspiration",
+    "variants": "Choose a size or style in store",
+    "occasions": "Great for"
+  },
   "footer": {
     "rights": "All rights reserved.",
     "links": "Links",

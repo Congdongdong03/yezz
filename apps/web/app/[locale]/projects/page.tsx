@@ -1,12 +1,8 @@
 import { getTranslations } from "next-intl/server";
-import CategoryNav from "@/components/projects/CategoryNav";
-import CategorySection from "@/components/projects/CategorySection";
+import CatalogueSection from "@/components/catalogue/CatalogueSection";
 import ServiceUnavailable from "@/components/ServiceUnavailable";
 import { EmptyCatalogueState } from "@/components/EmptyCatalogueState";
-import {
-  groupProjectsByCategory,
-  loadProjectsPageData,
-} from "@/lib/projects/data";
+import { loadCataloguePageData } from "@/lib/catalogue/data";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import type { Metadata } from "next";
 import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
@@ -32,16 +28,21 @@ export default async function ProjectsPage({
   const { locale } = await params;
   const t = await getTranslations("projects");
 
-  const projectsResult = await loadProjectsPageData();
-  if (!projectsResult.ok) {
+  const catalogueResult = await loadCataloguePageData();
+  if (!catalogueResult.ok) {
     return <ServiceUnavailable />;
   }
 
-  const { projects, categories } = projectsResult.data;
-  const { displayCategories, grouped } = groupProjectsByCategory(
-    projects,
-    categories,
-  );
+  const entries = catalogueResult.data;
+  const grouped = Array.from(
+    entries.reduce((groups, entry) => {
+      const key = entry.category.slug.current;
+      const current = groups.get(key) ?? { category: entry.category, entries: [] };
+      current.entries.push(entry);
+      groups.set(key, current);
+      return groups;
+    }, new Map<string, { category: (typeof entries)[number]["category"]; entries: typeof entries }>() ).values(),
+  ).sort((a, b) => a.category.order - b.category.order);
 
   return (
     <div className="public-catalogue min-h-screen bg-cream">
@@ -63,18 +64,16 @@ export default async function ProjectsPage({
           email={YEZYY_BUSINESS_PROFILE.email}
         />
       ) : (
-        <>
-          <CategoryNav categories={displayCategories} />
-          <div className="divide-y divide-warm-grey/10">
-            {grouped.map(({ category, projects: sectionProjects }) => (
-              <CategorySection
-                key={category.slug.current}
-                category={category}
-                projects={sectionProjects}
-              />
-            ))}
-          </div>
-        </>
+        <div className="divide-y divide-[var(--public-border)]">
+          {grouped.map(({ category, entries: sectionEntries }) => (
+            <CatalogueSection
+              key={category.slug.current}
+              category={category}
+              entries={sectionEntries}
+              locale={locale}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

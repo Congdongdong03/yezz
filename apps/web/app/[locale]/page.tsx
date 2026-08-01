@@ -9,6 +9,8 @@ import StudioConfidenceStrip from "@/components/sections/StudioConfidenceStrip";
 import StudioProcess from "@/components/sections/StudioProcess";
 import EditorialProjects from "@/components/sections/EditorialProjects";
 import StudioVisitPreview from "@/components/sections/StudioVisitPreview";
+import CatalogueCategoryGrid from "@/components/catalogue/CatalogueCategoryGrid";
+import { loadCataloguePageData } from "@/lib/catalogue/data";
 import { EmptyCatalogueState } from "@/components/EmptyCatalogueState";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -36,7 +38,10 @@ export default async function HomePage({
 }) {
   const { locale } = await params;
 
-  const homeResult = await loadHomePageData();
+  const [homeResult, catalogueResult] = await Promise.all([
+    loadHomePageData(),
+    loadCataloguePageData(),
+  ]);
 
   if (!homeResult.ok) {
     return <ServiceUnavailable />;
@@ -58,7 +63,9 @@ export default async function HomePage({
         experienceEnabled={siteSettings.requestCapabilities.experience}
       />
       <StudioConfidenceStrip />
-      {projects.length > 0 ? (
+      {catalogueResult.ok && catalogueResult.data.length > 0 ? (
+        <CatalogueCategoryGrid entries={catalogueResult.data} locale={locale} />
+      ) : projects.length > 0 ? (
         <EditorialProjects projects={projects.slice(0, 3)} />
       ) : (
         <div className="bg-cream px-4 py-8">

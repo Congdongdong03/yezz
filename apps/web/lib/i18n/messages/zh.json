@@ -388,6 +388,15 @@
     "bookCurrentFlow": "开始 DIY 预约申请",
     "pickSchedule": "选择预约档期"
   },
+  "catalogue": {
+    "eyebrow": "手作项目",
+    "payInStore": "澳币 · 到店付款",
+    "availability": "颜色、材料和可选底坯会随门店库存变化。",
+    "moreBases": "门店可能还有更多可选底坯。",
+    "inspiration": "DIY 灵感图",
+    "variants": "到店选择尺寸或款式",
+    "occasions": "适合"
+  },
   "footer": {
     "rights": "版权所有。",
     "links": "链接",
