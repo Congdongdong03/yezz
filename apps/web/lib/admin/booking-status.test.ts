@@ -38,6 +38,43 @@ describe("requiresCustomerNote", () => {
     expect(isStaleBookingStatus(new Error("socket hang up"))).toBe(false);
   });
 
+  it.each([
+    [
+      new ApiClientError(
+        "startTime must align to a 30-minute interval",
+        "VALIDATION_ERROR",
+        400,
+      ),
+      "开始时间必须选择整点或半点",
+    ],
+    [
+      new ApiClientError(
+        "The studio is closed on this date",
+        "STUDIO_CLOSED",
+        400,
+      ),
+      "所选日期门店不营业，请选择其他日期",
+    ],
+    [
+      new ApiClientError(
+        "The party time is unavailable due to the studio schedule",
+        "SCHEDULE_CONFLICT",
+        409,
+      ),
+      "所选时段与门店日程冲突，请选择其他时段",
+    ],
+    [
+      new ApiClientError(
+        "The requested interval is already held",
+        "CAPACITY_CONFLICT",
+        409,
+      ),
+      "所选时段已被占用或容量不足，请选择其他时段",
+    ],
+  ])("shows an actionable Chinese booking error for %s", (error, expected) => {
+    expect(formatBookingActionError(error)).toBe(expected);
+  });
+
   it("returns action-specific controls instead of a generic state list", () => {
     expect(bookingActionsFor("experience", "pending_review")).toEqual([
       "confirm",

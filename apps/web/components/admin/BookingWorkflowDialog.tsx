@@ -95,6 +95,13 @@ export default function BookingWorkflowDialog({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    if (
+      (action === "confirm" || action === "propose_time") &&
+      !/^(?:[01]\d|2[0-3]):(?:00|30)$/.test(finalStartTime)
+    ) {
+      setError("开始时间必须选择整点或半点");
+      return;
+    }
     const result = await onConfirm({
       action,
       expectedStatus: booking.status,
@@ -164,7 +171,15 @@ export default function BookingWorkflowDialog({
               <input
                 className="h-10 rounded-md border px-3 font-sans"
                 name="finalStartTime"
-                onChange={(event) => setFinalStartTime(event.target.value)}
+                min="00:00"
+                onChange={(event) => {
+                  setFinalStartTime(event.target.value);
+                  setError(null);
+                }}
+                onInvalid={(event) => {
+                  event.preventDefault();
+                  setError("开始时间必须选择整点或半点");
+                }}
                 required
                 step={1800}
                 type="time"

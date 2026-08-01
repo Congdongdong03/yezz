@@ -23,6 +23,21 @@ export function formatBookingActionError(error: unknown): string {
     if (error.code === "OPERATION_ID_CONFLICT") {
       return "本次操作已被其他状态变更使用，请关闭窗口后重试";
     }
+    if (
+      error.code === "VALIDATION_ERROR" &&
+      error.message.includes("30-minute interval")
+    ) {
+      return "开始时间必须选择整点或半点";
+    }
+    if (error.code === "STUDIO_CLOSED") {
+      return "所选日期门店不营业，请选择其他日期";
+    }
+    if (error.code === "SCHEDULE_CONFLICT") {
+      return "所选时段与门店日程冲突，请选择其他时段";
+    }
+    if (error.code === "CAPACITY_CONFLICT") {
+      return "所选时段已被占用或容量不足，请选择其他时段";
+    }
   }
   return "状态更新失败，请稍后重试";
 }

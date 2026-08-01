@@ -185,6 +185,36 @@ describe.skipIf(!runDatabaseTests)("party workflow PostgreSQL integration", () =
     });
   });
 
+  it("rejects an off-grid admin proposal without changing the pending request", async () => {
+    const service = createPartyWorkflowService(database.connection.db, {
+      now: () => new Date("2030-08-10T00:00:00.000Z"),
+    });
+    const created = await service.createPartyRequest(validParty(), crypto.randomUUID());
+
+    await expect(service.proposePartyTime({
+      bookingId: created.id,
+      expectedStatus: "pending_review",
+      finalDate: "2030-08-12",
+      finalGuestStart: "15:29",
+      paymentDeadline: new Date("2030-08-11T00:00:00.000Z"),
+      operationId: crypto.randomUUID(),
+      actorUserId: staffId,
+    })).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: "startTime must align to a 30-minute interval",
+    });
+
+    await expect(database.connection.db
+      .select({ status: bookings.status })
+      .from(bookings)
+      .where(eq(bookings.id, created.id))).resolves.toEqual([{ status: "pending_review" }]);
+    const deliveries = await database.connection.db
+      .select()
+      .from(emailOutbox)
+      .where(eq(emailOutbox.bookingId, created.id));
+    expect(deliveries.some(({ payload }) => payload.template === "party_time_proposed")).toBe(false);
+  });
+
   it("holds setup through cleanup only after acceptance", async () => {
     const service = createPartyWorkflowService(database.connection.db, {
       now: () => new Date("2030-08-10T00:00:00.000Z"),

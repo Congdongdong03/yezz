@@ -100,4 +100,61 @@ describe("BookingWorkflowDialog", () => {
     expect(container.querySelector("input[name='recordedAt']")).not.toBeNull();
     expect(container.textContent).not.toContain("在线支付");
   });
+
+  it("blocks a party proposal whose start time is not on a half-hour boundary", async () => {
+    const onConfirm = vi.fn();
+    await act(async () =>
+      root.render(
+        <BookingWorkflowDialog
+          action="propose_time"
+          booking={{
+            id: "booking-party",
+            kind: "party",
+            status: "pending_review",
+            slot: {
+              id: null,
+              date: "2026-08-03",
+              startTime: "15:30",
+              endTime: "17:00",
+              timeZone: "Australia/Melbourne",
+            },
+            numberOfPeople: 6,
+          }}
+          onCancel={vi.fn()}
+          onConfirm={onConfirm}
+          open
+        />,
+      ),
+    );
+
+    const start = container.querySelector<HTMLInputElement>(
+      "input[name='finalStartTime']",
+    );
+    const deadline = container.querySelector<HTMLInputElement>(
+      "input[name='paymentDeadline']",
+    );
+    const form = container.querySelector("form");
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set?.call(start, "15:29");
+      start?.dispatchEvent(new Event("input", { bubbles: true }));
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set?.call(deadline, "2026-08-02T12:00");
+      deadline?.dispatchEvent(new Event("input", { bubbles: true }));
+      start?.dispatchEvent(new Event("invalid", { cancelable: true }));
+    });
+    expect(container.textContent).toContain("开始时间必须选择整点或半点");
+
+    await act(async () => {
+      form?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    });
+
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });

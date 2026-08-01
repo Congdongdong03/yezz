@@ -91,6 +91,25 @@ async function proposePartyFromChineseAdmin(
   return response;
 }
 
+async function rejectOffGridPartyTimeInChineseAdmin(
+  page: Page,
+  fixture: LiveBookingFixture,
+  bookingId: string,
+) {
+  await page.goto(`/admin/bookings/${bookingId}`);
+  await page.getByRole("button", { name: "提出派对时段" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("最终日期").fill(fixture.bookingDate);
+  await dialog.getByLabel("客人开始时间").fill("15:29");
+  await dialog
+    .getByLabel("到店场地费付款期限（墨尔本时间）")
+    .fill("2035-01-01T12:00");
+  await dialog.getByRole("button", { name: "提出派对时段" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText(
+    "开始时间必须选择整点或半点",
+  );
+}
+
 test("Chinese party proposal, customer acceptance, in-store payment, conflict, and completion close once", async ({
   page,
 }) => {
@@ -105,6 +124,7 @@ test("Chinese party proposal, customer acceptance, in-store payment, conflict, a
       capabilities: { experience: true, party: true, product: false },
     });
     const bookingId = await createParty(page, fixture, email);
+    await rejectOffGridPartyTimeInChineseAdmin(page, fixture, bookingId);
     const proposed = await proposePartyFromChineseAdmin(
       page,
       fixture,
