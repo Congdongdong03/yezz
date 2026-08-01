@@ -528,6 +528,7 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
         type: "venue_fee",
         amountCents: 9500,
         recordedByUserId: staffId,
+        createdAt: new Date("2030-08-09T03:00:00.000Z"),
       },
       {
         bookingId,
@@ -535,6 +536,7 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
         amountCents: 1500,
         note: "Birthday cake",
         recordedByUserId: staffId,
+        createdAt: new Date("2030-08-09T03:05:00.000Z"),
       },
     ]);
 
