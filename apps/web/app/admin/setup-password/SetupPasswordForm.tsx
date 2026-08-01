@@ -36,7 +36,7 @@ export default function SetupPasswordForm() {
         <CardHeader>
           <CardTitle>密码已设置</CardTitle>
           <CardDescription>
-            Password setup is complete. You can now sign in.
+            新密码已生效，现在可以登录后台。
           </CardDescription>
         </CardHeader>
         <Link
@@ -53,11 +53,11 @@ export default function SetupPasswordForm() {
     event.preventDefault();
     setError(null);
     if (password.length < 12) {
-      setError("密码必须至少 12 个字符 / Password must be at least 12 characters");
+      setError("密码必须至少包含 12 个字符");
       return;
     }
     if (password !== confirmation) {
-      setError("两次输入的密码不一致 / Passwords do not match");
+      setError("两次输入的密码不一致");
       return;
     }
     setSubmitting(true);
@@ -68,7 +68,7 @@ export default function SetupPasswordForm() {
       setComplete(true);
     } catch {
       setError(
-        "此设置链接无效、已过期或已使用 / This setup link is invalid, expired, or already used",
+        "此设置链接无效、已过期或已使用",
       );
       setSubmitting(false);
     }
@@ -79,7 +79,7 @@ export default function SetupPasswordForm() {
       <CardHeader>
         <CardTitle>设置后台密码</CardTitle>
         <CardDescription>
-          Choose a password with at least 12 characters.
+          请输入至少 12 个字符的新密码。
         </CardDescription>
       </CardHeader>
       <form onSubmit={submit} className="space-y-4">

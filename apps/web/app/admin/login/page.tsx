@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AlertBanner from "@/components/admin/AlertBanner";
@@ -59,7 +60,15 @@ export default function AdminLoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">密码</Label>
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="password">密码</Label>
+              <Link
+                href="/admin/forgot-password"
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                忘记密码？
+              </Link>
+            </div>
             <Input
               id="password"
               type="password"

@@ -107,6 +107,7 @@ function assertAllowedTarget(method: string, apiPath: string): void {
       [
         "/api/v1/auth/login",
         "/api/v1/auth/logout",
+        "/api/v1/auth/forgot-password",
         "/api/v1/auth/setup-password",
       ].includes(apiPath)) ||
     (normalizedMethod === "POST" &&

@@ -78,6 +78,7 @@ services:
       ALLOW_PRODUCTION_BOOTSTRAP: ${ALLOW_PRODUCTION_BOOTSTRAP:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      PASSWORD_SETUP_TOKEN_SECRET: ${PASSWORD_SETUP_TOKEN_SECRET:-}
     command: ["sh", "-c", "pnpm --filter @yezz/db bootstrap:production"]
     depends_on:
       migrate:
@@ -108,6 +109,7 @@ services:
       OWNER_EMAIL: ${OWNER_EMAIL:?OWNER_EMAIL is required for production booking emails}
       EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM is required for production booking emails}
       EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:?EMAIL_REPLY_TO is required for production booking emails}
+      PASSWORD_SETUP_TOKEN_SECRET: ${PASSWORD_SETUP_TOKEN_SECRET:?PASSWORD_SETUP_TOKEN_SECRET is required for admin password recovery}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
       interval: 30s

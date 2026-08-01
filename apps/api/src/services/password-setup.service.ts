@@ -1,4 +1,4 @@
-import type { Db, UserRole } from "@yezz/db";
+import { sealPasswordSetupToken, type Db, type UserRole } from "@yezz/db";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import { AppError } from "../lib/errors.js";
@@ -13,8 +13,6 @@ import {
 } from "../repositories/users.repository.js";
 
 const TOKEN_LIFETIME_MILLISECONDS = 60 * 60 * 1000;
-const SETUP_URL = "https://yezyy.com/admin/setup-password";
-
 type SetupUser = {
   id: string;
   email: string;
@@ -29,6 +27,7 @@ type PasswordSetupOptions = {
   now?: () => Date;
   randomBytes?: (size: number) => Buffer;
   hashPassword?: (password: string, rounds: number) => Promise<string>;
+  sealSetupToken?: (rawToken: string) => string;
 };
 
 function digestToken(rawToken: string): string {
@@ -70,8 +69,16 @@ export function createPasswordSetupService(
   const now = options.now ?? (() => new Date());
   const randomBytes = options.randomBytes ?? nodeRandomBytes;
   const hashPassword = options.hashPassword ?? bcrypt.hash;
+  const sealSetupToken =
+    options.sealSetupToken ??
+    ((rawToken: string) =>
+      sealPasswordSetupToken(
+        rawToken,
+        process.env.PASSWORD_SETUP_TOKEN_SECRET,
+      ));
 
   async function issueInTransaction(user: SetupUser, tx: Db) {
+    await tokens.lockForIssue(user.id, tx);
     const issuedAt = now();
     const rawToken = randomBytes(32).toString("base64url");
     const expiresAt = new Date(
@@ -101,7 +108,7 @@ export function createPasswordSetupService(
           name: user.name,
           email: user.email,
           role: user.role,
-          setupUrl: `${SETUP_URL}?token=${rawToken}`,
+          sealedSetupToken: sealSetupToken(rawToken),
           expiresAt: expiresAt.toISOString(),
         },
       },
@@ -109,7 +116,36 @@ export function createPasswordSetupService(
     );
   }
 
+  async function issueForUser(user: SetupUser): Promise<void> {
+    try {
+      await db.transaction((transaction) =>
+        issueInTransaction(user, transaction as unknown as Db),
+      );
+    } catch {
+      throw setupIssueFailed();
+    }
+  }
+
   return {
+    async requestForEmail(email: unknown): Promise<{ ok: true }> {
+      if (typeof email !== "string") return { ok: true };
+
+      const normalizedEmail = email.normalize("NFKC").trim().toLowerCase();
+      if (
+        !normalizedEmail ||
+        normalizedEmail.length > 254 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+      ) {
+        return { ok: true };
+      }
+
+      const user = await users.findByEmail(normalizedEmail);
+      if (!user) return { ok: true };
+
+      await issueForUser(user);
+      return { ok: true };
+    },
+
     async createUserAndIssue(input: {
       email: string;
       name: string;
@@ -132,13 +168,7 @@ export function createPasswordSetupService(
     },
 
     async issueForUser(user: SetupUser): Promise<void> {
-      try {
-        await db.transaction((transaction) =>
-          issueInTransaction(user, transaction as unknown as Db),
-        );
-      } catch {
-        throw setupIssueFailed();
-      }
+      await issueForUser(user);
     },
 
     async complete(rawToken: unknown, newPassword: unknown): Promise<{ ok: true }> {

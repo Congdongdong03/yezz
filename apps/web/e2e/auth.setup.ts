@@ -26,7 +26,7 @@ setup("admin login", async ({ page }) => {
   if (process.env.YEZYY_CLOSURE_E2E === "1") {
     const setupMail = await waitForMailpitMessage({
       recipient: email,
-      subjectIncludes: "Set up your YezYY Admin password",
+      subjectIncludes: "Set or reset your YezYY Admin password",
       timeoutMilliseconds: 15_000,
     });
     const setupToken = extractSetupToken(

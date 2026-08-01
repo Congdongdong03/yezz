@@ -77,7 +77,7 @@ export type AdminPasswordSetupOutboxPayload = {
   name: string;
   email: string;
   role: "owner" | "admin" | "staff";
-  setupUrl: string;
+  sealedSetupToken: string;
   expiresAt: string;
 };
 
@@ -602,8 +602,8 @@ function validatePayloadForMessage(
     const candidate = record(
       payload,
       "payload",
-      ["template", "name", "email", "role", "setupUrl", "expiresAt"],
-      ["template", "name", "email", "role", "setupUrl", "expiresAt"],
+      ["template", "name", "email", "role", "sealedSetupToken", "expiresAt"],
+      ["template", "name", "email", "role", "sealedSetupToken", "expiresAt"],
     );
     if (candidate.template !== "admin_password_setup") {
       invalid("payload.template must be admin_password_setup");
@@ -616,23 +616,20 @@ function validatePayloadForMessage(
     if (!["owner", "admin", "staff"].includes(String(candidate.role))) {
       invalid("payload.role is invalid");
     }
-    const setupUrl = stringValue(candidate.setupUrl, "payload.setupUrl", {
-      max: 2048,
-    });
-    try {
-      const parsed = new URL(setupUrl ?? "");
-      const token = parsed.searchParams.get("token");
-      if (
-        parsed.origin !== "https://yezyy.com" ||
-        parsed.pathname !== "/admin/setup-password" ||
-        parsed.searchParams.size !== 1 ||
-        !token ||
-        !/^[A-Za-z0-9_-]{43}$/.test(token)
-      ) {
-        invalid("payload.setupUrl is invalid");
-      }
-    } catch {
-      invalid("payload.setupUrl is invalid");
+    const sealedSetupToken = stringValue(
+      candidate.sealedSetupToken,
+      "payload.sealedSetupToken",
+      {
+        max: 256,
+      },
+    );
+    if (
+      !sealedSetupToken ||
+      !/^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(
+        sealedSetupToken,
+      )
+    ) {
+      invalid("payload.sealedSetupToken is invalid");
     }
     dateString(candidate.expiresAt, "payload.expiresAt");
     return candidate as AdminPasswordSetupOutboxPayload;

@@ -25,7 +25,7 @@ describe("email delivery pagination", () => {
       messageType: "admin_password_setup",
       payload: {
         template: "admin_password_setup",
-        setupUrl: `https://yezyy.com/admin/setup-password?token=${token}`,
+        sealedSetupToken: `v1.${"a".repeat(16)}.${"b".repeat(58)}.${"c".repeat(22)}`,
       },
     } as never);
 

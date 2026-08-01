@@ -18,7 +18,20 @@ type SetupPasswordBody = {
   newPassword?: unknown;
 };
 
+type ForgotPasswordBody = {
+  email?: unknown;
+};
+
 const isProduction = process.env.NODE_ENV === "production";
+const PASSWORD_RECOVERY_MIN_RESPONSE_MILLISECONDS = 500;
+
+async function waitForPasswordRecoveryFloor(startedAt: number): Promise<void> {
+  const remaining =
+    PASSWORD_RECOVERY_MIN_RESPONSE_MILLISECONDS - (Date.now() - startedAt);
+  if (remaining > 0) {
+    await new Promise((resolve) => setTimeout(resolve, remaining));
+  }
+}
 
 function compareControllingLimit(
   left: RateLimitResult,
@@ -54,6 +67,52 @@ function clearAuthCookie(reply: FastifyReply) {
 }
 
 export default async function authRoutes(app: FastifyInstance) {
+  app.post<{ Body: ForgotPasswordBody }>(
+    "/forgot-password",
+    async (request, reply) => {
+      const startedAt = Date.now();
+      const body = request.body ?? {};
+      const normalizedEmail =
+        typeof body.email === "string"
+          ? body.email.normalize("NFKC").trim().toLowerCase()
+          : "";
+      const clientIp = resolvePublicRateLimitSubject(request);
+      const [ipEmailLimit, ipLimit] = await Promise.all([
+        app.services.rateLimits.consume(
+          "password-recovery-ip-email",
+          `${clientIp}\n${normalizedEmail}`,
+          3,
+          3600,
+        ),
+        app.services.rateLimits.consume(
+          "password-recovery-ip",
+          clientIp,
+          10,
+          3600,
+        ),
+      ]);
+      const controllingLimit = [ipEmailLimit, ipLimit].sort(
+        compareControllingLimit,
+      )[0]!;
+      enforceRateLimitResult(controllingLimit, reply);
+
+      try {
+        try {
+          await app.services.passwordSetup.requestForEmail(normalizedEmail);
+        } catch (error) {
+          request.log.warn(
+            { error },
+            "password recovery request could not be queued",
+          );
+        }
+      } finally {
+        await waitForPasswordRecoveryFloor(startedAt);
+      }
+
+      return success({ ok: true as const });
+    },
+  );
+
   app.post<{ Body: SetupPasswordBody }>(
     "/setup-password",
     async (request, reply) => {

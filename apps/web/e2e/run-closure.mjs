@@ -18,6 +18,8 @@ const compose = [
 ];
 const sharedSecret =
   "closure-e2e-shared-secret-2026-only-local";
+const passwordSetupTokenSecret =
+  "closure-e2e-password-setup-token-secret-local-only";
 const closureRunSentinel = crypto.randomBytes(32).toString("hex");
 const adminEmail = "congdongdong03@gmail.com";
 const adminPassword = "Closure-E2E-Admin-2026!";
@@ -113,6 +115,7 @@ try {
         ADMIN_PASSWORD: adminPassword,
         DATABASE_URL: databaseUrl,
         NODE_ENV: "production",
+        PASSWORD_SETUP_TOKEN_SECRET: passwordSetupTokenSecret,
         YEZYY_CLOSURE_E2E: "1",
       },
     },
@@ -152,6 +155,7 @@ try {
         NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${webPort}`,
         NEXT_PUBLIC_USE_API: "true",
         OWNER_EMAIL: adminEmail,
+        PASSWORD_SETUP_TOKEN_SECRET: passwordSetupTokenSecret,
         RATE_LIMIT_HASH_SECRET:
           "closure-e2e-rate-limit-hash-secret-local-only",
         REQUEST_FLOW_EXPERIENCE_ENABLED: "true",

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { sealPasswordSetupToken } from "@yezz/db";
 import { displayLocalized, escapeHtml } from "./email-helpers.js";
 
 const sentEmails = vi.hoisted(() => [] as Array<Record<string, unknown>>);
@@ -8,7 +9,11 @@ const originalEnvironment = {
   EMAIL_FROM: process.env.EMAIL_FROM,
   EMAIL_REPLY_TO: process.env.EMAIL_REPLY_TO,
   OWNER_EMAIL: process.env.OWNER_EMAIL,
+  PASSWORD_SETUP_TOKEN_SECRET: process.env.PASSWORD_SETUP_TOKEN_SECRET,
 };
+
+const passwordSetupTokenSecret =
+  "email-test-password-setup-token-secret-at-least-32-bytes";
 
 vi.mock("resend", () => ({
   Resend: class {
@@ -56,6 +61,7 @@ describe("staff credential emails", () => {
     process.env.RESEND_API_KEY = "test-resend-key";
     process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
     process.env.EMAIL_REPLY_TO = "congdongdong03@gmail.com";
+    process.env.PASSWORD_SETUP_TOKEN_SECRET = passwordSetupTokenSecret;
   });
 
   afterEach(() => {
@@ -70,7 +76,9 @@ describe("staff credential emails", () => {
 
   it("sends only the expiring setup link through the durable outbox template", async () => {
     const { createResendOutboxProvider } = await import("./email.js");
-    const provider = createResendOutboxProvider();
+    const provider = createResendOutboxProvider({
+      passwordSetupTokenSecret,
+    });
     const token = "A".repeat(43);
 
     await provider.send({
@@ -87,16 +95,20 @@ describe("staff credential emails", () => {
         name: "Staff",
         email: "staff@example.com",
         role: "staff",
-        setupUrl: `https://yezyy.com/admin/setup-password?token=${token}`,
+        sealedSetupToken: sealPasswordSetupToken(
+          token,
+          passwordSetupTokenSecret,
+        ),
         expiresAt: "2030-08-01T01:00:00.000Z",
       },
     });
 
     const sentEmail = sentEmails[0] as { html: string; subject: string };
-    expect(sentEmail.subject).toContain("Set up your YezYY Admin password");
+    expect(sentEmail.subject).toContain("Set or reset your YezYY Admin password");
     expect(sentEmail.html).toContain(
       `https://yezyy.com/admin/setup-password?token=${token}`,
     );
+    expect(sentEmail.html).toContain("Set or reset password");
     expect(sentEmail.html).toContain("expires in 60 minutes");
     expect(sentEmail.html).not.toContain("SafeTemporary42!");
     expect(sentEmail.html).not.toContain("temporary password");

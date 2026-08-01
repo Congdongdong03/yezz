@@ -9,6 +9,8 @@ const originalMaintenanceWorkerEnabled =
 const originalReplyTo = process.env.EMAIL_REPLY_TO;
 const originalOwnerEmail = process.env.OWNER_EMAIL;
 const originalResendApiKey = process.env.RESEND_API_KEY;
+const originalPasswordSetupTokenSecret =
+  process.env.PASSWORD_SETUP_TOKEN_SECRET;
 const originalCustomerActionTokenSecret =
   process.env.CUSTOMER_ACTION_TOKEN_SECRET;
 const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -32,6 +34,8 @@ describe("application startup", () => {
     delete process.env.REQUEST_FLOW_PRODUCT_ENABLED;
     delete process.env.CUSTOMER_ACTION_TOKEN_SECRET;
     delete process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.PASSWORD_SETUP_TOKEN_SECRET =
+      "startup-test-password-setup-token-secret-at-least-32-bytes";
     loadEnv.mockImplementation(() => {
       process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
     });
@@ -56,6 +60,11 @@ describe("application startup", () => {
     else process.env.OWNER_EMAIL = originalOwnerEmail;
     if (originalResendApiKey === undefined) delete process.env.RESEND_API_KEY;
     else process.env.RESEND_API_KEY = originalResendApiKey;
+    if (originalPasswordSetupTokenSecret === undefined)
+      delete process.env.PASSWORD_SETUP_TOKEN_SECRET;
+    else
+      process.env.PASSWORD_SETUP_TOKEN_SECRET =
+        originalPasswordSetupTokenSecret;
     if (originalCustomerActionTokenSecret === undefined)
       delete process.env.CUSTOMER_ACTION_TOKEN_SECRET;
     else
@@ -102,6 +111,22 @@ describe("application startup", () => {
     await expect(
       loadConfiguredApp(async () => ({ buildApp: vi.fn() })),
     ).rejects.toThrow("RESEND_API_KEY");
+  });
+
+  it("requires a strong password setup token secret when the outbox worker is enabled", async () => {
+    loadEnv.mockImplementation(() => {
+      process.env.EMAIL_OUTBOX_WORKER_ENABLED = "true";
+      process.env.EMAIL_FROM = "YezYY <bookings@yezyy.com>";
+      process.env.EMAIL_REPLY_TO = "congdongdong03@gmail.com";
+      process.env.OWNER_EMAIL = "congdongdong03@gmail.com";
+      process.env.RESEND_API_KEY = "resend-key";
+      process.env.PASSWORD_SETUP_TOKEN_SECRET = "too-short";
+    });
+    const { loadConfiguredApp } = await import("./startup.js");
+
+    await expect(
+      loadConfiguredApp(async () => ({ buildApp: vi.fn() })),
+    ).rejects.toThrow("PASSWORD_SETUP_TOKEN_SECRET must be at least 32 bytes");
   });
 
   it("requires management-link configuration when the email worker can deliver live booking mail", async () => {

@@ -9,6 +9,7 @@ const TOKEN_DIGEST = createHash("sha256").update(RAW_TOKEN).digest("hex");
 function createDependencies() {
   const transaction = vi.fn(async (operation) => operation({} as never));
   const tokens = {
+    lockForIssue: vi.fn(async () => undefined),
     create: vi.fn(async (input) => ({
       id: "token-1",
       createdAt: NOW,
@@ -21,6 +22,7 @@ function createDependencies() {
     revokeActiveForUser: vi.fn(async () => undefined),
   };
   const users = {
+    findByEmail: vi.fn(async () => null),
     create: vi.fn(async (input) => ({
       id: "user-1",
       email: input.email,
@@ -47,12 +49,74 @@ function createDependencies() {
       now: () => NOW,
       randomBytes: () => Buffer.alloc(32, 7),
       hashPassword,
+      sealSetupToken: () => "v1.aXZfaXZfaXZfaXZf.Y2lwaGVydGV4dA.dGFnX3RhZ190YWdfdGFnXw",
     },
   );
   return { service, transaction, tokens, users, outbox, hashPassword };
 }
 
 describe("password setup service", () => {
+  it("normalizes an existing administrator email and queues a replacement link", async () => {
+    const { service, users, tokens, outbox } = createDependencies();
+    users.findByEmail.mockResolvedValue({
+      id: "user-1",
+      email: "owner@example.com",
+      name: "YezYY Owner",
+      role: "owner",
+      sessionVersion: 3,
+      createdAt: NOW,
+      passwordHash: "existing-hash",
+    } as never);
+
+    await expect(
+      service.requestForEmail("  Owner@Example.COM  "),
+    ).resolves.toEqual({ ok: true });
+
+    expect(users.findByEmail).toHaveBeenCalledWith("owner@example.com");
+    expect(tokens.revokeActiveForUser).toHaveBeenCalledWith(
+      "user-1",
+      NOW,
+      expect.anything(),
+    );
+    expect(tokens.lockForIssue).toHaveBeenCalledWith(
+      "user-1",
+      expect.anything(),
+    );
+    expect(tokens.lockForIssue.mock.invocationCallOrder[0]).toBeLessThan(
+      tokens.revokeActiveForUser.mock.invocationCallOrder[0],
+    );
+    expect(outbox.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipient: "owner@example.com",
+        messageType: "admin_password_setup",
+        payload: expect.objectContaining({
+          sealedSetupToken: expect.any(String),
+        }),
+      }),
+      expect.anything(),
+    );
+    expect(JSON.stringify(outbox.enqueue.mock.calls)).not.toContain(RAW_TOKEN);
+  });
+
+  it.each(["missing@example.com", "", null])(
+    "returns the same response without issuing a link for %j",
+    async (email) => {
+      const { service, users, tokens, outbox } = createDependencies();
+
+      await expect(service.requestForEmail(email)).resolves.toEqual({
+        ok: true,
+      });
+
+      if (typeof email === "string" && email.trim()) {
+        expect(users.findByEmail).toHaveBeenCalledWith(email);
+      } else {
+        expect(users.findByEmail).not.toHaveBeenCalled();
+      }
+      expect(tokens.create).not.toHaveBeenCalled();
+      expect(outbox.enqueue).not.toHaveBeenCalled();
+    },
+  );
+
   it("creates a user with an unreturned bootstrap secret and queues a 60-minute setup link", async () => {
     const { service, tokens, users, outbox } = createDependencies();
 
@@ -95,11 +159,12 @@ describe("password setup service", () => {
         recipient: "congdongdong03@gmail.com",
         payload: expect.objectContaining({
           template: "admin_password_setup",
-          setupUrl: `https://yezyy.com/admin/setup-password?token=${RAW_TOKEN}`,
+          sealedSetupToken: expect.any(String),
         }),
       }),
       expect.anything(),
     );
+    expect(JSON.stringify(outbox.enqueue.mock.calls)).not.toContain(RAW_TOKEN);
   });
 
   it("revokes previous tokens before issuing a replacement", async () => {

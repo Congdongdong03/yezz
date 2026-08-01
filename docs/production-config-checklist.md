@@ -120,6 +120,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 | `WEB_API_SHARED_SECRET` | Fly API + Vercel Web | 当前 HMAC 密钥，至少 32 个字符 |
 | `WEB_API_SHARED_SECRET_PREVIOUS` | 仅 Fly API，可选 | 轮换期间临时接受上一把密钥 |
 | `RATE_LIMIT_HASH_SECRET` | 仅 Fly API | 请求主体 HMAC 密钥，独立随机生成且至少 32 字节 |
+| `PASSWORD_SETUP_TOKEN_SECRET` | 仅 Fly API | 后台密码重置邮件队列加密密钥，独立随机生成且至少 32 字节 |
 | `INTERNAL_REQUEST_ENFORCEMENT` | 仅 Fly API | 首次上线用 `log`，验证完成后改为 `require` |
 | `API_URL` | 仅 Vercel Web | BFF 访问 Fly API 的服务端地址 |
 
@@ -412,7 +413,7 @@ WEB_API_SHARED_SECRET=... # 服务端变量，不得添加 NEXT_PUBLIC_ 前缀
 fly secrets set DATABASE_URL="..." JWT_SECRET="..." CORS_ORIGIN="..."
 fly secrets set WEB_API_SHARED_SECRET="..." RATE_LIMIT_HASH_SECRET="..." INTERNAL_REQUEST_ENFORCEMENT="log"
 fly secrets set S3_ENDPOINT="..." S3_ACCESS_KEY="..." S3_SECRET_KEY="..."
-fly secrets set RESEND_API_KEY="..." OWNER_EMAIL="..." EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>" EMAIL_REPLY_TO="congdongdong03@gmail.com" STORE_TIMEZONE="Australia/Melbourne"
+fly secrets set RESEND_API_KEY="..." OWNER_EMAIL="..." EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>" EMAIL_REPLY_TO="congdongdong03@gmail.com" PASSWORD_SETUP_TOKEN_SECRET="..." STORE_TIMEZONE="Australia/Melbourne"
 
 # Web 构建参数（如用 Docker 部署）
 fly secrets set NEXT_PUBLIC_API_URL="..." NEXT_PUBLIC_USE_API="true"
@@ -703,6 +704,8 @@ vercel rollback <LAST_KNOWN_GOOD_GATE_AWARE_VERCEL_DEPLOYMENT_URL>
 - [ ] `RESEND_API_KEY`、`OWNER_EMAIL`、`EMAIL_FROM` 和 `EMAIL_REPLY_TO` 已配置
 - [ ] `CUSTOMER_ACTION_TOKEN_SECRET` 已独立生成且至少 32 字节，不与
       `RESEND_API_KEY` 共用，且未写入命令输出、工单或日志
+- [ ] `PASSWORD_SETUP_TOKEN_SECRET` 已独立生成且至少 32 字节，只配置在 Fly，
+      且未写入代码、命令输出、工单或日志
 - [ ] `NEXT_PUBLIC_SITE_URL` 是 HTTPS 规范根域名，例如 `https://yezyy.com`
 - [ ] 三个 `REQUEST_FLOW_*_ENABLED` 在初始生产部署中均为 `false`
 - [ ] `EMAIL_OUTBOX_WORKER_ENABLED` 在邮件服务验证前保持 `false`
@@ -758,6 +761,7 @@ EMAIL_FROM="YezYY Bookings <bookings@yezyy.com>"
 EMAIL_REPLY_TO=congdongdong03@gmail.com
 STORE_TIMEZONE=Australia/Melbourne
 CUSTOMER_ACTION_TOKEN_SECRET=xxxx        # 独立运行 openssl rand -base64 32；不得与 RESEND_API_KEY 共用
+PASSWORD_SETUP_TOKEN_SECRET=xxxx         # 独立运行 openssl rand -base64 32；仅 Fly API
 EMAIL_OUTBOX_WORKER_ENABLED=false
 BOOKING_MAINTENANCE_WORKER_ENABLED=false
 REQUEST_FLOW_EXPERIENCE_ENABLED=false

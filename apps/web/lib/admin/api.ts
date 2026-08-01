@@ -87,6 +87,14 @@ export async function completePasswordSetup(
   });
 }
 
+export async function requestPasswordReset(email: string) {
+  return adminFetch<{ ok: true }>("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+    auth: false,
+  });
+}
+
 export async function logout() {
   clearLegacyAdminToken();
   return adminFetch<{ ok: boolean }>("/api/v1/auth/logout", {

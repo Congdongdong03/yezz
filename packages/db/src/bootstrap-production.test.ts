@@ -78,6 +78,7 @@ function createStore(state: BootstrapState): ProductionBootstrapStore {
 }
 
 const guardedEnv = {
+  PASSWORD_SETUP_TOKEN_SECRET: "bootstrap-password-token-secret-32-bytes-minimum",
   ALLOW_PRODUCTION_BOOTSTRAP: "YezYY",
 };
 
@@ -332,11 +333,12 @@ describe("production bootstrap", () => {
       recipient: "congdongdong03@gmail.com",
       payload: expect.objectContaining({
         template: "admin_password_setup",
-        setupUrl: expect.stringMatching(
-          /^https:\/\/yezyy\.com\/admin\/setup-password\?token=[A-Za-z0-9_-]{43}$/,
-        ),
+        sealedSetupToken: expect.stringMatching(/^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/),
       }),
     });
+    expect(JSON.stringify(state.outbox)).not.toContain(
+      Buffer.alloc(32, 7).toString("base64url"),
+    );
     expect(JSON.stringify(result)).not.toMatch(/password|token/i);
   });
 

@@ -70,6 +70,7 @@ function protectedPath(method: string, url: string): boolean {
       [
         "/api/v1/auth/login",
         "/api/v1/auth/logout",
+        "/api/v1/auth/forgot-password",
         "/api/v1/auth/setup-password",
       ].includes(path)) ||
     path === "/api/v1/admin" ||

@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
-import { motion } from "framer-motion";
 import Image from "next/image";
 import { YEZYY_BUSINESS_PROFILE } from "@/lib/site/business";
 
@@ -36,43 +35,21 @@ export default function Hero({
       )}
       <div className="absolute inset-0 bg-[var(--public-canvas)]/35" />
       <div className="relative z-10 mx-auto max-w-4xl px-4 text-center sm:px-6">
-        <motion.p
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="public-eyebrow"
-        >
-          {t("eyebrow")}
-        </motion.p>
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mt-4 text-4xl font-serif font-bold leading-[1.05] text-[var(--public-ink)] md:text-6xl"
-        >
+        <p className="public-eyebrow">{t("eyebrow")}</p>
+        <h1 className="mt-4 text-4xl font-serif font-bold leading-[1.05] text-[var(--public-ink)] md:text-6xl">
           {t("title")}
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[var(--public-muted)] md:text-xl"
-        >
+        </h1>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[var(--public-muted)] md:text-xl">
           {t("subtitle")}
-        </motion.p>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-8"
-        >
+        </p>
+        <div className="mt-8">
           <Link
             href={experienceEnabled ? "/book" : "/projects"}
             className="inline-block rounded-full bg-[var(--public-pink)] px-8 py-3 text-lg font-medium text-white transition-transform hover:-translate-y-1"
           >
             {experienceEnabled ? t("cta") : nav("browseProjects")}
           </Link>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

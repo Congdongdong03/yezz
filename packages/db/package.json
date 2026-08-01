@@ -18,7 +18,7 @@
     "seed:public-catalogue": "tsx src/seed-public-catalogue.ts",
     "bootstrap:production": "tsx src/bootstrap-production.ts",
     "test": "vitest run",
-    "test:integration": "YEZYY_RUN_DB_MIGRATION_TESTS=1 YEZYY_RUN_DB_CATALOGUE_TESTS=1 vitest run src/migrations/flow-closure.migration.test.ts src/migrations/live-booking.migration.test.ts src/migrations/capability-linearization.migration.test.ts src/migrations/public-catalogue.migration.test.ts src/seed-live-booking-catalogue.integration.test.ts src/seed-public-catalogue.integration.test.ts src/bootstrap-production.test.ts",
+    "test:integration": "YEZYY_RUN_DB_MIGRATION_TESTS=1 YEZYY_RUN_DB_CATALOGUE_TESTS=1 vitest run src/migrations/flow-closure.migration.test.ts src/migrations/live-booking.migration.test.ts src/migrations/capability-linearization.migration.test.ts src/migrations/public-catalogue.migration.test.ts src/migrations/password-setup-outbox.migration.test.ts src/seed-live-booking-catalogue.integration.test.ts src/seed-public-catalogue.integration.test.ts src/bootstrap-production.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

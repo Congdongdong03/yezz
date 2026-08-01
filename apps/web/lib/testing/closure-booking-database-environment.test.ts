@@ -70,6 +70,8 @@ describe("closure live-initialization child environment", () => {
     expect(environment).toMatchObject({
       ALLOW_PRODUCTION_BOOTSTRAP: "YezYY",
       CONFIRM_LIVE_CATALOGUE_SEED: "YezYY",
+      PASSWORD_SETUP_TOKEN_SECRET:
+        "closure-booking-db-password-setup-token-secret-local-only",
       YEZZY_CLOSURE_E2E: "1",
     });
     expect(new URL(environment.DATABASE_URL!).hostname).toBe("127.0.0.1");

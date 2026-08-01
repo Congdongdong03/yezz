@@ -1,5 +1,5 @@
 import { passwordSetupTokens, type Db } from "@yezz/db";
-import { and, eq, gt, isNull, ne } from "drizzle-orm";
+import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 
 export type PasswordSetupTokenInsert = {
   userId: string;
@@ -9,6 +9,12 @@ export type PasswordSetupTokenInsert = {
 
 export function createPasswordSetupTokensRepository(db: Db) {
   return {
+    async lockForIssue(userId: string, tx: Db = db) {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext('password-setup'), hashtext(${userId}))`,
+      );
+    },
+
     async create(input: PasswordSetupTokenInsert, tx: Db = db) {
       const [row] = await tx
         .insert(passwordSetupTokens)

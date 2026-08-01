@@ -5,6 +5,7 @@ import type {
   EmailOutboxProvider,
   OutboxProviderMessage,
 } from "../services/email-outbox.service.js";
+import { unsealPasswordSetupToken } from "@yezz/db";
 import {
   isStatusLifecycleTemplate,
   validateEmailOutboxEnvelope,
@@ -740,7 +741,10 @@ function parseOutboxDate(value: string): Date {
   return parsed;
 }
 
-function renderOutboxMessage(message: OutboxProviderMessage) {
+function renderOutboxMessage(
+  message: OutboxProviderMessage,
+  passwordSetupTokenSecret: string | undefined,
+) {
   const validated = validateEmailOutboxEnvelope(message);
   const template = validated.payload.template;
   let rendered: { subject: string; html: string };
@@ -791,11 +795,17 @@ function renderOutboxMessage(message: OutboxProviderMessage) {
     };
   } else if (template === "admin_password_setup") {
     const payload = validated.payload as AdminPasswordSetupOutboxPayload;
-    const subject = "Set up your YezYY Admin password";
+    const rawToken = unsealPasswordSetupToken(
+      payload.sealedSetupToken,
+      passwordSetupTokenSecret,
+    );
+    const setupUrl = new URL("https://yezyy.com/admin/setup-password");
+    setupUrl.searchParams.set("token", rawToken);
+    const subject = "Set or reset your YezYY Admin password";
     const body = `
-      <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Set up your password</h2>
-      <p style="color:#5C5C5C;margin:0 0 20px;">Hi <strong>${escapeHtml(payload.name)}</strong>, use the secure link below to set the password for ${escapeHtml(payload.email)}.</p>
-      <p style="margin:0 0 20px;"><a href="${escapeHtml(payload.setupUrl)}" rel="noreferrer" style="display:inline-block;border-radius:8px;background:#2C2C2C;color:#fff;padding:12px 18px;text-decoration:none;">Set up password</a></p>
+      <h2 style="margin:0 0 8px;font-size:20px;color:#2C2C2C;font-family:Georgia,serif;">Set or reset your password</h2>
+      <p style="color:#5C5C5C;margin:0 0 20px;">Hi <strong>${escapeHtml(payload.name)}</strong>, use the secure link below to set or reset the password for ${escapeHtml(payload.email)}.</p>
+      <p style="margin:0 0 20px;"><a href="${escapeHtml(setupUrl.toString())}" rel="noreferrer" style="display:inline-block;border-radius:8px;background:#2C2C2C;color:#fff;padding:12px 18px;text-decoration:none;">Set or reset password</a></p>
       <p style="color:#5C5C5C;font-size:13px;">This single-use link expires in 60 minutes. If you did not expect this email, ignore it.</p>
     `;
     rendered = {
@@ -830,7 +840,9 @@ function renderOutboxMessage(message: OutboxProviderMessage) {
   return { validated, rendered };
 }
 
-export function createResendOutboxProvider(): EmailOutboxProvider {
+export function createResendOutboxProvider(options: {
+  passwordSetupTokenSecret?: string;
+} = {}): EmailOutboxProvider {
   return {
     async send(message: OutboxProviderMessage): Promise<ProviderSendResult> {
       if (!resend) {
@@ -839,7 +851,11 @@ export function createResendOutboxProvider(): EmailOutboxProvider {
           statusCode: 503,
         });
       }
-      const { validated, rendered } = renderOutboxMessage(message);
+      const { validated, rendered } = renderOutboxMessage(
+        message,
+        options.passwordSetupTokenSecret ??
+          process.env.PASSWORD_SETUP_TOKEN_SECRET,
+      );
       const result = await sendRawEmail(
         {
           to: validated.recipient,
@@ -866,7 +882,8 @@ type EmailProviderEnvironment = Partial<
     | "SMTP_HOST"
     | "SMTP_PORT"
     | "EMAIL_FROM"
-    | "EMAIL_REPLY_TO",
+    | "EMAIL_REPLY_TO"
+    | "PASSWORD_SETUP_TOKEN_SECRET",
     string | undefined
   >
 >;
@@ -875,7 +892,11 @@ export function createConfiguredOutboxProvider(
   env: EmailProviderEnvironment = process.env,
 ): EmailOutboxProvider {
   const provider = env.EMAIL_PROVIDER?.trim() || "resend";
-  if (provider === "resend") return createResendOutboxProvider();
+  if (provider === "resend") {
+    return createResendOutboxProvider({
+      passwordSetupTokenSecret: env.PASSWORD_SETUP_TOKEN_SECRET,
+    });
+  }
   if (provider !== "smtp") {
     throw new Error("EMAIL_PROVIDER must be resend or smtp");
   }
@@ -898,7 +919,10 @@ export function createConfiguredOutboxProvider(
 
   return {
     async send(message: OutboxProviderMessage): Promise<ProviderSendResult> {
-      const { validated, rendered } = renderOutboxMessage(message);
+      const { validated, rendered } = renderOutboxMessage(
+        message,
+        env.PASSWORD_SETUP_TOKEN_SECRET,
+      );
       await sendSmtpMessage({
         host,
         port,

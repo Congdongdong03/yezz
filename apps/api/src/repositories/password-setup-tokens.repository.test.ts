@@ -1,4 +1,9 @@
-import { emailOutbox, passwordSetupTokens, users } from "@yezz/db";
+import {
+  emailOutbox,
+  passwordSetupTokens,
+  sealPasswordSetupToken,
+  users,
+} from "@yezz/db";
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -9,6 +14,8 @@ import { createEmailOutboxRepository } from "./email-outbox.repository.js";
 import { createPasswordSetupTokensRepository } from "./password-setup-tokens.repository.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
+const passwordSetupTokenSecret =
+  "repository-test-password-setup-token-secret-at-least-32-bytes";
 
 describe.skipIf(!runDatabaseTests)("password setup token repository", () => {
   let database: RequestFlowTestDatabase;
@@ -119,6 +126,34 @@ describe.skipIf(!runDatabaseTests)("password setup token repository", () => {
     expect(results.sort()).toEqual([false, true]);
   });
 
+  it("serializes concurrent issuance so only the newest setup token stays active", async () => {
+    const repo = createPasswordSetupTokensRepository(database.connection.db);
+    const issue = (digest: string, now: Date) =>
+      database.connection.db.transaction(async (tx) => {
+        await repo.lockForIssue(userId, tx as never);
+        await repo.revokeActiveForUser(userId, now, tx as never);
+        return repo.create(
+          {
+            userId,
+            tokenDigest: digest,
+            expiresAt: new Date("2030-08-01T01:00:00.000Z"),
+          },
+          tx as never,
+        );
+      });
+
+    await Promise.all([
+      issue("e".repeat(64), new Date("2030-08-01T00:00:00.000Z")),
+      issue("f".repeat(64), new Date("2030-08-01T00:00:01.000Z")),
+    ]);
+
+    const rows = await database.connection.db
+      .select()
+      .from(passwordSetupTokens);
+    expect(rows).toHaveLength(2);
+    expect(rows.filter(({ revokedAt }) => revokedAt === null)).toHaveLength(1);
+  });
+
   it("persists a parentless setup email with the digest and rolls both back on an invalid outbox payload", async () => {
     const tokens = createPasswordSetupTokensRepository(database.connection.db);
     const outbox = createEmailOutboxRepository(database.connection.db);
@@ -147,7 +182,10 @@ describe.skipIf(!runDatabaseTests)("password setup token repository", () => {
             name: "Owner",
             email: "owner@example.test",
             role: "owner",
-            setupUrl: `https://yezyy.com/admin/setup-password?token=${rawToken}`,
+            sealedSetupToken: sealPasswordSetupToken(
+              rawToken,
+              passwordSetupTokenSecret,
+            ),
             expiresAt: expiresAt.toISOString(),
           },
         },
@@ -169,6 +207,7 @@ describe.skipIf(!runDatabaseTests)("password setup token repository", () => {
       statusEventId: null,
       messageType: "admin_password_setup",
     });
+    expect(JSON.stringify(storedEmail)).not.toContain(rawToken);
 
     await expect(
       database.connection.db.transaction(async (tx) => {
@@ -194,7 +233,7 @@ describe.skipIf(!runDatabaseTests)("password setup token repository", () => {
               name: "Owner",
               email: "owner@example.test",
               role: "owner",
-              setupUrl: "https://example.test/unsafe",
+              sealedSetupToken: "not-a-sealed-token",
               expiresAt: expiresAt.toISOString(),
             },
           },

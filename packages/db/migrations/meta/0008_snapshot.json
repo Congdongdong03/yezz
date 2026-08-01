@@ -1,6 +1,6 @@
 {
-  "id": "d7ebee2a-8fbc-421a-8dde-cbb217c281a5",
-  "prevId": "bad4d8ab-3495-430c-87a7-6fb507bd7b7b",
+  "id": "5b46c1c8-edba-4c56-98d6-acaf614cdb8d",
+  "prevId": "d7ebee2a-8fbc-421a-8dde-cbb217c281a5",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1954,6 +1954,10 @@
         "email_outbox_delivery_status_valid": {
           "name": "email_outbox_delivery_status_valid",
           "value": "\"email_outbox\".\"delivery_status\" IN ('pending', 'processing', 'sent', 'failed')"
+        },
+        "email_outbox_no_raw_password_setup_url": {
+          "name": "email_outbox_no_raw_password_setup_url",
+          "value": "\"email_outbox\".\"message_type\" <> 'admin_password_setup' OR NOT (\"email_outbox\".\"payload\" ? 'setupUrl')"
         },
         "email_outbox_attempt_count_nonnegative": {
           "name": "email_outbox_attempt_count_nonnegative",

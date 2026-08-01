@@ -125,6 +125,39 @@ describe("same-origin backend transport", () => {
     );
   });
 
+  it("forwards password recovery through the signed same-origin boundary", async () => {
+    const upstream = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => {
+        void _input;
+        void _init;
+        return Response.json({ success: true, data: { ok: true } });
+      },
+    );
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await POST(
+      new Request(
+        "https://yezyy.com/api/backend/v1/auth/forgot-password",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: "https://yezyy.com",
+            "x-vercel-forwarded-for": "203.0.113.4",
+          },
+          body: JSON.stringify({ email: "owner@example.com" }),
+        },
+      ),
+      context(["v1", "auth", "forgot-password"]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledOnce();
+    expect(upstream.mock.calls[0]?.[0]).toBe(
+      "https://api.example.test/api/v1/auth/forgot-password",
+    );
+  });
+
   it("accepts the configured loopback origin only in the isolated closure harness", async () => {
     vi.stubEnv("YEZYY_CLOSURE_E2E", "1");
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://127.0.0.1:3000");

@@ -16,11 +16,18 @@ function validateEmailOutboxConfiguration(): void {
     "EMAIL_FROM",
     "EMAIL_REPLY_TO",
     "OWNER_EMAIL",
+    "PASSWORD_SETUP_TOKEN_SECRET",
     "RESEND_API_KEY",
   ].filter((name) => !process.env[name]?.trim());
   if (missing.length > 0) {
     throw new Error(
       `Email outbox worker requires production configuration: ${missing.join(", ")}`,
+    );
+  }
+  const passwordSetupTokenSecret = process.env.PASSWORD_SETUP_TOKEN_SECRET!;
+  if (Buffer.byteLength(passwordSetupTokenSecret, "utf8") < 32) {
+    throw new Error(
+      "PASSWORD_SETUP_TOKEN_SECRET must be at least 32 bytes in production",
     );
   }
 }

@@ -758,6 +758,10 @@ export const emailOutbox = pgTable(
       "email_outbox_delivery_status_valid",
       sql`${table.deliveryStatus} IN ('pending', 'processing', 'sent', 'failed')`,
     ),
+    check(
+      "email_outbox_no_raw_password_setup_url",
+      sql`${table.messageType} <> 'admin_password_setup' OR NOT (${table.payload} ? 'setupUrl')`,
+    ),
     check("email_outbox_attempt_count_nonnegative", sql`${table.attemptCount} >= 0`),
     index("email_outbox_delivery_due_idx").on(
       table.deliveryStatus,

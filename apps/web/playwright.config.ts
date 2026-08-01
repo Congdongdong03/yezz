@@ -128,6 +128,9 @@ export default defineConfig({
               EMAIL_REPLY_TO: requiredEnvironment("EMAIL_REPLY_TO"),
               INTERNAL_REQUEST_ENFORCEMENT: "require",
               OWNER_EMAIL: requiredEnvironment("OWNER_EMAIL"),
+              PASSWORD_SETUP_TOKEN_SECRET: requiredEnvironment(
+                "PASSWORD_SETUP_TOKEN_SECRET",
+              ),
               RATE_LIMIT_HASH_SECRET: requiredEnvironment(
                 "RATE_LIMIT_HASH_SECRET",
               ),

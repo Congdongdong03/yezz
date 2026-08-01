@@ -53,7 +53,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const isPublicAuth =
-    pathname === "/admin/login" || pathname === "/admin/setup-password";
+    pathname === "/admin/login" ||
+    pathname === "/admin/forgot-password" ||
+    pathname === "/admin/setup-password";
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [unread, setUnread] = useState<UnreadCounts>({ bookings: 0, orders: 0, total: 0 });

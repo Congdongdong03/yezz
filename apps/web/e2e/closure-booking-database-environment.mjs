@@ -52,6 +52,8 @@ export function buildClosureLiveInitializationEnvironment(
   return buildClosureDatabaseEnvironment(ambient, testDatabaseUrl, {
     ALLOW_PRODUCTION_BOOTSTRAP: "YezYY",
     CONFIRM_LIVE_CATALOGUE_SEED: "YezYY",
+    PASSWORD_SETUP_TOKEN_SECRET:
+      "closure-booking-db-password-setup-token-secret-local-only",
   });
 }
 

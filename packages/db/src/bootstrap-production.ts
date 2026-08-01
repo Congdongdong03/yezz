@@ -4,6 +4,7 @@ import { createHash, randomBytes as nodeRandomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { createDb, type Db } from "./client.js";
 import { loadEnv } from "./env.js";
+import { sealPasswordSetupToken } from "./password-setup-seal.js";
 import {
   createLiveCatalogueSeedStore,
   seedLiveBookingCatalogue,
@@ -59,6 +60,7 @@ type BootstrapOptions = {
   hashPassword?: (password: string, rounds: number) => Promise<string>;
   randomBytes?: (size: number) => Buffer;
   now?: () => Date;
+  sealSetupToken?: (rawToken: string) => string;
 };
 
 export type ProductionBootstrapResult = {
@@ -177,6 +179,7 @@ export async function ensureOwnerAccount(
     hashPassword: (password: string, rounds: number) => Promise<string>;
     randomBytes: (size: number) => Buffer;
     now: () => Date;
+    sealSetupToken: (rawToken: string) => string;
   },
 ): Promise<{ ownerCreated: boolean; setupEmailQueued: boolean }> {
   const existing = await store.findUserByEmail(input.email);
@@ -213,7 +216,7 @@ export async function ensureOwnerAccount(
       name: owner.name,
       email: owner.email,
       role: owner.role,
-      setupUrl: `https://yezyy.com/admin/setup-password?token=${rawToken}`,
+      sealedSetupToken: options.sealSetupToken(rawToken),
       expiresAt: expiresAt.toISOString(),
     },
   });
@@ -225,6 +228,7 @@ async function bootstrapWithStore(
   hashPassword: (password: string, rounds: number) => Promise<string>,
   randomBytes: (size: number) => Buffer,
   now: () => Date,
+  sealSetupToken: (rawToken: string) => string,
 ): Promise<ProductionBootstrapResult> {
   return store.transaction(async (transaction) => {
     await transaction.acquireBootstrapLock();
@@ -239,6 +243,7 @@ async function bootstrapWithStore(
       hashPassword,
       randomBytes,
       now,
+      sealSetupToken,
     });
     return { settingsCreated, ...owner };
   });
@@ -267,8 +272,18 @@ export async function bootstrapProduction(
   const hashPassword = options.hashPassword ?? bcrypt.hash;
   const randomBytes = options.randomBytes ?? nodeRandomBytes;
   const now = options.now ?? (() => new Date());
+  const sealSetupToken =
+    options.sealSetupToken ??
+    ((rawToken: string) =>
+      sealPasswordSetupToken(rawToken, env.PASSWORD_SETUP_TOKEN_SECRET));
   if (options.store) {
-    return bootstrapWithStore(options.store, hashPassword, randomBytes, now);
+    return bootstrapWithStore(
+      options.store,
+      hashPassword,
+      randomBytes,
+      now,
+      sealSetupToken,
+    );
   }
 
   const databaseUrl = env.DATABASE_URL?.trim();
@@ -285,6 +300,7 @@ export async function bootstrapProduction(
       hashPassword,
       randomBytes,
       now,
+      sealSetupToken,
     );
     return result;
   } finally {

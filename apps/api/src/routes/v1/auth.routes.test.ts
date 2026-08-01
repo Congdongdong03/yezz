@@ -21,6 +21,57 @@ function rateLimitResult(
 }
 
 describe("authRoutes durable rate limits", () => {
+  it("accepts password recovery without revealing account existence and consumes both durable limits", async () => {
+    const requestForEmail = vi.fn(async () => ({ ok: true as const }));
+    const consume = vi.fn(async (_scope: string, _subject: string, limit: number) =>
+      rateLimitResult(true, limit, limit - 1),
+    );
+    const app = Fastify();
+    app.decorateRequest("verifiedClientIdentity", null);
+    app.addHook("onRequest", async (request) => {
+      request.verifiedClientIdentity = {
+        clientIp: "203.0.113.12",
+        requestId: "00000000-0000-4000-8000-000000000001",
+        timestamp: 1_785_200_000,
+        idempotencyKey: null,
+      };
+    });
+    app.decorate("services", {
+      rateLimits: { consume },
+      passwordSetup: { requestForEmail },
+    } as never);
+    await app.register(cookie);
+    await app.register(authRoutes, { prefix: "/auth" });
+
+    try {
+      const startedAt = Date.now();
+      const response = await app.inject({
+        method: "POST",
+        url: "/auth/forgot-password",
+        payload: { email: "  Owner@Example.COM  " },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(450);
+      expect(response.json()).toEqual({ success: true, data: { ok: true } });
+      expect(requestForEmail).toHaveBeenCalledWith("owner@example.com");
+      expect(consume).toHaveBeenCalledWith(
+        "password-recovery-ip-email",
+        "203.0.113.12\nowner@example.com",
+        3,
+        3600,
+      );
+      expect(consume).toHaveBeenCalledWith(
+        "password-recovery-ip",
+        "203.0.113.12",
+        10,
+        3600,
+      );
+    } finally {
+      await app.close();
+    }
+  });
+
   it("completes password setup without authenticating or echoing the token", async () => {
     const complete = vi.fn(async () => ({ ok: true as const }));
     const consume = vi.fn(async (_scope: string, _subject: string, limit: number) =>

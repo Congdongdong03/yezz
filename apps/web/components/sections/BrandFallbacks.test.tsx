@@ -31,6 +31,18 @@ describe("public image brand fallbacks", () => {
     expect(html).not.toContain('href="/book"');
   });
 
+  it("keeps hero copy and the CTA visible in server-rendered markup", () => {
+    const html = renderToStaticMarkup(
+      <Hero heroImageUrl="/hero.jpg" experienceEnabled={false} />,
+    );
+
+    expect(html).toContain(">eyebrow</p>");
+    expect(html).toContain(">title</h1>");
+    expect(html).toContain(">subtitle</p>");
+    expect(html).toContain(">browseProjects</a>");
+    expect(html).not.toContain("opacity:0");
+  });
+
   it("uses the canonical brand in the store image description", () => {
     const html = renderToStaticMarkup(
       <StoreVibes storeImage={{ _id: "store", imageUrl: "/store.jpg" }} />,

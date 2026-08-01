@@ -199,6 +199,7 @@ describe("internal request enforcement", () => {
       now: () => TIMESTAMP,
     });
     app.post("/api/v1/auth/login", async () => ({ ok: true }));
+    app.post("/api/v1/auth/forgot-password", async () => ({ ok: true }));
     app.post("/api/v1/auth/setup-password", async () => ({ ok: true }));
     app.get(
       `/api/v1/customer-bookings/${"a".repeat(43)}`,
@@ -209,6 +210,15 @@ describe("internal request enforcement", () => {
     expect(
       (await app.inject({ method: "POST", url: "/api/v1/auth/login", payload: {} }))
         .statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/v1/auth/forgot-password",
+          payload: {},
+        })
+      ).statusCode,
     ).toBe(401);
     expect(
       (
