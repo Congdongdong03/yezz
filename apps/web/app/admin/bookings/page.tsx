@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AlertBanner from "@/components/admin/AlertBanner";
+import BookingQueueCard from "@/components/admin/BookingQueueCard";
 import BookingWorkflowDialog, {
   type BookingWorkflowPayload,
 } from "@/components/admin/BookingWorkflowDialog";
@@ -327,7 +328,25 @@ export default function AdminBookingsPage() {
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">暂无预约记录</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <>
+          <div
+            aria-label="预约工作队列"
+            className="space-y-3 md:hidden"
+            data-testid="mobile-booking-queue"
+          >
+            {items.map((booking) => (
+              <BookingQueueCard
+                booking={booking}
+                isUpdating={updatingId === booking.id}
+                key={booking.id}
+                onAction={(action) => requestWorkflow(booking.id, action)}
+              />
+            ))}
+          </div>
+          <div
+            className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block"
+            data-testid="desktop-booking-table"
+          >
           <table className="w-full min-w-[960px] text-left text-sm">
             <thead className="border-b border-border bg-muted/50 text-muted-foreground">
               <tr>
@@ -453,7 +472,8 @@ export default function AdminBookingsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {!loading && total > 0 && (

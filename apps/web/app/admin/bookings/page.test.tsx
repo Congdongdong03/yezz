@@ -23,10 +23,11 @@ vi.mock("next/link", () => ({
   default: ({
     children,
     href,
+    ...props
   }: {
     children: React.ReactNode;
     href: string;
-  }) => <a href={href}>{children}</a>,
+  }) => <a href={href} {...props}>{children}</a>,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -188,6 +189,28 @@ describe("AdminBookingsPage stale status focus", () => {
     await act(async () => {});
 
     expect(container.textContent).toContain("政策 2026-07-29");
+  });
+
+  it("provides a mobile card queue without removing the desktop table workflow", async () => {
+    await act(async () => root.render(<AdminBookingsPage />));
+    await act(async () => {});
+
+    const mobileQueue = container.querySelector<HTMLElement>(
+      "[data-testid='mobile-booking-queue']",
+    );
+    const desktopTable = container.querySelector<HTMLElement>(
+      "[data-testid='desktop-booking-table']",
+    );
+    expect(mobileQueue?.className).toContain("md:hidden");
+    expect(desktopTable?.className).toContain("hidden");
+    expect(desktopTable?.className).toContain("md:block");
+
+    const mobileConfirm = mobileQueue?.querySelector<HTMLButtonElement>(
+      "button[aria-label='确认 Alice']",
+    );
+    expect(mobileConfirm).not.toBeNull();
+    await act(async () => mobileConfirm?.click());
+    expect(container.textContent).toContain("确认预约");
   });
 
   it("focuses the page heading when a stale refresh removes the row", async () => {
