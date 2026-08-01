@@ -2,6 +2,7 @@ import { clearLegacyAdminToken } from "./auth";
 import { parseResponse } from "@/lib/api/base";
 import type {
   AdminProjectsList,
+  AdminCatalogueEntry,
   AuthUser,
   Category,
   GalleryFormInput,
@@ -21,6 +22,7 @@ import type {
   PartyPackage,
   ProjectDetail,
   ProjectFormInput,
+  CatalogueFormInput,
   SiteSettings,
   UploadResult,
   EmailDelivery,
@@ -134,6 +136,28 @@ export async function deleteProject(id: string) {
 
 export async function getAdminCategories() {
   return adminFetch<Category[]>("/api/v1/admin/categories");
+}
+
+export async function getAdminCatalogue() {
+  return adminFetch<AdminCatalogueEntry[]>("/api/v1/admin/catalogue");
+}
+
+export async function getAdminCatalogueEntry(id: string) {
+  return adminFetch<AdminCatalogueEntry>(`/api/v1/admin/catalogue/${id}`);
+}
+
+export async function createCatalogueEntry(data: CatalogueFormInput) {
+  return adminFetch<AdminCatalogueEntry>("/api/v1/admin/catalogue", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCatalogueEntry(id: string, data: CatalogueFormInput) {
+  return adminFetch<AdminCatalogueEntry>(`/api/v1/admin/catalogue/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function createCategory(data: { name: { en: string; zh: string }; slug: string; description?: { en: string; zh: string } | null; icon?: string | null; sortOrder?: number }) {

@@ -25,6 +25,7 @@ const navItems: NavItem[] = [
   { href: "/admin/time-slots", label: "旧档期" },
   { href: "/admin/email-deliveries", label: "邮件异常" },
   { href: "/admin/projects", label: "项目", adminOnly: true },
+  { href: "/admin/catalogue", label: "公开项目展示", adminOnly: true },
   { href: "/admin/parties", label: "派对套餐", adminOnly: true },
   { href: "/admin/gallery", label: "画廊", adminOnly: true },
   { href: "/admin/categories", label: "分类", adminOnly: true },
@@ -35,6 +36,7 @@ const navItems: NavItem[] = [
 
 const STAFF_BLOCKED_PREFIXES = [
   "/admin/projects",
+  "/admin/catalogue",
   "/admin/parties",
   "/admin/gallery",
   "/admin/categories",

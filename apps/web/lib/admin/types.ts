@@ -126,6 +126,57 @@ export type GalleryFormInput = {
   sortOrder: number;
 };
 
+export type CatalogueImageKind = "yezyy" | "inspiration" | "placeholder";
+
+export type CatalogueVariantInput = {
+  projectId: string;
+  label: LocalizedString | null;
+  sortOrder: number;
+};
+
+export type CatalogueFormInput = {
+  categoryId: string;
+  name: LocalizedString;
+  slug: string;
+  description: LocalizedString;
+  durationDisplay: LocalizedString;
+  occasionTags: LocalizedString[];
+  availabilityNote: LocalizedString;
+  published: boolean;
+  featured: boolean;
+  sortOrder: number;
+  coverImageUrl: string | null;
+  imageKind: CatalogueImageKind;
+  imageSourceUrl: string | null;
+  imageLicenseUrl: string | null;
+  imageAttribution: LocalizedString | null;
+  variants: CatalogueVariantInput[];
+};
+
+export type AdminCatalogueEntry = Omit<
+  CatalogueFormInput,
+  "imageKind" | "imageSourceUrl" | "imageLicenseUrl" | "imageAttribution"
+> & {
+  id: string;
+  category: Category;
+  image: {
+    kind: CatalogueImageKind;
+    sourceUrl: string | null;
+    licenseUrl: string | null;
+    attribution: LocalizedString | null;
+  };
+  variants: Array<
+    CatalogueVariantInput & {
+      slug: string;
+      name: LocalizedString;
+      priceMin: number | null;
+      priceMax: number | null;
+      priceCurrency: string | null;
+      bookable: boolean;
+    }
+  >;
+};
+
 export type UploadResult = {
   id: string;
   url: string;
