@@ -36,10 +36,13 @@ const enabledCapabilities = {
   party: true,
 } as const;
 
+const ordinaryTestNow = () => new Date("2026-08-01T21:00:00.000Z");
+
 function createEnabledBookingsService(
   db: Parameters<typeof createBookingsService>[0],
 ) {
   return createBookingsService(db, enabledCapabilities, {
+    now: ordinaryTestNow,
     customerActionTokenSecret:
       "bookings-service-test-customer-action-secret",
     customerManageBaseUrl: "https://yezyy.com",

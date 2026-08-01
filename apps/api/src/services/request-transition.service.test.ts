@@ -20,6 +20,13 @@ import { createRequestTransitionService } from "./request-transition.service.js"
 import { createAdminSettingsService } from "./admin/settings.admin.service.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
+const ordinaryTestNow = () => new Date("2026-08-01T21:00:00.000Z");
+
+function createTestRequestTransitionService(
+  db: Parameters<typeof createRequestTransitionService>[0],
+) {
+  return createRequestTransitionService(db, { now: ordinaryTestNow });
+}
 
 describe("ordinary transition input validation", () => {
   it("rejects party-only external expected status before opening a transaction", async () => {
@@ -166,8 +173,8 @@ describe.skipIf(!runDatabaseTests)(
 
     it("releases capacity once and records one event/email for concurrent cancellation", async () => {
       const booking = await insertBooking("confirmed", "party");
-      const first = createRequestTransitionService(database.connection.db);
-      const second = createRequestTransitionService(database.connection.db);
+      const first = createTestRequestTransitionService(database.connection.db);
+      const second = createTestRequestTransitionService(database.connection.db);
 
       const outcomes = await Promise.allSettled([
         first.transitionBooking({
@@ -225,7 +232,7 @@ describe.skipIf(!runDatabaseTests)(
     it("replays one operation without changing capacity or enqueueing twice", async () => {
       const booking = await insertBooking("pending_review");
       const operationId = crypto.randomUUID();
-      const transition = createRequestTransitionService(database.connection.db);
+      const transition = createTestRequestTransitionService(database.connection.db);
       const input = {
         bookingId: booking.id,
         expectedStatus: "new" as const,
@@ -259,7 +266,7 @@ describe.skipIf(!runDatabaseTests)(
       const booking = await insertBooking("pending_review");
 
       await expect(
-        createRequestTransitionService(database.connection.db).transitionBooking({
+        createTestRequestTransitionService(database.connection.db).transitionBooking({
           bookingId: booking.id,
           expectedStatus: "contacted",
           status: "confirmed",
@@ -309,8 +316,8 @@ describe.skipIf(!runDatabaseTests)(
         newStartTime: "10:00",
       };
       const [first, second] = await Promise.all([
-        createRequestTransitionService(database.connection.db).transitionOrdinary(input),
-        createRequestTransitionService(database.connection.db).transitionOrdinary(input),
+        createTestRequestTransitionService(database.connection.db).transitionOrdinary(input),
+        createTestRequestTransitionService(database.connection.db).transitionOrdinary(input),
       ]);
       expect([first.replayed, second.replayed].sort()).toEqual([false, true]);
       const deliveries = await database.connection.db
@@ -372,7 +379,7 @@ describe.skipIf(!runDatabaseTests)(
       }).returning();
 
       await expect(
-        createRequestTransitionService(database.connection.db).transitionOrdinary({
+        createTestRequestTransitionService(database.connection.db).transitionOrdinary({
           bookingId: booking!.id,
           expectedStatus: "pending_review",
           toStatus: "confirmed",
@@ -413,7 +420,7 @@ describe.skipIf(!runDatabaseTests)(
       }).returning();
 
       const results = await Promise.allSettled([
-        createRequestTransitionService(database.connection.db).transitionOrdinary({
+        createTestRequestTransitionService(database.connection.db).transitionOrdinary({
           bookingId: booking!.id,
           expectedStatus: "pending_review",
           toStatus: "confirmed",
@@ -718,7 +725,7 @@ describe.skipIf(!runDatabaseTests)(
         toStatus: "confirmed" as const, operationId: crypto.randomUUID(), actorUserId: actorId,
         newDate: "2026-08-03", newStartTime: "11:00",
       };
-      const transition = createRequestTransitionService(database.connection.db);
+      const transition = createTestRequestTransitionService(database.connection.db);
       const first = await transition.transitionOrdinary(input);
       const replay = await transition.transitionOrdinary(input);
       expect([first.replayed, replay.replayed]).toEqual([false, true]);
@@ -748,7 +755,7 @@ describe.skipIf(!runDatabaseTests)(
         participantCount: 2, youngChildCount: 0, accompanyingAdultCount: 1, attendanceCount: 3,
         durationMinutes: 60, policyVersion: "2026-07-29", policyAcceptedAt: new Date(),
       }).returning();
-      await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
+      await expect(createTestRequestTransitionService(database.connection.db).transitionOrdinary({
         bookingId: ordinary.id, expectedStatus: "pending_review", toStatus: "confirmed",
         operationId: crypto.randomUUID(), actorUserId: actorId,
         newDate: "2026-08-02", newStartTime: "10:00",
@@ -767,7 +774,7 @@ describe.skipIf(!runDatabaseTests)(
         youngChildCount: 0, accompanyingAdultCount: 0, attendanceCount: 1, durationMinutes: 60,
         policyVersion: "2026-07-29", policyAcceptedAt: new Date(),
       }).returning();
-      await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
+      await expect(createTestRequestTransitionService(database.connection.db).transitionOrdinary({
         bookingId: waitlisted.id, expectedStatus: "waitlisted", toStatus: "confirmed",
         operationId: crypto.randomUUID(), actorUserId: actorId,
         newDate: "2026-08-02", newStartTime: "10:00",
@@ -781,7 +788,7 @@ describe.skipIf(!runDatabaseTests)(
         participantCount: 2, youngChildCount: 0, accompanyingAdultCount: 1, attendanceCount: 3,
         durationMinutes: 60, policyVersion: "2026-07-29", policyAcceptedAt: new Date(),
       }).returning();
-      await expect(createRequestTransitionService(database.connection.db).transitionOrdinary({
+      await expect(createTestRequestTransitionService(database.connection.db).transitionOrdinary({
         bookingId: ordinary.id, expectedStatus: "pending_review", toStatus: "confirmed",
         operationId: crypto.randomUUID(), actorUserId: actorId,
         newDate: "2026-08-02", newStartTime: "10:00",
@@ -794,7 +801,7 @@ describe.skipIf(!runDatabaseTests)(
       await markBookingContacted(booking.id);
 
       await expect(
-        createRequestTransitionService(database.connection.db).transitionBooking({
+        createTestRequestTransitionService(database.connection.db).transitionBooking({
           bookingId: booking.id,
           expectedStatus: "new",
           status: "confirmed",
@@ -810,7 +817,7 @@ describe.skipIf(!runDatabaseTests)(
     it("confirms a cart request with one event-bound customer email", async () => {
       const order = await insertCartOrder("new");
       const operationId = crypto.randomUUID();
-      const transition = createRequestTransitionService(database.connection.db);
+      const transition = createTestRequestTransitionService(database.connection.db);
 
       const result = await transition.transitionCartOrder({
         cartOrderId: order.id,
@@ -854,7 +861,7 @@ describe.skipIf(!runDatabaseTests)(
     it("replays one cart cancellation while releasing capacity exactly once", async () => {
       const order = await insertCartOrder("confirmed");
       const operationId = crypto.randomUUID();
-      const transition = createRequestTransitionService(database.connection.db);
+      const transition = createTestRequestTransitionService(database.connection.db);
       const input = {
         cartOrderId: order.id,
         expectedStatus: "confirmed" as const,

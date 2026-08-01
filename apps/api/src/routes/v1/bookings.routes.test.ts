@@ -32,6 +32,7 @@ import { createSettingsService } from "../../services/settings.service.js";
 import { requireRequestCapability } from "../../services/settings.service.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
+const ordinaryTestNow = () => new Date("2026-08-01T21:00:00.000Z");
 
 const VERIFIED_IDENTITY = {
   clientIp: "203.0.113.10",
@@ -559,7 +560,7 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
         experience: environment.REQUEST_FLOW_EXPERIENCE_ENABLED === "true",
         party: environment.REQUEST_FLOW_PARTY_ENABLED === "true",
         product: false,
-      }),
+      }, { now: ordinaryTestNow }),
       rateLimits: createRateLimitsService(
         createRateLimitsRepository(database.connection.db),
         { hashSecret: "route-gate-test-rate-limit-secret" },
@@ -779,7 +780,11 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
       date: "2026-08-02", startTime: "10:00", participantCount: 2, youngChildCount: 0, accompanyingAdultCount: 1,
       items: [{ projectId, quantity: 2 }], locale: "en" as const, policyVersion: "2026-07-30" as const, policyAccepted: true as const,
     };
-    const bookings = createBookingsService(database.connection.db, { experience: true, product: true, party: true });
+    const bookings = createBookingsService(
+      database.connection.db,
+      { experience: true, product: true, party: true },
+      { now: ordinaryTestNow },
+    );
     await bookings.createOrdinaryRequest(input, key);
     await database.connection.db.update(siteSettings).set({ experienceRequestsEnabled: false });
     vi.stubEnv("REQUEST_FLOW_EXPERIENCE_ENABLED", "true");
