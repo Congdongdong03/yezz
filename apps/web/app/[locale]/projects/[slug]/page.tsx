@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import CatalogueDetail from "@/components/catalogue/CatalogueDetail";
 import ServiceUnavailable from "@/components/ServiceUnavailable";
 import { loadCatalogueEntry } from "@/lib/catalogue/data";
+import { loadSiteSettings } from "@/lib/site/data";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import type { Metadata } from "next";
 
@@ -39,7 +40,10 @@ export default async function ProjectDetailPage({
 }) {
   const { locale, slug } = await params;
 
-  const result = await loadCatalogueEntry(slug);
+  const [result, settings] = await Promise.all([
+    loadCatalogueEntry(slug),
+    loadSiteSettings(),
+  ]);
 
   if (!result.ok) {
     return <ServiceUnavailable />;
@@ -53,7 +57,7 @@ export default async function ProjectDetailPage({
     <CatalogueDetail
       entry={result.data}
       locale={locale}
-      requestEnabled={false}
+      requestEnabled={settings.requestCapabilities.experience}
     />
   );
 }
