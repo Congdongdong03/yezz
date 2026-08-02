@@ -7,14 +7,24 @@ import {
 } from "../../repositories/gallery.repository.js";
 import { mapGalleryRow, type GalleryImageDto } from "../gallery.service.js";
 
-const GALLERY_CATEGORIES = new Set([
+export const GALLERY_CATEGORIES = [
   "couple",
   "birthday",
   "kids",
   "gift",
   "store",
   "works",
-]);
+  "arrival",
+  "process",
+  "party",
+  "community",
+] as const;
+
+const galleryCategorySet = new Set<string>(GALLERY_CATEGORIES);
+
+export function isGalleryCategory(category: string): boolean {
+  return galleryCategorySet.has(category);
+}
 
 export type AdminGalleryService = ReturnType<typeof createAdminGalleryService>;
 
@@ -22,11 +32,11 @@ export function createAdminGalleryService(db: Db) {
   const repo = createGalleryRepository(db);
 
   function validateCategory(category: string) {
-    if (!GALLERY_CATEGORIES.has(category)) {
+    if (!isGalleryCategory(category)) {
       throw new AppError(
         400,
         "VALIDATION_ERROR",
-        `category must be one of: ${[...GALLERY_CATEGORIES].join(", ")}`,
+        `category must be one of: ${GALLERY_CATEGORIES.join(", ")}`,
       );
     }
   }

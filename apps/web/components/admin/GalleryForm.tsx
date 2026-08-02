@@ -13,7 +13,18 @@ import { emptyLocalized } from "@/lib/admin/constants";
 import { useFormSubmit } from "@/lib/admin/hooks";
 import type { GalleryFormInput, GalleryImage } from "@/lib/admin/types";
 
-const CATEGORIES = ["couple", "birthday", "kids", "gift", "store", "works"] as const;
+const CATEGORY_OPTIONS = [
+  { value: "store", label: "门店环境" },
+  { value: "arrival", label: "门店入口与到店指引" },
+  { value: "process", label: "制作过程" },
+  { value: "party", label: "派对场景" },
+  { value: "community", label: "已授权顾客作品" },
+  { value: "works", label: "作品展示（旧分类）" },
+  { value: "birthday", label: "生日（旧分类）" },
+  { value: "kids", label: "儿童（旧分类）" },
+  { value: "couple", label: "双人（旧分类）" },
+  { value: "gift", label: "礼物（旧分类）" },
+] as const;
 
 function defaultForm(): GalleryFormInput {
   return {
@@ -65,7 +76,7 @@ export default function GalleryForm({ image }: { image?: GalleryImage }) {
         id="category"
         label="分类"
         value={form.category}
-        options={CATEGORIES.map((c) => ({ value: c, label: c }))}
+        options={[...CATEGORY_OPTIONS]}
         onChange={(category) => setForm({ ...form, category })}
       />
 
