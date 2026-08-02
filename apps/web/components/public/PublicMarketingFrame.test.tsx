@@ -11,6 +11,10 @@ vi.mock("@/components/public/PublicFooter", () => ({
   default: () => <footer>public-footer</footer>,
 }));
 
+vi.mock("@/components/public/MobileStudioActions", () => ({
+  default: () => <nav>mobile-studio-actions</nav>,
+}));
+
 vi.mock("@/components/ErrorBoundary", () => ({
   default: ({ children }: { children: ReactNode }) => children,
 }));
@@ -32,6 +36,7 @@ describe("PublicMarketingFrame", () => {
     expect(html).toContain("public-site");
     expect(html).toContain("public-header");
     expect(html).toContain("public-footer");
+    expect(html).toContain("mobile-studio-actions");
     expect(html).toContain("route-content");
     expect(html).not.toContain("cart-drawer");
   });
