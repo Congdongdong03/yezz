@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   locale: "en",
   requestEnabled: false,
   partiesOk: true,
+  partyImage: false,
 }));
 
 const english: Record<string, string> = {
@@ -35,7 +36,7 @@ const english: Record<string, string> = {
   overtime: "15–30 minutes overtime when applicable: A$15–A$35",
   paymentTitle: "Request first. Pay in store after confirmation.",
   paymentBody:
-    "The venue fee is also the deposit. There is no online payment.",
+    "The venue fee is also the deposit. Pay it in store during a separate visit before the party date. After confirmation, staff will tell you the payment deadline. There is no online payment.",
   refund:
     "Cancel at least 48 hours before the final guest start for a full venue-fee refund. Later cancellation is non-refundable.",
   timeRequest:
@@ -59,7 +60,7 @@ const chinese: Record<string, string> = {
   cleaning: "如适用，清洁费：15–35 澳元",
   overtime: "如适用，超时 15–30 分钟：15–35 澳元",
   paymentTitle: "先提交申请，确认后到店付款。",
-  paymentBody: "场地费同时作为订金。网站不提供线上付款。",
+  paymentBody: "场地费同时作为订金，需在派对日期前另行到店支付。确认后由店员告知付款期限。网站不提供线上付款。",
   refund:
     "至少在最终派对开始前 48 小时取消，可全额退还场地费；不足 48 小时不退款。",
   timeRequest: "首选时段仅为申请；员工可能确认该时段或提出其他时段。",
@@ -176,6 +177,20 @@ vi.mock("@/lib/site/data", () => ({
         }
       : { ok: false },
   ),
+  loadGalleryPageData: vi.fn(async () => ({
+    ok: true,
+    data: state.partyImage
+      ? [
+          {
+            _id: "party-photo",
+            imageUrl: "/party.jpg",
+            category: "party",
+            caption: { en: "YezYY party table", zh: "YezYY 派对桌面" },
+            order: 0,
+          },
+        ]
+      : [],
+  })),
 }));
 
 const testEnvironment = globalThis as typeof globalThis & {
@@ -191,6 +206,7 @@ describe("PartiesPage", () => {
     state.locale = "en";
     state.requestEnabled = false;
     state.partiesOk = true;
+    state.partyImage = false;
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -219,6 +235,8 @@ describe("PartiesPage", () => {
     expect(container.textContent).toContain("Birthday setup and decorations");
     expect(container.textContent).toContain("A$15–A$35");
     expect(container.textContent).toContain("There is no online payment");
+    expect(container.textContent).toContain("separate visit before the party date");
+    expect(container.textContent).toContain("staff will tell you the payment deadline");
     expect(container.textContent).toContain("at least 48 hours");
     expect(container.textContent).toContain("non-refundable");
     expect(container.querySelector("form")).toBeNull();
@@ -228,6 +246,14 @@ describe("PartiesPage", () => {
         'a[href="mailto:congdongdong03@gmail.com"]',
       ),
     ).not.toBeNull();
+  });
+
+  it("uses a verified party image without changing the request gate", async () => {
+    state.partyImage = true;
+    await renderPage();
+
+    expect(container.querySelector('img[alt="YezYY party table"]')).not.toBeNull();
+    expect(container.querySelector("form")).toBeNull();
   });
 
   it("opens the complete request form only when the effective party gate is true", async () => {

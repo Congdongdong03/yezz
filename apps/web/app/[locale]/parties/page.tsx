@@ -1,6 +1,11 @@
-import { loadPartiesPageData, loadSiteSettings } from "@/lib/site/data";
+import {
+  loadGalleryPageData,
+  loadPartiesPageData,
+  loadSiteSettings,
+} from "@/lib/site/data";
 import { buildPageMetadata } from "@/lib/site/metadata";
 import PartyInquiryCTA from "@/components/parties/PartyInquiryCTA";
+import PartyFAQ from "@/components/parties/PartyFAQ";
 import RequestContactFallback from "@/components/RequestContactFallback";
 import { getTranslations } from "next-intl/server";
 import Image from "next/image";
@@ -9,6 +14,7 @@ import {
   YEZYY_BUSINESS_PROFILE,
   formatPhoneHref,
 } from "@/lib/site/business";
+import { selectStudioMedia } from "@/lib/site/studio-media";
 
 export async function generateMetadata({
   params,
@@ -116,10 +122,14 @@ export default async function PartiesPage({
   const { locale: rawLocale } = await params;
   const locale = rawLocale === "zh" ? "zh" : "en";
   const t = await getTranslations({ locale, namespace: "parties" });
-  const [partiesResult, settings] = await Promise.all([
+  const [partiesResult, settings, galleryResult] = await Promise.all([
     loadPartiesPageData(),
     loadSiteSettings(),
+    loadGalleryPageData(),
   ]);
+  const partyImage = selectStudioMedia(
+    galleryResult.ok ? galleryResult.data : [],
+  ).party[0];
   const verifiedLivePackages = partiesResult.ok
     ? partiesResult.data
         .map(toVerifiedPartyCard)
@@ -167,6 +177,22 @@ export default async function PartiesPage({
 
           <div className="relative border border-white/80 bg-white/75 p-4 shadow-xl shadow-[rgba(217,111,158,0.12)] backdrop-blur">
             <div className="grid gap-3">
+              {partyImage?.imageUrl ? (
+                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
+                  <Image
+                    alt={
+                      partyImage.caption?.[locale] ??
+                      partyImage.caption?.en ??
+                      (locale === "zh" ? "YezYY 手作派对" : "YezYY DIY party")
+                    }
+                    className="object-cover"
+                    fill
+                    priority
+                    sizes="(max-width: 768px) 100vw, 40vw"
+                    src={partyImage.imageUrl}
+                  />
+                </div>
+              ) : null}
               <div className="rounded-2xl bg-[var(--public-rose-paper)] p-5 text-[var(--public-ink)]">
                 <p className="text-xs uppercase tracking-[0.16em] text-[var(--public-muted)]">
                   {t("paymentTitle")}
@@ -321,6 +347,8 @@ export default async function PartiesPage({
             </p>
           </article>
         </section>
+
+        <PartyFAQ locale={locale} />
 
         <section className="mt-14 rounded-3xl border border-warm-grey/15 bg-white p-6 sm:p-10">
           <div className="mx-auto max-w-3xl text-center">
