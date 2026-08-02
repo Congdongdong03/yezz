@@ -3,6 +3,7 @@ import { buildPageMetadata } from "@/lib/site/metadata";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 import VisitStory from "@/components/visit/VisitStory";
+import { selectStudioMedia } from "@/lib/site/studio-media";
 
 export async function generateMetadata({
   params,
@@ -29,14 +30,19 @@ export default async function ContactPage({
     loadSiteSettings(),
     loadGalleryPageData(),
   ]);
-  const storeImage = galleryResult.ok
-    ? galleryResult.data.find((image) => image.category === "store") ?? null
-    : null;
+  const selectedMedia = selectStudioMedia(
+    galleryResult.ok ? galleryResult.data : [],
+  );
 
   return (
     <div className="bg-[var(--public-canvas)] px-4 py-14 text-[var(--public-ink)] sm:py-20">
       <div className="mx-auto max-w-7xl">
-        <VisitStory locale={locale} settings={settings} storeImage={storeImage} />
+        <VisitStory
+          locale={locale}
+          settings={settings}
+          storeImage={selectedMedia.hero}
+          arrivalImage={selectedMedia.arrival}
+        />
       </div>
     </div>
   );

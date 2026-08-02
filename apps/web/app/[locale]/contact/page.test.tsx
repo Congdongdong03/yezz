@@ -4,7 +4,18 @@ import ContactPage from "./page";
 
 vi.mock("@/lib/site/data", () => ({
   loadSiteSettings: vi.fn(async () => ({ wechatId: undefined, wechatQrCodeUrl: undefined })),
-  loadGalleryPageData: vi.fn(async () => ({ ok: true, data: [] })),
+  loadGalleryPageData: vi.fn(async () => ({
+    ok: true,
+    data: [
+      {
+        _id: "arrival-1",
+        imageUrl: "/arrival.jpg",
+        category: "arrival",
+        caption: { en: "YezYY storefront" },
+        order: 0,
+      },
+    ],
+  })),
 }));
 vi.mock("next-intl/server", () => ({ getTranslations: vi.fn(async () => (key: string) => key) }));
 
@@ -15,5 +26,7 @@ describe("ContactPage", () => {
     expect(html).toContain("bg-[var(--public-canvas)]");
     expect(html).toContain("text-[var(--public-ink)]");
     expect(html).toContain("A real studio in Glen Waverley");
+    expect(html).toContain('alt="YezYY storefront"');
+    expect(html).toContain("Before you arrive");
   });
 });

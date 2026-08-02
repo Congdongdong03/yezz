@@ -18,6 +18,7 @@ type VisitStoryProps = {
   locale: PublicLocale;
   settings: SiteSettingsView | null;
   storeImage: StoreImage;
+  arrivalImage?: StoreImage;
 };
 
 const copy = {
@@ -31,6 +32,16 @@ const copy = {
     map: "Find us",
     mapAction: "Open in Google Maps",
     xiaohongshu: "Xiaohongshu",
+    beforeArrival: "Before you arrive",
+    confirmation:
+      "Online bookings are requests. Please wait for a staff confirmation before travelling to the studio.",
+    ordinaryPayment:
+      "Ordinary DIY sessions are paid in store when you attend. There is no online payment.",
+    partyPayment:
+      "For a party, the venue-fee deposit is paid in store during a separate visit before the party date; staff will arrange the deadline after confirmation.",
+    arrivalFallback:
+      "A close entrance photo is coming soon. Use the exact address and Google Maps link on this page.",
+    arrivalAlt: "YezYY studio entrance",
   },
   zh: {
     eyebrow: "到访 YezYY",
@@ -42,6 +53,12 @@ const copy = {
     map: "找到我们",
     mapAction: "在 Google 地图中查看",
     xiaohongshu: "小红书",
+    beforeArrival: "到店前须知",
+    confirmation: "在线提交仅代表预约申请。请等待店员确认后再前往门店，以店员确认结果为准。",
+    ordinaryPayment: "普通手作体验在到店参加时付款，网站不提供线上付款。",
+    partyPayment: "派对场地费订金需在派对日期前另行到店支付；确认后由店员告知付款期限。",
+    arrivalFallback: "近距离入口照片即将补充，请使用本页准确地址和 Google 地图链接导航。",
+    arrivalAlt: "YezYY 门店入口",
   },
 } as const;
 
@@ -49,6 +66,7 @@ export default function VisitStory({
   locale,
   settings,
   storeImage,
+  arrivalImage = null,
 }: VisitStoryProps) {
   const t = copy[locale];
   const hours = formatBusinessHours(locale);
@@ -123,6 +141,39 @@ export default function VisitStory({
           >
             {t.mapAction}
           </a>
+        </div>
+      </section>
+
+      <section className="grid overflow-hidden border border-[var(--public-border)] bg-[var(--public-paper)] lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="relative min-h-[18rem] bg-[var(--public-rose-paper)]">
+          {arrivalImage?.imageUrl ? (
+            <Image
+              src={arrivalImage.imageUrl}
+              alt={
+                arrivalImage.caption?.[locale] ??
+                arrivalImage.caption?.en ??
+                t.arrivalAlt
+              }
+              fill
+              sizes="(max-width: 1024px) 100vw, 40vw"
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex h-full items-center px-7 py-12 text-sm leading-7 text-[var(--public-muted)] sm:px-10">
+              {t.arrivalFallback}
+            </div>
+          )}
+        </div>
+        <div className="p-7 sm:p-10">
+          <p className="public-eyebrow">{t.beforeArrival}</p>
+          <h2 className="mt-3 font-serif text-3xl font-bold text-[var(--public-ink)]">
+            {t.beforeArrival}
+          </h2>
+          <div className="mt-6 space-y-4 text-sm leading-7 text-[var(--public-muted)] sm:text-base">
+            <p>{t.confirmation}</p>
+            <p>{t.ordinaryPayment}</p>
+            <p>{t.partyPayment}</p>
+          </div>
         </div>
       </section>
 
