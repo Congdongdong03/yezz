@@ -23,6 +23,7 @@ Move YezYY from a visually polished but partly placeholder-led website to a cred
 - Product shopping and product requests remain closed.
 - Bookings remain requests until staff manually confirms them.
 - Payment remains in store. No online-payment integration is included.
+- For parties, the A$95 or A$145 venue fee is also the deposit. The customer must visit YezYY and pay it in store before the party date; it is not collected on the party day.
 - Existing server-side capacity, availability, reminders, secure customer actions, email outbox, and admin workflows remain authoritative.
 
 ## Delivery Sequence
@@ -65,7 +66,8 @@ The work is split into three independently releasable rounds. Each round keeps t
 - Add real empty-room or staged party-setup photographs.
 - Keep the existing package rules and request workflow.
 - Add a concise FAQ covering group size, supervision, food, setup, confirmation, payment, cancellation, and overtime.
-- Do not change the deposit hold/payment timing until the owner confirms the real in-store procedure.
+- Explain clearly that the requested party time is not finally secured until the customer pays the venue-fee deposit in store before the party date.
+- Keep the exact payment deadline staff-controlled until the owner defines a fixed deadline.
 
 ### Round 2 — Short Mobile Booking Funnel
 
@@ -134,4 +136,4 @@ Individual product photographs are helpful but are not a blocker for Round 1.
 - Membership, loyalty points, gift cards, or customer accounts.
 - AI chat, live chat, or unnecessary animation.
 - Invented testimonials or customer imagery.
-- Changes to party deposit timing before the owner confirms the real procedure.
+- Automatic expiry of an unpaid party hold before the owner defines the fixed in-store payment deadline.
