@@ -37,7 +37,7 @@ export default async function GalleryPage({
     <div className="bg-[var(--public-canvas)] px-4 py-14 text-[var(--public-ink)] sm:py-20">
       <div className="mx-auto max-w-7xl">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--public-pink)]">
-          YezYY studio diary
+          {locale === "zh" ? "YezYY 门店日记" : "YezYY studio diary"}
         </p>
         <h1 className="mt-3 text-4xl font-serif font-bold tracking-tight md:text-5xl">
           {t("title")}

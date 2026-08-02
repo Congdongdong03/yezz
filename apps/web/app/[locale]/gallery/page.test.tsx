@@ -10,5 +10,12 @@ describe("GalleryPage", () => {
     const html = renderToStaticMarkup(await GalleryPage({ params: Promise.resolve({ locale: "en" }) }));
     expect(html).toContain("bg-[var(--public-canvas)]");
     expect(html).toContain("text-[var(--public-ink)]");
+    expect(html).toContain("YezYY studio diary");
+  });
+
+  it("localises the studio diary label for Chinese visitors", async () => {
+    const html = renderToStaticMarkup(await GalleryPage({ params: Promise.resolve({ locale: "zh" }) }));
+
+    expect(html).toContain("YezYY 门店日记");
   });
 });
