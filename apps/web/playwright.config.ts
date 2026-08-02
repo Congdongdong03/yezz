@@ -19,9 +19,9 @@ const repositoryRoot = path.resolve(
   "../..",
 );
 const closureSpecs =
-  /(?:experience-closure|rate-limit-identity|email-retry|live-ordinary-booking|live-waitlist|live-party-booking|live-customer-actions)\.spec\.ts/;
+  /(?:experience-closure|rate-limit-identity|email-retry|live-ordinary-booking|live-waitlist|live-party-booking|live-customer-actions|public-trust-layer)\.spec\.ts/;
 const liveClosureSpecs =
-  /(?:live-ordinary-booking|live-waitlist|live-party-booking|live-customer-actions)\.spec\.ts/;
+  /(?:live-ordinary-booking|live-waitlist|live-party-booking|live-customer-actions|public-trust-layer)\.spec\.ts/;
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim();

@@ -30,9 +30,20 @@ import { createRateLimitsRepository } from "../../repositories/rate-limits.repos
 import { createRateLimitsService } from "../../services/rate-limits.service.js";
 import { createSettingsService } from "../../services/settings.service.js";
 import { requireRequestCapability } from "../../services/settings.service.js";
+import { getMelbourneClock } from "../../lib/booking-policy.js";
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
-const ordinaryTestNow = () => new Date("2026-08-01T21:00:00.000Z");
+const ordinaryTestInstant = new Date();
+const ordinaryTestNow = () => ordinaryTestInstant;
+
+function melbourneDateOffset(days: number): string {
+  const today = new Date(`${getMelbourneClock(ordinaryTestInstant).date}T00:00:00Z`);
+  today.setUTCDate(today.getUTCDate() + days);
+  return today.toISOString().slice(0, 10);
+}
+
+const ordinaryTestDate = melbourneDateOffset(2);
+const ordinaryTestWeekday = new Date(`${ordinaryTestDate}T00:00:00Z`).getUTCDay();
 
 const VERIFIED_IDENTITY = {
   clientIp: "203.0.113.10",
@@ -519,7 +530,7 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
     await database.connection.db.insert(diyProjects).values({ id: projectId, categoryId, name: { en: "Clay cup", zh: "陶杯" }, slug: `route-clay-${projectId}`, projectType: "experience", bookable: true, durationMinutes: 60, priceMin: 4300 });
     await database.connection.db.insert(timeSlots).values({
       id: slotId,
-      date: "2026-08-02",
+      date: ordinaryTestDate,
       startTime: "10:00",
       endTime: "11:00",
       capacity: 8,
@@ -538,7 +549,7 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
       minSpendPerPersonCents: 4500,
     });
     await database.connection.db.insert(siteSettings).values({ storeName: "YezYY", experienceRequestsEnabled: true, partyRequestsEnabled: true, productRequestsEnabled: true });
-    await database.connection.db.insert(studioWeeklyHours).values({ weekday: 0, opensAt: "09:00", closesAt: "17:00", isClosed: false });
+    await database.connection.db.insert(studioWeeklyHours).values({ weekday: ordinaryTestWeekday, opensAt: "09:00", closesAt: "17:00", isClosed: false });
   });
 
   afterEach(async () => database.close());
@@ -586,7 +597,7 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
           name: "Enabled ordinary",
           phone: "0430000000",
           email: "enabled-ordinary@example.com",
-          date: "2026-08-02",
+          date: ordinaryTestDate,
           startTime: "10:00",
           participantCount: 2,
           youngChildCount: 0,
@@ -620,7 +631,7 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
           mode: "booking",
           projectId,
           timeSlotId: slotId,
-          preferredDate: "2026-08-02",
+          preferredDate: ordinaryTestDate,
           numberOfPeople: 2,
           name: "Legacy slot customer",
           phone: "0430000000",
@@ -679,7 +690,7 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
       email: "legacy-env-replay@example.com",
       projectId,
       timeSlotId: slotId,
-      preferredDate: "2026-08-02",
+      preferredDate: ordinaryTestDate,
       numberOfPeople: 2,
       locale: "en" as const,
     };
@@ -777,7 +788,7 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
     const key = crypto.randomUUID();
     const input = {
       kind: "experience" as const, mode: "booking" as const, name: "Route customer", phone: "0430000000", email: "route@example.com",
-      date: "2026-08-02", startTime: "10:00", participantCount: 2, youngChildCount: 0, accompanyingAdultCount: 1,
+      date: ordinaryTestDate, startTime: "10:00", participantCount: 2, youngChildCount: 0, accompanyingAdultCount: 1,
       items: [{ projectId, quantity: 2 }], locale: "en" as const, policyVersion: "2026-07-30" as const, policyAccepted: true as const,
     };
     const bookings = createBookingsService(
