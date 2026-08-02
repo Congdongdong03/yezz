@@ -43,6 +43,16 @@ describe("public image brand fallbacks", () => {
     expect(html).not.toContain("opacity:0");
   });
 
+  it("keeps an honest designed hero when no real studio image is available", () => {
+    const html = renderToStaticMarkup(
+      <Hero heroImageUrl={undefined} experienceEnabled />,
+    );
+
+    expect(html).not.toContain("<img");
+    expect(html).toContain('href="/book"');
+    expect(html).toContain("public-hero");
+  });
+
   it("uses the canonical brand in the store image description", () => {
     const html = renderToStaticMarkup(
       <StoreVibes storeImage={{ _id: "store", imageUrl: "/store.jpg" }} />,

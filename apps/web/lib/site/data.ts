@@ -14,6 +14,7 @@ import {
   mapSiteSettingsFromApi,
 } from "@/lib/api/mappers";
 import { YEZYY_BUSINESS_PROFILE, formatBusinessHours } from "./business";
+import { selectStudioMedia } from "./studio-media";
 
 /** Approved public fallback when API is enabled but unreachable. */
 const minimalSiteSettings: SiteSettingsView = {
@@ -50,8 +51,19 @@ export type HomePageData = {
   parties: ReturnType<typeof mapPartyFromApi>[];
   galleryImages: ReturnType<typeof mapGalleryImageFromApi>[];
   storeImage: ReturnType<typeof mapGalleryImageFromApi> | null;
+  heroImageUrl?: string;
   siteSettings: SiteSettingsView;
 };
+
+export function resolveHomepageHeroImage(
+  configuredImageUrl: string | undefined,
+  storeImageUrl: string | undefined,
+): string | undefined {
+  const configured = configuredImageUrl?.trim();
+  if (configured) return configured;
+  const store = storeImageUrl?.trim();
+  return store || undefined;
+}
 
 export async function loadSiteSettings(): Promise<SiteSettingsView> {
   if (!isApiEnabled()) {
@@ -133,20 +145,25 @@ export async function loadHomePageData(): Promise<LoadResult<HomePageData>> {
       .slice(0, 2)
       .map(mapPartyFromApi);
 
-    const galleryImages = apiGallery
+    const mappedGallery = apiGallery
       .sort((a, b) => a.sortOrder - b.sortOrder)
-      .slice(0, 6)
       .map(mapGalleryImageFromApi);
-
-    const storeRow = apiGallery.find((g) => g.category === "store");
-    const storeImage = storeRow ? mapGalleryImageFromApi(storeRow) : null;
+    const galleryImages = mappedGallery.slice(0, 6);
+    const selectedMedia = selectStudioMedia(mappedGallery);
+    const storeImage = selectedMedia.hero;
+    const mappedSettings = mapSiteSettingsFromApi(siteSettings);
+    const heroImageUrl = resolveHomepageHeroImage(
+      mappedSettings.heroImageUrl,
+      selectedMedia.hero?.imageUrl,
+    );
 
     return loadOk({
       projects,
       parties,
       galleryImages,
       storeImage,
-      siteSettings: mapSiteSettingsFromApi(siteSettings),
+      heroImageUrl,
+      siteSettings: mappedSettings,
     });
   } catch (err) {
     if (process.env.NODE_ENV === "development") {

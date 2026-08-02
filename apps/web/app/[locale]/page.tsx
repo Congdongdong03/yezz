@@ -49,7 +49,14 @@ export default async function HomePage({
     return <ServiceUnavailable />;
   }
 
-  const { projects, parties, galleryImages, storeImage, siteSettings } =
+  const {
+    projects,
+    parties,
+    galleryImages,
+    storeImage,
+    heroImageUrl,
+    siteSettings,
+  } =
     homeResult.data;
   const publishableGalleryImages = filterPublishableGalleryImages(galleryImages);
   const emptyStateProps = {
@@ -61,7 +68,7 @@ export default async function HomePage({
   return (
     <>
       <Hero
-        heroImageUrl={siteSettings?.heroImageUrl}
+        heroImageUrl={heroImageUrl}
         experienceEnabled={siteSettings.requestCapabilities.experience}
       />
       <StudioConfidenceStrip />

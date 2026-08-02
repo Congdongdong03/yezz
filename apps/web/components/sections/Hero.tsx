@@ -27,14 +27,20 @@ export default function Hero({
           alt={`${YEZYY_BUSINESS_PROFILE.storeName} Studio`}
           fill
           sizes="100vw"
-          className="object-cover"
+          className="object-cover object-[center_42%]"
           priority
         />
       ) : (
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,_rgba(217,111,158,0.25),_transparent_32%),radial-gradient(circle_at_86%_78%,_rgba(229,200,211,0.9),_transparent_32%),linear-gradient(135deg,_#FBF8F6,_#F8E8EE_56%,_#FFF_100%)]" />
       )}
-      <div className="absolute inset-0 bg-[var(--public-canvas)]/35" />
-      <div className="relative z-10 mx-auto max-w-4xl px-4 text-center sm:px-6">
+      <div
+        className={`absolute inset-0 ${
+          heroImageUrl
+            ? "bg-[radial-gradient(ellipse_at_center,rgba(251,248,246,0.92)_0%,rgba(251,248,246,0.7)_42%,rgba(74,58,62,0.22)_100%)]"
+            : "bg-[var(--public-canvas)]/35"
+        }`}
+      />
+      <div className="relative z-10 mx-auto max-w-4xl px-4 py-20 text-center sm:px-6">
         <p className="public-eyebrow">{t("eyebrow")}</p>
         <h1 className="mt-4 text-4xl font-serif font-bold leading-[1.05] text-[var(--public-ink)] md:text-6xl">
           {t("title")}
