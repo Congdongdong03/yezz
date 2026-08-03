@@ -37,6 +37,33 @@ const projects: OrdinaryBookingProject[] = [
   },
 ];
 
+const creamCategory = {
+  id: "cream",
+  name: { en: "Cream piping DIY", zh: "奶油胶DIY" },
+  slug: "air-dry-cream-piping",
+};
+
+const creamProjects: OrdinaryBookingProject[] = [
+  "Two hair clips",
+  "Fridge magnet",
+  "Mini drawers",
+  "Hair claw",
+  "Car decoration stand",
+  "Medium storage box/drawers",
+  "Pen holder, one face",
+  "Phone case",
+  "Small bag to decorate",
+  "Future cream project",
+].map((name, index) => ({
+  id: `10000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+  name: { en: name, zh: `项目 ${index + 1}` },
+  category: creamCategory,
+  durationMinutes: index < 5 ? 30 : 60,
+  priceDisplay: `A$${index + 18}`,
+  priceMinCents: (index + 18) * 100,
+  priceMaxCents: (index + 18) * 100,
+}));
+
 const testEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT: boolean;
 };
@@ -63,6 +90,7 @@ describe("ProjectQuantityPicker", () => {
     participantCount = 2,
     locale: "en" | "zh" = "en",
     showValidation = false,
+    availableProjects = projects,
   ) {
     await act(async () =>
       root.render(
@@ -72,12 +100,75 @@ describe("ProjectQuantityPicker", () => {
             latest = items;
           }}
           participantCount={participantCount}
-          projects={projects}
+          projects={availableProjects}
           showValidation={showValidation}
         />,
       ),
     );
   }
+
+  it("groups cream-piping choices and initially limits each group to popular projects", async () => {
+    await renderPicker(1, "en", false, creamProjects);
+
+    for (const heading of [
+      "Quick & small",
+      "Storage",
+      "Home & office",
+      "Phone accessories",
+      "Medium & large",
+      "More choices",
+    ]) {
+      expect(container.textContent).toContain(heading);
+    }
+
+    expect(
+      container.querySelector('[aria-label="Mini drawers quantity"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Hair claw quantity"]'),
+    ).toBeNull();
+
+    const quickGroup = container.querySelector(
+      '[data-project-group="quickSmall"]',
+    );
+    const toggle = quickGroup?.querySelector<HTMLButtonElement>("button");
+    expect(toggle?.textContent).toContain("Show 2 more");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle?.getAttribute("aria-controls")).toBe(
+      quickGroup?.querySelector("[id]")?.id,
+    );
+  });
+
+  it("keeps a selected project visible when its cream group is collapsed", async () => {
+    await renderPicker(1, "en", false, creamProjects);
+
+    const quickGroup = container.querySelector(
+      '[data-project-group="quickSmall"]',
+    );
+    const toggle = quickGroup?.querySelector<HTMLButtonElement>("button");
+    await act(async () => toggle?.click());
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+
+    await act(async () => change("Hair claw quantity", "1"));
+    await act(async () => toggle?.click());
+
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(
+      container.querySelector('[aria-label="Hair claw quantity"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[aria-label="Car decoration stand quantity"]'),
+    ).toBeNull();
+  });
+
+  it("places future cream-piping projects in More choices instead of dropping them", async () => {
+    await renderPicker(1, "en", false, creamProjects);
+
+    const moreChoices = container.querySelector(
+      '[data-project-group="moreChoices"]',
+    );
+    expect(moreChoices?.textContent).toContain("Future cream project");
+  });
 
   it("shows only the active category and changes categories without listing every project", async () => {
     await renderPicker(1);

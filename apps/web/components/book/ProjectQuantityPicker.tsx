@@ -36,6 +36,57 @@ type ProjectQuantityPickerProps = {
   showValidation?: boolean;
 };
 
+const CREAM_CATEGORY_SLUG = "air-dry-cream-piping";
+
+const CREAM_PROJECT_GROUPS = {
+  quickSmall: new Set([
+    "Two hair clips",
+    "Fridge magnet",
+    "Mini drawers",
+    "Hair claw",
+    "Car decoration stand",
+  ]),
+  storage: new Set([
+    "Medium storage box/drawers",
+    "Large storage box/drawers",
+    "Glass dome",
+    "Extra-large drawer",
+  ]),
+  homeOffice: new Set([
+    "Pen holder, one face",
+    "Extra face",
+    "Mug",
+    "Lamp",
+    "Mirror",
+    "Notebook",
+    "Pencil case",
+  ]),
+  phoneAccessories: new Set(["Phone case", "Phone stand", "Phone socket"]),
+  mediumLarge: new Set([
+    "Small bag to decorate",
+    "Large bag to decorate",
+    "Water bottle",
+  ]),
+} as const;
+
+type CreamProjectGroup = keyof typeof CREAM_PROJECT_GROUPS | "moreChoices";
+
+const CREAM_PROJECT_GROUP_ORDER: CreamProjectGroup[] = [
+  "quickSmall",
+  "storage",
+  "homeOffice",
+  "phoneAccessories",
+  "mediumLarge",
+  "moreChoices",
+];
+
+function creamProjectGroup(name: string): CreamProjectGroup {
+  for (const [group, names] of Object.entries(CREAM_PROJECT_GROUPS)) {
+    if (names.has(name as never)) return group as CreamProjectGroup;
+  }
+  return "moreChoices";
+}
+
 const COPY = {
   en: {
     price: "Prices are in AUD and are paid in store.",
@@ -51,6 +102,16 @@ const COPY = {
     duration: (duration?: number) =>
       `Estimated booking time: ${duration ? `${duration} minutes` : "—"}`,
     projectDuration: (duration: number) => `${duration} minutes`,
+    creamGroups: {
+      quickSmall: "Quick & small",
+      storage: "Storage",
+      homeOffice: "Home & office",
+      phoneAccessories: "Phone accessories",
+      mediumLarge: "Medium & large",
+      moreChoices: "More choices",
+    },
+    showMore: (count: number) => `Show ${count} more`,
+    showLess: "Show less",
   },
   zh: {
     price: "所有价格均为澳元，并在店内付款。",
@@ -66,6 +127,16 @@ const COPY = {
     duration: (duration?: number) =>
       `预计预约时长：${duration ? `${duration} 分钟` : "—"}`,
     projectDuration: (duration: number) => `${duration} 分钟`,
+    creamGroups: {
+      quickSmall: "快速小项目",
+      storage: "收纳类",
+      homeOffice: "家居与文具",
+      phoneAccessories: "手机配件",
+      mediumLarge: "中大型项目",
+      moreChoices: "更多选择",
+    },
+    showMore: (count: number) => `展开另外 ${count} 项`,
+    showLess: "收起",
   },
 } as const;
 
@@ -140,6 +211,9 @@ export default function ProjectQuantityPicker({
     categories[0]?.id ??
     "";
   const [activeCategoryId, setActiveCategoryId] = useState(initialCategoryId);
+  const [expandedGroups, setExpandedGroups] = useState<
+    Partial<Record<CreamProjectGroup, boolean>>
+  >({});
   const [touched, setTouched] = useState(false);
   const summary = summarizeProjectSelection(items, projects);
   const parityError = summary.quantity !== participantCount;
@@ -194,6 +268,52 @@ export default function ProjectQuantityPicker({
     />
   );
 
+  const renderProjectCard = (
+    project: OrdinaryBookingProject,
+    index: number,
+  ) => {
+    const name = project.name[locale];
+    const selected = quantityFor(items, project.id) > 0;
+    const accents = [
+      "border-l-soft-pink",
+      "border-l-sage",
+      "border-l-lavender",
+      "border-l-caramel",
+    ];
+    return (
+      <article
+        className={`flex min-h-28 items-center justify-between gap-3 rounded-2xl border border-l-4 border-warm-grey/15 bg-white p-4 shadow-sm transition ${
+          accents[index % accents.length]
+        } ${selected ? "ring-2 ring-caramel/25" : ""}`}
+        key={project.id}
+      >
+        <div>
+          <h3 className="font-serif text-base font-semibold text-warm-charcoal">
+            {name}
+          </h3>
+          <p className="mt-1 text-sm text-warm-grey">
+            {copy.projectDuration(project.durationMinutes)}
+            {project.priceDisplay ? ` · ${project.priceDisplay}` : ""}
+          </p>
+        </div>
+        {renderQuantity(name, project.id)}
+      </article>
+    );
+  };
+
+  const activeCategory = categories.find(
+    (category) => category.id === activeCategoryId,
+  );
+  const activeProjects = projects.filter(
+    (project) => project.category.id === activeCategoryId,
+  );
+  const creamGroups = CREAM_PROJECT_GROUP_ORDER.map((group) => ({
+    group,
+    projects: activeProjects.filter(
+      (project) => creamProjectGroup(project.name.en) === group,
+    ),
+  })).filter(({ projects: groupProjects }) => groupProjects.length > 0);
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-warm-grey">{copy.price}</p>
@@ -218,39 +338,57 @@ export default function ProjectQuantityPicker({
           </button>
         ))}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {projects
-          .filter((project) => project.category.id === activeCategoryId)
-          .map((project, index) => {
-          const name = project.name[locale];
-          const selected = quantityFor(items, project.id) > 0;
-          const accents = [
-            "border-l-soft-pink",
-            "border-l-sage",
-            "border-l-lavender",
-            "border-l-caramel",
-          ];
-          return (
-            <article
-                className={`flex min-h-28 items-center justify-between gap-3 rounded-2xl border border-l-4 border-warm-grey/15 bg-white p-4 shadow-sm transition ${
-                accents[index % accents.length]
-              } ${selected ? "ring-2 ring-caramel/25" : ""}`}
-              key={project.id}
-            >
-              <div>
-                <h3 className="font-serif text-base font-semibold text-warm-charcoal">
-                  {name}
-                </h3>
-                <p className="mt-1 text-sm text-warm-grey">
-                  {copy.projectDuration(project.durationMinutes)}
-                  {project.priceDisplay ? ` · ${project.priceDisplay}` : ""}
-                </p>
-              </div>
-              {renderQuantity(name, project.id)}
-            </article>
-          );
-        })}
-      </div>
+      {activeCategory?.slug === CREAM_CATEGORY_SLUG ? (
+        <div className="space-y-5">
+          {creamGroups.map(({ group, projects: groupProjects }) => {
+            const expanded = expandedGroups[group] ?? false;
+            const visibleProjects = expanded
+              ? groupProjects
+              : groupProjects.filter(
+                  (project, index) =>
+                    index < 3 || quantityFor(items, project.id) > 0,
+                );
+            const hiddenCount = groupProjects.filter(
+              (project) => !visibleProjects.includes(project),
+            ).length;
+            const regionId = `${id}-project-group-${group}`;
+            return (
+              <section data-project-group={group} key={group}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="font-serif text-lg font-semibold text-warm-charcoal">
+                    {copy.creamGroups[group]}
+                  </h3>
+                  {groupProjects.length > 3 && (
+                    <button
+                      aria-controls={regionId}
+                      aria-expanded={expanded}
+                      className="min-h-11 rounded-full px-3 text-sm font-semibold text-caramel underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caramel"
+                      onClick={() =>
+                        setExpandedGroups((current) => ({
+                          ...current,
+                          [group]: !expanded,
+                        }))
+                      }
+                      type="button"
+                    >
+                      {expanded
+                        ? copy.showLess
+                        : copy.showMore(hiddenCount)}
+                    </button>
+                  )}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2" id={regionId}>
+                  {visibleProjects.map(renderProjectCard)}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {activeProjects.map(renderProjectCard)}
+        </div>
+      )}
       <article className="flex min-h-28 items-center justify-between gap-3 rounded-2xl border border-l-4 border-warm-grey/15 border-l-warm-charcoal bg-cream/60 p-4">
           <div>
             <h3 className="font-serif text-base font-semibold text-warm-charcoal">
