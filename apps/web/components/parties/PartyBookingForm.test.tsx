@@ -1,16 +1,16 @@
 /** @vitest-environment jsdom */
 
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act } from "react"
+import { createRoot, type Root } from "react-dom/client"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import PartyBookingForm, {
   type PartyBookingFormParty,
-} from "./PartyBookingForm";
+} from "./PartyBookingForm"
 
 const testState = vi.hoisted(() => ({
   submitPartyBooking: vi.fn(),
   getPartyAvailability: vi.fn(),
-}));
+}))
 
 const messages: Record<string, string> = {
   title: "Request the Standard party",
@@ -41,6 +41,13 @@ const messages: Record<string, string> = {
   projectMelty: "Melty bead craft",
   projectClay: "Paint clay figurine",
   projectBeading: "Beading",
+  projectUnsure: "Not sure yet",
+  stepPeople: "People",
+  stepPlan: "Plan",
+  stepExtras: "Extras & terms",
+  stepOf: "Step {current} of {total}",
+  continue: "Continue",
+  back: "Back",
   byoTitle: "What will you bring?",
   byoCake: "Cake",
   byoDrinks: "Drinks",
@@ -64,30 +71,36 @@ const messages: Record<string, string> = {
   successTitle: "Party request received",
   successBody:
     "Your request awaits manual staff confirmation. We may propose another time. Pay the venue fee/deposit in store; no online payment was taken.",
-};
+}
 
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
-  useTranslations: () => (key: string) => messages[key] ?? key,
-}));
+  useTranslations:
+    () => (key: string, values?: Record<string, string | number>) =>
+      Object.entries(values ?? {}).reduce(
+        (text, [name, replacement]) =>
+          text.replace(`{${name}}`, String(replacement)),
+        messages[key] ?? key
+      ),
+}))
 
 vi.mock("@/lib/actions/booking", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("@/lib/actions/booking")>();
+    await importOriginal<typeof import("@/lib/actions/booking")>()
   return {
     ...original,
     submitPartyBooking: testState.submitPartyBooking,
-  };
-});
+  }
+})
 
 vi.mock("@/lib/api/availability", () => ({
   getPartyAvailability: testState.getPartyAvailability,
-}));
+}))
 
 const testEnvironment = globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT: boolean;
-};
-testEnvironment.IS_REACT_ACT_ENVIRONMENT = true;
+  IS_REACT_ACT_ENVIRONMENT: boolean
+}
+testEnvironment.IS_REACT_ACT_ENVIRONMENT = true
 
 const party: PartyBookingFormParty = {
   id: "00000000-0000-4000-8000-000000000003",
@@ -102,17 +115,17 @@ const party: PartyBookingFormParty = {
   minSpendPerPersonCents: 4500,
   minParents: 1,
   maxParents: 2,
-};
+}
 
 describe("PartyBookingForm", () => {
-  let container: HTMLDivElement;
-  let root: Root;
+  let container: HTMLDivElement
+  let root: Root
 
   beforeEach(() => {
     testState.submitPartyBooking.mockReset().mockResolvedValue({
       success: true,
       bookingId: "party-booking-1",
-    });
+    })
     testState.getPartyAvailability.mockReset().mockResolvedValue([
       {
         date: "2030-08-12",
@@ -120,94 +133,125 @@ describe("PartyBookingForm", () => {
         endTime: "13:30",
         request_only: true,
       },
-    ]);
-    container = document.createElement("div");
-    document.body.append(container);
-    root = createRoot(container);
-  });
+    ])
+    container = document.createElement("div")
+    document.body.append(container)
+    root = createRoot(container)
+  })
 
   afterEach(async () => {
-    await act(async () => root.unmount());
-    document.body.replaceChildren();
-  });
+    await act(async () => root.unmount())
+    document.body.replaceChildren()
+  })
 
   async function renderForm() {
     await act(async () => {
-      root.render(<PartyBookingForm party={party} />);
-    });
+      root.render(<PartyBookingForm party={party} />)
+    })
   }
 
   async function setInput(name: string, value: string) {
-    const input = container.querySelector<HTMLInputElement>(`[name="${name}"]`);
-    expect(input).not.toBeNull();
+    const input = container.querySelector<HTMLInputElement>(`[name="${name}"]`)
+    expect(input).not.toBeNull()
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
-      "value",
-    )?.set;
+      "value"
+    )?.set
     await act(async () => {
-      setter?.call(input, value);
-      input?.dispatchEvent(new Event("input", { bubbles: true }));
-      input?.dispatchEvent(new Event("change", { bubbles: true }));
-    });
+      setter?.call(input, value)
+      input?.dispatchEvent(new Event("input", { bubbles: true }))
+      input?.dispatchEvent(new Event("change", { bubbles: true }))
+    })
   }
 
   async function setCheckbox(name: string, checked = true) {
-    const input = container.querySelector<HTMLInputElement>(`[name="${name}"]`);
-    expect(input).not.toBeNull();
+    const input = container.querySelector<HTMLInputElement>(`[name="${name}"]`)
+    expect(input).not.toBeNull()
     await act(async () => {
-      if (input && input.checked !== checked) input.click();
-    });
+      if (input && input.checked !== checked) input.click()
+    })
+  }
+
+  async function setProject(value: string, checked = true) {
+    const input = container.querySelector<HTMLInputElement>(
+      `input[name="projectInterests"][value="${value}"]`
+    )
+    expect(input).not.toBeNull()
+    await act(async () => {
+      if (input && input.checked !== checked) input.click()
+    })
+  }
+
+  async function clickButton(label: string) {
+    const button = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button")
+    ).find((candidate) => candidate.textContent?.trim() === label)
+    expect(button).not.toBeUndefined()
+    await act(async () => button?.click())
   }
 
   async function submitForm() {
-    const form = container.querySelector("form");
+    const form = container.querySelector("form")
     await act(async () => {
       form?.dispatchEvent(
-        new Event("submit", { bubbles: true, cancelable: true }),
-      );
-    });
+        new Event("submit", { bubbles: true, cancelable: true })
+      )
+    })
   }
 
-  it("shows request-only timing, exact package policy, and mobile semantic controls", async () => {
-    await renderForm();
+  async function completePeopleStep() {
+    await setInput("name", "Mei")
+    await setInput("phone", "0430000001")
+    await setInput("email", "mei@example.com")
+    await setInput("birthdayChildName", "Lina")
+    await setInput("birthdayChildAge", "7")
+    await setInput("participantCount", "8")
+    await setInput("parentCount", "2")
+    await clickButton("Continue")
+  }
 
-    expect(container.textContent).toContain("request only");
-    expect(container.textContent).toContain("manually confirm");
-    expect(container.textContent).toContain("may propose another time");
-    expect(container.textContent).toContain("A$95");
-    expect(container.textContent).toContain("paid in store");
-    expect(container.textContent).toContain("There is no online payment");
-    expect(container.textContent).toContain("at least 48 hours");
-    expect(container.textContent).toContain("non-refundable");
+  async function completePlanStep(project = "Air-dry cream piping") {
+    await setProject(project)
+    await setInput("desiredDate", "2030-08-12")
+    await act(async () => {})
+    await clickButton("Request 12:00–13:30")
+    await clickButton("Continue")
+  }
+
+  it("starts with only people fields and no repeated payment explanation", async () => {
+    await renderForm()
+
+    expect(container.textContent).toContain("A$95")
+    expect(container.textContent).toContain("Step 1 of 3")
+    expect(container.textContent).not.toContain("request only")
+    expect(container.textContent).not.toContain("There is no online payment")
+    expect(container.querySelector('[name="name"]')).not.toBeNull()
+    expect(container.querySelector('[name="projectInterests"]')).toBeNull()
+    expect(container.querySelector('[name="desiredDate"]')).toBeNull()
+    expect(container.querySelector('[name="byoCake"]')).toBeNull()
     expect(
       container.querySelector<HTMLInputElement>('[name="participantCount"]')
-        ?.min,
-    ).toBe("4");
+        ?.min
+    ).toBe("4")
     expect(
       container.querySelector<HTMLInputElement>('[name="participantCount"]')
-        ?.max,
-    ).toBe("8");
+        ?.max
+    ).toBe("8")
     expect(
-      container.querySelector<HTMLInputElement>('[name="parentCount"]')?.min,
-    ).toBe("1");
+      container.querySelector<HTMLInputElement>('[name="parentCount"]')?.min
+    ).toBe("1")
     expect(
-      container.querySelector<HTMLInputElement>('[name="parentCount"]')?.max,
-    ).toBe("2");
-    expect(
-      container.querySelector<HTMLInputElement>('[name="desiredDate"]')?.type,
-    ).toBe("date");
-    expect(
-      container.querySelector<HTMLInputElement>('[name="policyAccepted"]')
-        ?.type,
-    ).toBe("checkbox");
-  });
+      container.querySelector<HTMLInputElement>('[name="parentCount"]')?.max
+    ).toBe("2")
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+  })
 
-  it("requires 4–8 participants, 1–2 parents, age 5, a project, and policy acceptance", async () => {
-    await renderForm();
-    await setInput("participantCount", "3");
-    await setInput("parentCount", "0");
-    await setInput("birthdayChildAge", "4");
-    await submitForm();
+  it("validates only the people step before revealing the plan", async () => {
+    await renderForm()
+    await setInput("participantCount", "3")
+    await setInput("parentCount", "0")
+    await setInput("birthdayChildAge", "4")
+    await clickButton("Continue")
 
     for (const [name, message] of [
       ["participantCount", "Choose 4 to 8 DIY participants."],
@@ -215,73 +259,132 @@ describe("PartyBookingForm", () => {
       ["birthdayChildAge", "The birthday child must be at least 5."],
     ]) {
       const input = container.querySelector<HTMLInputElement>(
-        `[name="${name}"]`,
-      );
-      const describedBy = input?.getAttribute("aria-describedby");
-      expect(describedBy).toBeTruthy();
+        `[name="${name}"]`
+      )
+      const describedBy = input?.getAttribute("aria-describedby")
+      expect(describedBy).toBeTruthy()
       expect(container.querySelector(`#${describedBy}`)?.textContent).toBe(
-        message,
-      );
-      expect(input?.getAttribute("aria-invalid")).toBe("true");
+        message
+      )
+      expect(input?.getAttribute("aria-invalid")).toBe("true")
     }
-    expect(container.textContent).toContain("Choose at least one DIY project.");
-    expect(container.textContent).toContain(
-      "Accept the party booking policies to continue.",
-    );
-    expect(testState.submitPartyBooking).not.toHaveBeenCalled();
-  });
+    expect(container.textContent).not.toContain(
+      "Choose at least one DIY project."
+    )
+    expect(container.textContent).not.toContain(
+      "Accept the party booking policies"
+    )
+    expect(container.querySelector('[name="projectInterests"]')).toBeNull()
+    expect(testState.submitPartyBooking).not.toHaveBeenCalled()
+  })
 
-  it("loads candidate starts by package duration and submits all party details", async () => {
-    await renderForm();
-    await setInput("name", "Mei");
-    await setInput("phone", "0430000001");
-    await setInput("email", "mei@example.com");
-    await setInput("birthdayChildName", "Lina");
-    await setInput("birthdayChildAge", "7");
-    await setInput("participantCount", "8");
-    await setInput("parentCount", "2");
-    await setInput("desiredDate", "2030-08-12");
-    await act(async () => {});
+  it("preserves people values when moving forward and back", async () => {
+    await renderForm()
+    await completePeopleStep()
+
+    expect(container.textContent).toContain("Step 2 of 3")
+    expect(container.querySelector('[name="name"]')).toBeNull()
+    expect(container.querySelector('[name="projectInterests"]')).not.toBeNull()
+    await clickButton("Back")
+    expect(
+      container.querySelector<HTMLInputElement>('[name="name"]')?.value
+    ).toBe("Mei")
+    expect(
+      container.querySelector<HTMLInputElement>('[name="participantCount"]')
+        ?.value
+    ).toBe("8")
+  })
+
+  it("makes Not sure yet mutually exclusive with concrete DIY interests", async () => {
+    await renderForm()
+    await completePeopleStep()
+
+    await setProject("Air-dry cream piping")
+    await setProject("Not sure yet")
+    expect(
+      container.querySelector<HTMLInputElement>(
+        'input[value="Air-dry cream piping"]'
+      )?.checked
+    ).toBe(false)
+    expect(
+      container.querySelector<HTMLInputElement>('input[value="Not sure yet"]')
+        ?.checked
+    ).toBe(true)
+
+    await setProject("Beading")
+    expect(
+      container.querySelector<HTMLInputElement>('input[value="Not sure yet"]')
+        ?.checked
+    ).toBe(false)
+    expect(
+      container.querySelector<HTMLInputElement>('input[value="Beading"]')
+        ?.checked
+    ).toBe(true)
+  })
+
+  it("shows cake cutting only after Cake is selected and clears it with Cake", async () => {
+    await renderForm()
+    await completePeopleStep()
+    await completePlanStep("Not sure yet")
+
+    expect(container.textContent).toContain("Step 3 of 3")
+    expect(container.querySelector('[name="cakeCuttingRequested"]')).toBeNull()
+    await setCheckbox("byoCake", true)
+    await setCheckbox("cakeCuttingRequested", true)
+    expect(
+      container.querySelector<HTMLInputElement>('[name="cakeCuttingRequested"]')
+        ?.checked
+    ).toBe(true)
+    await setCheckbox("byoCake", false)
+    expect(container.querySelector('[name="cakeCuttingRequested"]')).toBeNull()
+  })
+
+  it("loads candidate starts by package duration and submits all three steps", async () => {
+    await renderForm()
+    await completePeopleStep()
+    await setInput("desiredDate", "2030-08-12")
+    await act(async () => {})
 
     expect(testState.getPartyAvailability).toHaveBeenCalledWith({
       date: "2030-08-12",
       guestDurationMinutes: 90,
-    });
+    })
 
     const timeButton = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("button"),
-    ).find((button) => button.textContent?.includes("12:00–13:30"));
-    expect(timeButton).toBeDefined();
-    await act(async () => timeButton?.click());
-    expect(timeButton?.getAttribute("aria-pressed")).toBe("true");
+      container.querySelectorAll<HTMLButtonElement>("button")
+    ).find((button) => button.textContent?.includes("12:00–13:30"))
+    expect(timeButton).toBeDefined()
+    await act(async () => timeButton?.click())
+    expect(timeButton?.getAttribute("aria-pressed")).toBe("true")
 
-    await setCheckbox("projectInterests", true);
-    await setCheckbox("byoCake", true);
-    await setCheckbox("byoFood", true);
-    await setCheckbox("cakeCuttingRequested", true);
-    await setCheckbox("policyAccepted", true);
-    await submitForm();
+    await setProject("Air-dry cream piping")
+    await clickButton("Continue")
+    expect(container.textContent).toContain("Step 3 of 3")
+    await setCheckbox("byoCake", true)
+    await setCheckbox("byoFood", true)
+    await setCheckbox("cakeCuttingRequested", true)
+    await setCheckbox("policyAccepted", true)
+    await submitForm()
 
-    expect(testState.submitPartyBooking).toHaveBeenCalledOnce();
-    const formData = testState.submitPartyBooking.mock
-      .calls[0]?.[0] as FormData;
-    expect(formData.get("partyPackageId")).toBe(party.id);
-    expect(formData.get("desiredDate")).toBe("2030-08-12");
-    expect(formData.get("desiredStartTime")).toBe("12:00");
-    expect(formData.get("participantCount")).toBe("8");
-    expect(formData.get("parentCount")).toBe("2");
+    expect(testState.submitPartyBooking).toHaveBeenCalledOnce()
+    const formData = testState.submitPartyBooking.mock.calls[0]?.[0] as FormData
+    expect(formData.get("partyPackageId")).toBe(party.id)
+    expect(formData.get("desiredDate")).toBe("2030-08-12")
+    expect(formData.get("desiredStartTime")).toBe("12:00")
+    expect(formData.get("participantCount")).toBe("8")
+    expect(formData.get("parentCount")).toBe("2")
     expect(formData.get("projectInterests")).toBe(
-      JSON.stringify(["Air-dry cream piping"]),
-    );
-    expect(formData.get("byoCake")).toBe("true");
-    expect(formData.get("byoDrinks")).toBe("false");
-    expect(formData.get("byoFood")).toBe("true");
-    expect(formData.get("byoSnacks")).toBe("false");
-    expect(formData.get("cakeCuttingRequested")).toBe("true");
-    expect(formData.get("policyVersion")).toBe("2026-08-03");
-    expect(formData.get("policyAccepted")).toBe("true");
-    expect(container.textContent).toContain("Party request received");
-    expect(container.textContent).toContain("awaits manual staff confirmation");
-    expect(container.textContent).toContain("no online payment was taken");
-  });
-});
+      JSON.stringify(["Air-dry cream piping"])
+    )
+    expect(formData.get("byoCake")).toBe("true")
+    expect(formData.get("byoDrinks")).toBe("false")
+    expect(formData.get("byoFood")).toBe("true")
+    expect(formData.get("byoSnacks")).toBe("false")
+    expect(formData.get("cakeCuttingRequested")).toBe("true")
+    expect(formData.get("policyVersion")).toBe("2026-08-03")
+    expect(formData.get("policyAccepted")).toBe("true")
+    expect(container.textContent).toContain("Party request received")
+    expect(container.textContent).toContain("awaits manual staff confirmation")
+    expect(container.textContent).toContain("no online payment was taken")
+  })
+})
