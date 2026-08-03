@@ -129,6 +129,8 @@ Carry forward verified stack, architecture, repository layout, setup, release-ga
 
 Remove the outdated root-level `需求.md` brief. It describes the superseded WeChat-led MVP and should not compete with the current English production case study; Git history remains the recovery path.
 
+Remove the unreferenced root-level development screenshots after confirming no source or documentation file references them. Keep the single current production screenshot under `docs/images/`; Git history remains the recovery path for old captures.
+
 - [ ] **Step 5: Validate public wording**
 
 Run:

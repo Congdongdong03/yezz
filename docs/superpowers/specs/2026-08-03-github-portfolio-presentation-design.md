@@ -24,6 +24,7 @@ The result must remain factual, compact, professional, and easy to scan. It must
 - Keep all practice repositories private. Do not delete or archive them.
 - Do not rename the `yezz` repository. GitHub and deployment links may depend on the existing repository identity; the public product name inside the README remains `YezYY`.
 - Remove the outdated root-level `需求.md` brief from the current tree. Its initial WeChat-led MVP scope no longer represents the production product, and Git history remains the recovery path if it is ever needed.
+- Remove unreferenced root-level development screenshots from the current tree. Keep the single current production screenshot under `docs/images/`; Git history remains the recovery path for the old captures.
 
 ## Account profile
 
