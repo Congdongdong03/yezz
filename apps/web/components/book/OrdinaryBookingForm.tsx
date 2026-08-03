@@ -638,20 +638,6 @@ export default function OrdinaryBookingForm({
           {renderField("phone", "tel")}
         </div>
         <div className="mt-4">{renderField("email", "email")}</div>
-        <div className="mt-4">
-          <label
-            className="text-sm font-semibold text-warm-charcoal"
-            htmlFor={fieldId("message")}
-          >
-            {t("message")}
-          </label>
-          <textarea
-            className={inputClass}
-            id={fieldId("message")}
-            name="message"
-            rows={4}
-          />
-        </div>
           <div className="mt-6">
             <PhotoConsentField
               decision={photoConsentDecision}

@@ -327,6 +327,21 @@ describe("OrdinaryBookingForm", () => {
     );
   });
 
+  it("keeps the final step focused on the three required contact fields", async () => {
+    await renderForm();
+    await completeForm();
+
+    for (const name of ["name", "phone", "email"]) {
+      expect(container.querySelector(`[name="${name}"]`)).not.toBeNull();
+    }
+    expect(container.querySelector('textarea[name="message"]')).toBeNull();
+    expect(container.textContent).not.toContain("Notes for YezYY");
+    expect(container.textContent).toContain("Before you send the request");
+    expect(container.textContent).toContain(
+      "No photo or video permission (default)",
+    );
+  });
+
   it("carries the selected project quantity into the people step", async () => {
     await renderForm();
 
