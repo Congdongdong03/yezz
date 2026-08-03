@@ -75,6 +75,7 @@ Expected: clean worktree on `codex/github-portfolio-presentation`.
 **Files:**
 - Modify: `README.md`
 - Create: `docs/images/yezyy-production-homepage.png`
+- Delete from current tree: `需求.md`
 
 **Interfaces:**
 - Consumes: live public site at `https://yezyy.com/en`
@@ -125,6 +126,8 @@ The product sections must describe bilingual ordinary DIY and party requests, ca
 - [ ] **Step 4: Preserve useful technical documentation**
 
 Carry forward verified stack, architecture, repository layout, setup, release-gate, and deployment information from the existing README. Remove the existing claims that customers currently use a public cart, commerce, or online order-submission flow.
+
+Remove the outdated root-level `需求.md` brief. It describes the superseded WeChat-led MVP and should not compete with the current English production case study; Git history remains the recovery path.
 
 - [ ] **Step 5: Validate public wording**
 

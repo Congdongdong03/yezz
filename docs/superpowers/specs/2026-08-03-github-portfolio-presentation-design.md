@@ -23,6 +23,7 @@ The result must remain factual, compact, professional, and easy to scan. It must
 - Change `Congdongdong03/Congdongdong03.github.io` (Birthday Sky) to private, as explicitly selected by the user. This may make the corresponding GitHub Pages site unavailable.
 - Keep all practice repositories private. Do not delete or archive them.
 - Do not rename the `yezz` repository. GitHub and deployment links may depend on the existing repository identity; the public product name inside the README remains `YezYY`.
+- Remove the outdated root-level `需求.md` brief from the current tree. Its initial WeChat-led MVP scope no longer represents the production product, and Git history remains the recovery path if it is ever needed.
 
 ## Account profile
 
