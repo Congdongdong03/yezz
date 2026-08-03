@@ -20,7 +20,7 @@ const COPY = {
     children: "Children aged 5–8",
     adults: "Accompanying adults",
     age:
-      "Minimum age is 5. Children aged 5–8 need an accompanying adult; guests aged 9 or older may attend without one.",
+      "Minimum age is 5. Guests aged 9 or older may attend without an accompanying adult.",
     physical: (count: number) => `${count} people in the studio`,
     capacity: "Physical attendance has a maximum of 8 people.",
     supervision:
@@ -36,8 +36,7 @@ const COPY = {
     participants: "手作参与者",
     children: "5 至 8 岁儿童",
     adults: "陪同成人",
-    age:
-      "最低年龄为 5 岁。5 至 8 岁儿童须由成人陪同；9 岁及以上可不由成人陪同。",
+    age: "最低年龄为 5 岁；9 岁及以上可不由成人陪同。",
     physical: (count: number) => `到店共 ${count} 人`,
     capacity: "店内实际人数最多 8 人。",
     supervision: "有 5 至 8 岁儿童参加时，至少需要一位陪同成人。",
@@ -95,6 +94,7 @@ export default function AttendanceFields({
   const errors = validateOrdinaryAttendance(current);
   const attendance =
     current.participantCount + current.accompanyingAdultCount;
+  const supervisionId = `${id}-supervision`;
 
   const setField = (
     field: keyof OrdinaryAttendance,
@@ -135,9 +135,15 @@ export default function AttendanceFields({
       <div className="grid gap-4 sm:grid-cols-3">
         {fields.map(({ field, label, max }) => {
           const inputId = `${id}-${field}`;
+          const validationError = errors[field];
           const fieldError = errorMessage(field);
-          const descriptionId = `${inputId}-description`;
           const errorId = `${inputId}-error`;
+          const describedBy =
+            validationError === "supervision"
+              ? supervisionId
+              : fieldError
+                ? errorId
+                : undefined;
           return (
             <div key={field}>
               <label
@@ -147,9 +153,7 @@ export default function AttendanceFields({
                 {label}
               </label>
               <input
-                aria-describedby={
-                  fieldError ? errorId : descriptionId
-                }
+                aria-describedby={describedBy}
                 aria-invalid={Boolean(fieldError)}
                 className="mt-2 min-h-11 w-full rounded-xl border border-warm-grey/25 bg-white px-3 text-base text-warm-charcoal outline-none transition focus-visible:border-caramel focus-visible:ring-2 focus-visible:ring-caramel/25"
                 id={inputId}
@@ -163,10 +167,7 @@ export default function AttendanceFields({
                 type="number"
                 value={current[field]}
               />
-              <span className="sr-only" id={descriptionId}>
-                {copy.countHint}
-              </span>
-              {fieldError && (
+              {fieldError && validationError !== "supervision" && (
                 <p
                   className="mt-1 text-sm text-red-700"
                   id={errorId}
@@ -179,6 +180,19 @@ export default function AttendanceFields({
           );
         })}
       </div>
+      {current.youngChildCount > 0 && (
+        <p
+          className="rounded-xl border border-lavender/50 bg-lavender/10 px-4 py-3 text-sm leading-6 text-warm-charcoal"
+          id={supervisionId}
+          role={
+            errors.accompanyingAdultCount === "supervision"
+              ? "alert"
+              : undefined
+          }
+        >
+          {copy.supervision}
+        </p>
+      )}
       <div
         className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3 text-sm ${
           attendance > 8

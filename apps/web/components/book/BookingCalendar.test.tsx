@@ -43,6 +43,8 @@ const testState = vi.hoisted(() => {
       ordinaryEmpty: "No request times on this date.",
       melbourneTime: "Melbourne time",
       retryAvailability: "Check again",
+      requestableTimes:
+        "The times below can be requested and require staff confirmation.",
     })[key] ?? key;
   return state;
 });
@@ -219,7 +221,7 @@ describe("BookingCalendar ordinary DIY availability", () => {
     return { promise, reject, resolve };
   }
 
-  it("loads generated starts with the longest duration and total attendance", async () => {
+  it("loads compact requestable starts with the longest duration and total attendance", async () => {
     await chooseDate();
 
     expect(testState.getOrdinaryAvailability).toHaveBeenCalledWith({
@@ -227,10 +229,23 @@ describe("BookingCalendar ordinary DIY availability", () => {
       date: "2030-08-12",
       durationMinutes: 60,
     });
-    expect(container.textContent).toContain("10:00 – 11:00");
-    expect(container.textContent).toContain("10:30 – 11:30");
-    expect(container.textContent).toContain("Available");
+    expect(container.textContent).toContain(
+      "The times below can be requested and require staff confirmation.",
+    );
+    expect(
+      Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent === "10:00",
+      ),
+    ).not.toBeUndefined();
+    expect(container.textContent).not.toContain("10:00 – 11:00");
+    expect(container.textContent).not.toContain("Request this time");
     expect(container.textContent).toContain("Waitlist");
+    expect(container.textContent).not.toContain("10:30 – 11:30");
+
+    const available = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "10:00",
+    );
+    expect(available?.getAttribute("aria-label")).toContain("10:00 – 11:00");
   });
 
   it("keeps available and waitlist starts as distinct keyboard buttons", async () => {
@@ -323,7 +338,8 @@ describe("BookingCalendar ordinary DIY availability", () => {
         },
       ]),
     );
-    expect(container.textContent).toContain("13:00 – 14:00");
+    expect(container.textContent).toContain("13:00");
+    expect(container.textContent).not.toContain("13:00 – 14:00");
 
     await act(async () =>
       first.resolve([
@@ -336,8 +352,8 @@ describe("BookingCalendar ordinary DIY availability", () => {
         },
       ]),
     );
-    expect(container.textContent).toContain("13:00 – 14:00");
-    expect(container.textContent).not.toContain("09:00 – 10:00");
+    expect(container.textContent).toContain("13:00");
+    expect(container.textContent).not.toContain("09:00");
   });
 
   it("offers a labelled retry that reloads the current availability query", async () => {
@@ -361,7 +377,10 @@ describe("BookingCalendar ordinary DIY availability", () => {
     expect(retry?.getAttribute("aria-label")).toBe("Check again");
     await act(async () => retry?.click());
     expect(testState.getOrdinaryAvailability).toHaveBeenCalledTimes(2);
-    expect(container.textContent).toContain("12:00 – 13:00");
+    const available = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((button) => button.textContent === "12:00");
+    expect(available?.getAttribute("aria-label")).toContain("12:00 – 13:00");
   });
 
   it("associates a required schedule error with the date and slot group", async () => {

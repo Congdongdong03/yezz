@@ -70,9 +70,40 @@ describe("AttendanceFields", () => {
   it("requires an accompanying adult for any participant aged five through eight", async () => {
     await renderFields();
 
+    expect(container.textContent).not.toContain(
+      "An accompanying adult is required when a child aged 5–8 attends.",
+    );
+
     await act(async () => {
       change("Children aged 5–8", "1");
-      change("Accompanying adults", "0");
+    });
+
+    expect(
+      container.textContent?.match(
+        /An accompanying adult is required when a child aged 5–8 attends\./g,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("announces the shared capacity rule once instead of repeating it for every input", async () => {
+    await renderFields();
+
+    expect(
+      container.textContent?.match(
+        /DIY participants and non-participating accompanying adults both count\./g,
+      ),
+    ).toHaveLength(1);
+    for (const input of container.querySelectorAll("input")) {
+      expect(input.getAttribute("aria-describedby")).toBeNull();
+    }
+  });
+
+  it("keeps the supervision message visible after an accompanying adult is added", async () => {
+    await renderFields();
+
+    await act(async () => {
+      change("Children aged 5–8", "1");
+      change("Accompanying adults", "1");
     });
 
     expect(container.textContent).toContain(

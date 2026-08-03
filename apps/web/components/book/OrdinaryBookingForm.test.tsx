@@ -623,21 +623,17 @@ describe("OrdinaryBookingForm", () => {
     );
   });
 
-  it("presents equivalent Chinese policy, payment, pending, and contact wording", async () => {
+  it("presents the three concise Chinese rules and complete policy links", async () => {
     await renderForm({ locale: "zh" });
     await completeForm();
 
     expect(container.textContent).toContain("最低年龄为 5 岁");
-    expect(container.textContent).toContain("5 至 8 岁");
-    expect(container.textContent).toContain("至少提前两小时");
-    expect(container.textContent).toContain("未来七个日历日");
     expect(container.textContent).toContain("最多 8 人");
     expect(container.textContent).toContain("迟到超过 20 分钟");
-    expect(container.textContent).toContain("取消或改期");
-    expect(container.textContent).toContain("所有价格均为澳元");
+    expect(container.textContent).toContain("取消与改期");
     expect(container.textContent).toContain("到店付款");
     expect(container.textContent).toContain("人工确认");
-    expect(container.textContent).toContain("0430 787 712");
+    expect(container.textContent).not.toContain("0430 787 712");
   });
 
   it("presents the age-five supervision policy in English", async () => {
@@ -646,6 +642,12 @@ describe("OrdinaryBookingForm", () => {
     await clickButton("Continue");
 
     expect(container.textContent).toContain("Minimum age is 5");
-    expect(container.textContent).toContain("Children aged 5–8");
+    expect(container.textContent).not.toContain(
+      "An accompanying adult is required when a child aged 5–8 attends.",
+    );
+    setInput("youngChildCount", "1");
+    expect(container.textContent).toContain(
+      "An accompanying adult is required when a child aged 5–8 attends.",
+    );
   });
 });

@@ -290,7 +290,8 @@
     "ordinaryLoadError": "无法查询时段，请选择其他日期或联系 YezYY。",
     "ordinaryEmpty": "该日暂无可申请时段，请选择其他日期或联系 YezYY。",
     "melbourneTime": "澳大利亚／墨尔本时间",
-    "retryAvailability": "重新查询时段"
+    "retryAvailability": "重新查询时段",
+    "requestableTimes": "以下时段可提交申请，并须由员工人工确认。"
   },
   "ordinaryBooking": {
     "metadataDescription": "申请到 Glen Waverley 的 YezYY 进行普通手作体验。选择人数、项目和开始时段后，等待员工人工确认。",

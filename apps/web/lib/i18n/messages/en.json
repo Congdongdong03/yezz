@@ -290,7 +290,8 @@
     "ordinaryLoadError": "Could not check sessions. Try another date or contact YezYY.",
     "ordinaryEmpty": "There are no request times on this date. Try another date or contact YezYY.",
     "melbourneTime": "Australia/Melbourne time",
-    "retryAvailability": "Check availability again"
+    "retryAvailability": "Check availability again",
+    "requestableTimes": "The times below can be requested and require staff confirmation."
   },
   "ordinaryBooking": {
     "metadataDescription": "Request an ordinary DIY visit to YezYY in Glen Waverley. Choose people, projects, and a start time, then await manual staff confirmation.",

@@ -175,56 +175,51 @@ function OrdinaryBookingCalendar({
         </p>
       )}
       {slots.length > 0 && (
-        <div
-          aria-describedby={
-            ordinaryScheduleInvalid ? ordinaryScheduleErrorId : undefined
-          }
-          aria-label={t("pickSlot")}
-          className="grid gap-3 sm:grid-cols-2"
-          role="group"
-        >
-          {slots.map((slot) => {
-            const waitlist = slot.status === "waitlist";
-            const selected = selectedOrdinaryStartTime === slot.startTime;
-            const action = waitlist
-              ? t("waitlistAction")
-              : t("availableAction");
-            return (
-              <button
-                aria-label={`${action}: ${slot.startTime} – ${slot.endTime}, ${t("melbourneTime")}`}
-                aria-pressed={selected}
-                className={`min-h-11 rounded-xl border px-4 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2 ${
-                  selected
-                    ? "border-caramel bg-caramel text-white"
-                    : waitlist
-                      ? "border-lavender bg-lavender/15 text-warm-charcoal hover:border-caramel"
-                      : "border-sage/60 bg-sage/15 text-warm-charcoal hover:border-caramel"
-                }`}
-                key={`${slot.date}-${slot.startTime}`}
-                onClick={() => onSelectOrdinarySlot?.(slot)}
-                type="button"
-              >
-                <span className="flex items-center justify-between gap-3">
-                  <strong>
-                    {slot.startTime} – {slot.endTime}
-                  </strong>
-                  <span className="text-xs">
-                    {waitlist
-                      ? t("waitlistStatus")
-                      : t("availableStatus")}
-                  </span>
-                </span>
-                <span className="mt-1 block text-xs opacity-80">
-                  {action}
-                </span>
-              </button>
-            );
-          })}
+        <div className="space-y-3">
+          <p className="text-sm leading-6 text-warm-grey">
+            {t("requestableTimes")}
+          </p>
+          <div
+            aria-describedby={
+              ordinaryScheduleInvalid ? ordinaryScheduleErrorId : undefined
+            }
+            aria-label={t("pickSlot")}
+            className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+            role="group"
+          >
+            {slots.map((slot) => {
+              const waitlist = slot.status === "waitlist";
+              const selected = selectedOrdinaryStartTime === slot.startTime;
+              const action = waitlist
+                ? t("waitlistAction")
+                : t("availableAction");
+              return (
+                <button
+                  aria-label={`${action}: ${slot.startTime} – ${slot.endTime}, ${t("melbourneTime")}`}
+                  aria-pressed={selected}
+                  className={`min-h-11 rounded-xl border px-3 py-2 text-center text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2 ${
+                    selected
+                      ? "border-caramel bg-caramel text-white"
+                      : waitlist
+                        ? "border-lavender bg-lavender/15 text-warm-charcoal hover:border-caramel"
+                        : "border-sage/60 bg-sage/15 text-warm-charcoal hover:border-caramel"
+                  }`}
+                  key={`${slot.date}-${slot.startTime}`}
+                  onClick={() => onSelectOrdinarySlot?.(slot)}
+                  type="button"
+                >
+                  <strong>{slot.startTime}</strong>
+                  {waitlist && (
+                    <span className="ml-2 text-xs">
+                      {t("waitlistStatus")}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
-      <p className="text-xs leading-5 text-warm-grey">
-        {t("manualConfirmation")}
-      </p>
     </div>
   );
 }
