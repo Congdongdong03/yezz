@@ -49,6 +49,14 @@ describe("requiresCustomerNote", () => {
     ],
     [
       new ApiClientError(
+        "paymentDeadline must be in the future",
+        "VALIDATION_ERROR",
+        400,
+      ),
+      "付款期限必须晚于当前时间",
+    ],
+    [
+      new ApiClientError(
         "The studio is closed on this date",
         "STUDIO_CLOSED",
         400,

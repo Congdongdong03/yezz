@@ -16,6 +16,7 @@ describe("BookingWorkflowDialog", () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     await act(async () => root.unmount());
     container.remove();
   });
@@ -155,6 +156,53 @@ describe("BookingWorkflowDialog", () => {
       );
     });
 
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("blocks a party proposal when the minute-precision payment deadline has already passed", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-03T07:21:23.000Z"));
+    const onConfirm = vi.fn();
+    await act(async () =>
+      root.render(
+        <BookingWorkflowDialog
+          action="propose_time"
+          booking={{
+            id: "booking-party",
+            kind: "party",
+            status: "pending_review",
+            slot: {
+              id: null,
+              date: "2026-08-06",
+              startTime: "13:30",
+              endTime: "15:00",
+              timeZone: "Australia/Melbourne",
+            },
+            numberOfPeople: 5,
+          }}
+          onCancel={vi.fn()}
+          onConfirm={onConfirm}
+          open
+        />,
+      ),
+    );
+
+    const deadline = container.querySelector<HTMLInputElement>(
+      "input[name='paymentDeadline']",
+    );
+    const form = container.querySelector("form");
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set?.call(deadline, "2026-08-03T17:21");
+      deadline?.dispatchEvent(new Event("input", { bubbles: true }));
+      form?.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    });
+
+    expect(container.textContent).toContain("付款期限必须晚于当前时间");
     expect(onConfirm).not.toHaveBeenCalled();
   });
 });

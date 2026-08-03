@@ -2,7 +2,10 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { BookingWorkflowAction } from "@/lib/admin/booking-status";
+import {
+  melbourneLocalToIso,
+  type BookingWorkflowAction,
+} from "@/lib/admin/booking-status";
 import type { BookingStatus } from "@/lib/admin/types";
 
 type WorkflowBooking = {
@@ -101,6 +104,19 @@ export default function BookingWorkflowDialog({
     ) {
       setError("开始时间必须选择整点或半点");
       return;
+    }
+    if (action === "propose_time") {
+      let deadline: number;
+      try {
+        deadline = Date.parse(melbourneLocalToIso(paymentDeadline));
+      } catch {
+        setError("请输入有效的付款期限");
+        return;
+      }
+      if (deadline <= Date.now()) {
+        setError("付款期限必须晚于当前时间");
+        return;
+      }
     }
     const result = await onConfirm({
       action,

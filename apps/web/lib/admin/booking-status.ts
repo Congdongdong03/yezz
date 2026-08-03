@@ -29,6 +29,12 @@ export function formatBookingActionError(error: unknown): string {
     ) {
       return "开始时间必须选择整点或半点";
     }
+    if (
+      error.code === "VALIDATION_ERROR" &&
+      error.message.includes("paymentDeadline must be in the future")
+    ) {
+      return "付款期限必须晚于当前时间";
+    }
     if (error.code === "STUDIO_CLOSED") {
       return "所选日期门店不营业，请选择其他日期";
     }
