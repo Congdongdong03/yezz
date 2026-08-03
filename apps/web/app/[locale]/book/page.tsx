@@ -51,14 +51,20 @@ export default async function BookPage({
           (project) =>
             project.projectType === "experience" &&
             project.bookable &&
-            (project.durationMinutes === 30 ||
-              project.durationMinutes === 60),
+            (project.durationMinutes === 30 || project.durationMinutes === 60),
         )
         .map((project) => ({
           id: project._id,
           name: project.name,
+          category: {
+            id: project.category._id,
+            name: project.category.name,
+            slug: project.category.slug.current,
+          },
           durationMinutes: project.durationMinutes as 30 | 60,
           priceDisplay: project.priceDisplay,
+          priceMinCents: project.priceMin,
+          priceMaxCents: project.priceMax,
         }))
     : [];
   const initialProjectId =
@@ -71,10 +77,10 @@ export default async function BookPage({
     <main className="min-h-screen bg-cream pb-20">
       <header className="border-b border-[var(--public-border)] bg-[linear-gradient(120deg,_#FBF8F6,_#F8E8EE_65%,_#FFF)]">
         <div className="mx-auto max-w-5xl px-4 py-10 sm:py-14">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-caramel">
+          <p className="text-xs font-semibold tracking-[0.2em] text-caramel uppercase">
             {t("eyebrow")}
           </p>
-          <h1 className="mt-3 max-w-3xl font-serif text-3xl font-bold leading-tight text-warm-charcoal sm:text-5xl">
+          <h1 className="mt-3 max-w-3xl font-serif text-3xl leading-tight font-bold text-warm-charcoal sm:text-5xl">
             {t("pageTitle")}
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-warm-grey">

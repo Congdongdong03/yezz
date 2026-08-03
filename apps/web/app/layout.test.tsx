@@ -79,4 +79,12 @@ describe("root layout on the password setup route", () => {
     expect(window.dataLayer).toBeUndefined();
     expect(window.gtag).toBeUndefined();
   });
+
+  it("publishes the configured Search Console verification token", async () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION", "google-proof-123");
+    vi.resetModules();
+
+    const { metadata } = await import("./layout");
+    expect(metadata.verification).toEqual({ google: "google-proof-123" });
+  });
 });

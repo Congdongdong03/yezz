@@ -160,7 +160,10 @@ export default defineConfig({
       command: "pnpm --filter @yezz/web build && pnpm --filter @yezz/web start",
       cwd: repositoryRoot,
       url: siteUrl,
-      timeout: 120_000,
+      // Sentry instrumentation can push a cold production build past two
+      // minutes on local and CI runners. Wait for the real server readiness
+      // URL instead of treating a still-running build as a flow failure.
+      timeout: 240_000,
       reuseExistingServer: closure ? false : !process.env.CI,
       env: {
         API_URL: closure

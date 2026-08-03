@@ -1,8 +1,6 @@
 import crypto from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import {
-  submitLivePartyForm,
-} from "./fixtures/closure-ui";
+import { submitLivePartyForm } from "./fixtures/closure-ui";
 import {
   APPROVED_WEEKLY_HOURS,
   seedLiveBookingFixture,
@@ -22,7 +20,12 @@ import {
 
 test.setTimeout(90_000);
 
-function post(page: Page, path: string, body: unknown, idempotencyKey?: string) {
+function post(
+  page: Page,
+  path: string,
+  body: unknown,
+  idempotencyKey?: string,
+) {
   return page.request.post(path, {
     data: body,
     headers: {
@@ -172,7 +175,7 @@ test("Chinese party proposal, customer acceptance, in-store payment, conflict, a
         accompanyingAdultCount: 0,
         items: [{ projectId: fixture.projects.short.id, quantity: 1 }],
         locale: "en",
-        policyVersion: "2026-07-30",
+        policyVersion: "2026-08-03",
         policyAccepted: true,
       },
       crypto.randomUUID(),
@@ -235,12 +238,14 @@ test("Chinese party proposal, customer acceptance, in-store payment, conflict, a
     );
     await completionDialog.getByRole("button", { name: "标记已完成" }).click();
     expect((await completionPromise).status()).toBe(200);
-    const [finalState] = await fixture.sql<{
+    const [finalState] = await fixture.sql<
+      {
       status: string;
       venueFees: number;
       acceptedEvents: number;
       paymentEvents: number;
-    }[]>`
+      }[]
+    >`
       select
         b.status,
         (select count(*)::int from booking_charges c
@@ -287,12 +292,16 @@ test("records the A$145 venue fee and sends the matching party payment notificat
     ).toBe(200);
     expect(
       (
-        await post(page, `/api/backend/v1/admin/bookings/${bookingId}/payment`, {
+        await post(
+          page,
+          `/api/backend/v1/admin/bookings/${bookingId}/payment`,
+          {
           expectedStatus: "awaiting_in_store_payment",
           amountCents: 14500,
           paidAt: new Date().toISOString(),
           operationId: crypto.randomUUID(),
-        })
+          },
+        )
       ).status(),
     ).toBe(200);
     const message = await waitForMailpitMessage({
@@ -400,12 +409,14 @@ test("paid party customer cancellation can be reviewed, cancelled, and refunded 
       ).status(),
     ).toBe(200);
 
-    const [refunded] = await fixture.sql<{
+    const [refunded] = await fixture.sql<
+      {
       status: string;
       refunds: number;
       cancellationEvents: number;
       refundEvents: number;
-    }[]>`
+      }[]
+    >`
       select
         b.status,
         (select count(*)::int from booking_charges c
@@ -454,11 +465,13 @@ test("maintenance expires an unpaid party hold once", async ({ page }) => {
       where booking_id = ${bookingId}
     `;
     const expired = await waitForDatabaseRow(async () => {
-      const [row] = await fixture!.sql<{
+      const [row] = await fixture!.sql<
+        {
         status: string;
         expiryEvents: number;
         expiryEmails: number;
-      }[]>`
+        }[]
+      >`
         select
           b.status,
           (select count(*)::int from request_status_events e
@@ -490,7 +503,7 @@ test("maintenance expires an unpaid party hold once", async ({ page }) => {
         accompanyingAdultCount: 0,
         items: [{ projectId: fixture.projects.short.id, quantity: 1 }],
         locale: "en",
-        policyVersion: "2026-07-30",
+        policyVersion: "2026-08-03",
         policyAccepted: true,
       },
       crypto.randomUUID(),
@@ -500,27 +513,36 @@ test("maintenance expires an unpaid party hold once", async ({ page }) => {
     fixture.requestIds.add(overlapId);
     expect(
       (
-        await post(page, `/api/backend/v1/admin/bookings/${overlapId}/transitions`, {
+        await post(
+          page,
+          `/api/backend/v1/admin/bookings/${overlapId}/transitions`,
+          {
           action: "transition",
           expectedStatus: "pending_review",
           toStatus: "confirmed",
           operationId: crypto.randomUUID(),
           newDate: fixture.bookingDate,
           newStartTime: "12:00",
-        })
+          },
+        )
       ).status(),
     ).toBe(200);
-    const [releaseState] = await fixture.sql<{
+    const [releaseState] = await fixture.sql<
+      {
       activePartyHolds: number;
       overlapStatus: string;
-    }[]>`
+      }[]
+    >`
       select
         (select count(*)::int from bookings held
           where held.id = ${bookingId}
             and held.status in ('time_proposed', 'awaiting_in_store_payment')) as "activePartyHolds",
         (select status from bookings where id = ${overlapId}) as "overlapStatus"
     `;
-    expect(releaseState).toEqual({ activePartyHolds: 0, overlapStatus: "confirmed" });
+    expect(releaseState).toEqual({
+      activePartyHolds: 0,
+      overlapStatus: "confirmed",
+    });
   } finally {
     await deleteMailpitMessagesFor([email]);
     await fixture?.cleanup();

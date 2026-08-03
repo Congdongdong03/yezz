@@ -4,7 +4,17 @@ import { getSiteUrl } from "@/lib/site/url";
 import { fetchCatalogue } from "@/lib/api/client";
 import { isApiEnabled } from "@/lib/api/config";
 
-const staticPaths = ["/", "/projects", "/parties", "/gallery", "/contact"] as const;
+const staticPaths = [
+  "/",
+  "/projects",
+  "/parties",
+  "/gallery",
+  "/contact",
+  "/privacy",
+  "/booking-terms",
+  "/cancellation-rescheduling",
+  "/party-terms",
+] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getSiteUrl();

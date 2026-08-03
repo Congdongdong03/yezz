@@ -48,8 +48,11 @@ function validPartyFormData() {
   form.set("cakeCuttingRequested", "true");
   form.set("specialRequirements", "Window table");
   form.set("locale", "zh");
-  form.set("policyVersion", "2026-07-30");
+  form.set("policyVersion", "2026-08-03");
   form.set("policyAccepted", "true");
+  form.set("photoConsentDecision", "declined");
+  form.set("photoConsentSignerName", "");
+  form.set("photoConsentVersion", "2026-08-03");
   return form;
 }
 
@@ -77,8 +80,11 @@ function validOrdinaryFormData() {
   );
   form.set("message", "Window seat if possible");
   form.set("locale", "en");
-  form.set("policyVersion", "2026-07-30");
+  form.set("policyVersion", "2026-08-03");
   form.set("policyAccepted", "true");
+  form.set("photoConsentDecision", "declined");
+  form.set("photoConsentSignerName", "");
+  form.set("photoConsentVersion", "2026-08-03");
   return form;
 }
 
@@ -197,16 +203,23 @@ describe("submitBooking", () => {
         void init;
         return Response.json({
           success: true,
-          data: { id: "ordinary-1", status: "pending_review" },
+          data: {
+            id: "ordinary-1",
+            status: "pending_review",
+            createdAt: "2030-08-12T00:00:00.000Z",
+          },
         });
       },
     );
     vi.stubGlobal("fetch", request);
 
-    await expect(submitBooking(validOrdinaryFormData())).resolves.toMatchObject({
+    await expect(submitBooking(validOrdinaryFormData())).resolves.toMatchObject(
+      {
       success: true,
       bookingId: "ordinary-1",
-    });
+        bookingNumber: "booking-20300812-ORDI",
+      },
+    );
 
     const body = JSON.parse(
       String((request.mock.calls[0]?.[1] as RequestInit).body),
@@ -232,9 +245,30 @@ describe("submitBooking", () => {
       ],
       message: "Window seat if possible",
       locale: "en",
-      policyVersion: "2026-07-30",
+      policyVersion: "2026-08-03",
       policyAccepted: true,
+      photoConsent: {
+        decision: "declined",
+        version: "2026-08-03",
+      },
     });
+  });
+
+  it("requires the consenting adult's name before sending an ordinary photo grant", async () => {
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+    const form = validOrdinaryFormData();
+    form.set("photoConsentDecision", "guardian_for_minor");
+
+    await expect(submitBooking(form)).resolves.toMatchObject({
+      success: false,
+      errors: {
+        photoConsentSignerName: [
+          "Enter the full name of the consenting adult or guardian",
+        ],
+      },
+    });
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("rejects an outdated ordinary policy acceptance before transport", async () => {
@@ -412,8 +446,40 @@ describe("submitPartyBooking", () => {
       cakeCuttingRequested: true,
       specialRequirements: "Window table",
       locale: "zh",
-      policyVersion: "2026-07-30",
+      policyVersion: "2026-08-03",
       policyAccepted: true,
+      photoConsent: {
+        decision: "declined",
+        version: "2026-08-03",
+      },
+    });
+  });
+
+  it("sends a signed guardian photo grant separately from the party policy", async () => {
+    const request = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        void input;
+        void init;
+        return Response.json({
+          success: true,
+          data: { id: "party-booking-1", status: "pending_review" },
+        });
+      },
+    );
+    vi.stubGlobal("fetch", request);
+    const form = validPartyFormData();
+    form.set("photoConsentDecision", "guardian_for_minor");
+    form.set("photoConsentSignerName", "Parent Name");
+
+    await submitPartyBooking(form);
+
+    const body = JSON.parse(
+      String((request.mock.calls[0]?.[1] as RequestInit).body),
+    );
+    expect(body.photoConsent).toEqual({
+      decision: "guardian_for_minor",
+      signerName: "Parent Name",
+      version: "2026-08-03",
     });
   });
 

@@ -9,14 +9,7 @@ import {
   studioWeeklyHours,
   timeSlots,
 } from "@yezz/db";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { AppError } from "../../lib/errors.js";
 import { registerErrorHandler } from "../../plugins/error-handler.js";
@@ -37,13 +30,17 @@ const ordinaryTestInstant = new Date();
 const ordinaryTestNow = () => ordinaryTestInstant;
 
 function melbourneDateOffset(days: number): string {
-  const today = new Date(`${getMelbourneClock(ordinaryTestInstant).date}T00:00:00Z`);
+  const today = new Date(
+    `${getMelbourneClock(ordinaryTestInstant).date}T00:00:00Z`,
+  );
   today.setUTCDate(today.getUTCDate() + days);
   return today.toISOString().slice(0, 10);
 }
 
 const ordinaryTestDate = melbourneDateOffset(2);
-const ordinaryTestWeekday = new Date(`${ordinaryTestDate}T00:00:00Z`).getUTCDay();
+const ordinaryTestWeekday = new Date(
+  `${ordinaryTestDate}T00:00:00Z`,
+).getUTCDay();
 
 const VERIFIED_IDENTITY = {
   clientIp: "203.0.113.10",
@@ -76,7 +73,7 @@ function ordinaryRequestPayload(overrides: Record<string, unknown> = {}) {
     accompanyingAdultCount: 0,
     items: [{ projectId: "10000000-0000-4000-8000-000000000001", quantity: 1 }],
     locale: "en",
-    policyVersion: "2026-07-30",
+    policyVersion: "2026-08-03",
     policyAccepted: true,
     ...overrides,
   };
@@ -99,45 +96,17 @@ describe("bookingsRoutes durable rate limits", () => {
   });
 
   it.each([
-    [
-      "an absent experience flag",
-      undefined,
-      "true",
-      {},
-    ],
-    [
-      "a malformed experience flag",
-      "TRUE",
-      "true",
-      { kind: "experience" },
-    ],
-    [
-      "a disabled party flag",
-      "true",
-      "false",
-      { kind: "party" },
-    ],
-    [
-      "an unknown request kind",
-      "true",
-      "true",
-      { kind: "product" },
-    ],
+    ["an absent experience flag", undefined, "true", {}],
+    ["a malformed experience flag", "TRUE", "true", { kind: "experience" }],
+    ["a disabled party flag", "true", "false", { kind: "party" }],
+    ["an unknown request kind", "true", "true", { kind: "product" }],
   ])(
     "rejects %s before durable rate limiting",
-    async (
-      _label,
-      experienceFlag,
-      partyFlag,
-      requestKind,
-    ) => {
+    async (_label, experienceFlag, partyFlag, requestKind) => {
       if (experienceFlag === undefined) {
         delete process.env.REQUEST_FLOW_EXPERIENCE_ENABLED;
       } else {
-        vi.stubEnv(
-          "REQUEST_FLOW_EXPERIENCE_ENABLED",
-          experienceFlag,
-        );
+        vi.stubEnv("REQUEST_FLOW_EXPERIENCE_ENABLED", experienceFlag);
       }
       vi.stubEnv("REQUEST_FLOW_PARTY_ENABLED", partyFlag);
       const consume = vi.fn();
@@ -160,8 +129,7 @@ describe("bookingsRoutes durable rate limits", () => {
           method: "POST",
           url: "/bookings",
           headers: {
-            "idempotency-key":
-              "00000000-0000-4000-8000-000000000009",
+            "idempotency-key": "00000000-0000-4000-8000-000000000009",
           },
           payload: {
             ...requestKind,
@@ -196,7 +164,11 @@ describe("bookingsRoutes durable rate limits", () => {
     app.decorate("services", {
       settings: {
         async requirePublicRequestCapability() {
-          throw new AppError(503, "REQUEST_FLOW_DISABLED", "product requests are not currently available");
+          throw new AppError(
+            503,
+            "REQUEST_FLOW_DISABLED",
+            "product requests are not currently available",
+          );
         },
       },
       rateLimits: { consume },
@@ -514,7 +486,9 @@ describe("bookingsRoutes durable rate limits", () => {
   });
 });
 
-describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integration", () => {
+describe.skipIf(!runDatabaseTests)(
+  "ordinary booking route PostgreSQL integration",
+  () => {
   let database: RequestFlowTestDatabase;
   let projectId: string;
   let slotId: string;
@@ -526,8 +500,21 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
     projectId = crypto.randomUUID();
     slotId = crypto.randomUUID();
     partyPackageId = crypto.randomUUID();
-    await database.connection.db.insert(projectCategories).values({ id: categoryId, name: { en: "DIY", zh: "手作" }, slug: `route-diy-${categoryId}` });
-    await database.connection.db.insert(diyProjects).values({ id: projectId, categoryId, name: { en: "Clay cup", zh: "陶杯" }, slug: `route-clay-${projectId}`, projectType: "experience", bookable: true, durationMinutes: 60, priceMin: 4300 });
+      await database.connection.db.insert(projectCategories).values({
+        id: categoryId,
+        name: { en: "DIY", zh: "手作" },
+        slug: `route-diy-${categoryId}`,
+      });
+      await database.connection.db.insert(diyProjects).values({
+        id: projectId,
+        categoryId,
+        name: { en: "Clay cup", zh: "陶杯" },
+        slug: `route-clay-${projectId}`,
+        projectType: "experience",
+        bookable: true,
+        durationMinutes: 60,
+        priceMin: 4300,
+      });
     await database.connection.db.insert(timeSlots).values({
       id: slotId,
       date: ordinaryTestDate,
@@ -548,8 +535,18 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
       venueFeeCents: 9500,
       minSpendPerPersonCents: 4500,
     });
-    await database.connection.db.insert(siteSettings).values({ storeName: "YezYY", experienceRequestsEnabled: true, partyRequestsEnabled: true, productRequestsEnabled: true });
-    await database.connection.db.insert(studioWeeklyHours).values({ weekday: ordinaryTestWeekday, opensAt: "09:00", closesAt: "17:00", isClosed: false });
+      await database.connection.db.insert(siteSettings).values({
+        storeName: "YezYY",
+        experienceRequestsEnabled: true,
+        partyRequestsEnabled: true,
+        productRequestsEnabled: true,
+      });
+      await database.connection.db.insert(studioWeeklyHours).values({
+        weekday: ordinaryTestWeekday,
+        opensAt: "09:00",
+        closesAt: "17:00",
+        isClosed: false,
+      });
   });
 
   afterEach(async () => database.close());
@@ -566,12 +563,20 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
       request.verifiedClientIdentity = VERIFIED_IDENTITY;
     });
     app.decorate("services", {
-      settings: createSettingsService(database.connection.db, null, environment),
-      bookings: createBookingsService(database.connection.db, {
+        settings: createSettingsService(
+          database.connection.db,
+          null,
+          environment,
+        ),
+        bookings: createBookingsService(
+          database.connection.db,
+          {
         experience: environment.REQUEST_FLOW_EXPERIENCE_ENABLED === "true",
         party: environment.REQUEST_FLOW_PARTY_ENABLED === "true",
         product: false,
-      }, { now: ordinaryTestNow }),
+          },
+          { now: ordinaryTestNow },
+        ),
       rateLimits: createRateLimitsService(
         createRateLimitsRepository(database.connection.db),
         { hashSecret: "route-gate-test-rate-limit-secret" },
@@ -604,13 +609,17 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
           accompanyingAdultCount: 1,
           items: [{ projectId, quantity: 2 }],
           locale: "en",
-          policyVersion: "2026-07-30",
+            policyVersion: "2026-08-03",
           policyAccepted: true,
         },
       });
       expect(response.statusCode).toBe(201);
-      await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(1);
-      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(1);
+        await expect(
+          database.connection.db.select().from(requestRateLimits),
+        ).resolves.toHaveLength(1);
+        await expect(
+          database.connection.db.select().from(bookings),
+        ).resolves.toHaveLength(1);
     } finally {
       await app.close();
     }
@@ -650,8 +659,12 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
         .from(timeSlots)
         .where(eq(timeSlots.id, slotId));
       expect(slot?.bookedCount).toBe(0);
-      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
-      await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
+        await expect(
+          database.connection.db.select().from(bookings),
+        ).resolves.toHaveLength(0);
+        await expect(
+          database.connection.db.select().from(requestRateLimits),
+        ).resolves.toHaveLength(0);
     } finally {
       await app.close();
     }
@@ -675,8 +688,12 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
         success: false,
         error: { code: "REQUEST_FLOW_DISABLED" },
       });
-      await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
-      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
+        await expect(
+          database.connection.db.select().from(requestRateLimits),
+        ).resolves.toHaveLength(0);
+        await expect(
+          database.connection.db.select().from(bookings),
+        ).resolves.toHaveLength(0);
     } finally {
       await app.close();
     }
@@ -711,17 +728,41 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
         payload: input,
       });
       expect(response.statusCode).toBe(503);
-      await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(1);
-      await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
+        await expect(
+          database.connection.db.select().from(bookings),
+        ).resolves.toHaveLength(1);
+        await expect(
+          database.connection.db.select().from(requestRateLimits),
+        ).resolves.toHaveLength(0);
     } finally {
       await app.close();
     }
   });
 
   it.each([
-    ["legacy experience", { name: "Legacy", phone: "0430000000", email: "legacy@example.com" }],
-    ["ordinary experience", { kind: "experience", mode: "booking", name: "Ordinary", phone: "0430000000", email: "ordinary@example.com" }],
-    ["party", { kind: "party", name: "Party", phone: "0430000000", email: "party@example.com" }],
+      [
+        "legacy experience",
+        { name: "Legacy", phone: "0430000000", email: "legacy@example.com" },
+      ],
+      [
+        "ordinary experience",
+        {
+          kind: "experience",
+          mode: "booking",
+          name: "Ordinary",
+          phone: "0430000000",
+          email: "ordinary@example.com",
+        },
+      ],
+      [
+        "party",
+        {
+          kind: "party",
+          name: "Party",
+          phone: "0430000000",
+          email: "party@example.com",
+        },
+      ],
   ])(
     "rejects disabled database gates for %s before dispatch or durable rate limiting",
     async (_label, payload) => {
@@ -745,8 +786,12 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
           success: false,
           error: { code: "REQUEST_FLOW_DISABLED" },
         });
-        await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
-        await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
+          await expect(
+            database.connection.db.select().from(requestRateLimits),
+          ).resolves.toHaveLength(0);
+          await expect(
+            database.connection.db.select().from(bookings),
+          ).resolves.toHaveLength(0);
       } finally {
         await app.close();
       }
@@ -754,9 +799,29 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
   );
 
   it.each([
-    ["legacy experience", { name: "Legacy", phone: "0430000000", email: "legacy@example.com" }],
-    ["ordinary experience", { kind: "experience", mode: "booking", name: "Ordinary", phone: "0430000000", email: "ordinary@example.com" }],
-    ["party", { kind: "party", name: "Party", phone: "0430000000", email: "party@example.com" }],
+      [
+        "legacy experience",
+        { name: "Legacy", phone: "0430000000", email: "legacy@example.com" },
+      ],
+      [
+        "ordinary experience",
+        {
+          kind: "experience",
+          mode: "booking",
+          name: "Ordinary",
+          phone: "0430000000",
+          email: "ordinary@example.com",
+        },
+      ],
+      [
+        "party",
+        {
+          kind: "party",
+          name: "Party",
+          phone: "0430000000",
+          email: "party@example.com",
+        },
+      ],
   ])(
     "rejects disabled deployment gates for %s before dispatch or durable rate limiting",
     async (_label, payload) => {
@@ -776,8 +841,12 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
           success: false,
           error: { code: "REQUEST_FLOW_DISABLED" },
         });
-        await expect(database.connection.db.select().from(requestRateLimits)).resolves.toHaveLength(0);
-        await expect(database.connection.db.select().from(bookings)).resolves.toHaveLength(0);
+          await expect(
+            database.connection.db.select().from(requestRateLimits),
+          ).resolves.toHaveLength(0);
+          await expect(
+            database.connection.db.select().from(bookings),
+          ).resolves.toHaveLength(0);
       } finally {
         await app.close();
       }
@@ -787,9 +856,20 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
   it("rejects an existing ordinary idempotency key when the database gate is disabled", async () => {
     const key = crypto.randomUUID();
     const input = {
-      kind: "experience" as const, mode: "booking" as const, name: "Route customer", phone: "0430000000", email: "route@example.com",
-      date: ordinaryTestDate, startTime: "10:00", participantCount: 2, youngChildCount: 0, accompanyingAdultCount: 1,
-      items: [{ projectId, quantity: 2 }], locale: "en" as const, policyVersion: "2026-07-30" as const, policyAccepted: true as const,
+        kind: "experience" as const,
+        mode: "booking" as const,
+        name: "Route customer",
+        phone: "0430000000",
+        email: "route@example.com",
+        date: ordinaryTestDate,
+        startTime: "10:00",
+        participantCount: 2,
+        youngChildCount: 0,
+        accompanyingAdultCount: 1,
+        items: [{ projectId, quantity: 2 }],
+        locale: "en" as const,
+        policyVersion: "2026-08-03" as const,
+        policyAccepted: true as const,
     };
     const bookings = createBookingsService(
       database.connection.db,
@@ -797,12 +877,16 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
       { now: ordinaryTestNow },
     );
     await bookings.createOrdinaryRequest(input, key);
-    await database.connection.db.update(siteSettings).set({ experienceRequestsEnabled: false });
+      await database.connection.db
+        .update(siteSettings)
+        .set({ experienceRequestsEnabled: false });
     vi.stubEnv("REQUEST_FLOW_EXPERIENCE_ENABLED", "true");
     const app = Fastify();
     registerErrorHandler(app);
     app.decorateRequest("verifiedClientIdentity", null);
-    app.addHook("onRequest", async (request) => { request.verifiedClientIdentity = VERIFIED_IDENTITY; });
+      app.addHook("onRequest", async (request) => {
+        request.verifiedClientIdentity = VERIFIED_IDENTITY;
+      });
     const consume = vi.fn(async () => allowedResult());
     app.decorate("services", {
       settings: createSettingsService(database.connection.db, null, {
@@ -814,13 +898,22 @@ describe.skipIf(!runDatabaseTests)("ordinary booking route PostgreSQL integratio
     } as never);
     await app.register(bookingsRoutes, { prefix: "/bookings" });
     try {
-      const response = await app.inject({ method: "POST", url: "/bookings", headers: { "idempotency-key": key }, payload: input });
+        const response = await app.inject({
+          method: "POST",
+          url: "/bookings",
+          headers: { "idempotency-key": key },
+          payload: input,
+        });
       expect(response.statusCode).toBe(503);
-      expect(response.json()).toMatchObject({ success: false, error: { code: "REQUEST_FLOW_DISABLED" } });
+        expect(response.json()).toMatchObject({
+          success: false,
+          error: { code: "REQUEST_FLOW_DISABLED" },
+        });
       expect(consume).toHaveBeenCalledTimes(0);
     } finally {
       await app.close();
       vi.unstubAllEnvs();
     }
   });
-});
+  },
+);

@@ -1,6 +1,7 @@
 import type { BookingStatus } from "@yezz/db";
 import { CURRENT_BOOKING_POLICY_VERSION } from "./booking-policy-version.js";
 import { AppError } from "./errors.js";
+import type { PhotoConsentInput } from "./photo-consent.js";
 
 export type OrdinaryBookingItemInput =
   | { projectId: string; quantity: number; decideInStore?: false }
@@ -22,6 +23,7 @@ export type OrdinaryBookingCreateInput = {
   locale: "en" | "zh";
   policyVersion: typeof CURRENT_BOOKING_POLICY_VERSION;
   policyAccepted: true;
+  photoConsent?: PhotoConsentInput;
 };
 
 export const ORDINARY_TRANSITIONS = {
@@ -81,7 +83,9 @@ export function validateOrdinaryAttendance(input: {
     );
   }
   if (!Number.isInteger(accompanyingAdultCount) || accompanyingAdultCount < 0) {
-    throw validationError("accompanyingAdultCount must be a non-negative integer");
+    throw validationError(
+      "accompanyingAdultCount must be a non-negative integer",
+    );
   }
   if (youngChildCount > 0 && accompanyingAdultCount < 1) {
     throw validationError(
@@ -108,7 +112,10 @@ export function buildOrdinaryInterval(input: {
   attendanceCount: number;
   durationMinutes: number;
 } {
-  if (!input.itemDurations.length || input.itemDurations.some((value) => !Number.isInteger(value) || value < 1)) {
+  if (
+    !input.itemDurations.length ||
+    input.itemDurations.some((value) => !Number.isInteger(value) || value < 1)
+  ) {
     throw validationError("at least one positive item duration is required");
   }
   const start = timeToMinutes(input.startTime);

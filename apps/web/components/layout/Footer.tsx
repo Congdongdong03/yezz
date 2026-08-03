@@ -47,7 +47,11 @@ function XiaohongshuIcon({ className }: { className?: string }) {
   );
 }
 
-export default function Footer({ settings }: { settings?: SiteSettingsView | null }) {
+export default function Footer({
+  settings,
+}: {
+  settings?: SiteSettingsView | null;
+}) {
   const t = useTranslations("footer");
   const nav = useTranslations("nav");
   const instagramHref = absoluteHttpUrl(settings?.instagram);
@@ -62,7 +66,9 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
               {YEZYY_BUSINESS_PROFILE.storeName}
             </h3>
             <p className="text-sm text-[var(--public-muted)]">{t("tagline")}</p>
-            {(instagramHref || xiaohongshuHref || YEZYY_BUSINESS_PROFILE.xiaohongshu) && (
+            {(instagramHref ||
+              xiaohongshuHref ||
+              YEZYY_BUSINESS_PROFILE.xiaohongshu) && (
               <div className="mt-4 flex gap-3">
                 {instagramHref && (
                   <a
@@ -100,7 +106,10 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
           <div>
             <h4 className="mb-4 font-medium">{t("links")}</h4>
             <div className="flex flex-col gap-2 text-sm text-[var(--public-muted)]">
-              <Link href="/projects" className="hover:text-[var(--public-pink)]">
+              <Link
+                href="/projects"
+                className="hover:text-[var(--public-pink)]"
+              >
                 {nav("projects")}
               </Link>
               <Link href="/parties" className="hover:text-[var(--public-pink)]">
@@ -115,6 +124,30 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
             </div>
           </div>
           <div>
+            <h4 className="mb-4 font-medium">{t("policies")}</h4>
+            <div className="mb-6 flex flex-col gap-2 text-sm text-[var(--public-muted)]">
+              <Link href="/privacy" className="hover:text-[var(--public-pink)]">
+                {t("privacy")}
+              </Link>
+              <Link
+                href="/booking-terms"
+                className="hover:text-[var(--public-pink)]"
+              >
+                {t("bookingTerms")}
+              </Link>
+              <Link
+                href="/cancellation-rescheduling"
+                className="hover:text-[var(--public-pink)]"
+              >
+                {t("cancellation")}
+              </Link>
+              <Link
+                href="/party-terms"
+                className="hover:text-[var(--public-pink)]"
+              >
+                {t("partyTerms")}
+              </Link>
+            </div>
             <h4 className="mb-4 font-medium">{t("contact")}</h4>
             <div className="space-y-1 text-sm text-[var(--public-muted)]">
               <p>
@@ -134,12 +167,18 @@ export default function Footer({ settings }: { settings?: SiteSettingsView | nul
                 </a>
               </p>
               <p>{YEZYY_BUSINESS_PROFILE.address}</p>
+              {YEZYY_BUSINESS_PROFILE.abn ? (
+                <p>
+                  {t("abn")}: {YEZYY_BUSINESS_PROFILE.abn}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
         <div className="mt-12 border-t border-[var(--public-border)] pt-8 text-center text-sm text-[var(--public-muted)]">
           <p>
-            © {new Date().getFullYear()} {YEZYY_BUSINESS_PROFILE.storeName}. {t("rights")}
+            © {new Date().getFullYear()} {YEZYY_BUSINESS_PROFILE.storeName}.{" "}
+            {t("rights")}
           </p>
         </div>
       </div>

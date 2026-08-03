@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useId,
-  useRef,
-  useState,
-  type FormEvent,
-} from "react";
+import { useCallback, useId, useRef, useState, type FormEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CURRENT_BOOKING_POLICY_VERSION } from "@/lib/booking/policy-version";
 import {
@@ -17,6 +11,11 @@ import {
   getPartyAvailability,
   type PartyAvailabilitySlot,
 } from "@/lib/api/availability";
+import PhotoConsentField from "@/components/book/PhotoConsentField";
+import {
+  CURRENT_PHOTO_CONSENT_VERSION,
+  type PhotoConsentDecision,
+} from "@/lib/booking/photo-consent";
 
 export type PartyBookingFormParty = {
   id: string;
@@ -67,6 +66,9 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
     useState<PartyAvailabilitySlot | null>(null);
   const [projects, setProjects] = useState<string[]>([]);
   const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [photoConsentDecision, setPhotoConsentDecision] =
+    useState<PhotoConsentDecision>("declined");
+  const [photoConsentSignerName, setPhotoConsentSignerName] = useState("");
   const [attempt] = useState(createBookingAttempt);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [availabilityError, setAvailabilityError] = useState(false);
@@ -79,7 +81,8 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
   const serverErrorId = `${id}-server-error`;
   const localizedName = party.name[locale];
 
-  const loadAvailability = useCallback(async (requestedDate: string) => {
+  const loadAvailability = useCallback(
+    async (requestedDate: string) => {
     if (!requestedDate) {
       setSlots([]);
       setSelectedSlot(null);
@@ -103,7 +106,9 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
     } finally {
       if (sequence === requestSequence.current) setLoadingSlots(false);
     }
-  }, [party.guestDurationMinutes]);
+    },
+    [party.guestDurationMinutes],
+  );
 
   const toggleProject = (project: string, checked: boolean) => {
     setProjects((current) =>
@@ -149,6 +154,16 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
     if (!policyAccepted) {
       next.policyAccepted = [t("policyRequired")];
     }
+    if (
+      photoConsentDecision !== "declined" &&
+      photoConsentSignerName.trim().length < 2
+    ) {
+      next.photoConsentSignerName = [
+        locale === "zh"
+          ? "请填写同意授权人的全名"
+          : "Enter the consenting adult or guardian’s full name",
+      ];
+    }
     return next;
   };
 
@@ -163,6 +178,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
       "parentCount",
       "projectInterests",
       "desiredDate",
+      "photoConsentSignerName",
       "policyAccepted",
     ].find((name) => next[name]?.[0]);
     if (!first) return;
@@ -203,6 +219,9 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
     formData.set("locale", locale);
     formData.set("policyVersion", CURRENT_BOOKING_POLICY_VERSION);
     formData.set("policyAccepted", "true");
+    formData.set("photoConsentDecision", photoConsentDecision);
+    formData.set("photoConsentSignerName", photoConsentSignerName.trim());
+    formData.set("photoConsentVersion", CURRENT_PHOTO_CONSENT_VERSION);
 
     const result = await submitPartyBooking(formData, attempt);
     if (result.success) {
@@ -234,11 +253,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
   const labelClass = "text-sm font-semibold text-warm-charcoal";
 
   const renderTextField = (
-    name:
-      | "name"
-      | "phone"
-      | "email"
-      | "birthdayChildName",
+    name: "name" | "phone" | "email" | "birthdayChildName",
     type: "text" | "tel" | "email" = "text",
   ) => {
     const error = errors[name]?.[0];
@@ -256,7 +271,11 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
           type={type}
         />
         {error && (
-          <p className="mt-1 text-sm text-red-700" id={errorId(name)} role="alert">
+          <p
+            className="mt-1 text-sm text-red-700"
+            id={errorId(name)}
+            role="alert"
+          >
             {error}
           </p>
         )}
@@ -273,7 +292,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
       onSubmit={onSubmit}
     >
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-caramel">
+        <p className="text-xs font-bold tracking-[0.18em] text-caramel uppercase">
           {localizedName}
         </p>
         <h3 className="mt-2 font-serif text-2xl font-semibold text-warm-charcoal">
@@ -281,8 +300,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
         </h3>
         <p className="mt-2 text-sm font-semibold text-warm-charcoal">
           A${party.venueFeeCents / 100} {t("currency")} ·{" "}
-          {party.guestDurationMinutes === 90 ? "1.5" : "2.5"}{" "}
-          {t("guestHours")}
+          {party.guestDurationMinutes === 90 ? "1.5" : "2.5"} {t("guestHours")}
         </p>
         <p className="mt-3 rounded-2xl border border-lavender/55 bg-lavender/15 px-4 py-3 text-sm leading-6 text-warm-charcoal">
           {t("requestOnly")}
@@ -411,9 +429,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
 
       <fieldset
         aria-describedby={
-          errors.projectInterests?.[0]
-            ? errorId("projectInterests")
-            : undefined
+          errors.projectInterests?.[0] ? errorId("projectInterests") : undefined
         }
         className="rounded-2xl bg-white p-5"
       >
@@ -461,7 +477,10 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
         <p className="mt-2 text-sm leading-6 text-warm-grey">
           {t("scheduleHelp")}
         </p>
-        <label className={`${labelClass} mt-4 block`} htmlFor={fieldId("desiredDate")}>
+        <label
+          className={`${labelClass} mt-4 block`}
+          htmlFor={fieldId("desiredDate")}
+        >
           {t("desiredDate")} *
         </label>
         <input
@@ -514,7 +533,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
                 {t("availabilityError")}
               </p>
               <button
-                className="mt-2 min-h-11 rounded-full border border-caramel px-4 text-sm font-semibold text-caramel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel"
+                className="mt-2 min-h-11 rounded-full border border-caramel px-4 text-sm font-semibold text-caramel focus-visible:ring-2 focus-visible:ring-caramel focus-visible:outline-none"
                 onClick={() => void loadAvailability(date)}
                 type="button"
               >
@@ -529,7 +548,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
               return (
                 <button
                   aria-pressed={selected}
-                  className={`min-h-12 rounded-xl border px-4 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel ${
+                  className={`min-h-12 rounded-xl border px-4 py-3 text-sm font-semibold transition focus-visible:ring-2 focus-visible:ring-caramel focus-visible:outline-none ${
                     selected
                       ? "border-caramel bg-caramel text-white"
                       : "border-caramel/35 bg-cream/50 text-warm-charcoal hover:border-caramel"
@@ -612,15 +631,65 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
         <p className="mt-5 rounded-xl border border-lavender/50 bg-lavender/10 px-4 py-3 text-sm leading-6 text-warm-charcoal">
           {t("policySummary")}
         </p>
+        <div className="mt-5">
+          <PhotoConsentField
+            decision={photoConsentDecision}
+            error={errors.photoConsentSignerName?.[0]}
+            locale={locale}
+            onDecisionChange={(decision) => {
+              setPhotoConsentDecision(decision);
+              if (decision === "declined") setPhotoConsentSignerName("");
+              setErrors((current) => ({
+                ...current,
+                photoConsentSignerName: undefined,
+              }));
+            }}
+            onSignerNameChange={(name) => {
+              setPhotoConsentSignerName(name);
+              setErrors((current) => ({
+                ...current,
+                photoConsentSignerName: undefined,
+              }));
+            }}
+            signerName={photoConsentSignerName}
+          />
+        </div>
+        <p className="mt-4 text-sm leading-6 text-warm-grey">
+          {locale === "zh" ? "查看对应政策：" : "Read the policies:"}{" "}
+          <a
+            className="font-semibold text-caramel underline underline-offset-4"
+            href={`/${locale}/party-terms`}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {locale === "zh" ? "派对条款" : "Party Terms"}
+          </a>
+          {" · "}
+          <a
+            className="font-semibold text-caramel underline underline-offset-4"
+            href={`/${locale}/cancellation-rescheduling`}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {locale === "zh" ? "取消与改期" : "Cancellation & Rescheduling"}
+          </a>
+          {" · "}
+          <a
+            className="font-semibold text-caramel underline underline-offset-4"
+            href={`/${locale}/privacy`}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            {locale === "zh" ? "隐私政策" : "Privacy Policy"}
+          </a>
+        </p>
         <label
-          className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-warm-grey/20 p-4 text-sm font-medium leading-6 focus-within:ring-2 focus-within:ring-caramel/30"
+          className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-warm-grey/20 p-4 text-sm leading-6 font-medium focus-within:ring-2 focus-within:ring-caramel/30"
           htmlFor={fieldId("policyAccepted")}
         >
           <input
             aria-describedby={
-              errors.policyAccepted?.[0]
-                ? errorId("policyAccepted")
-                : undefined
+              errors.policyAccepted?.[0] ? errorId("policyAccepted") : undefined
             }
             aria-invalid={Boolean(errors.policyAccepted)}
             checked={policyAccepted}
@@ -661,7 +730,7 @@ export default function PartyBookingForm({ party }: PartyBookingFormProps) {
       )}
 
       <button
-        className="min-h-12 w-full rounded-full bg-caramel px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+        className="min-h-12 w-full rounded-full bg-caramel px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-wait disabled:opacity-60"
         disabled={submitting}
         type="submit"
       >

@@ -30,6 +30,22 @@ export const routing = defineRouting({
       en: "/contact",
       zh: "/contact",
     },
+    "/privacy": {
+      en: "/privacy",
+      zh: "/privacy",
+    },
+    "/booking-terms": {
+      en: "/booking-terms",
+      zh: "/booking-terms",
+    },
+    "/cancellation-rescheduling": {
+      en: "/cancellation-rescheduling",
+      zh: "/cancellation-rescheduling",
+    },
+    "/party-terms": {
+      en: "/party-terms",
+      zh: "/party-terms",
+    },
   },
 });
 

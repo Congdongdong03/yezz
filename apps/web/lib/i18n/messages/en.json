@@ -301,11 +301,14 @@
     "factCapacity": "Maximum 8 people in store",
     "factPayment": "AUD · Pay in store",
     "formLabel": "Ordinary DIY booking request",
-    "intro": "Choose people, projects, date and time, then send a request for manual confirmation.",
+    "intro": "Choose projects, people, date and time, then send a request for manual confirmation.",
     "stepPeople": "People",
     "stepProjects": "Projects",
     "stepSchedule": "Date & time",
     "stepContact": "Contact & policy",
+    "continue": "Continue",
+    "back": "Back",
+    "stepOf": "Step {current} of {total}",
     "scheduleReady": "Choose a date and 30-minute start in Australia/Melbourne time.",
     "scheduleNotReady": "Complete people and project choices before checking sessions.",
     "name": "Name",
@@ -318,6 +321,8 @@
     "successTitle": "Request received",
     "successBooking": "Your request was received and awaits manual staff confirmation. Pay in store.",
     "successWaitlist": "Your waitlist request was received and awaits manual staff confirmation. Staff will contact you manually if capacity becomes available. Pay in store.",
+    "bookingReference": "Request number",
+    "confirmationMethod": "Next: wait for staff confirmation by email or phone before travelling to the studio.",
     "staleSlot": "That time just changed. Review the refreshed available and waitlist times.",
     "selectSlot": "Choose an available or waitlist time.",
     "nameRequired": "Name is required",
@@ -403,6 +408,12 @@
     "contact": "Contact",
     "email": "Email: congdongdong03@gmail.com",
     "tagline": "Create your own masterpiece",
-    "xiaohongshu": "Xiaohongshu"
+    "xiaohongshu": "Xiaohongshu",
+    "policies": "Policies",
+    "privacy": "Privacy Policy",
+    "bookingTerms": "Booking Terms",
+    "cancellation": "Cancellation & Rescheduling",
+    "partyTerms": "Party Terms",
+    "abn": "ABN"
   }
 }

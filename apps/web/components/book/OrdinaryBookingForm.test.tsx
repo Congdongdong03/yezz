@@ -21,6 +21,9 @@ const en: Record<string, string> = {
   stepProjects: "Projects",
   stepSchedule: "Date & time",
   stepContact: "Contact & policy",
+  continue: "Continue",
+  back: "Back",
+  stepOf: "Step {current} of {total}",
   scheduleReady: "Choose a date and start time in Melbourne time.",
   scheduleNotReady:
     "Complete people and project choices before checking sessions.",
@@ -48,6 +51,9 @@ const en: Record<string, string> = {
   policyRequired: "Accept the booking policies to continue.",
   genericError: "Could not send your request. Try again or contact YezYY.",
   payInStore: "Prices are in AUD. Pay in store; there is no online payment.",
+  bookingReference: "Request number",
+  confirmationMethod:
+    "Next: wait for staff confirmation by email or phone before travelling to the studio.",
   contactFallbackTitle: "Online requests are not available yet",
 };
 
@@ -58,6 +64,9 @@ const zh: Record<string, string> = {
   stepProjects: "项目",
   stepSchedule: "日期与时段",
   stepContact: "联系信息与政策",
+  continue: "继续",
+  back: "返回",
+  stepOf: "第 {current} 步，共 {total} 步",
   scheduleReady: "请按墨尔本时间选择日期和开始时段。",
   scheduleNotReady: "请先完成人数和项目选择，再查看时段。",
   name: "姓名",
@@ -82,6 +91,8 @@ const zh: Record<string, string> = {
   policyRequired: "请接受预约政策后继续。",
   genericError: "申请发送失败，请重试或联系 YezYY。",
   payInStore: "所有价格均为澳元。请到店付款；网站不提供线上付款。",
+  bookingReference: "申请编号",
+  confirmationMethod: "下一步：请等待员工通过邮件或电话人工确认后再前往门店。",
   contactFallbackTitle: "线上申请暂未开放",
 };
 
@@ -164,14 +175,28 @@ const projects = [
   {
     id: "00000000-0000-4000-8000-000000000001",
     name: { en: "Beading", zh: "串珠" },
+    category: {
+      id: "beading",
+      name: { en: "Beading", zh: "串珠" },
+      slug: "beading",
+    },
     durationMinutes: 30 as const,
     priceDisplay: "A$43",
+    priceMinCents: 4300,
+    priceMaxCents: 4300,
   },
   {
     id: "00000000-0000-4000-8000-000000000002",
     name: { en: "Paint clay figurine", zh: "彩绘黏土摆件" },
+    category: {
+      id: "paint",
+      name: { en: "Paint", zh: "彩绘" },
+      slug: "paint",
+    },
     durationMinutes: 60 as const,
     priceDisplay: "A$27.50",
+    priceMinCents: 2750,
+    priceMaxCents: 2750,
   },
 ];
 
@@ -199,6 +224,7 @@ describe("OrdinaryBookingForm", () => {
     testState.submitBooking.mockReset().mockResolvedValue({
       success: true,
       bookingId: "ordinary-1",
+      bookingNumber: "booking-20300812-ORDI",
     });
     testState.trackSubmitBooking.mockReset();
     container = document.createElement("div");
@@ -237,39 +263,22 @@ describe("OrdinaryBookingForm", () => {
     const initial = container.querySelector<HTMLInputElement>(
       '[aria-label="Paint clay figurine quantity"]',
     );
-    const alternative = container.querySelector<HTMLInputElement>(
-      '[aria-label="Beading quantity"]',
-    );
     expect(initial?.value).toBe("1");
-    expect(alternative?.value).toBe("0");
     expect(container.textContent).toContain("1 of 1 participants assigned");
-    expect(container.querySelector('[data-testid="ordinary-calendar"]')).not.toBeNull();
+    expect(container.textContent).toContain("Paint clay figurine × 1");
+    expect(
+      container.querySelector('[data-testid="ordinary-calendar"]'),
+    ).toBeNull();
 
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      "value",
-    )?.set;
-    setter?.call(initial, "0");
-    await act(async () => {
-      initial?.dispatchEvent(new Event("input", { bubbles: true }));
-      initial?.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-
-    const refreshedAlternative = container.querySelector<HTMLInputElement>(
-      '[aria-label="Beading quantity"]',
-    );
-    setter?.call(refreshedAlternative, "1");
-    await act(async () => {
-      refreshedAlternative?.dispatchEvent(new Event("input", { bubbles: true }));
-      refreshedAlternative?.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-
+    const beadingCategory = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((button) => button.textContent === "Beading");
+    await act(async () => beadingCategory?.click());
     expect(
       container.querySelector<HTMLInputElement>(
-        '[aria-label="Paint clay figurine quantity"]',
-      )?.value,
-    ).toBe("0");
-    expect(refreshedAlternative?.value).toBe("1");
+        '[aria-label="Beading quantity"]',
+      ),
+    ).not.toBeNull();
   });
 
   it("ignores an unknown catalogue project instead of preselecting it", async () => {
@@ -280,17 +289,73 @@ describe("OrdinaryBookingForm", () => {
         '[aria-label="Beading quantity"]',
       )?.value,
     ).toBe("0");
+    expect(container.textContent).not.toContain("Paint clay figurine");
+    expect(container.textContent).toContain("Choose a project to continue");
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(
+      container.querySelector('[data-testid="ordinary-calendar"]'),
+    ).toBeNull();
+  });
+
+  it("uses a real four-step flow and validates only after Continue", async () => {
+    await renderForm();
+
+    expect(container.querySelector("h2")?.textContent).toContain("01");
+    expect(container.querySelector("h2")?.textContent).toContain("Projects");
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+
+    await clickButton("Continue");
+    expect(container.querySelector("h2")?.textContent).toContain("Projects");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Choose exactly one project",
+    );
+
+    setInput("project:Beading", "1");
+    await clickButton("Continue");
+    expect(container.querySelector("h2")?.textContent).toContain("People");
+    expect(container.textContent).toContain("Beading × 1");
+
+    setInput("participantCount", "2");
+    expect(container.textContent).toContain("Beading × 2");
+    await clickButton("Continue");
+    expect(container.querySelector("h2")?.textContent).toContain("Date & time");
+
+    await clickButton("Choose generated test start");
+    await clickButton("Continue");
+    expect(container.querySelector("h2")?.textContent).toContain(
+      "Contact & policy",
+    );
+  });
+
+  it("carries the selected project quantity into the people step", async () => {
+    await renderForm();
+
+    setInput("project:Beading", "1");
+    const paintCategory = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((button) => button.textContent === "Paint");
+    await act(async () => paintCategory?.click());
+    setInput("project:Paint clay figurine", "1");
+
+    expect(container.textContent).toContain("2 of 2 participants assigned");
+    await clickButton("Continue");
     expect(
       container.querySelector<HTMLInputElement>(
-        '[aria-label="Paint clay figurine quantity"]',
+        'input[name="participantCount"]',
       )?.value,
-    ).toBe("0");
-    expect(container.textContent).toContain("0 of 1 participants assigned");
-    expect(container.querySelector('[data-testid="ordinary-calendar"]')).toBeNull();
+    ).toBe("2");
   });
 
   function setInput(name: string, value: string) {
-    const input = container.querySelector<HTMLInputElement>(`[name="${name}"]`);
+    const input = name.startsWith("project:")
+      ? (Array.from(
+          container.querySelectorAll<HTMLInputElement>('input[type="number"]'),
+        ).find((candidate) =>
+          candidate
+            .getAttribute("aria-label")
+            ?.includes(name.slice("project:".length)),
+        ) ?? null)
+      : container.querySelector<HTMLInputElement>(`[name="${name}"]`);
     expect(input).not.toBeNull();
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
@@ -301,34 +366,32 @@ describe("OrdinaryBookingForm", () => {
     input?.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
+  async function clickButton(label: string) {
+    const button = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((candidate) => candidate.textContent?.trim() === label);
+    expect(button).not.toBeUndefined();
+    await act(async () => button?.click());
+  }
+
   async function completeForm({ selectSlot = true } = {}) {
+    setInput(
+      testState.locale === "zh" ? "project:串珠" : "project:Beading",
+      "1",
+    );
+    await clickButton(testState.locale === "zh" ? "继续" : "Continue");
+    await clickButton(testState.locale === "zh" ? "继续" : "Continue");
+    if (selectSlot) {
+      await clickButton("Choose generated test start");
+      await clickButton(testState.locale === "zh" ? "继续" : "Continue");
     setInput("name", "Alice");
     setInput("phone", "0430000000");
     setInput("email", "alice@example.com");
-    const projectQuantity =
-      container.querySelector<HTMLInputElement>(
-        '[aria-label="Beading quantity"]',
-      ) ??
-      container.querySelector<HTMLInputElement>('[aria-label="串珠数量"]');
-    const quantitySetter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      "value",
-    )?.set;
-    quantitySetter?.call(projectQuantity, "1");
-    await act(async () => {
-      projectQuantity?.dispatchEvent(new Event("input", { bubbles: true }));
-      projectQuantity?.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    if (selectSlot) {
-      const slot = Array.from(
-        container.querySelectorAll<HTMLButtonElement>("button"),
-      ).find((button) => button.textContent === "Choose generated test start");
-      await act(async () => slot?.click());
-    }
     const policy = container.querySelector<HTMLInputElement>(
       'input[name="policyAccepted"]',
     );
     await act(async () => policy?.click());
+  }
   }
 
   async function submit() {
@@ -382,9 +445,13 @@ describe("OrdinaryBookingForm", () => {
         },
       ]),
     );
-    expect(formData.get("policyVersion")).toBe("2026-07-30");
+    expect(formData.get("policyVersion")).toBe("2026-08-03");
     expect(container.textContent).toContain("awaits manual staff confirmation");
     expect(container.textContent).toContain("Pay in store");
+    expect(container.textContent).toContain("booking-20300812-ORDI");
+    expect(container.textContent).toContain(
+      "wait for staff confirmation by email or phone",
+    );
     expect(container.textContent).not.toContain("Booking confirmed");
     expect(testState.trackSubmitBooking).toHaveBeenCalledOnce();
     expect(testState.trackSubmitBooking).toHaveBeenCalledWith({
@@ -446,11 +513,7 @@ describe("OrdinaryBookingForm", () => {
   );
 
   it.each([
-    [
-      "en",
-      "waitlist request was received",
-      "awaits manual staff confirmation",
-    ],
+    ["en", "waitlist request was received", "awaits manual staff confirmation"],
     ["zh", "候补申请已收到", "正在等待员工人工确认"],
   ] as const)(
     "submits a %s waitlist and truthfully reports pending manual confirmation",
@@ -562,6 +625,7 @@ describe("OrdinaryBookingForm", () => {
 
   it("presents equivalent Chinese policy, payment, pending, and contact wording", async () => {
     await renderForm({ locale: "zh" });
+    await completeForm();
 
     expect(container.textContent).toContain("最低年龄为 5 岁");
     expect(container.textContent).toContain("5 至 8 岁");
@@ -578,6 +642,8 @@ describe("OrdinaryBookingForm", () => {
 
   it("presents the age-five supervision policy in English", async () => {
     await renderForm();
+    setInput("project:Beading", "1");
+    await clickButton("Continue");
 
     expect(container.textContent).toContain("Minimum age is 5");
     expect(container.textContent).toContain("Children aged 5–8");

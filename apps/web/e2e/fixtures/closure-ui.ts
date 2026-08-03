@@ -15,7 +15,10 @@ export function closureContact(label: string) {
   const suffix = label.slice(0, 8);
   return {
     name: `Closure Customer ${suffix}`,
-    phone: `0400${suffix.replace(/[^0-9]/g, "").padEnd(6, "7").slice(0, 6)}`,
+    phone: `0400${suffix
+      .replace(/[^0-9]/g, "")
+      .padEnd(6, "7")
+      .slice(0, 6)}`,
     email: `closure-${suffix}@example.test`,
   };
 }
@@ -44,7 +47,9 @@ export async function selectClosureSlot(
     if (shownMonth?.includes(targetMonth)) break;
     await page.getByRole("button", { name: /Next month|下个月/ }).click();
   }
-  throw new Error(`Closure fixture date ${fixture.slotDate} was not selectable`);
+  throw new Error(
+    `Closure fixture date ${fixture.slotDate} was not selectable`,
+  );
 }
 
 export async function captureCreatedRequest(
@@ -82,12 +87,16 @@ export async function submitClosureOrdinaryForm(options: {
     throw new Error("An experience closure fixture is required");
   }
   await page.goto("/en/book");
-  await page.locator('input[name="participantCount"]').fill(String(participantCount));
-  await page.locator('input[name="youngChildCount"]').fill("0");
-  await page.locator('input[name="accompanyingAdultCount"]').fill("0");
   await page
     .getByLabel(new RegExp(fixture.offering.en))
     .fill(String(participantCount));
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page
+    .locator('input[name="participantCount"]')
+    .fill(String(participantCount));
+  await page.locator('input[name="youngChildCount"]').fill("0");
+  await page.locator('input[name="accompanyingAdultCount"]').fill("0");
+  await page.getByRole("button", { name: "Continue" }).click();
   const availabilityResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
@@ -103,6 +112,7 @@ export async function submitClosureOrdinaryForm(options: {
       name: new RegExp(`^Request this time: ${fixture.slotStartTime}\\b`),
     })
     .click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.locator('input[name="name"]').fill(contact.name);
   await page.locator('input[name="phone"]').fill(contact.phone);
   await page.locator('input[name="email"]').fill(contact.email);
@@ -121,15 +131,24 @@ export async function submitLiveOrdinaryForm(options: {
 }) {
   const { page, fixture, locale, email, mode } = options;
   await page.goto(`/${locale}/book`);
+  const shortProject = page.locator(
+    `input[aria-label*="${fixture.projects.short.seed.name[locale]}"]`,
+  );
+  const longProject = page.locator(
+    `input[aria-label*="${fixture.projects.long.seed.name[locale]}"]`,
+  );
+  await shortProject.fill("1");
+  await longProject.fill("1");
+  await expect(shortProject).toHaveValue("1");
+  await expect(longProject).toHaveValue("1");
+  const continueButton = page.getByRole("button", {
+    name: locale === "zh" ? "继续" : "Continue",
+  });
+  await continueButton.click();
   await page.locator('input[name="participantCount"]').fill("2");
   await page.locator('input[name="youngChildCount"]').fill("0");
   await page.locator('input[name="accompanyingAdultCount"]').fill("1");
-  await page
-    .locator(`input[aria-label*="${fixture.projects.short.seed.name[locale]}"]`)
-    .fill("1");
-  await page
-    .locator(`input[aria-label*="${fixture.projects.long.seed.name[locale]}"]`)
-    .fill("1");
+  await continueButton.click();
   const availabilityResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
@@ -156,6 +175,7 @@ export async function submitLiveOrdinaryForm(options: {
   await expect(slotButton).toBeVisible();
   await expect(slotButton).toBeEnabled();
   await slotButton.click();
+  await continueButton.click();
   await page.locator('input[name="name"]').fill(`UI ${fixture.runId}`);
   await page.locator('input[name="phone"]').fill("0430787722");
   await page.locator('input[name="email"]').fill(email);
@@ -233,8 +253,7 @@ export async function transitionFromAdmin(options: {
 
   const requestPromise = page.waitForRequest(
     (request) =>
-      request.method() === method &&
-      new URL(request.url()).pathname === path,
+      request.method() === method && new URL(request.url()).pathname === path,
   );
   const responsePromise = page.waitForResponse(
     (response) =>

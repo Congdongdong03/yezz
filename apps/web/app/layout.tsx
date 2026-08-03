@@ -26,6 +26,9 @@ export const metadata: Metadata = {
     template: `%s | ${zhMessages.metadata.title}`,
   },
   description: zhMessages.metadata.description,
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim()
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION.trim() }
+    : undefined,
 };
 
 export default function RootLayout({
@@ -39,7 +42,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} ${notoSerifSC.variable}`}
     >
-      <body className="antialiased overflow-x-hidden">
+      <body className="overflow-x-hidden antialiased">
         <GoogleAnalytics />
         {children}
       </body>

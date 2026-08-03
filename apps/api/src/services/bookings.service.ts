@@ -1,12 +1,16 @@
 import type { BookingStatus, Db } from "@yezz/db";
 import { AppError } from "../lib/errors.js";
 import { CURRENT_BOOKING_POLICY_VERSION } from "../lib/booking-policy-version.js";
+import { normalizePhotoConsent } from "../lib/photo-consent.js";
 import {
   buildOrdinaryInterval,
   type OrdinaryBookingCreateInput,
   validateOrdinaryAttendance,
 } from "../lib/booking-workflow.js";
-import { getMelbourneClock, validateBookingWindow } from "../lib/booking-policy.js";
+import {
+  getMelbourneClock,
+  validateBookingWindow,
+} from "../lib/booking-policy.js";
 import { legacyStatusFromBookingStatus } from "../lib/legacy-booking-status.js";
 import {
   escapeHtml,
@@ -156,26 +160,63 @@ function databaseErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
-function isOrdinaryBookingCreateInput(input: BookingCreateInput | OrdinaryBookingCreateInput): input is OrdinaryBookingCreateInput {
+function isOrdinaryBookingCreateInput(
+  input: BookingCreateInput | OrdinaryBookingCreateInput,
+): input is OrdinaryBookingCreateInput {
   return "mode" in input && "items" in input && "participantCount" in input;
 }
 
 function assertOrdinaryInput(input: OrdinaryBookingCreateInput): void {
-  if (!input.name.trim() || !input.phone.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
-    throw new AppError(400, "VALIDATION_ERROR", "name, phone, and a valid email are required");
+  if (
+    !input.name.trim() ||
+    !input.phone.trim() ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())
+  ) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "name, phone, and a valid email are required",
+    );
   }
-  if (!input.policyAccepted || input.policyVersion !== CURRENT_BOOKING_POLICY_VERSION) {
-    throw new AppError(400, "VALIDATION_ERROR", "The current booking policy must be accepted");
+  if (
+    !input.policyAccepted ||
+    input.policyVersion !== CURRENT_BOOKING_POLICY_VERSION
+  ) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "The current booking policy must be accepted",
+    );
   }
   if (input.mode !== "booking" && input.mode !== "waitlist") {
-    throw new AppError(400, "VALIDATION_ERROR", "mode must be booking or waitlist");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "mode must be booking or waitlist",
+    );
   }
   validateOrdinaryAttendance(input);
-  if (!input.items.length || input.items.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1)) {
-    throw new AppError(400, "VALIDATION_ERROR", "items must contain positive quantities");
+  if (
+    !input.items.length ||
+    input.items.some(
+      (item) => !Number.isInteger(item.quantity) || item.quantity < 1,
+    )
+  ) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "items must contain positive quantities",
+    );
   }
-  if (input.items.reduce((total, item) => total + item.quantity, 0) !== input.participantCount) {
-    throw new AppError(400, "VALIDATION_ERROR", "project quantity must equal participantCount");
+  if (
+    input.items.reduce((total, item) => total + item.quantity, 0) !==
+    input.participantCount
+  ) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "project quantity must equal participantCount",
+    );
   }
 }
 
@@ -553,8 +594,7 @@ export function createBookingsService(
                   { label: "Phone", value: created.phone },
                   { label: "Email", value: customerEmail },
                   {
-                    label:
-                      kind === "party" ? "Party package" : "Experience",
+                    label: kind === "party" ? "Party package" : "Experience",
                     value: localizedOfferingName,
                   },
                   {
@@ -617,22 +657,68 @@ export function createBookingsService(
       notification: "queued";
     }> {
       if (!requestCapabilities.experience) {
-        throw new AppError(503, "REQUEST_FLOW_DISABLED", "experience requests are not currently available");
+        throw new AppError(
+          503,
+          "REQUEST_FLOW_DISABLED",
+          "experience requests are not currently available",
+        );
       }
       assertOrdinaryInput(input);
+      const photoConsent = normalizePhotoConsent(input.photoConsent);
       const normalizedKey = assertUuid(idempotencyKey, "Idempotency-Key");
       await requirePublicCreateCapability("experience");
-      const assertReplay = async (row: Awaited<ReturnType<typeof repo.findByIdempotencyKey>>) => {
+      const assertReplay = async (
+        row: Awaited<ReturnType<typeof repo.findByIdempotencyKey>>,
+      ) => {
         if (!row) return false;
         const items = await repo.findItems(row.id);
-        const same = row.requestKind === "experience" && row.activityType === `ordinary_${input.mode}` && row.participantCount === input.participantCount && row.youngChildCount === input.youngChildCount && row.accompanyingAdultCount === input.accompanyingAdultCount && row.slotDate === input.date && row.slotStartTime === input.startTime && row.name === input.name.trim() && row.phone === input.phone.trim() && row.email === input.email.trim().toLowerCase() && row.message === (input.message?.trim() || null) && row.locale === input.locale && row.policyVersion === input.policyVersion && Boolean(row.policyAcceptedAt) && items.length === input.items.length && items.every((item, index) => item.projectId === (input.items[index]?.decideInStore ? null : input.items[index]?.projectId) && item.quantity === input.items[index]?.quantity && item.decideInStore === Boolean(input.items[index]?.decideInStore));
-        if (!same) throw new AppError(409, "IDEMPOTENCY_KEY_CONFLICT", "The idempotency key belongs to a different booking request");
+        const same =
+          row.requestKind === "experience" &&
+          row.activityType === `ordinary_${input.mode}` &&
+          row.participantCount === input.participantCount &&
+          row.youngChildCount === input.youngChildCount &&
+          row.accompanyingAdultCount === input.accompanyingAdultCount &&
+          row.slotDate === input.date &&
+          row.slotStartTime === input.startTime &&
+          row.name === input.name.trim() &&
+          row.phone === input.phone.trim() &&
+          row.email === input.email.trim().toLowerCase() &&
+          row.message === (input.message?.trim() || null) &&
+          row.locale === input.locale &&
+          row.policyVersion === input.policyVersion &&
+          Boolean(row.policyAcceptedAt) &&
+          row.photoConsentDecision === photoConsent.decision &&
+          row.photoConsentSignerName === photoConsent.signerName &&
+          row.photoConsentVersion === photoConsent.version &&
+          Boolean(row.photoConsentRecordedAt) &&
+          items.length === input.items.length &&
+          items.every(
+            (item, index) =>
+              item.projectId ===
+                (input.items[index]?.decideInStore
+                  ? null
+                  : input.items[index]?.projectId) &&
+              item.quantity === input.items[index]?.quantity &&
+              item.decideInStore === Boolean(input.items[index]?.decideInStore),
+          );
+        if (!same)
+          throw new AppError(
+            409,
+            "IDEMPOTENCY_KEY_CONFLICT",
+            "The idempotency key belongs to a different booking request",
+          );
         return true;
       };
       if (!beforePersist) {
         const existing = await repo.findByIdempotencyKey(normalizedKey);
         if (await assertReplay(existing)) {
-          return { id: existing!.id, status: existing!.status, createdAt: existing!.createdAt, replayed: true, notification: "queued" };
+          return {
+            id: existing!.id,
+            status: existing!.status,
+            createdAt: existing!.createdAt,
+            replayed: true,
+            notification: "queued",
+          };
         }
       }
 
@@ -646,26 +732,104 @@ export function createBookingsService(
           if (!(await assertReplay(replay))) throw new Error("unreachable");
           return { row: replay, replayed: true };
         }
-        const snapshots = [] as Array<{ projectId: string | null; projectNameSnapshot: { en: string; zh: string } | null; unitPriceCentsSnapshot: number | null; durationMinutesSnapshot: number; quantity: number; decideInStore: boolean }>;
+        const snapshots = [] as Array<{
+          projectId: string | null;
+          projectNameSnapshot: { en: string; zh: string } | null;
+          unitPriceCentsSnapshot: number | null;
+          durationMinutesSnapshot: number;
+          quantity: number;
+          decideInStore: boolean;
+        }>;
         for (const item of input.items) {
           if (item.decideInStore) {
-            snapshots.push({ projectId: null, projectNameSnapshot: { en: "Decide in store", zh: "到店决定" }, unitPriceCentsSnapshot: null, durationMinutesSnapshot: 60, quantity: item.quantity, decideInStore: true });
+            snapshots.push({
+              projectId: null,
+              projectNameSnapshot: { en: "Decide in store", zh: "到店决定" },
+              unitPriceCentsSnapshot: null,
+              durationMinutesSnapshot: 60,
+              quantity: item.quantity,
+              decideInStore: true,
+            });
             continue;
           }
-          const project = await projectsRepo.findById(assertUuid(item.projectId, "projectId"), tx);
-          if (!project || project.projectType !== "experience" || !project.bookable || !project.durationMinutes) {
-            throw new AppError(422, "PROJECT_NOT_BOOKABLE", "The selected project is not available for booking");
+          const project = await projectsRepo.findById(
+            assertUuid(item.projectId, "projectId"),
+            tx,
+          );
+          if (
+            !project ||
+            project.projectType !== "experience" ||
+            !project.bookable ||
+            !project.durationMinutes
+          ) {
+            throw new AppError(
+              422,
+              "PROJECT_NOT_BOOKABLE",
+              "The selected project is not available for booking",
+            );
           }
-          snapshots.push({ projectId: project.id, projectNameSnapshot: project.name, unitPriceCentsSnapshot: project.priceMin ?? null, durationMinutesSnapshot: project.durationMinutes, quantity: item.quantity, decideInStore: false });
+          snapshots.push({
+            projectId: project.id,
+            projectNameSnapshot: project.name,
+            unitPriceCentsSnapshot: project.priceMin ?? null,
+            durationMinutesSnapshot: project.durationMinutes,
+            quantity: item.quantity,
+            decideInStore: false,
+          });
         }
-        const interval = buildOrdinaryInterval({ date: input.date, startTime: input.startTime, participantCount: input.participantCount, accompanyingAdultCount: input.accompanyingAdultCount, itemDurations: snapshots.map((item) => item.durationMinutesSnapshot) });
+        const interval = buildOrdinaryInterval({
+          date: input.date,
+          startTime: input.startTime,
+          participantCount: input.participantCount,
+          accompanyingAdultCount: input.accompanyingAdultCount,
+          itemDurations: snapshots.map((item) => item.durationMinutesSnapshot),
+        });
         const schedule = await scheduleRepo.resolveDay(input.date);
-        if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt) throw new AppError(400, "STUDIO_CLOSED", "The studio is closed on this date");
-        if (schedule.closures.some((closure) => closure.startTime === null || closure.endTime === null || (input.startTime < closure.endTime && interval.endTime > closure.startTime))) {
-          throw new AppError(409, "SCHEDULE_CONFLICT", "The requested interval is unavailable due to the studio schedule");
+        if (schedule.isClosed || !schedule.opensAt || !schedule.closesAt)
+          throw new AppError(
+            400,
+            "STUDIO_CLOSED",
+            "The studio is closed on this date",
+          );
+        if (
+          schedule.closures.some(
+            (closure) =>
+              closure.startTime === null ||
+              closure.endTime === null ||
+              (input.startTime < closure.endTime &&
+                interval.endTime > closure.startTime),
+          )
+        ) {
+          throw new AppError(
+            409,
+            "SCHEDULE_CONFLICT",
+            "The requested interval is unavailable due to the studio schedule",
+          );
         }
-        validateBookingWindow({ date: input.date, startTime: input.startTime, durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150 }, getMelbourneClock(now()), { opensAt: schedule.opensAt, closesAt: schedule.closesAt });
-        const created = await repo.createOrdinary({ ...input, email: input.email.trim().toLowerCase(), endTime: interval.endTime, attendanceCount: interval.attendanceCount, durationMinutes: interval.durationMinutes, idempotencyKey: normalizedKey, status: input.mode === "waitlist" ? "waitlisted" : "pending_review", submissionMode: input.mode, items: snapshots }, tx);
+        validateBookingWindow(
+          {
+            date: input.date,
+            startTime: input.startTime,
+            durationMinutes: interval.durationMinutes as 30 | 60 | 90 | 150,
+          },
+          getMelbourneClock(now()),
+          { opensAt: schedule.opensAt, closesAt: schedule.closesAt },
+        );
+        const created = await repo.createOrdinary(
+          {
+            ...input,
+            email: input.email.trim().toLowerCase(),
+            endTime: interval.endTime,
+            attendanceCount: interval.attendanceCount,
+            durationMinutes: interval.durationMinutes,
+            idempotencyKey: normalizedKey,
+            status: input.mode === "waitlist" ? "waitlisted" : "pending_review",
+            submissionMode: input.mode,
+            items: snapshots,
+            photoConsent,
+          },
+          tx,
+        );
         const messageLocale = input.locale;
         const customerEmail = input.email.trim().toLowerCase();
         const offeringLabel = snapshots
@@ -690,7 +854,10 @@ export function createBookingsService(
                 template: "booking_received",
                 storeName: CANONICAL_BOOKING_EMAIL_IDENTITY.storeName,
                 orderId: created.id,
-                orderNumber: formatBookingOrderId(created.id, created.createdAt),
+                orderNumber: formatBookingOrderId(
+                  created.id,
+                  created.createdAt,
+                ),
                 submittedAt: created.createdAt.toISOString(),
                 input: {
                   name: created.name,
@@ -784,7 +951,13 @@ export function createBookingsService(
         );
         return { row: created, replayed: false };
       });
-      return { id: result.row.id, status: result.row.status, createdAt: result.row.createdAt, replayed: result.replayed, notification: "queued" };
+      return {
+        id: result.row.id,
+        status: result.row.status,
+        createdAt: result.row.createdAt,
+        replayed: result.replayed,
+        notification: "queued",
+      };
     },
 
     async createPartyRequest(

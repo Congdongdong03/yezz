@@ -18,23 +18,47 @@ describe("admin party workflow routes", () => {
   }
 
   it("dispatches dedicated party acceptance", async () => {
-    const acceptPartyTime = vi.fn(async () => ({ status: "awaiting_in_store_payment" }));
+    const acceptPartyTime = vi.fn(async () => ({
+      status: "awaiting_in_store_payment",
+    }));
     const app = await appWith({ acceptPartyTime });
     try {
-      const response = await app.inject({ method: "POST", url: "/bookings/booking-1/accept-party-time", payload: { expectedStatus: "time_proposed", operationId: "operation-1" } });
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings/booking-1/accept-party-time",
+        payload: {
+          expectedStatus: "time_proposed",
+          operationId: "operation-1",
+        },
+      });
       expect(response.statusCode).toBe(200);
-      expect(acceptPartyTime).toHaveBeenCalledWith("booking-1", { expectedStatus: "time_proposed", operationId: "operation-1" }, "10000000-0000-4000-8000-000000000001");
-    } finally { await app.close(); }
+      expect(acceptPartyTime).toHaveBeenCalledWith(
+        "booking-1",
+        { expectedStatus: "time_proposed", operationId: "operation-1" },
+        "10000000-0000-4000-8000-000000000001",
+      );
+    } finally {
+      await app.close();
+    }
   });
 
   it("rejects crafted expiry source statuses before dispatching the trusted expiry action", async () => {
     const expirePartyHold = vi.fn(async () => ({ status: "payment_expired" }));
     const app = await appWith({ expirePartyHold });
     try {
-      const response = await app.inject({ method: "POST", url: "/bookings/booking-1/expire-party-hold", payload: { expectedStatus: "confirmed_paid", operationId: "operation-1" } });
+      const response = await app.inject({
+        method: "POST",
+        url: "/bookings/booking-1/expire-party-hold",
+        payload: {
+          expectedStatus: "confirmed_paid",
+          operationId: "operation-1",
+        },
+      });
       expect(response.statusCode).toBe(400);
       expect(expirePartyHold).not.toHaveBeenCalled();
-    } finally { await app.close(); }
+    } finally {
+      await app.close();
+    }
   });
 
   it("returns the seven-day Melbourne calendar contract", async () => {
@@ -74,12 +98,15 @@ describe("admin party workflow routes", () => {
     }));
     const getById = vi.fn(async () => ({
       id: "current-booking",
-      policyVersion: "2026-07-30",
+      policyVersion: "2026-08-03",
       policyAcceptedAt: currentAcceptance,
     }));
     const app = await appWith({ list, getById });
     try {
-      const listResponse = await app.inject({ method: "GET", url: "/bookings" });
+      const listResponse = await app.inject({
+        method: "GET",
+        url: "/bookings",
+      });
       const detailResponse = await app.inject({
         method: "GET",
         url: "/bookings/current-booking",
@@ -96,7 +123,7 @@ describe("admin party workflow routes", () => {
       expect(detailResponse.statusCode).toBe(200);
       expect(detailResponse.json().data).toEqual({
         id: "current-booking",
-        policyVersion: "2026-07-30",
+        policyVersion: "2026-08-03",
         policyAcceptedAt: currentAcceptance.toISOString(),
       });
     } finally {
@@ -107,7 +134,9 @@ describe("admin party workflow routes", () => {
   it("exposes canonical transition, charge, payment, and refund actions", async () => {
     const updateStatus = vi.fn(async () => ({ status: "confirmed" }));
     const recordPartyCharge = vi.fn(async () => ({ replayed: false }));
-    const recordPartyPayment = vi.fn(async () => ({ status: "confirmed_paid" }));
+    const recordPartyPayment = vi.fn(async () => ({
+      status: "confirmed_paid",
+    }));
     const recordPartyRefund = vi.fn(async () => ({ status: "refunded" }));
     const app = await appWith({
       updateStatus,
@@ -170,11 +199,7 @@ describe("admin party workflow routes", () => {
 
   it("returns the current status on a stale canonical action", async () => {
     const updateStatus = vi.fn(async () => {
-      throw new AppError(
-        409,
-        "STATUS_CONFLICT",
-        "The booking changed",
-      );
+      throw new AppError(409, "STATUS_CONFLICT", "The booking changed");
     });
     const getById = vi.fn(async () => ({ status: "cancelled" }));
     const app = await appWith({ updateStatus, getById });

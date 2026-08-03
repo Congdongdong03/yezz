@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CURRENT_BOOKING_POLICY_VERSION } from "../booking/policy-version";
+import { CURRENT_PHOTO_CONSENT_VERSION } from "../booking/photo-consent";
 import {
   createRequestAttempt,
   type RequestAttempt,
@@ -34,7 +35,9 @@ function bookingSchema(locale?: string) {
       .pipe(
         z
           .string()
-          .uuid(zh ? "请重新选择体验项目" : "Please choose an experience again"),
+          .uuid(
+            zh ? "请重新选择体验项目" : "Please choose an experience again",
+          ),
       ),
     message: z.string().optional(),
     timeSlotId: z
@@ -77,7 +80,9 @@ function ordinarySchema(locale?: string) {
     children: zh
       ? "5 至 8 岁儿童人数不能超过手作参与者人数"
       : "Children aged 5–8 cannot exceed DIY participants",
-    adults: zh ? "陪同成人不能为负数" : "Accompanying adults cannot be negative",
+    adults: zh
+      ? "陪同成人不能为负数"
+      : "Accompanying adults cannot be negative",
     supervision: zh
       ? "有 5 至 8 岁儿童参加时，至少需要一位陪同成人"
       : "An accompanying adult is required for a child aged 5–8",
@@ -90,6 +95,9 @@ function ordinarySchema(locale?: string) {
     policy: zh
       ? "请接受预约政策后继续"
       : "Accept the booking policies to continue",
+    photoSigner: zh
+      ? "请填写同意授权的成人或监护人全名"
+      : "Enter the full name of the consenting adult or guardian",
   };
   const itemSchema = z.union([
     z.object({
@@ -119,20 +127,30 @@ function ordinarySchema(locale?: string) {
       participantCount: z.coerce.number().int().min(1, messages.participants),
       youngChildCount: z.coerce.number().int().min(0, messages.children),
       accompanyingAdultCount: z.coerce.number().int().min(0, messages.adults),
-      items: z.preprocess((value) => {
+      items: z.preprocess(
+        (value) => {
         if (typeof value !== "string") return value;
         try {
           return JSON.parse(value);
         } catch {
           return null;
         }
-      }, z.array(itemSchema).min(1, messages.items)),
+        },
+        z.array(itemSchema).min(1, messages.items),
+      ),
       message: z.string().trim().optional(),
       locale: z.enum(["en", "zh"]),
       policyVersion: z.literal(CURRENT_BOOKING_POLICY_VERSION),
       policyAccepted: z
         .string()
         .refine((value) => value === "true", messages.policy),
+      photoConsentDecision: z.enum([
+        "declined",
+        "adult_only",
+        "guardian_for_minor",
+      ]),
+      photoConsentSignerName: z.string().trim().optional(),
+      photoConsentVersion: z.literal(CURRENT_PHOTO_CONSENT_VERSION),
     })
     .superRefine((data, context) => {
       if (data.youngChildCount > data.participantCount) {
@@ -142,10 +160,7 @@ function ordinarySchema(locale?: string) {
           path: ["youngChildCount"],
         });
       }
-      if (
-        data.youngChildCount > 0 &&
-        data.accompanyingAdultCount < 1
-      ) {
+      if (data.youngChildCount > 0 && data.accompanyingAdultCount < 1) {
         context.addIssue({
           code: "custom",
           message: messages.supervision,
@@ -167,6 +182,16 @@ function ordinarySchema(locale?: string) {
           code: "custom",
           message: messages.items,
           path: ["items"],
+        });
+      }
+      if (
+        data.photoConsentDecision !== "declined" &&
+        (!data.photoConsentSignerName || data.photoConsentSignerName.length < 2)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: messages.photoSigner,
+          path: ["photoConsentSignerName"],
         });
       }
     });
@@ -211,6 +236,10 @@ async function submitOrdinaryBooking(
     accompanyingAdultCount: rawData.accompanyingAdultCount ?? "",
     items: rawData.items ?? "",
     policyAccepted: rawData.policyAccepted ?? "",
+    photoConsentDecision: rawData.photoConsentDecision ?? "declined",
+    photoConsentSignerName: rawData.photoConsentSignerName ?? "",
+    photoConsentVersion:
+      rawData.photoConsentVersion ?? CURRENT_PHOTO_CONSENT_VERSION,
   });
   if (!parsed.success) {
     attempt.failed();
@@ -233,6 +262,13 @@ async function submitOrdinaryBooking(
     locale: data.locale,
     policyVersion: data.policyVersion,
     policyAccepted: true as const,
+    photoConsent: {
+      decision: data.photoConsentDecision,
+      ...(data.photoConsentDecision === "declined"
+        ? {}
+        : { signerName: data.photoConsentSignerName }),
+      version: data.photoConsentVersion,
+    },
   };
   try {
     const response = await fetch("/api/backend/v1/bookings", {
@@ -244,7 +280,7 @@ async function submitOrdinaryBooking(
       body: JSON.stringify(body),
     });
     const result = (await response.json()) as
-      | ApiSuccess<{ id: string }>
+      | ApiSuccess<{ id: string; createdAt?: string }>
       | ApiError;
     if (!result.success) {
       attempt.failed();
@@ -257,7 +293,21 @@ async function submitOrdinaryBooking(
       };
     }
     attempt.succeeded();
-    return { success: true, bookingId: result.data.id };
+    const createdAt = result.data.createdAt
+      ? new Date(result.data.createdAt)
+      : null;
+    const datePart =
+      createdAt && !Number.isNaN(createdAt.getTime())
+        ? `${createdAt.getUTCFullYear()}${String(createdAt.getUTCMonth() + 1).padStart(2, "0")}${String(createdAt.getUTCDate()).padStart(2, "0")}`
+        : null;
+    const suffix = result.data.id.replace(/-/g, "").slice(0, 4).toUpperCase();
+    return {
+      success: true,
+      bookingId: result.data.id,
+      bookingNumber: datePart
+        ? `booking-${datePart}-${suffix}`
+        : `booking-${result.data.id.slice(0, 8).toUpperCase()}`,
+    };
   } catch {
     attempt.failed();
     return {
@@ -275,10 +325,15 @@ export async function submitBooking(
   attempt: BookingAttempt = createBookingAttempt(),
 ) {
   const rawData = Object.fromEntries(formData.entries());
-  if ("mode" in rawData || "items" in rawData || "participantCount" in rawData) {
+  if (
+    "mode" in rawData ||
+    "items" in rawData ||
+    "participantCount" in rawData
+  ) {
     return submitOrdinaryBooking(rawData, attempt);
   }
-  const locale = typeof rawData.locale === "string" ? rawData.locale : undefined;
+  const locale =
+    typeof rawData.locale === "string" ? rawData.locale : undefined;
   const parsed = bookingSchema(locale).safeParse({
     ...rawData,
     email: rawData.email ?? "",
@@ -326,7 +381,12 @@ export async function submitBooking(
       attempt.failed();
       return {
         success: false,
-        errors: { server: [json.error?.message ?? "Failed to submit booking. Please try again."] },
+        errors: {
+          server: [
+            json.error?.message ??
+              "Failed to submit booking. Please try again.",
+          ],
+        },
       };
     }
 
@@ -390,9 +450,16 @@ export async function submitPartyBooking(
   const booleanField = z
     .enum(["true", "false"])
     .transform((value) => value === "true");
-  const partySchema = z.object({
-    name: z.string().trim().min(1, zh ? "请填写姓名" : "Name is required"),
-    phone: z.string().trim().min(1, zh ? "请填写电话" : "Phone is required"),
+  const partySchema = z
+    .object({
+      name: z
+        .string()
+        .trim()
+        .min(1, zh ? "请填写姓名" : "Name is required"),
+      phone: z
+        .string()
+        .trim()
+        .min(1, zh ? "请填写电话" : "Phone is required"),
     email: z
       .string()
       .trim()
@@ -404,38 +471,69 @@ export async function submitPartyBooking(
     birthdayChildName: z
       .string()
       .trim()
-      .min(1, zh ? "请填写生日小朋友姓名" : "Birthday child's name is required"),
+        .min(
+          1,
+          zh ? "请填写生日小朋友姓名" : "Birthday child's name is required",
+        ),
     birthdayChildAge: z.coerce
       .number()
       .int()
-      .min(5, zh ? "生日小朋友须年满 5 岁" : "The birthday child must be at least 5"),
+        .min(
+          5,
+          zh
+            ? "生日小朋友须年满 5 岁"
+            : "The birthday child must be at least 5",
+        ),
     participantCount: z.coerce
       .number()
       .int()
-      .min(4, zh ? "手作参与者须为 4 至 8 人" : "Choose 4 to 8 DIY participants")
-      .max(8, zh ? "手作参与者须为 4 至 8 人" : "Choose 4 to 8 DIY participants"),
+        .min(
+          4,
+          zh ? "手作参与者须为 4 至 8 人" : "Choose 4 to 8 DIY participants",
+        )
+        .max(
+          8,
+          zh ? "手作参与者须为 4 至 8 人" : "Choose 4 to 8 DIY participants",
+        ),
     parentCount: z.coerce
       .number()
       .int()
-      .min(1, zh ? "须有 1 或 2 位陪同家长" : "Choose 1 or 2 accompanying parents")
-      .max(2, zh ? "须有 1 或 2 位陪同家长" : "Choose 1 or 2 accompanying parents"),
+        .min(
+          1,
+          zh ? "须有 1 或 2 位陪同家长" : "Choose 1 or 2 accompanying parents",
+        )
+        .max(
+          2,
+          zh ? "须有 1 或 2 位陪同家长" : "Choose 1 or 2 accompanying parents",
+        ),
     desiredDate: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, zh ? "请选择期望日期" : "Choose a preferred date"),
+        .regex(
+          /^\d{4}-\d{2}-\d{2}$/,
+          zh ? "请选择期望日期" : "Choose a preferred date",
+        ),
     desiredStartTime: z
       .string()
       .regex(
         /^(?:[01]\d|2[0-3]):(?:00|30)$/,
         zh ? "请选择期望开始时段" : "Choose a preferred guest start",
       ),
-    projectInterests: z.preprocess((value) => {
+      projectInterests: z.preprocess(
+        (value) => {
       if (typeof value !== "string") return value;
       try {
         return JSON.parse(value);
       } catch {
         return [];
       }
-    }, z.array(z.string().trim().min(1)).min(1, zh ? "请至少选择一个手作项目" : "Choose at least one DIY project")),
+        },
+        z
+          .array(z.string().trim().min(1))
+          .min(
+            1,
+            zh ? "请至少选择一个手作项目" : "Choose at least one DIY project",
+          ),
+      ),
     byoCake: booleanField,
     byoDrinks: booleanField,
     byoFood: booleanField,
@@ -452,6 +550,27 @@ export async function submitPartyBooking(
           ? "请接受派对预约政策后继续"
           : "Accept the party booking policies to continue",
       ),
+      photoConsentDecision: z.enum([
+        "declined",
+        "adult_only",
+        "guardian_for_minor",
+      ]),
+      photoConsentSignerName: z.string().trim().optional(),
+      photoConsentVersion: z.literal(CURRENT_PHOTO_CONSENT_VERSION),
+    })
+    .superRefine((data, context) => {
+      if (
+        data.photoConsentDecision !== "declined" &&
+        (!data.photoConsentSignerName || data.photoConsentSignerName.length < 2)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: zh
+            ? "请填写同意授权的成人或监护人全名"
+            : "Enter the full name of the consenting adult or guardian",
+          path: ["photoConsentSignerName"],
+        });
+      }
   });
   const parsed = partySchema.safeParse({
     ...rawData,
@@ -474,6 +593,10 @@ export async function submitPartyBooking(
     locale,
     policyVersion: rawData.policyVersion ?? "",
     policyAccepted: rawData.policyAccepted ?? "",
+    photoConsentDecision: rawData.photoConsentDecision ?? "declined",
+    photoConsentSignerName: rawData.photoConsentSignerName ?? "",
+    photoConsentVersion:
+      rawData.photoConsentVersion ?? CURRENT_PHOTO_CONSENT_VERSION,
   });
 
   if (!parsed.success) {
@@ -513,6 +636,13 @@ export async function submitPartyBooking(
         locale: data.locale,
         policyVersion: data.policyVersion,
         policyAccepted: true,
+        photoConsent: {
+          decision: data.photoConsentDecision,
+          ...(data.photoConsentDecision === "declined"
+            ? {}
+            : { signerName: data.photoConsentSignerName }),
+          version: data.photoConsentVersion,
+        },
       }),
     });
     const json = (await res.json()) as ApiSuccess<{ id: string }> | ApiError;

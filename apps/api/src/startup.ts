@@ -3,6 +3,7 @@ import {
   liveBookingLinksEnabled,
   parseBookingManagementBaseUrl,
 } from "./lib/booking-notification-config.js";
+import { initializeApiMonitoring } from "./lib/monitoring.js";
 
 function validateEmailOutboxConfiguration(): void {
   if (
@@ -33,10 +34,7 @@ function validateEmailOutboxConfiguration(): void {
 }
 
 function validateBookingManagementConfiguration(): void {
-  if (
-    process.env.NODE_ENV !== "production" ||
-    !liveBookingLinksEnabled()
-  ) {
+  if (process.env.NODE_ENV !== "production" || !liveBookingLinksEnabled()) {
     return;
   }
   const tokenSecret = process.env.CUSTOMER_ACTION_TOKEN_SECRET;
@@ -66,6 +64,7 @@ export async function loadConfiguredApp<T = typeof import("./app.js")>(
   importApp: () => Promise<T> = () => import("./app.js") as Promise<T>,
 ): Promise<T> {
   loadEnv();
+  initializeApiMonitoring();
   validateEmailOutboxConfiguration();
   validateBookingManagementConfiguration();
   return importApp();

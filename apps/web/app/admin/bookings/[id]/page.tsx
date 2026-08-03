@@ -98,8 +98,12 @@ function formatAudCents(amountCents: number) {
 }
 
 function formatAttendance(booking: Booking) {
-  if (!booking.attendance) return booking.numberOfPeople == null ? "—" : `${booking.numberOfPeople} 人`;
-  const { participantCount, accompanyingAdultCount, totalCount } = booking.attendance;
+  if (!booking.attendance)
+    return booking.numberOfPeople == null
+      ? "—"
+      : `${booking.numberOfPeople} 人`;
+  const { participantCount, accompanyingAdultCount, totalCount } =
+    booking.attendance;
   if (booking.kind === "party") {
     return `${participantCount} 位参与者${accompanyingAdultCount == null ? "" : `，${accompanyingAdultCount} 位家长`}（共 ${totalCount} 人）`;
   }
@@ -119,12 +123,19 @@ function partyByoSummary(booking: Booking) {
   return labels.length ? `自带${labels.join("、")}` : "无";
 }
 
-export default function AdminBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function AdminBookingDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const router = useRouter();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const [updating, setUpdating] = useState(false);
   const [pendingAction, setPendingAction] =
     useState<BookingWorkflowAction | null>(null);
@@ -182,9 +193,7 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
                 action: "propose_party_time",
                 finalDate: result.finalDate,
                 finalGuestStart: result.finalStartTime,
-                paymentDeadline: melbourneLocalToIso(
-                  result.paymentDeadline!,
-                ),
+                paymentDeadline: melbourneLocalToIso(result.paymentDeadline!),
               }
             : result.action === "accept_time"
               ? { action: "accept_party_time" }
@@ -238,7 +247,8 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
   };
 
   if (loading) return <p className="text-sm text-muted-foreground">加载中…</p>;
-  if (!booking) return <p className="text-sm text-muted-foreground">预约不存在</p>;
+  if (!booking)
+    return <p className="text-sm text-muted-foreground">预约不存在</p>;
 
   return (
     <div className="space-y-6">
@@ -251,9 +261,15 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
         </h1>
       </div>
 
-      {message && <AlertBanner type={message.type} message={message.text} onDismiss={() => setMessage(null)} />}
+      {message && (
+        <AlertBanner
+          type={message.type}
+          message={message.text}
+          onDismiss={() => setMessage(null)}
+        />
+      )}
 
-      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <div className="space-y-4 rounded-xl border border-border bg-card p-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <p className="text-xs text-muted-foreground">姓名</p>
@@ -261,7 +277,10 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
           </div>
           <div>
             <p className="text-xs text-muted-foreground">电话</p>
-            <a className="font-medium hover:underline" href={`tel:${booking.phone}`}>
+            <a
+              className="font-medium hover:underline"
+              href={`tel:${booking.phone}`}
+            >
               {booking.phone}
             </a>
           </div>
@@ -341,7 +360,9 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
           </div>
           <div>
             <p className="text-xs text-muted-foreground">政策接受时间</p>
-            <p className="font-medium">{formatDate(booking.policyAcceptedAt)}</p>
+            <p className="font-medium">
+              {formatDate(booking.policyAcceptedAt)}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">当前状态</p>
@@ -352,7 +373,9 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
         {booking.message && (
           <div>
             <p className="text-xs text-muted-foreground">备注 / 留言</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm">{booking.message}</p>
+            <p className="mt-1 text-sm whitespace-pre-wrap">
+              {booking.message}
+            </p>
           </div>
         )}
 
@@ -371,6 +394,50 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
         </div>
       </div>
 
+      <section className="rounded-xl border border-border bg-card p-6">
+        <h2 className="font-serif text-lg font-semibold text-warm-charcoal">
+          照片与视频授权
+        </h2>
+        {booking.photoConsent ? (
+          <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt className="text-xs text-muted-foreground">授权范围</dt>
+              <dd className="mt-1 font-medium">
+                {
+                  {
+                    declined: "未授权",
+                    adult_only: "仅成人本人授权",
+                    guardian_for_minor: "家长／监护人授权本人子女",
+                  }[booking.photoConsent.decision]
+                }
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">签署人</dt>
+              <dd className="mt-1 font-medium">
+                {booking.photoConsent.signerName ?? "无需签署"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">授权版本</dt>
+              <dd className="mt-1 font-medium">
+                {booking.photoConsent.version}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">记录时间</dt>
+              <dd className="mt-1 font-medium">
+                {formatDate(booking.photoConsent.recordedAt)}
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            历史记录未记录照片授权，请勿将顾客或儿童照片用于公开宣传。
+          </p>
+        )}
+      </section>
+
       {booking.ordinaryDetails && (
         <section className="rounded-xl border border-border bg-card p-6">
           <h2 className="font-serif text-lg font-semibold text-warm-charcoal">
@@ -379,7 +446,8 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
           {booking.attendance && (
             <p className="mt-2 text-sm text-muted-foreground">
               {formatAttendance(booking)}
-              {booking.attendance.durationMinutes != null && ` · 预计 ${booking.attendance.durationMinutes} 分钟`}
+              {booking.attendance.durationMinutes != null &&
+                ` · 预计 ${booking.attendance.durationMinutes} 分钟`}
             </p>
           )}
           {booking.ordinaryDetails.items.length === 0 ? (
@@ -387,16 +455,23 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
           ) : (
             <ul className="mt-4 divide-y divide-border">
               {booking.ordinaryDetails.items.map((item) => (
-                <li className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0" key={item.id}>
+                <li
+                  className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0"
+                  key={item.id}
+                >
                   <div>
                     <p className="font-medium">
                       {item.decideInStore
                         ? "到店选择项目"
-                        : item.projectName?.zh ?? item.projectName?.en ?? "项目资料不完整"}
+                        : (item.projectName?.zh ??
+                          item.projectName?.en ??
+                          "项目资料不完整")}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {item.quantity} 件 · {item.durationMinutes} 分钟
-                      {item.unitPriceCents == null ? " · 到店确认价格" : ` · ${formatAudCents(item.unitPriceCents)}/件`}
+                      {item.unitPriceCents == null
+                        ? " · 到店确认价格"
+                        : ` · ${formatAudCents(item.unitPriceCents)}/件`}
                     </p>
                   </div>
                 </li>
@@ -413,14 +488,20 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
               派对专属信息
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {booking.partyDetails.participantCount} 位参与者，{booking.partyDetails.parentCount} 位家长 · 生日主角 {booking.partyDetails.birthdayChildName}（{booking.partyDetails.birthdayChildAge} 岁）
+              {booking.partyDetails.participantCount} 位参与者，
+              {booking.partyDetails.parentCount} 位家长 · 生日主角{" "}
+              {booking.partyDetails.birthdayChildName}（
+              {booking.partyDetails.birthdayChildAge} 岁）
             </p>
           </div>
 
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-xs text-muted-foreground">期望时段</dt>
-              <dd className="mt-1 font-medium">{booking.partyDetails.desiredDate} {booking.partyDetails.desiredStartTime}</dd>
+              <dd className="mt-1 font-medium">
+                {booking.partyDetails.desiredDate}{" "}
+                {booking.partyDetails.desiredStartTime}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">自带物品</dt>
@@ -428,11 +509,15 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">切蛋糕服务</dt>
-              <dd className="mt-1 font-medium">{booking.partyDetails.cakeCuttingRequested ? "需要" : "不需要"}</dd>
+              <dd className="mt-1 font-medium">
+                {booking.partyDetails.cakeCuttingRequested ? "需要" : "不需要"}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">特别要求</dt>
-              <dd className="mt-1 whitespace-pre-wrap font-medium">{booking.partyDetails.specialRequirements ?? "无"}</dd>
+              <dd className="mt-1 font-medium whitespace-pre-wrap">
+                {booking.partyDetails.specialRequirements ?? "无"}
+              </dd>
             </div>
           </dl>
 
@@ -440,7 +525,11 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
             <div className="rounded-lg bg-muted/40 p-4 text-sm">
               <p className="font-medium">最终安排</p>
               <p className="mt-1 text-muted-foreground">
-                {booking.partyDetails.finalSchedule.date} · 布置 {booking.partyDetails.finalSchedule.setupStart ?? "—"} · 客人 {booking.partyDetails.finalSchedule.guestStart ?? "—"}–{booking.partyDetails.finalSchedule.guestEnd ?? "—"} · 清场至 {booking.partyDetails.finalSchedule.cleanupEnd ?? "—"}
+                {booking.partyDetails.finalSchedule.date} · 布置{" "}
+                {booking.partyDetails.finalSchedule.setupStart ?? "—"} · 客人{" "}
+                {booking.partyDetails.finalSchedule.guestStart ?? "—"}–
+                {booking.partyDetails.finalSchedule.guestEnd ?? "—"} · 清场至{" "}
+                {booking.partyDetails.finalSchedule.cleanupEnd ?? "—"}
               </p>
             </div>
           )}
@@ -450,21 +539,57 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
               场地费与费用台账
             </h3>
             <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-              <div><dt className="text-xs text-muted-foreground">场地费</dt><dd className="mt-1 font-medium">{formatAudCents(booking.partyDetails.venueFeeCents)}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">每位最低消费</dt><dd className="mt-1 font-medium">{formatAudCents(booking.partyDetails.minSpendPerPersonCents)}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">付款期限</dt><dd className="mt-1 font-medium">{formatDate(booking.partyDetails.paymentDeadline)}</dd></div>
-              <div><dt className="text-xs text-muted-foreground">已到店支付</dt><dd className="mt-1 font-medium">{booking.partyDetails.paidAmountCents == null ? "尚未记录" : `${formatAudCents(booking.partyDetails.paidAmountCents)} · ${formatDate(booking.partyDetails.paidAt)}`}</dd></div>
+              <div>
+                <dt className="text-xs text-muted-foreground">场地费</dt>
+                <dd className="mt-1 font-medium">
+                  {formatAudCents(booking.partyDetails.venueFeeCents)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">每位最低消费</dt>
+                <dd className="mt-1 font-medium">
+                  {formatAudCents(booking.partyDetails.minSpendPerPersonCents)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">付款期限</dt>
+                <dd className="mt-1 font-medium">
+                  {formatDate(booking.partyDetails.paymentDeadline)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">已到店支付</dt>
+                <dd className="mt-1 font-medium">
+                  {booking.partyDetails.paidAmountCents == null
+                    ? "尚未记录"
+                    : `${formatAudCents(booking.partyDetails.paidAmountCents)} · ${formatDate(booking.partyDetails.paidAt)}`}
+                </dd>
+              </div>
             </dl>
             {booking.partyDetails.charges.length === 0 ? (
-              <p className="mt-4 text-sm text-muted-foreground">尚无费用台账记录</p>
+              <p className="mt-4 text-sm text-muted-foreground">
+                尚无费用台账记录
+              </p>
             ) : (
               <ul className="mt-4 divide-y divide-border">
                 {booking.partyDetails.charges.map((charge) => (
-                  <li className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0" key={charge.id}>
+                  <li
+                    className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0"
+                    key={charge.id}
+                  >
                     <div>
-                      <p className="font-medium">{PARTY_CHARGE_LABELS[charge.type]}</p>
-                      <p className="text-sm text-muted-foreground">{charge.recordedBy.name} · {formatDate(charge.createdAt)}</p>
-                      {charge.note && <p className="mt-1 whitespace-pre-wrap text-sm">{charge.note}</p>}
+                      <p className="font-medium">
+                        {PARTY_CHARGE_LABELS[charge.type]}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {charge.recordedBy.name} ·{" "}
+                        {formatDate(charge.createdAt)}
+                      </p>
+                      {charge.note && (
+                        <p className="mt-1 text-sm whitespace-pre-wrap">
+                          {charge.note}
+                        </p>
+                      )}
                     </div>
                     <span className="font-medium">
                       {charge.type === "refund" ? "-" : ""}
@@ -492,7 +617,10 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
         ) : (
           <ol className="mt-5 space-y-0">
             {booking.statusHistory.map((event, index) => (
-              <li className="relative grid grid-cols-[1rem_1fr] gap-3 pb-5 last:pb-0" key={event.id}>
+              <li
+                className="relative grid grid-cols-[1rem_1fr] gap-3 pb-5 last:pb-0"
+                key={event.id}
+              >
                 <span
                   aria-hidden="true"
                   className="mt-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-primary/10"
@@ -500,18 +628,21 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
                 {index < booking.statusHistory.length - 1 && (
                   <span
                     aria-hidden="true"
-                    className="absolute left-[5px] top-5 h-[calc(100%-0.5rem)] w-px bg-border"
+                    className="absolute top-5 left-[5px] h-[calc(100%-0.5rem)] w-px bg-border"
                   />
                 )}
                 <div>
                   <p className="font-medium">
-                    {STATUS_LABELS[event.fromStatus]} → {STATUS_LABELS[event.toStatus]}
+                    {STATUS_LABELS[event.fromStatus]} →{" "}
+                    {STATUS_LABELS[event.toStatus]}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {event.actor.name} · {formatDate(event.createdAt)}
                   </p>
                   {event.note && (
-                    <p className="mt-1 whitespace-pre-wrap text-sm">{event.note}</p>
+                    <p className="mt-1 text-sm whitespace-pre-wrap">
+                      {event.note}
+                    </p>
                   )}
                 </div>
               </li>
@@ -531,10 +662,14 @@ export default function AdminBookingDetailPage({ params }: { params: Promise<{ i
         ) : (
           <ul className="mt-4 divide-y divide-border">
             {booking.emailDeliveries.map((delivery) => (
-              <li className="grid gap-1 py-3 first:pt-0 sm:grid-cols-[1fr_auto]" key={delivery.id}>
+              <li
+                className="grid gap-1 py-3 first:pt-0 sm:grid-cols-[1fr_auto]"
+                key={delivery.id}
+              >
                 <div>
                   <p className="font-medium">
-                    {EMAIL_MESSAGE_TYPE_LABELS[delivery.messageType] ?? "预约邮件"}
+                    {EMAIL_MESSAGE_TYPE_LABELS[delivery.messageType] ??
+                      "预约邮件"}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {delivery.recipient} · 尝试 {delivery.attemptCount} 次

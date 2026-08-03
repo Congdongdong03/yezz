@@ -40,6 +40,10 @@ describe("public sitemap", () => {
     expect(urls).toContain("https://yezyy.com/en/projects/plaster-painting");
     expect(urls).toContain("https://yezyy.com/zh/projects/plaster-painting");
     expect(urls).toContain("https://yezyy.com/en/projects/beading");
+    expect(urls).toContain("https://yezyy.com/en/privacy");
+    expect(urls).toContain("https://yezyy.com/zh/booking-terms");
+    expect(urls).toContain("https://yezyy.com/en/cancellation-rescheduling");
+    expect(urls).toContain("https://yezyy.com/zh/party-terms");
     expect(fetchCatalogueMock).toHaveBeenCalledOnce();
   });
 });

@@ -193,8 +193,17 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
       duration_minutes integer,
       policy_version varchar(32),
       policy_accepted_at timestamptz,
+      photo_consent_decision varchar(32),
+      photo_consent_signer_name varchar(255),
+      photo_consent_version varchar(32),
+      photo_consent_recorded_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT bookings_photo_consent_valid CHECK (
+        (photo_consent_decision IS NULL AND photo_consent_signer_name IS NULL AND photo_consent_version IS NULL AND photo_consent_recorded_at IS NULL)
+        OR (photo_consent_decision = 'declined' AND photo_consent_signer_name IS NULL AND photo_consent_version IS NOT NULL AND photo_consent_recorded_at IS NOT NULL)
+        OR (photo_consent_decision IN ('adult_only', 'guardian_for_minor') AND photo_consent_signer_name IS NOT NULL AND length(trim(photo_consent_signer_name)) >= 2 AND photo_consent_version IS NOT NULL AND photo_consent_recorded_at IS NOT NULL)
+      )
     );
     CREATE TABLE "${schema}".booking_items (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -394,9 +403,7 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
     bootstrap,
     connection,
     openConnection(applicationName) {
-      const auxiliary = createDb(
-        withSearchPath(url, schema, applicationName),
-      );
+      const auxiliary = createDb(withSearchPath(url, schema, applicationName));
       auxiliaryConnections.add(auxiliary);
       return auxiliary;
     },
@@ -405,7 +412,9 @@ export async function createRequestFlowTestDatabase(): Promise<RequestFlowTestDa
         [...auxiliaryConnections].map(({ client }) => client.end()),
       );
       await connection.client.end();
-      await bootstrap.client.unsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+      await bootstrap.client.unsafe(
+        `DROP SCHEMA IF EXISTS "${schema}" CASCADE`,
+      );
       await bootstrap.client.end();
     },
   };

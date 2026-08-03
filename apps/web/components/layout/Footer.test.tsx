@@ -34,6 +34,14 @@ describe("Footer", () => {
 
     expect(html).toContain(">YezYY<");
     expect(html).not.toContain("YEZZ");
+    expect(html).toContain('href="/privacy"');
+    expect(html).toContain('href="/booking-terms"');
+    expect(html).toContain('href="/cancellation-rescheduling"');
+    expect(html).toContain('href="/party-terms"');
+  });
+
+  it("shows no invented ABN when none has been configured", () => {
+    expect(renderFooter()).not.toContain("abn:");
   });
 
   it("displays a bare Xiaohongshu account ID without making it a link", async () => {

@@ -16,7 +16,12 @@ import {
   waitForMailpitMessage,
 } from "./fixtures/mailpit";
 
-function post(page: Page, path: string, body: unknown, idempotencyKey?: string) {
+function post(
+  page: Page,
+  path: string,
+  body: unknown,
+  idempotencyKey?: string,
+) {
   return page.request.post(path, {
     data: body,
     headers: {
@@ -49,7 +54,7 @@ async function createConfirmedOrdinary(input: {
       accompanyingAdultCount: 0,
       items: [{ projectId: input.project.id, quantity: 1 }],
       locale: "en",
-      policyVersion: "2026-07-30",
+      policyVersion: "2026-08-03",
       policyAccepted: true,
     },
     crypto.randomUUID(),
@@ -132,9 +137,13 @@ test("management links are isolated, private, generic when invalid, and one-use 
       endTime: "15:00",
     });
     await page.goto(`/en/manage-booking/${cancellation.token}`);
-    await expect(page.getByRole("heading", { name: "DIY booking" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "DIY booking" }),
+    ).toBeVisible();
     await expect(page.getByText("10:00–10:30", { exact: false })).toBeVisible();
-    await expect(page.getByText("14:00–15:00", { exact: false })).toHaveCount(0);
+    await expect(page.getByText("14:00–15:00", { exact: false })).toHaveCount(
+      0,
+    );
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
       "content",
       /noindex.*nofollow|nofollow.*noindex/i,
@@ -175,8 +184,12 @@ test("management links are isolated, private, generic when invalid, and one-use 
           name: "This booking link is not available",
         }),
       ).toBeVisible();
-      await expect(page.getByText("10:00–10:30", { exact: false })).toHaveCount(0);
-      await expect(page.getByText("14:00–15:00", { exact: false })).toHaveCount(0);
+      await expect(page.getByText("10:00–10:30", { exact: false })).toHaveCount(
+        0,
+      );
+      await expect(page.getByText("14:00–15:00", { exact: false })).toHaveCount(
+        0,
+      );
     }
 
     const cancellationFirst = await post(
@@ -205,12 +218,14 @@ test("management links are isolated, private, generic when invalid, and one-use 
     expect(rescheduleFirst.status()).toBe(200);
     expect(rescheduleReplay.status()).toBe(403);
 
-    const states = await fixture.sql<{
+    const states = await fixture.sql<
+      {
       id: string;
       status: string;
       eventCount: number;
       customerEmailCount: number;
-    }[]>`
+      }[]
+    >`
       select
         b.id,
         b.status,
@@ -262,19 +277,17 @@ test("database and environment gates keep all public request writes closed", asy
       capabilities: { experience: false, party: false, product: false },
     });
     await page.goto("/en/book");
-    await expect(
-      page.getByTestId("request-contact-fallback"),
-    ).toBeVisible();
+    await expect(page.getByTestId("request-contact-fallback")).toBeVisible();
     await page.goto("/zh/parties");
-    await expect(
-      page.getByTestId("request-contact-fallback"),
-    ).toBeVisible();
+    await expect(page.getByTestId("request-contact-fallback")).toBeVisible();
 
-    const before = await fixture.sql<{
+    const before = await fixture.sql<
+      {
       bookings: number;
       orders: number;
       consumptions: number;
-    }[]>`
+      }[]
+    >`
       select
         (select count(*)::int from bookings) as bookings,
         (select count(*)::int from cart_orders) as orders,
@@ -297,7 +310,7 @@ test("database and environment gates keep all public request writes closed", asy
         accompanyingAdultCount: 0,
         items: [{ projectId: fixture.projects.short.id, quantity: 1 }],
         locale: "en",
-        policyVersion: "2026-07-30",
+        policyVersion: "2026-08-03",
         policyAccepted: true,
       },
       crypto.randomUUID(),
@@ -324,16 +337,18 @@ test("database and environment gates keep all public request writes closed", asy
         byoSnacks: false,
         cakeCuttingRequested: false,
         locale: "en",
-        policyVersion: "2026-07-30",
+        policyVersion: "2026-08-03",
         policyAccepted: true,
       },
       crypto.randomUUID(),
     );
-    const afterDatabaseGates = await fixture.sql<{
+    const afterDatabaseGates = await fixture.sql<
+      {
       bookings: number;
       orders: number;
       consumptions: number;
-    }[]>`
+      }[]
+    >`
       select
         (select count(*)::int from bookings) as bookings,
         (select count(*)::int from cart_orders) as orders,
@@ -354,15 +369,15 @@ test("database and environment gates keep all public request writes closed", asy
     );
     for (const response of [ordinary, party, product]) {
       expect(response.status()).toBe(503);
-      expect((await response.json()).error.code).toBe(
-        "REQUEST_FLOW_DISABLED",
-      );
+      expect((await response.json()).error.code).toBe("REQUEST_FLOW_DISABLED");
     }
-    const afterProductGate = await fixture.sql<{
+    const afterProductGate = await fixture.sql<
+      {
       bookings: number;
       orders: number;
       consumptions: number;
-    }[]>`
+      }[]
+    >`
       select
         (select count(*)::int from bookings) as bookings,
         (select count(*)::int from cart_orders) as orders,

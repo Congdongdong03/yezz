@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { AppError, isAppError } from "../lib/errors.js";
 import { apiError } from "../lib/response.js";
+import { captureApiException } from "../lib/monitoring.js";
 
 function isInvalidJsonBody(error: unknown): boolean {
   return (
@@ -12,7 +13,7 @@ function isInvalidJsonBody(error: unknown): boolean {
 }
 
 export function registerErrorHandler(app: FastifyInstance) {
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler((error, request, reply) => {
     if (isAppError(error)) {
       return reply
         .status(error.statusCode)
@@ -25,8 +26,11 @@ export function registerErrorHandler(app: FastifyInstance) {
         .send(apiError("VALIDATION_ERROR", "Request body must be valid JSON"));
     }
 
+    captureApiException(error, request);
     app.log.error(error);
-    return reply.status(500).send(apiError("INTERNAL_ERROR", "An unexpected error occurred"));
+    return reply
+      .status(500)
+      .send(apiError("INTERNAL_ERROR", "An unexpected error occurred"));
   });
 
   app.setNotFoundHandler((_request, reply) => {

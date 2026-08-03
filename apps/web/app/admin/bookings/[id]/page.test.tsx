@@ -40,6 +40,12 @@ const booking = {
   timeSlotId: null,
   policyVersion: "2026-07-30",
   policyAcceptedAt: "2030-08-01T00:00:00.000Z",
+  photoConsent: {
+    decision: "guardian_for_minor",
+    signerName: "Mei Lin",
+    version: "2026-08-03",
+    recordedAt: "2030-08-01T00:01:00.000Z",
+  },
   status: "confirmed_paid",
   offering: null,
   slot: null,
@@ -125,7 +131,11 @@ describe("AdminBookingDetailPage", () => {
   });
 
   it("shows party-specific attendance, arrangements, and the in-store charge ledger", async () => {
-    await act(async () => root.render(<AdminBookingDetailPage params={Promise.resolve({ id: booking.id })} />));
+    await act(async () =>
+      root.render(
+        <AdminBookingDetailPage params={Promise.resolve({ id: booking.id })} />,
+      ),
+    );
     await act(async () => {});
 
     expect(container.textContent).toContain("派对专属信息");
@@ -139,5 +149,8 @@ describe("AdminBookingDetailPage", () => {
     expect(container.textContent).toContain("A$15.00");
     expect(container.textContent).toContain("-A$95.00");
     expect(container.textContent).toContain("Birthday cake");
+    expect(container.textContent).toContain("照片与视频授权");
+    expect(container.textContent).toContain("家长／监护人授权本人子女");
+    expect(container.textContent).toContain("Mei Lin");
   });
 });

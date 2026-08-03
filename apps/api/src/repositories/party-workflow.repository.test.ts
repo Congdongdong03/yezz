@@ -31,21 +31,49 @@ describe.skipIf(!runDatabaseTests)("party workflow repository", () => {
     const repo = createPartyWorkflowRepository(database.connection.db);
     const created = await repo.createRequest({
       partyPackageId: packageId,
-      name: "Mei", phone: "0430000000", email: "mei@example.com",
-      birthdayChildName: "Kai", birthdayChildAge: 6,
-      participantCount: 4, parentCount: 1,
-      desiredDate: "2030-08-12", desiredStartTime: "12:00",
+      name: "Mei",
+      phone: "0430000000",
+      email: "mei@example.com",
+      birthdayChildName: "Kai",
+      birthdayChildAge: 6,
+      participantCount: 4,
+      parentCount: 1,
+      desiredDate: "2030-08-12",
+      desiredStartTime: "12:00",
       projectInterests: ["beads"],
-      byoCake: true, byoDrinks: false, byoFood: false, byoSnacks: false,
-      cakeCuttingRequested: false, locale: "en", policyVersion: "2026-07-30",
+      byoCake: true,
+      byoDrinks: false,
+      byoFood: false,
+      byoSnacks: false,
+      cakeCuttingRequested: false,
+      locale: "en",
+      policyVersion: "2026-08-03",
       idempotencyKey: crypto.randomUUID(),
       offeringNameSnapshot: { en: "Party", zh: "派对" },
-      venueFeeCents: 9500, minSpendPerPersonCents: 4500,
+      venueFeeCents: 9500,
+      minSpendPerPersonCents: 4500,
+      photoConsent: {
+        decision: "declined",
+        signerName: null,
+        version: "2026-08-03",
+      },
     });
-    const [details] = await database.connection.db.select().from(bookingPartyDetails)
+    const [details] = await database.connection.db
+      .select()
+      .from(bookingPartyDetails)
       .where(eq(bookingPartyDetails.bookingId, created.id));
 
-    expect(created).toMatchObject({ status: "pending_review", slotDate: null, slotStartTime: null, slotEndTime: null });
-    expect(details).toMatchObject({ desiredDate: "2030-08-12", desiredStartTime: "12:00", participantCount: 4, parentCount: 1 });
+    expect(created).toMatchObject({
+      status: "pending_review",
+      slotDate: null,
+      slotStartTime: null,
+      slotEndTime: null,
+    });
+    expect(details).toMatchObject({
+      desiredDate: "2030-08-12",
+      desiredStartTime: "12:00",
+      participantCount: 4,
+      parentCount: 1,
+    });
   });
 });

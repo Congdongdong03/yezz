@@ -8,6 +8,7 @@ import {
   users,
   type Db,
   type BookingStatus,
+  type PhotoConsentDecision,
   type LocalizedString,
 } from "@yezz/db";
 import {
@@ -122,6 +123,11 @@ export type OrdinaryBookingInsertInput = {
   idempotencyKey: string;
   status: "pending_review" | "waitlisted";
   submissionMode: "booking" | "waitlist";
+  photoConsent: {
+    decision: PhotoConsentDecision;
+    signerName: string | null;
+    version: string;
+  };
   items: Array<{
     projectId: string | null;
     projectNameSnapshot: LocalizedString | null;
@@ -196,6 +202,10 @@ export function createBookingsRepository(db: Db) {
           durationMinutes: input.durationMinutes,
           policyVersion: input.policyVersion,
           policyAcceptedAt: new Date(),
+          photoConsentDecision: input.photoConsent.decision,
+          photoConsentSignerName: input.photoConsent.signerName,
+          photoConsentVersion: input.photoConsent.version,
+          photoConsentRecordedAt: new Date(),
           updatedAt: new Date(),
         })
         .returning();
@@ -247,7 +257,10 @@ export function createBookingsRepository(db: Db) {
           ? [
               and(
                 legacyBookingStatusCondition("new"),
-                lt(bookings.createdAt, new Date(Date.now() - 2 * 60 * 60 * 1000)),
+                lt(
+                  bookings.createdAt,
+                  new Date(Date.now() - 2 * 60 * 60 * 1000),
+                ),
               ),
             ]
           : []),
@@ -382,7 +395,12 @@ export function createBookingsRepository(db: Db) {
 
     async updateOrdinaryInterval(
       id: string,
-      input: { date: string; startTime: string; endTime: string; durationMinutes: number },
+      input: {
+        date: string;
+        startTime: string;
+        endTime: string;
+        durationMinutes: number;
+      },
       tx: Db = db,
     ) {
       const [row] = await tx

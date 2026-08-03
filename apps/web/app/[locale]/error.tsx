@@ -2,16 +2,21 @@
 
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
 
 export default function ErrorPage({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  error: _error,
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
   const t = useTranslations("errors");
+
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
 
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 text-center">

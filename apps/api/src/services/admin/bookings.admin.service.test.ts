@@ -24,25 +24,34 @@ import {
 } from "./bookings.admin.service.js";
 
 describe("admin booking status display", () => {
-  it.each(["time_proposed", "awaiting_in_store_payment", "confirmed_paid", "payment_expired", "refunded", "waitlisted", "reschedule_requested"] as const)("preserves the live status %s in history", (status) => {
+  it.each([
+    "time_proposed",
+    "awaiting_in_store_payment",
+    "confirmed_paid",
+    "payment_expired",
+    "refunded",
+    "waitlisted",
+    "reschedule_requested",
+  ] as const)("preserves the live status %s in history", (status) => {
     expect(displayBookingEventStatus(status)).toBe(status);
   });
 
   it("accepts at most seven inclusive calendar days", () => {
-    expect(
-      validateBookingCalendarRange("2026-07-30", "2026-08-05"),
-    ).toEqual({ from: "2026-07-30", to: "2026-08-05" });
+    expect(validateBookingCalendarRange("2026-07-30", "2026-08-05")).toEqual({
+      from: "2026-07-30",
+      to: "2026-08-05",
+    });
     expect(() =>
       validateBookingCalendarRange("2026-07-30", "2026-08-06"),
-    ).toThrowError(
-      expect.objectContaining({ code: "VALIDATION_ERROR" }),
-    );
+    ).toThrowError(expect.objectContaining({ code: "VALIDATION_ERROR" }));
   });
 });
 
 const runDatabaseTests = process.env.YEZYY_RUN_DB_BOOKING_TESTS === "1";
 
-describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", () => {
+describe.skipIf(!runDatabaseTests)(
+  "admin booking DTO PostgreSQL integration",
+  () => {
   let database: RequestFlowTestDatabase;
 
   beforeEach(async () => {
@@ -199,7 +208,10 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
       statusHistory: [
         {
           actor: { kind: "customer", name: "Customer" },
-          customerRescheduleRequest: { date: "2030-08-14", startTime: "13:30" },
+            customerRescheduleRequest: {
+              date: "2030-08-14",
+              startTime: "13:30",
+            },
         },
         { actor: { kind: "system", name: "System" } },
       ],
@@ -209,19 +221,45 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
   it("hides party operational metadata while retaining a human party transition note", async () => {
     const bookingId = crypto.randomUUID();
     await database.connection.db.insert(bookings).values({
-      id: bookingId, name: "Party customer", phone: "0430000077", requestKind: "party",
+        id: bookingId,
+        name: "Party customer",
+        phone: "0430000077",
+        requestKind: "party",
       status: "cancelled",
     });
     await database.connection.db.insert(requestStatusEvents).values([
-      { bookingId, operationId: crypto.randomUUID(), fromStatus: "pending_review", toStatus: "time_proposed", adminNote: JSON.stringify({ partyWorkflow: 1, action: "propose" }), actorUserId: null, actorKind: "system" },
-      { bookingId, operationId: crypto.randomUUID(), fromStatus: "cancellation_requested", toStatus: "cancelled", adminNote: JSON.stringify({ partyWorkflow: 1, action: "transition", note: "Customer confirmed cancellation" }), actorUserId: null, actorKind: "staff" },
+        {
+          bookingId,
+          operationId: crypto.randomUUID(),
+          fromStatus: "pending_review",
+          toStatus: "time_proposed",
+          adminNote: JSON.stringify({ partyWorkflow: 1, action: "propose" }),
+          actorUserId: null,
+          actorKind: "system",
+        },
+        {
+          bookingId,
+          operationId: crypto.randomUUID(),
+          fromStatus: "cancellation_requested",
+          toStatus: "cancelled",
+          adminNote: JSON.stringify({
+            partyWorkflow: 1,
+            action: "transition",
+            note: "Customer confirmed cancellation",
+          }),
+          actorUserId: null,
+          actorKind: "staff",
+        },
     ]);
 
-    await expect(createAdminBookingsService(database.connection.db).getById(bookingId))
-      .resolves.toMatchObject({ statusHistory: [
+      await expect(
+        createAdminBookingsService(database.connection.db).getById(bookingId),
+      ).resolves.toMatchObject({
+        statusHistory: [
         { note: null },
         { note: "Customer confirmed cancellation" },
-      ] });
+        ],
+      });
   });
 
   it("returns immutable offering/slot details, history, and delivery state", async () => {
@@ -611,7 +649,7 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
         id: currentBookingId,
         name: "Current policy customer",
         phone: "0430000013",
-        policyVersion: "2026-07-30",
+          policyVersion: "2026-08-03",
         policyAcceptedAt: currentAcceptedAt,
       },
     ]);
@@ -628,7 +666,7 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
       policyAcceptedAt: legacyAcceptedAt,
     });
     expect(current).toMatchObject({
-      policyVersion: "2026-07-30",
+        policyVersion: "2026-08-03",
       policyAcceptedAt: currentAcceptedAt,
     });
     expect(
@@ -651,7 +689,7 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
         },
         {
           id: currentBookingId,
-          policyVersion: "2026-07-30",
+            policyVersion: "2026-08-03",
           policyAcceptedAt: currentAcceptedAt,
         },
       ]),
@@ -674,7 +712,9 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
       status: (index < 26 ? "pending_review" : "confirmed") as
         | "pending_review"
         | "confirmed",
-      createdAt: new Date(`2030-08-${String((index % 20) + 1).padStart(2, "0")}T10:00:00.000Z`),
+        createdAt: new Date(
+          `2030-08-${String((index % 20) + 1).padStart(2, "0")}T10:00:00.000Z`,
+        ),
     }));
     await database.connection.db.insert(bookings).values(rows);
     await database.connection.db.insert(requestStatusEvents).values([
@@ -708,14 +748,16 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
 
     expect(firstPage).toMatchObject({ total: 31, page: 1, limit: 25 });
     expect(firstPage.data).toHaveLength(25);
-    expect(firstPage.data.every((booking) => booking.status !== "confirmed")).toBe(true);
+      expect(
+        firstPage.data.every((booking) => booking.status !== "confirmed"),
+      ).toBe(true);
     expect(secondPage).toMatchObject({ total: 31, page: 2, limit: 25 });
     expect(secondPage.data).toHaveLength(6);
     expect(contacted).toMatchObject({ total: 2 });
     expect(contacted.data).toHaveLength(2);
-    expect(contacted.data.every((booking) => booking.status === "contacted")).toBe(
-      true,
-    );
+      expect(
+        contacted.data.every((booking) => booking.status === "contacted"),
+      ).toBe(true);
     expect(search).toMatchObject({ total: 1 });
     expect(search.data[0]?.name).toBe("Needle Customer");
   });
@@ -747,16 +789,23 @@ describe.skipIf(!runDatabaseTests)("admin booking DTO PostgreSQL integration", (
     });
     const service = createAdminBookingsService(database.connection.db);
 
-    await expect(service.list({ actorUserId: staffA })).resolves.toMatchObject({
+      await expect(
+        service.list({ actorUserId: staffA }),
+      ).resolves.toMatchObject({
       data: [{ id: bookingId, isUnread: true }],
     });
     await service.getById(bookingId, staffA);
 
-    await expect(service.list({ actorUserId: staffA })).resolves.toMatchObject({
+      await expect(
+        service.list({ actorUserId: staffA }),
+      ).resolves.toMatchObject({
       data: [{ id: bookingId, isUnread: false }],
     });
-    await expect(service.list({ actorUserId: staffB })).resolves.toMatchObject({
+      await expect(
+        service.list({ actorUserId: staffB }),
+      ).resolves.toMatchObject({
       data: [{ id: bookingId, isUnread: true }],
     });
   });
-});
+  },
+);

@@ -1,10 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import {
-  YEZYY_BUSINESS_PROFILE,
-  formatPhoneHref,
-} from "@/lib/site/business";
+import { YEZYY_BUSINESS_PROFILE, formatPhoneHref } from "@/lib/site/business";
 
 type PolicyConsentProps = {
   locale: "en" | "zh";
@@ -27,6 +24,12 @@ const COPY = {
     ],
     consent:
       "I understand and accept the booking, age and supervision, cancellation, rescheduling, and privacy policies.",
+    read: "Read the policies:",
+    links: [
+      ["Booking Terms", "booking-terms"],
+      ["Cancellation & Rescheduling", "cancellation-rescheduling"],
+      ["Privacy Policy", "privacy"],
+    ],
     contact: "Need help? Contact YezYY:",
     xiaohongshu: "Xiaohongshu",
   },
@@ -42,6 +45,12 @@ const COPY = {
       "您的联系信息仅用于审核本次申请及发送预约状态通知。",
     ],
     consent: "我已了解并接受预约、年龄与陪同、取消、改期及隐私政策。",
+    read: "查看对应政策：",
+    links: [
+      ["预约条款", "booking-terms"],
+      ["取消与改期", "cancellation-rescheduling"],
+      ["隐私政策", "privacy"],
+    ],
     contact: "需要协助？请联系 YezYY：",
     xiaohongshu: "小红书",
   },
@@ -96,8 +105,24 @@ export default function PolicyConsent({
           </p>
         </address>
       </div>
+      <div className="mt-4 text-sm leading-6 text-warm-grey">
+        <span>{copy.read}</span>{" "}
+        {copy.links.map(([label, slug], index) => (
+          <span key={slug}>
+            {index > 0 ? " · " : ""}
+            <a
+              className="font-semibold text-caramel underline underline-offset-4"
+              href={`/${locale}/${slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {label}
+            </a>
+          </span>
+        ))}
+      </div>
       <label
-        className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-warm-grey/20 bg-white p-4 text-sm font-medium leading-6 text-warm-charcoal focus-within:ring-2 focus-within:ring-caramel/30"
+        className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-warm-grey/20 bg-white p-4 text-sm leading-6 font-medium text-warm-charcoal focus-within:ring-2 focus-within:ring-caramel/30"
         htmlFor={id}
       >
         <input

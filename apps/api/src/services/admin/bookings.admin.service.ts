@@ -26,7 +26,10 @@ import {
   validateOrderStatus,
   validateStatusTransition,
 } from "../request-transition.service.js";
-import { createPartyWorkflowService, decodePartyOperationNote } from "../party-workflow.service.js";
+import {
+  createPartyWorkflowService,
+  decodePartyOperationNote,
+} from "../party-workflow.service.js";
 
 type BookingRow = typeof bookings.$inferSelect;
 type DeliveryStatus = "pending" | "processing" | "sent" | "failed";
@@ -147,6 +150,12 @@ export type BookingDto = {
   timeSlotId: string | null;
   policyVersion: string | null;
   policyAcceptedAt: Date | null;
+  photoConsent: {
+    decision: "declined" | "adult_only" | "guardian_for_minor";
+    signerName: string | null;
+    version: string;
+    recordedAt: Date;
+  } | null;
   attendance: BookingAttendance | null;
   ordinaryDetails: { items: BookingItemDetail[] } | null;
   partyDetails: PartyBookingDetail | null;
@@ -190,17 +199,30 @@ const EMPTY_EXTRAS: BookingDtoExtras = {
 };
 
 const LIVE_BOOKING_STATUSES: readonly BookingStatus[] = [
-  "pending_review", "confirmed", "waitlisted", "rejected", "time_proposed",
-  "awaiting_in_store_payment", "confirmed_paid", "payment_expired",
-  "reschedule_requested", "cancellation_requested", "cancelled", "refunded",
-  "no_show", "completed",
+  "pending_review",
+  "confirmed",
+  "waitlisted",
+  "rejected",
+  "time_proposed",
+  "awaiting_in_store_payment",
+  "confirmed_paid",
+  "payment_expired",
+  "reschedule_requested",
+  "cancellation_requested",
+  "cancelled",
+  "refunded",
+  "no_show",
+  "completed",
 ];
 
 export function validateBookingCalendarRange(from: string, to: string) {
   const validDate = (value: string) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
     const parsed = new Date(`${value}T00:00:00.000Z`);
-    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    return (
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === value
+    );
   };
   if (!validDate(from) || !validDate(to)) {
     throw new AppError(
@@ -223,7 +245,9 @@ export function validateBookingCalendarRange(from: string, to: string) {
   return { from, to };
 }
 
-export function displayBookingEventStatus(status: string): OrderStatus | BookingStatus {
+export function displayBookingEventStatus(
+  status: string,
+): OrderStatus | BookingStatus {
   if (LIVE_BOOKING_STATUSES.includes(status as BookingStatus)) {
     return status as BookingStatus;
   }
@@ -237,7 +261,10 @@ export function mapBookingRow(
 ): BookingDto {
   const offeringName = row.offeringNameSnapshot ?? null;
   const offering =
-    row.projectId || row.partyPackageId || offeringName || row.offeringPriceSnapshot
+    row.projectId ||
+    row.partyPackageId ||
+    offeringName ||
+    row.offeringPriceSnapshot
       ? {
           id: row.requestKind === "party" ? row.partyPackageId : row.projectId,
           name: offeringName,
@@ -254,12 +281,15 @@ export function mapBookingRow(
           timeZone: row.slotTimezone,
         }
       : null;
-  const attendance = row.attendanceCount === null || row.participantCount === null
+  const attendance =
+    row.attendanceCount === null || row.participantCount === null
     ? null
     : {
         participantCount: row.participantCount,
-        youngChildCount: row.requestKind === "experience" ? row.youngChildCount : null,
-        accompanyingAdultCount: row.requestKind === "party"
+          youngChildCount:
+            row.requestKind === "experience" ? row.youngChildCount : null,
+          accompanyingAdultCount:
+            row.requestKind === "party"
           ? row.numberOfPeople === null
             ? null
             : Math.max(0, row.numberOfPeople - row.participantCount)
@@ -284,10 +314,22 @@ export function mapBookingRow(
     timeSlotId: row.timeSlotId ?? null,
     policyVersion: row.policyVersion ?? null,
     policyAcceptedAt: row.policyAcceptedAt ?? null,
+    photoConsent:
+      row.photoConsentDecision &&
+      row.photoConsentVersion &&
+      row.photoConsentRecordedAt
+        ? {
+            decision: row.photoConsentDecision,
+            signerName: row.photoConsentSignerName ?? null,
+            version: row.photoConsentVersion,
+            recordedAt: row.photoConsentRecordedAt,
+          }
+        : null,
     attendance,
     ordinaryDetails: null,
     partyDetails: null,
-    status: row.participantCount !== null
+    status:
+      row.participantCount !== null
       ? row.status
       : legacyStatusFromBookingEvidence(
           row.status,
@@ -363,10 +405,9 @@ export function createAdminBookingsService(db: Db) {
     };
   }
 
-  async function loadBookingDetails(row: BookingRow): Promise<Pick<
-    BookingDto,
-    "ordinaryDetails" | "partyDetails"
-  >> {
+  async function loadBookingDetails(
+    row: BookingRow,
+  ): Promise<Pick<BookingDto, "ordinaryDetails" | "partyDetails">> {
     if (row.requestKind === "experience" && row.participantCount !== null) {
       const items = await repo.findItems(row.id);
       return {
@@ -434,7 +475,10 @@ export function createAdminBookingsService(db: Db) {
     };
   }
 
-  async function getById(id: string, actorUserId?: string): Promise<BookingDto> {
+  async function getById(
+    id: string,
+    actorUserId?: string,
+  ): Promise<BookingDto> {
     const row = await repo.findById(id);
     if (!row) {
       throw new AppError(404, "NOT_FOUND", "Booking not found");
@@ -489,16 +533,14 @@ export function createAdminBookingsService(db: Db) {
         confirmedToday: options?.confirmedToday,
       });
       const data = await Promise.all(
-        rows.map(async ({ row, isUnread, latestTransitionStatus }) =>
-          ({
+        rows.map(async ({ row, isUnread, latestTransitionStatus }) => ({
             ...mapBookingRow(
               row,
               await loadExtras(row.id, false),
               latestTransitionStatus,
             ),
             isUnread,
-          }),
-        ),
+        })),
       );
       return {
         data,
@@ -525,7 +567,11 @@ export function createAdminBookingsService(db: Db) {
       },
       actorUserId: string,
     ): Promise<BookingDto> {
-      if ((!input?.status && !input?.toStatus) || !input.expectedStatus || !input.operationId) {
+      if (
+        (!input?.status && !input?.toStatus) ||
+        !input.expectedStatus ||
+        !input.operationId
+      ) {
         throw new AppError(
           400,
           "VALIDATION_ERROR",
@@ -557,10 +603,12 @@ export function createAdminBookingsService(db: Db) {
           "Confirm customer contact before converting a waitlist request",
         );
       }
-      const result = row.participantCount !== null
+      const result =
+        row.participantCount !== null
         ? await transitionService.transitionOrdinary({
             bookingId: id,
-            expectedStatus: input.expectedStatus as import("../../lib/booking-workflow.js").OrdinaryStatus,
+              expectedStatus:
+                input.expectedStatus as import("../../lib/booking-workflow.js").OrdinaryStatus,
             toStatus: (input.toStatus ?? input.status) as BookingStatus,
             operationId: input.operationId,
             actorUserId,
@@ -580,62 +628,106 @@ export function createAdminBookingsService(db: Db) {
       return { ...dto, replayed: result.replayed };
     },
 
-    async proposePartyTime(id: string, input: {
+    async proposePartyTime(
+      id: string,
+      input: {
       expectedStatus: "pending_review";
       finalDate: string;
       finalGuestStart: string;
       paymentDeadline: Date;
       operationId: string;
-    }, actorUserId: string) {
-      return partyWorkflow.proposePartyTime({ ...input, bookingId: id, actorUserId });
+      },
+      actorUserId: string,
+    ) {
+      return partyWorkflow.proposePartyTime({
+        ...input,
+        bookingId: id,
+        actorUserId,
+      });
     },
 
-    async recordPartyPayment(id: string, input: {
+    async recordPartyPayment(
+      id: string,
+      input: {
       expectedStatus: "awaiting_in_store_payment";
       amountCents: 9500 | 14500;
       paidAt: Date;
       operationId: string;
-    }, actorUserId: string) {
-      return partyWorkflow.recordPartyPayment({ ...input, bookingId: id, actorUserId });
+      },
+      actorUserId: string,
+    ) {
+      return partyWorkflow.recordPartyPayment({
+        ...input,
+        bookingId: id,
+        actorUserId,
+      });
     },
 
-    async acceptPartyTime(id: string, input: {
+    async acceptPartyTime(
+      id: string,
+      input: {
       expectedStatus: "time_proposed";
       operationId: string;
-    }, actorUserId: string) {
-      return partyWorkflow.acceptPartyTime({ ...input, bookingId: id, actorUserId });
+      },
+      actorUserId: string,
+    ) {
+      return partyWorkflow.acceptPartyTime({
+        ...input,
+        bookingId: id,
+        actorUserId,
+      });
     },
 
-    async expirePartyHold(id: string, input: {
+    async expirePartyHold(
+      id: string,
+      input: {
       expectedStatus: "awaiting_in_store_payment";
       operationId: string;
-    }, actorUserId: string) {
-      return partyWorkflow.expirePartyHold({ ...input, bookingId: id, actorUserId });
+      },
+      actorUserId: string,
+    ) {
+      return partyWorkflow.expirePartyHold({
+        ...input,
+        bookingId: id,
+        actorUserId,
+      });
     },
 
-    async recordPartyCharge(id: string, input: {
+    async recordPartyCharge(
+      id: string,
+      input: {
       expectedStatus: "confirmed_paid";
       type: "cake_cutting" | "cleaning" | "overtime";
       amountCents: number;
       note?: string;
       operationId: string;
-    }, actorUserId: string) {
-      return partyWorkflow.recordPartyCharge({ ...input, bookingId: id, actorUserId });
+      },
+      actorUserId: string,
+    ) {
+      return partyWorkflow.recordPartyCharge({
+        ...input,
+        bookingId: id,
+        actorUserId,
+      });
     },
 
-    async recordPartyRefund(id: string, input: {
+    async recordPartyRefund(
+      id: string,
+      input: {
       expectedStatus: "cancelled";
       refundedAt: Date;
       operationId: string;
-    }, actorUserId: string) {
-      return partyWorkflow.recordPartyRefund({ ...input, bookingId: id, actorUserId });
+      },
+      actorUserId: string,
+    ) {
+      return partyWorkflow.recordPartyRefund({
+        ...input,
+        bookingId: id,
+        actorUserId,
+      });
     },
   };
 }
 
-export {
-  ORDER_STATUSES,
-  validateOrderStatus,
-  validateStatusTransition,
-};
+export { ORDER_STATUSES, validateOrderStatus, validateStatusTransition };
 export type { OrderStatus };

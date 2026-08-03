@@ -217,6 +217,12 @@ export type Booking = {
   timeSlotId: string | null;
   policyVersion: string | null;
   policyAcceptedAt: string | null;
+  photoConsent?: {
+    decision: "declined" | "adult_only" | "guardian_for_minor";
+    signerName: string | null;
+    version: string;
+    recordedAt: string;
+  } | null;
   attendance: {
     participantCount: number;
     youngChildCount: number | null;

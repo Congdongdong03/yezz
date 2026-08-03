@@ -301,11 +301,14 @@
     "factCapacity": "店内实际人数最多 8 人",
     "factPayment": "澳元 · 到店付款",
     "formLabel": "普通手作预约申请",
-    "intro": "依次选择人数、项目、日期时段，再提交申请等待人工确认。",
+    "intro": "依次选择项目、人数、日期时段，再提交申请等待人工确认。",
     "stepPeople": "人数",
     "stepProjects": "项目",
     "stepSchedule": "日期与时段",
     "stepContact": "联系信息与政策",
+    "continue": "继续",
+    "back": "返回",
+    "stepOf": "第 {current} 步，共 {total} 步",
     "scheduleReady": "请按澳大利亚／墨尔本时间选择日期及 30 分钟间隔的开始时段。",
     "scheduleNotReady": "请先完成人数和项目选择，再查看时段。",
     "name": "姓名",
@@ -318,6 +321,8 @@
     "successTitle": "申请已收到",
     "successBooking": "您的申请已收到，正在等待员工人工确认。请到店付款。",
     "successWaitlist": "您的候补申请已收到，正在等待员工人工确认。如有空位，员工会人工联系您。请到店付款。",
+    "bookingReference": "申请编号",
+    "confirmationMethod": "下一步：请等待员工通过邮件或电话人工确认后再前往门店。",
     "staleSlot": "该时段刚刚发生变化，请重新查看已刷新的可用或候补时段。",
     "selectSlot": "请选择可用或候补时段。",
     "nameRequired": "请填写姓名",
@@ -403,6 +408,12 @@
     "contact": "联系方式",
     "email": "邮箱：congdongdong03@gmail.com",
     "tagline": "创造属于你的杰作",
-    "xiaohongshu": "小红书"
+    "xiaohongshu": "小红书",
+    "policies": "营业政策",
+    "privacy": "隐私政策",
+    "bookingTerms": "预约条款",
+    "cancellation": "取消与改期",
+    "partyTerms": "派对条款",
+    "abn": "ABN"
   }
 }

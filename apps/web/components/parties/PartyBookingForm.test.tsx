@@ -138,9 +138,7 @@ describe("PartyBookingForm", () => {
   }
 
   async function setInput(name: string, value: string) {
-    const input = container.querySelector<HTMLInputElement>(
-      `[name="${name}"]`,
-    );
+    const input = container.querySelector<HTMLInputElement>(`[name="${name}"]`);
     expect(input).not.toBeNull();
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
@@ -154,9 +152,7 @@ describe("PartyBookingForm", () => {
   }
 
   async function setCheckbox(name: string, checked = true) {
-    const input = container.querySelector<HTMLInputElement>(
-      `[name="${name}"]`,
-    );
+    const input = container.querySelector<HTMLInputElement>(`[name="${name}"]`);
     expect(input).not.toBeNull();
     await act(async () => {
       if (input && input.checked !== checked) input.click();
@@ -267,7 +263,8 @@ describe("PartyBookingForm", () => {
     await submitForm();
 
     expect(testState.submitPartyBooking).toHaveBeenCalledOnce();
-    const formData = testState.submitPartyBooking.mock.calls[0]?.[0] as FormData;
+    const formData = testState.submitPartyBooking.mock
+      .calls[0]?.[0] as FormData;
     expect(formData.get("partyPackageId")).toBe(party.id);
     expect(formData.get("desiredDate")).toBe("2030-08-12");
     expect(formData.get("desiredStartTime")).toBe("12:00");
@@ -281,12 +278,10 @@ describe("PartyBookingForm", () => {
     expect(formData.get("byoFood")).toBe("true");
     expect(formData.get("byoSnacks")).toBe("false");
     expect(formData.get("cakeCuttingRequested")).toBe("true");
-    expect(formData.get("policyVersion")).toBe("2026-07-30");
+    expect(formData.get("policyVersion")).toBe("2026-08-03");
     expect(formData.get("policyAccepted")).toBe("true");
     expect(container.textContent).toContain("Party request received");
-    expect(container.textContent).toContain(
-      "awaits manual staff confirmation",
-    );
+    expect(container.textContent).toContain("awaits manual staff confirmation");
     expect(container.textContent).toContain("no online payment was taken");
   });
 });

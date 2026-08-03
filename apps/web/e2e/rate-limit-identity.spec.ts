@@ -3,9 +3,7 @@ import {
   createClosureFixture,
   type ClosureFixture,
 } from "./fixtures/closure-database";
-import {
-  closureContact,
-} from "./fixtures/closure-ui";
+import { closureContact } from "./fixtures/closure-ui";
 import { deleteMailpitMessagesFor } from "./fixtures/mailpit";
 
 test("durable request rate limiting separates trusted BFF client identities", async ({
@@ -42,7 +40,7 @@ test("durable request rate limiting separates trusted BFF client identities", as
           phone: contact.phone,
           email: contact.email,
           locale: "en",
-          policyVersion: "2026-07-30",
+          policyVersion: "2026-08-03",
           policyAccepted: true,
         },
       });
@@ -75,10 +73,12 @@ test("durable request rate limiting separates trusted BFF client identities", as
     expect(otherPayload.success).toBe(true);
     fixture.requestIds.add(otherPayload.data.id);
 
-    const [state] = await fixture.sql<{
+    const [state] = await fixture.sql<
+      {
       requestCount: number;
       identityBuckets: number;
-    }[]>`
+      }[]
+    >`
       select
         (
           select count(*)::int

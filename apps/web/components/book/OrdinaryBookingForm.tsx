@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useId,
-  useMemo,
-  useState,
-  type FormEvent,
-} from "react";
+import { useCallback, useId, useMemo, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { CURRENT_BOOKING_POLICY_VERSION } from "@/lib/booking/policy-version";
 import AttendanceFields, {
@@ -21,19 +15,19 @@ import ProjectQuantityPicker, {
 import PolicyConsent from "./PolicyConsent";
 import BookingCalendar from "./BookingCalendar";
 import RequestContactFallback from "@/components/RequestContactFallback";
-import {
-  createBookingAttempt,
-  submitBooking,
-} from "@/lib/actions/booking";
+import { createBookingAttempt, submitBooking } from "@/lib/actions/booking";
 import {
   getOrdinaryAvailability,
   type OrdinaryAvailabilitySlot,
 } from "@/lib/api/availability";
-import {
-  YEZYY_BUSINESS_PROFILE,
-  formatPhoneHref,
-} from "@/lib/site/business";
+import { YEZYY_BUSINESS_PROFILE, formatPhoneHref } from "@/lib/site/business";
 import { trackSubmitBooking } from "@/lib/analytics/gtag";
+import BookingSelectionSummary from "./BookingSelectionSummary";
+import PhotoConsentField from "./PhotoConsentField";
+import {
+  CURRENT_PHOTO_CONSENT_VERSION,
+  type PhotoConsentDecision,
+} from "@/lib/booking/photo-consent";
 
 type OrdinaryBookingFormProps = {
   initialProjectId?: string;
@@ -75,11 +69,19 @@ export default function OrdinaryBookingForm({
   const [selectedSlot, setSelectedSlot] =
     useState<OrdinaryAvailabilitySlot | null>(null);
   const [policyAccepted, setPolicyAccepted] = useState(false);
+  const [photoConsentDecision, setPhotoConsentDecision] =
+    useState<PhotoConsentDecision>("declined");
+  const [photoConsentSignerName, setPhotoConsentSignerName] = useState("");
   const [attempt] = useState(createBookingAttempt);
   const [submitting, setSubmitting] = useState(false);
-  const [successMode, setSuccessMode] = useState<
-    "booking" | "waitlist" | null
-  >(null);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [projectValidationRequested, setProjectValidationRequested] =
+    useState(false);
+  const [success, setSuccess] = useState<{
+    mode: "booking" | "waitlist";
+    bookingId: string;
+    bookingNumber: string;
+  } | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [calendarRevision, setCalendarRevision] = useState(0);
 
@@ -120,7 +122,7 @@ export default function OrdinaryBookingForm({
     return (
       <div className="space-y-4">
         <RequestContactFallback locale={locale} />
-        <address className="rounded-2xl border border-warm-grey/15 bg-white px-6 py-4 text-center text-sm not-italic leading-6 text-warm-grey">
+        <address className="rounded-2xl border border-warm-grey/15 bg-white px-6 py-4 text-center text-sm leading-6 text-warm-grey not-italic">
           <p>{YEZYY_BUSINESS_PROFILE.address}</p>
           <p>
             {locale === "zh" ? "小红书" : "Xiaohongshu"}:{" "}
@@ -131,7 +133,7 @@ export default function OrdinaryBookingForm({
     );
   }
 
-  if (successMode) {
+  if (success) {
     return (
       <section
         className="rounded-3xl border border-sage/50 bg-sage/15 p-6 sm:p-8"
@@ -141,15 +143,33 @@ export default function OrdinaryBookingForm({
           {t("successTitle")}
         </h2>
         <p className="mt-3 leading-7 text-warm-charcoal">
-          {successMode === "waitlist"
+          {success.mode === "waitlist"
             ? t("successWaitlist")
             : t("successBooking")}
         </p>
-        <p className="mt-4 rounded-xl border border-sage/40 bg-white/70 px-4 py-3 text-sm leading-6 text-warm-charcoal">
-          <strong>{YEZYY_BUSINESS_PROFILE.currency}</strong> ·{" "}
-          {t("payInStore")}
+        <div className="mt-5 rounded-xl border border-sage/40 bg-white/80 px-4 py-4">
+          <p className="text-xs font-semibold tracking-[0.14em] text-warm-grey uppercase">
+            {t("bookingReference")}
+          </p>
+          <p className="mt-1 font-mono text-base font-semibold text-warm-charcoal">
+            {success.bookingNumber}
+          </p>
+        </div>
+        <p className="mt-4 rounded-xl border border-caramel/25 bg-caramel/5 px-4 py-3 text-sm leading-6 text-warm-charcoal">
+          {t("confirmationMethod")}
         </p>
-        <address className="mt-4 rounded-xl bg-white/70 p-4 text-sm not-italic leading-6 text-warm-grey">
+        <BookingSelectionSummary
+          attendance={attendance}
+          date={date}
+          items={items}
+          locale={locale}
+          projects={projects}
+          startTime={selectedSlot?.startTime ?? null}
+        />
+        <p className="mt-4 rounded-xl border border-sage/40 bg-white/70 px-4 py-3 text-sm leading-6 text-warm-charcoal">
+          <strong>{YEZYY_BUSINESS_PROFILE.currency}</strong> · {t("payInStore")}
+        </p>
+        <address className="mt-4 rounded-xl bg-white/70 p-4 text-sm leading-6 text-warm-grey not-italic">
           <p>{YEZYY_BUSINESS_PROFILE.address}</p>
           <p>
             <a
@@ -207,6 +227,16 @@ export default function OrdinaryBookingForm({
     }
     if (!selectedSlot || !date) next.slot = [t("selectSlot")];
     if (!policyAccepted) next.policyAccepted = [t("policyRequired")];
+    if (
+      photoConsentDecision !== "declined" &&
+      photoConsentSignerName.trim().length < 2
+    ) {
+      next.photoConsentSignerName = [
+        locale === "zh"
+          ? "请填写同意授权人的全名"
+          : "Enter the consenting adult or guardian’s full name",
+      ];
+    }
     return next;
   };
 
@@ -223,9 +253,7 @@ export default function OrdinaryBookingForm({
           (name) => localErrors[name]?.[0],
         );
         if (firstInvalidContactField) {
-          document
-            .getElementById(fieldId(firstInvalidContactField))
-            ?.focus();
+          document.getElementById(fieldId(firstInvalidContactField))?.focus();
         }
       }
       return;
@@ -264,9 +292,20 @@ export default function OrdinaryBookingForm({
       formData.set("locale", locale);
       formData.set("policyVersion", CURRENT_BOOKING_POLICY_VERSION);
       formData.set("policyAccepted", "true");
+      formData.set("photoConsentDecision", photoConsentDecision);
+      formData.set("photoConsentSignerName", photoConsentSignerName.trim());
+      formData.set("photoConsentVersion", CURRENT_PHOTO_CONSENT_VERSION);
 
       const result = await submitBooking(formData, attempt);
       if (result.success) {
+        const bookingId =
+          "bookingId" in result && typeof result.bookingId === "string"
+            ? result.bookingId
+            : null;
+        if (!bookingId) {
+          setErrors({ server: [t("genericError")] });
+          return;
+        }
         const selectedProjects = items.flatMap((item) => {
           if (item.decideInStore) return [];
           const project = projects.find(
@@ -280,10 +319,17 @@ export default function OrdinaryBookingForm({
           project_name:
             selectedProjects
               .map((project) => project.name[locale])
-              .join(", ") ||
-            (locale === "zh" ? "到店决定" : "Decide in store"),
+              .join(", ") || (locale === "zh" ? "到店决定" : "Decide in store"),
         });
-        setSuccessMode(slot.status === "waitlist" ? "waitlist" : "booking");
+        setSuccess({
+          mode: slot.status === "waitlist" ? "waitlist" : "booking",
+          bookingId,
+          bookingNumber:
+            "bookingNumber" in result &&
+            typeof result.bookingNumber === "string"
+              ? result.bookingNumber
+              : `booking-${bookingId.slice(0, 8).toUpperCase()}`,
+        });
       } else {
         if (
           "code" in result &&
@@ -293,6 +339,7 @@ export default function OrdinaryBookingForm({
         ) {
           setSelectedSlot(null);
           setCalendarRevision((value) => value + 1);
+          setCurrentStep(3);
         }
         setErrors(result.errors as FormErrors);
       }
@@ -338,10 +385,95 @@ export default function OrdinaryBookingForm({
     );
   };
 
+  const updateAttendance = (value: OrdinaryAttendance) => {
+    setItems((current) => {
+      const assigned = current.reduce(
+        (total, item) => total + item.quantity,
+        0,
+      );
+      if (
+        current.length === 1 &&
+        assigned === attendance.participantCount &&
+        value.participantCount > 0
+      ) {
+        return [{ ...current[0], quantity: value.participantCount }];
+      }
+      return current;
+    });
+    setAttendance(value);
+    setSelectedSlot(null);
+    setErrors((current) => ({
+      ...current,
+      attendance: undefined,
+      items: undefined,
+      server: undefined,
+    }));
+  };
+
+  const goToNextStep = () => {
+    if (currentStep === 1) {
+      if (
+        selection.quantity !== attendance.participantCount ||
+        !selection.durationMinutes
+      ) {
+        setProjectValidationRequested(true);
+        setErrors((current) => ({
+          ...current,
+          items: [t("itemsInvalid")],
+        }));
+        return;
+      }
+      setErrors((current) => ({ ...current, items: undefined }));
+      setCurrentStep(2);
+      return;
+    }
+    if (currentStep === 2) {
+      if (Object.keys(attendanceErrors).length > 0) {
+        setErrors((current) => ({
+          ...current,
+          attendance: [t("attendanceInvalid")],
+        }));
+        return;
+      }
+      if (selection.quantity !== attendance.participantCount) {
+        setProjectValidationRequested(true);
+        setErrors((current) => ({
+          ...current,
+          items: [t("itemsInvalid")],
+        }));
+        setCurrentStep(1);
+        return;
+      }
+      setErrors((current) => ({ ...current, attendance: undefined }));
+      setCurrentStep(3);
+      return;
+    }
+    if (!selectedSlot || !date) {
+      setErrors((current) => ({
+        ...current,
+        slot: [t("selectSlot")],
+      }));
+      document.getElementById(scheduleDateId)?.focus();
+      return;
+    }
+    setErrors((current) => ({ ...current, slot: undefined }));
+    setCurrentStep(4);
+  };
+
+  const goToPreviousStep = () => {
+    setCurrentStep((step) => Math.max(1, step - 1) as 1 | 2 | 3 | 4);
+  };
+
   const stepClass =
     "relative rounded-3xl border border-warm-grey/15 bg-white p-5 shadow-sm sm:p-7";
   const stepLabelClass =
     "mb-5 flex items-center gap-3 font-serif text-xl font-semibold text-warm-charcoal";
+  const steps = [
+    t("stepProjects"),
+    t("stepPeople"),
+    t("stepSchedule"),
+    t("stepContact"),
+  ];
 
   return (
     <form
@@ -355,14 +487,23 @@ export default function OrdinaryBookingForm({
           {t("intro")}
         </p>
         <ol className="mt-4 grid grid-cols-2 gap-2 text-xs font-semibold text-warm-grey sm:grid-cols-4">
-          {[
-            t("stepPeople"),
-            t("stepProjects"),
-            t("stepSchedule"),
-            t("stepContact"),
-          ].map((label, index) => (
-            <li className="flex items-center gap-2" key={label}>
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-warm-charcoal text-white">
+          {steps.map((label, index) => (
+            <li
+              aria-current={currentStep === index + 1 ? "step" : undefined}
+              className={`flex items-center gap-2 ${
+                currentStep === index + 1 ? "text-warm-charcoal" : ""
+              }`}
+              key={label}
+            >
+              <span
+                className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                  currentStep === index + 1
+                    ? "bg-caramel text-white"
+                    : currentStep > index + 1
+                      ? "bg-sage text-warm-charcoal"
+                      : "bg-warm-grey/15 text-warm-grey"
+                }`}
+              >
                 {index + 1}
               </span>
               {label}
@@ -371,33 +512,45 @@ export default function OrdinaryBookingForm({
         </ol>
       </div>
 
-      <section className={stepClass}>
-        <h2 className={stepLabelClass}>
-          <span className="text-caramel">01</span> {t("stepPeople")}
-        </h2>
-        <AttendanceFields
+      <BookingSelectionSummary
+        attendance={attendance}
+        date={date}
+        items={items}
           locale={locale}
-          onChange={(value) => {
-            setAttendance(value);
-            setSelectedSlot(null);
-            setErrors((current) => ({
-              ...current,
-              attendance: undefined,
-              server: undefined,
-            }));
-          }}
-          value={attendance}
+        projects={projects}
+        startTime={selectedSlot?.startTime ?? null}
         />
-      </section>
 
+      <p className="text-center text-xs font-semibold tracking-[0.14em] text-warm-grey uppercase">
+        {t("stepOf", { current: currentStep, total: 4 })}
+      </p>
+
+      {currentStep === 1 ? (
       <section className={stepClass}>
         <h2 className={stepLabelClass}>
-          <span className="text-caramel">02</span> {t("stepProjects")}
+            <span className="text-caramel">01</span> {t("stepProjects")}
         </h2>
         <ProjectQuantityPicker
           locale={locale}
           onChange={(value) => {
             setItems(value);
+              const assignedParticipants = value.reduce(
+                (total, item) => total + item.quantity,
+                0,
+              );
+              if (
+                assignedParticipants > 0 &&
+                assignedParticipants !== attendance.participantCount
+              ) {
+                setAttendance((current) => ({
+                  ...current,
+                  participantCount: assignedParticipants,
+                  youngChildCount: Math.min(
+                    current.youngChildCount,
+                    assignedParticipants,
+                  ),
+                }));
+              }
             setSelectedSlot(null);
             setErrors((current) => ({
               ...current,
@@ -407,10 +560,26 @@ export default function OrdinaryBookingForm({
           }}
           participantCount={attendance.participantCount}
           projects={projects}
+            showValidation={projectValidationRequested}
           value={items}
         />
       </section>
+      ) : null}
 
+      {currentStep === 2 ? (
+        <section className={stepClass}>
+          <h2 className={stepLabelClass}>
+            <span className="text-caramel">02</span> {t("stepPeople")}
+          </h2>
+          <AttendanceFields
+            locale={locale}
+            onChange={updateAttendance}
+            value={attendance}
+          />
+        </section>
+      ) : null}
+
+      {currentStep === 3 ? (
       <section className={stepClass}>
         <h2 className={stepLabelClass}>
           <span className="text-caramel">03</span> {t("stepSchedule")}
@@ -454,7 +623,9 @@ export default function OrdinaryBookingForm({
           </p>
         )}
       </section>
+      ) : null}
 
+      {currentStep === 4 ? (
       <section className={stepClass}>
         <h2 className={stepLabelClass}>
           <span className="text-caramel">04</span> {t("stepContact")}
@@ -481,6 +652,29 @@ export default function OrdinaryBookingForm({
             rows={4}
           />
         </div>
+          <div className="mt-6">
+            <PhotoConsentField
+              decision={photoConsentDecision}
+              error={errors.photoConsentSignerName?.[0]}
+              locale={locale}
+              onDecisionChange={(decision) => {
+                setPhotoConsentDecision(decision);
+                if (decision === "declined") setPhotoConsentSignerName("");
+                setErrors((current) => ({
+                  ...current,
+                  photoConsentSignerName: undefined,
+                }));
+              }}
+              onSignerNameChange={(name) => {
+                setPhotoConsentSignerName(name);
+                setErrors((current) => ({
+                  ...current,
+                  photoConsentSignerName: undefined,
+                }));
+              }}
+              signerName={photoConsentSignerName}
+            />
+          </div>
         <div className="mt-6">
           <PolicyConsent
             checked={policyAccepted}
@@ -496,6 +690,7 @@ export default function OrdinaryBookingForm({
           />
         </div>
       </section>
+      ) : null}
 
       {errors.server?.[0] && (
         <p
@@ -507,8 +702,29 @@ export default function OrdinaryBookingForm({
         </p>
       )}
 
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+        {currentStep > 1 ? (
+          <button
+            className="min-h-12 rounded-full border border-warm-grey/25 bg-white px-6 py-3 text-base font-semibold text-warm-charcoal transition hover:border-caramel"
+            onClick={goToPreviousStep}
+            type="button"
+          >
+            {t("back")}
+          </button>
+        ) : (
+          <span />
+        )}
+        {currentStep < 4 ? (
+          <button
+            className="min-h-12 rounded-full bg-caramel px-8 py-3 text-base font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            onClick={goToNextStep}
+            type="button"
+          >
+            {t("continue")}
+          </button>
+        ) : (
       <button
-        className="min-h-12 w-full rounded-full bg-caramel px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+            className="min-h-12 rounded-full bg-caramel px-8 py-3 text-base font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-caramel focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-wait disabled:opacity-60"
         disabled={submitting}
         type="submit"
       >
@@ -518,6 +734,8 @@ export default function OrdinaryBookingForm({
             ? t("submitWaitlist")
             : t("submitBooking")}
       </button>
+        )}
+      </div>
     </form>
   );
 }

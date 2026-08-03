@@ -65,16 +65,18 @@ test("catalogue choice opens a preselected ordinary booking on desktop and mobil
     await expect(page).toHaveURL(
       new RegExp(`/en/book\\?project=${meltyProject.id}$`),
     );
-    await expect(
-      page.getByLabel(/Melty bead craft quantity/i),
-    ).toHaveValue("1");
+    await expect(page.getByLabel(/Melty bead craft quantity/i)).toHaveValue(
+      "1",
+    );
     await expect(page.getByText("1 of 1 participants assigned")).toBeVisible();
+    const summary = page.getByRole("region", {
+      name: "Booking selection summary",
+    });
+    await expect(summary.getByText("Melty bead craft × 1")).toBeVisible();
     await expect(
-      page.locator("p").filter({
-        hasText:
-          "Prices are in AUD. Pay in store; there is no online payment.",
-      }),
+      summary.getByText("60 minutes", { exact: true }),
     ).toBeVisible();
+    await expect(summary.getByText("A$49.50", { exact: true })).toBeVisible();
   } finally {
     await fixture?.cleanup();
   }
@@ -108,7 +110,7 @@ test("English ordinary request closes through Chinese admin, secure email, remin
         { projectId: fixture.projects.long.id, quantity: 1 },
       ],
       locale: "en",
-      policyVersion: "2026-07-30",
+      policyVersion: "2026-08-03",
       policyAccepted: true,
     };
 
@@ -126,14 +128,16 @@ test("English ordinary request closes through Chinese admin, secure email, remin
       subjectIncludes: "Booking Request Received",
     });
     const pending = await waitForDatabaseRow(async () => {
-      const [row] = await fixture!.sql<{
+      const [row] = await fixture!.sql<
+        {
         status: string;
         durationMinutes: number;
         attendanceCount: number;
         itemCount: number;
         eventCount: number;
         activeIntervalAttendance: number;
-      }[]>`
+        }[]
+      >`
         select
           b.status,
           b.duration_minutes as "durationMinutes",
@@ -216,13 +220,15 @@ test("English ordinary request closes through Chinese admin, secure email, remin
     expect(completed.status).toBe("completed");
 
     const finalState = await waitForDatabaseRow(async () => {
-      const [row] = await fixture!.sql<{
+      const [row] = await fixture!.sql<
+        {
         status: string;
         confirmedEvents: number;
         completedEvents: number;
         confirmationEmails: number;
         reminderEmails: number;
-      }[]>`
+        }[]
+      >`
         select
           b.status,
           (select count(*)::int from request_status_events e where e.booking_id = b.id and e.to_status = 'confirmed') as "confirmedEvents",
@@ -247,11 +253,16 @@ test("English ordinary request closes through Chinese admin, secure email, remin
       set is_closed = true
       where weekday = extract(dow from ${fixture.bookingDate}::date)::int
     `;
-    const stale = await post(page, "/api/backend/v1/bookings", {
+    const stale = await post(
+      page,
+      "/api/backend/v1/bookings",
+      {
       ...request,
       name: `Stale ${fixture.runId}`,
       email: `stale-${fixture.runId}@example.test`,
-    }, crypto.randomUUID());
+      },
+      crypto.randomUUID(),
+    );
     expect(stale.status()).toBe(400);
     expect((await stale.json()).error.code).toBe("STUDIO_CLOSED");
     const [noPartialWrite] = await fixture.sql<{ count: number }[]>`
