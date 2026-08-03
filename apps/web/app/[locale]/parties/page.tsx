@@ -272,9 +272,6 @@ export default async function PartiesPage({
                     ),
                   )}
                 </ul>
-                <p className="mt-5 rounded-xl bg-cream px-4 py-3 text-sm leading-6 text-warm-grey">
-                  {t("timeRequest")}
-                </p>
                 {canRequest && party.id && (
                   <PartyInquiryCTA
                     party={{
@@ -300,7 +297,7 @@ export default async function PartiesPage({
           })}
         </section>
 
-        <section className="mt-14 grid gap-5 lg:grid-cols-3">
+        <section className="mt-14 grid gap-5 lg:grid-cols-2">
           <article className="border border-[var(--public-border)] bg-[var(--public-blush)] p-6 sm:p-8">
             <h2 className="font-serif text-2xl font-bold text-warm-charcoal">
               {t("includedTitle")}
@@ -333,18 +330,6 @@ export default async function PartiesPage({
               <li>{t("cleaning")}</li>
               <li>{t("overtime")}</li>
             </ul>
-          </article>
-
-          <article className="border border-[var(--public-border)] bg-white p-6 sm:p-8">
-            <h2 className="font-serif text-2xl font-bold text-warm-charcoal">
-              {t("paymentTitle")}
-            </h2>
-            <p className="mt-4 text-sm leading-6 text-warm-charcoal">
-              {t("paymentBody")}
-            </p>
-            <p className="mt-4 text-sm leading-6 text-warm-grey">
-              {t("refund")}
-            </p>
           </article>
         </section>
 

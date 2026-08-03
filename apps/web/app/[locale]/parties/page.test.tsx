@@ -248,6 +248,35 @@ describe("PartiesPage", () => {
     ).not.toBeNull();
   });
 
+  it("explains confirmation and payment once instead of repeating it across package cards", async () => {
+    await renderPage();
+
+    expect(
+      container.textContent?.match(
+        /The venue fee is also the deposit\. Pay it in store during a separate visit before the party date\./g,
+      ),
+    ).toHaveLength(1);
+    expect(
+      container.textContent?.match(
+        /Request first\. Pay in store after confirmation\./g,
+      ),
+    ).toHaveLength(1);
+    const packageCards = Array.from(container.querySelectorAll("article")).filter(
+      (article) =>
+        article.textContent?.includes("guest use") &&
+        (article.textContent.includes("A$95") ||
+          article.textContent.includes("A$145")),
+    );
+    expect(packageCards).toHaveLength(2);
+    for (const card of packageCards) {
+      expect(card.textContent).not.toContain(
+        "Your preferred time is a request only",
+      );
+    }
+    expect(container.textContent).toContain("Made for a creative birthday");
+    expect(container.textContent).toContain("Bring the celebration");
+  });
+
   it("uses a verified party image without changing the request gate", async () => {
     state.partyImage = true;
     await renderPage();
