@@ -1,33 +1,52 @@
 # YezYY
 
-**A bilingual booking, commerce, and operations platform for a Melbourne DIY studio.**
+**A production bilingual booking and operations platform for an operating DIY studio in Glen Waverley, Melbourne.**
 
 [Live Website](https://yezyy.com) · [API Health](https://yezz-api.fly.dev/health)
 
-YezYY combines a polished customer website with a practical administration system. Customers can explore projects, build a cart, request bookings, and discover studio events in English or Chinese. Staff can manage projects, categories, bookings, orders, gallery content, parties, availability, and users from a protected dashboard.
+![YezYY production homepage](docs/images/yezyy-production-homepage.png)
 
-## Product Highlights
+## The Product
 
-### Customer experience
+YezYY supports the day-to-day customer and staff workflows of a physical DIY studio. The public website helps customers understand the available experiences, request an ordinary DIY session or party, and manage an existing booking in English or Chinese. A protected administration system gives staff one place to review requests, manage schedules, maintain studio content, and record operational decisions.
 
-- Localised English and Chinese routes with `next-intl`
-- Searchable project catalogue with categories and project detail pages
-- Multi-item cart and booking/order submission flows
-- Party, gallery, contact, and studio information pages
-- Responsive layouts, loading states, validation, and error boundaries
+Bookings are manually confirmed and paid in store. Public product shopping is intentionally disabled at the current business stage so the live experience remains focused on studio visits and parties.
 
-### Administration
+## Customer Booking Experience
 
-- JWT-protected admin dashboard
-- CRUD workflows for projects, categories, gallery items, parties, and settings
-- Booking, order, time-slot, notification, and user management
-- S3-compatible media uploads for local MinIO and production Cloudflare R2
+- English and Chinese routes powered by `next-intl`
+- Project discovery organised by DIY category, price, and estimated duration
+- Four-step ordinary DIY request flow with project, attendance, time, and contact details
+- Three-step party request flow with participant details, scheduling, DIY interests, food, and optional services
+- Capacity-aware time availability with waitlist support
+- Human confirmation and in-store payment communicated throughout the request journey
+- Secure customer links for rescheduling and cancellation
+- Responsive layouts, accessible form controls, contextual validation, and clear success states
+
+## Staff Operations
+
+- JWT-protected Chinese administration dashboard
+- Booking review, confirmation, rejection, rescheduling, cancellation, and status history
+- Schedule, closure, special-hours, and capacity management
+- Catalogue, category, gallery, party, settings, and user administration
+- Notification and email-delivery visibility for operational follow-up
+- S3-compatible media uploads using local MinIO and production Cloudflare R2
 - OpenAPI documentation for the REST API
+
+## Business Rules in Code
+
+- Availability is calculated in the `Australia/Melbourne` timezone.
+- Requests respect the studio's opening hours, closures, special hours, lead time, capacity, duration, and party exclusivity.
+- Ordinary DIY requests support one to eight participants; party requests support four to eight.
+- Overlapping reservations use half-open time intervals so adjacent sessions can share a boundary safely.
+- Server-side validation rechecks availability when a request is created instead of trusting browser state.
+- Booking state changes, status history, and notification outbox records are committed atomically.
+- Customer actions use scoped, expiring tokens rather than exposing administration credentials.
 
 ## Architecture
 
 ```text
-Customer / Admin Browser
+Customer / Staff Browser
           |
           v
 Next.js 16 Web App (Vercel)
@@ -40,7 +59,7 @@ PostgreSQL     Redis     Cloudflare R2
   (Neon)      cache       media storage
 ```
 
-The monorepo keeps the public site, admin UI, API, and database package independently buildable while sharing one package manager and consistent TypeScript tooling.
+The monorepo keeps the public site, administration interface, API, and database package independently buildable while sharing one package manager and consistent TypeScript tooling.
 
 ## Technology
 
@@ -54,18 +73,19 @@ The monorepo keeps the public site, admin UI, API, and database package independ
 
 ## Engineering Decisions
 
-- **Relational data with PostgreSQL:** bookings, orders, projects, categories, users, and availability benefit from explicit relationships and constraints.
-- **Separate web and API applications:** the customer UI and admin UI share a Next.js application while business operations remain behind a versioned REST API.
+- **Relational data with PostgreSQL:** bookings, projects, schedules, users, status events, and availability benefit from explicit relationships and constraints.
+- **Server-authoritative booking rules:** the browser guides the customer, while the API and database protect capacity and state transitions under concurrent requests.
+- **Separate web and API applications:** customer and staff interfaces share a Next.js application while business operations remain behind a versioned REST API.
+- **Transactional operational events:** booking mutations, audit history, and notification outbox entries succeed or roll back together.
 - **Shared S3 interface:** local development uses MinIO and production uses Cloudflare R2 without changing the upload workflow.
-- **Layered validation:** browser forms, API schemas, and database constraints each protect the system at a different boundary.
-- **Production-like local setup:** Docker Compose starts the supporting services needed to exercise the full application locally.
+- **Production-like local setup:** Docker Compose starts the supporting services needed to exercise the complete application locally.
 
 ## Repository Layout
 
 ```text
 yezz/
 ├── apps/
-│   ├── web/          # Next.js customer site and admin dashboard
+│   ├── web/          # Next.js customer site and staff dashboard
 │   └── api/          # Fastify REST API
 ├── packages/
 │   └── db/           # Drizzle schema, migrations, and seed data
@@ -112,13 +132,9 @@ cp .env.example .env
 pnpm docker:up
 ```
 
-Stop it with:
+Stop it with `pnpm docker:down`.
 
-```bash
-pnpm docker:down
-```
-
-## Quality Checks
+## Quality and Release Gates
 
 ```bash
 pnpm typecheck
@@ -127,35 +143,21 @@ pnpm test:e2e
 pnpm --filter @yezz/web build
 ```
 
-The test suite covers API helpers and validation as well as browser-level customer and administration flows.
+The automated suite covers customer and staff flows, API validation, database migrations, catalogue bootstrap, and booking transactions.
 
-The booking transaction suite is a required release gate. Run it against a
-disposable local PostgreSQL database whose name contains `test`, `local`, or
-`dev`:
+The booking transaction suite is a required release gate and must run against a disposable local PostgreSQL database whose name contains `test`, `local`, or `dev`:
 
 ```bash
 TEST_DATABASE_URL=postgres://localhost/yezyy_test pnpm test:api:booking-db
 ```
 
-This dedicated command enables the PostgreSQL booking tests explicitly and
-fails closed when the test database is missing, unavailable, equal to
-`DATABASE_URL`, or not clearly named as a non-production database. It covers
-reservation rollback, concurrent create/cancel idempotency, status-event and
-outbox atomicity, and immutable admin booking views. CI and release workflows
-must run this command in addition to `pnpm verify`.
+This suite fails closed when the test database is missing, unavailable, equal to `DATABASE_URL`, or not clearly named as non-production. It covers reservation rollback, concurrent create and cancel idempotency, status-event and outbox atomicity, and immutable staff booking views.
 
-For the complete release gate, use:
+The complete release gate creates an isolated loopback-only PostgreSQL environment, applies current migrations, runs the database-backed booking and bootstrap suites, and removes its containers and volumes when finished:
 
 ```bash
 pnpm verify:release
 ```
-
-It creates a unique, loopback-only Docker PostgreSQL project, applies the
-current migrations, then runs the booking transaction suite plus the real
-migration, catalogue seed, and production-bootstrap integration suites. Those
-database-package integration tests are deliberately fail-closed: they require
-the runner-owned `TEST_DATABASE_URL` and cannot silently skip. The command
-removes its test containers and volumes when it finishes.
 
 ## Deployment
 
@@ -166,4 +168,4 @@ removes its test containers and volumes when it finishes.
 | PostgreSQL | Neon |
 | Media storage | Cloudflare R2 |
 
-Production credentials are configured in the relevant hosting platforms and are not stored in the repository.
+Production credentials are configured in the relevant hosting platforms and are not stored in this repository.
