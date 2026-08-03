@@ -180,10 +180,10 @@ export default function VisitStory({
       <section className="overflow-hidden border border-[var(--public-border)] bg-[var(--public-paper)] p-4 sm:p-6">
         <iframe
           title={t.map}
-          src={toGoogleMapsEmbedUrl(mapUrl)}
+          src={toGoogleMapsEmbedUrl(mapUrl, YEZYY_BUSINESS_PROFILE.googleMapEmbedUrl)}
           className="h-80 w-full border-0"
           loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
+          referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
         />
       </section>

@@ -7,8 +7,9 @@ export const YEZYY_BUSINESS_PROFILE = {
   abn: process.env.NEXT_PUBLIC_YEZYY_ABN?.trim() || null,
   xiaohongshu: "95848743904",
   currency: "AUD",
-  googleMapUrl:
-    "https://www.google.com/maps/search/?api=1&query=G082%2F235%20Springvale%20Rd%2C%20Glen%20Waverley%20VIC%203150",
+  googleMapUrl: "https://maps.app.goo.gl/83uqEVPNFC5FKYd39?g_st=ic",
+  googleMapEmbedUrl:
+    "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3460.9661304667966!2d145.165212!3d-37.8763119!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x6ad63f2a969f74dd%3A0x41f654e59b6f9596!2sYezYY!5e1!3m2!1szh-CN!2sau!4v1785743582985!5m2!1szh-CN!2sau",
 } as const;
 
 const BUSINESS_HOURS = {

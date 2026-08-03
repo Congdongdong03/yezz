@@ -1,8 +1,8 @@
-/** Convert a public Google Maps URL into an embeddable iframe src. */
-export function toGoogleMapsEmbedUrl(mapUrl: string): string {
-  if (mapUrl.includes("output=embed")) {
+/** Keep navigation links separate from the URL rendered inside the map iframe. */
+export function toGoogleMapsEmbedUrl(mapUrl: string, fallbackEmbedUrl: string): string {
+  if (mapUrl.includes("/maps/embed")) {
     return mapUrl;
   }
-  const separator = mapUrl.includes("?") ? "&" : "?";
-  return `${mapUrl}${separator}output=embed`;
+
+  return fallbackEmbedUrl;
 }
